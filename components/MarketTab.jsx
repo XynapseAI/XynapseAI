@@ -1,4 +1,3 @@
-// components/MarketTab.jsx
 "use client"
 
 import React, { useState, useEffect, useRef, useCallback, useMemo } from "react"
@@ -28,7 +27,6 @@ import {
   LoadingOverlay,
 } from "../utils/helpers"
 import "react-loading-skeleton/dist/skeleton.css"
-import Skeleton from "react-loading-skeleton"
 import { useCurrency } from './CurrencyContext';
 import { logger } from '../utils/clientLogger';
 import remarkGfm from 'remark-gfm';
@@ -144,14 +142,6 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
     isLoadingMoreDex,
     setIsLoadingMoreDex, // Added for controlling loading state
     setHasMoreDex, // Added to control hasMore state
-    currentDexPage,
-    setCurrentDexPage,
-    totalDexPages,
-    setTotalDexPages,
-    currentMempoolPage,
-    setCurrentMempoolPage,
-    totalMempoolPages,
-    setTotalMempoolPages,
   } = useMarketTabLogic({ recaptchaRef, toast, initialTokenData, toast })
 
   const dropdownRef = useRef(null)
@@ -171,39 +161,6 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
   const [tooltipToken, setTooltipToken] = useState(null)
   const tokenRefs = useRef({})
   const lastFetchedSlugRef = useRef(null)
-  const [showLoadMoreButton, setShowLoadMoreButton] = useState(false)
-
-  // Pagination handlers for DEX
-  const handleDexPrevPage = useCallback(() => {
-    if (currentDexPage > 1) {
-      const { chain, tokenAddress } = getDefaultChainAndAddress(selectedToken, selectedChain);
-      if (chain && tokenAddress) {
-        fetchDexData(chain, tokenAddress, currentDexPage - 1, 100);
-      }
-    }
-  }, [currentDexPage, selectedToken, selectedChain, getDefaultChainAndAddress, fetchDexData]);
-
-  const handleDexNextPage = useCallback(() => {
-    if (currentDexPage < totalDexPages) {
-      const { chain, tokenAddress } = getDefaultChainAndAddress(selectedToken, selectedChain);
-      if (chain && tokenAddress) {
-        fetchDexData(chain, tokenAddress, currentDexPage + 1, 100);
-      }
-    }
-  }, [currentDexPage, totalDexPages, selectedToken, selectedChain, getDefaultChainAndAddress, fetchDexData]);
-
-  // Pagination handlers for Mempool (Bitcoin)
-  const handleMempoolPrevPage = useCallback(() => {
-    if (currentMempoolPage > 1) {
-      fetchMempoolTransactions(currentMempoolPage - 1);
-    }
-  }, [currentMempoolPage, fetchMempoolTransactions]);
-
-  const handleMempoolNextPage = useCallback(() => {
-    if (currentMempoolPage < totalMempoolPages) {
-      fetchMempoolTransactions(currentMempoolPage + 1);
-    }
-  }, [currentMempoolPage, totalMempoolPages, fetchMempoolTransactions]);
 
   // Map exchange IDs to match ClusterTab's EXCHANGE_MAPPING
   const EXCHANGE_MAPPING = {
@@ -393,28 +350,17 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
     }
     setActiveMarketTab("dex");
     setShowTrades(false);
-    setShowLoadMoreButton(false); // Reset load more button
     if (selectedToken) {
       if (selectedToken.id === "bitcoin") {
-        fetchMempoolTransactions(1); // Initial page 1 for Bitcoin
+        fetchMempoolTransactions(); // Ensure full load for Bitcoin
       } else {
         const { chain, tokenAddress } = getDefaultChainAndAddress(selectedToken, selectedChain);
         if (chain && tokenAddress) {
-          fetchDexData(chain, tokenAddress, 1, 100); // Load initial with page 1, limit 100
+          fetchDexData(chain, tokenAddress, 5000); // Load max 5000 initially
         }
       }
     }
   }, [session, dexRequestCount, lastDexRequestTime, selectedToken, selectedChain, fetchMempoolTransactions, fetchDexData, getDefaultChainAndAddress, setActiveMarketTab, setShowTrades]);
-
-  const handleLoadMore = useCallback(() => {
-    if (hasMoreDex && !isLoadingMoreDex && selectedToken && selectedChain) {
-      const { chain, tokenAddress } = getDefaultChainAndAddress(selectedToken, selectedChain);
-      if (chain && tokenAddress) {
-        setIsLoadingMoreDex(true);
-        loadMoreDexData(chain, tokenAddress);
-      }
-    }
-  }, [hasMoreDex, isLoadingMoreDex, selectedToken, selectedChain, getDefaultChainAndAddress, loadMoreDexData, setIsLoadingMoreDex]);
 
   const handlePoolClick = (poolAddress) => {
     if (process.env.NODE_ENV === "development") {
@@ -719,380 +665,6 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
       },
     },
   };
-
-  // Memoized row components for performance
-  const HolderRow = React.memo(({ holder, index, isBitcoin }) => (
-    <motion.div
-      className="flex border-t border-white/10 bg-black/80 px-3 py-2 text-[9px] sm:text-[11px]"
-      variants={rowVariants}
-      initial="hidden"
-      animate="visible"
-    >
-      <div className="flex-1 flex items-center gap-2 group relative">
-        {holder.image && (
-          <img
-            src={holder.image}
-            alt={`${holder.displayText} logo`}
-            className="w-5 h-5 sm:w-6 sm:h-6 rounded-md"
-            onError={(e) => e.target.style.display = 'none'}
-          />
-        )}
-        {isBitcoin && holder.isValidAddress ? (
-          <a
-            href={`https://mempool.space/address/${holder.address}`}
-            target="_blank"
-            rel="noreferrer"
-            className="text-white hover:text-white/80 transition-colors font-medium"
-            title={holder.address}
-          >
-            <div className="flex flex-col">
-              {holder.displayText !== holder.shortAddress && <span className="text-[9px] sm:text-[11px]">{holder.displayText}</span>}
-              <span className="text-[9px] sm:text-[11px] text-gray-500">{holder.shortAddress}</span>
-            </div>
-          </a>
-        ) : (
-          <span
-            className={`text-white font-medium ${holder.isValidAddress ? "cursor-pointer hover:text-white/80 transition-colors" : "cursor-default"} text-[10px]`}
-            onClick={() => holder.isValidAddress && handleAddressClick(holder.address)}
-            title={holder.address}
-          >
-            <div className="flex flex-col">
-              {holder.displayText !== holder.shortAddress && <span className="text-[9px] sm:text-[11px]">{holder.displayText}</span>}
-              <span className="text-[9px] sm:text-[11px] text-gray-500">{holder.shortAddress}</span>
-            </div>
-          </span>
-        )}
-        {holder.isValidAddress && (
-          <motion.button
-            onClick={() => {
-              navigator.clipboard.writeText(holder.address);
-              toast.success("Address copied!", { autoClose: 2000 });
-            }}
-            className="absolute right-0 text-white/40 hover:text-white/80 transition-colors flex-shrink-0 opacity-0 group-hover:opacity-100 p-1 rounded-lg hover:bg-white/10"
-            title="Copy address"
-            whileHover={{ scale: 1.1 }}
-            whileTap={{ scale: 0.9 }}
-          >
-            <svg xmlns="http://www.w3.org/2000/svg" className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
-            </svg>
-          </motion.button>
-        )}
-      </div>
-      <div className="w-28 text-right font-bold text-white text-[10px]">
-        <span>{Math.floor(holder.balance).toLocaleString("en-US")}</span>
-      </div>
-    </motion.div>
-  ));
-
-  const TickerRow = React.memo(({ ticker, index }) => (
-    <motion.div
-      className="flex border-t border-white/10 hover:bg-black/80 px-3 py-2 text-[9px] sm:text-[11px]"
-      variants={rowVariants}
-      initial="hidden"
-      animate="visible"
-    >
-      <div className="flex-[2] flex items-center justify-center gap-2">
-        {ticker.market.logo && (
-          <img
-            src={ticker.market.logo}
-            alt={`${ticker.market.name} logo`}
-            className="w-5 h-5 rounded-md"
-            onError={(e) => e.target.style.display = 'none'}
-          />
-        )}
-        <a
-          href={ticker.trade_url}
-          target="_blank"
-          rel="noreferrer"
-          className="text-white hover:text-white/80 transition-colors font-medium truncate text-[9px] sm:text-[11px]"
-          title={ticker.market.name}
-        >
-          {ticker.market.name}
-        </a>
-      </div>
-      <div className="flex-1 text-center text-white/90 font-medium text-[9px] sm:text-[11px]">
-        <span className="bg-white/5 px-1.5 py-0.5 rounded-md">{ticker.base}/{ticker.target}</span>
-      </div>
-      <div className="flex-1 text-center text-white font-semibold text-[9px] sm:text-[11px]">
-        {ticker.converted_last.usd != null ? formatPrice(ticker.converted_last.usd, "usd", 8) : "N/A"}
-      </div>
-      <div className="flex-1 text-center text-white/90 text-[9px] sm:text-[11px]">
-        ${ticker.converted_volume.usd?.toLocaleString("en-US", { minimumFractionDigits: 0, maximumFractionDigits: 0 }) || "N/A"}
-      </div>
-      <div className="flex-1 text-center text-white/70 text-[9px] sm:text-[11px]">
-        {ticker.last_traded_at ? new Date(ticker.last_traded_at).toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" }) : "N/A"}
-      </div>
-    </motion.div>
-  ));
-
-  const DexRow = React.memo(({ item, index, isBitcoin }) => {
-    const txHash = isBitcoin ? item.txid : item.tx_hash;
-    const timestamp = isBitcoin ? item.timestamp * 1000 : item.block_timestamp;
-    const chain = isBitcoin ? 'bitcoin' : item.chain;
-    const explorerInfo = getExplorerInfo(chain, txHash, null);
-    const fromAddressInfo = getNameTagInfo(isBitcoin ? item.inputs?.[0]?.address : item.tx_from_address?.address, chain);
-    const toAddressInfo = getNameTagInfo(isBitcoin ? item.outputs?.[0]?.address : item.to_token_address?.address, chain);
-
-    return (
-      <motion.div
-        className="flex border-t border-white/10 bg-black/80 p-3 text-[9px] sm:text-[11px]"
-        variants={rowVariants}
-        initial="hidden"
-        animate="visible"
-      >
-        {/* Tx/Time */}
-        <div className="flex-1 flex flex-col gap-1 items-center justify-center group relative">
-          <a href={explorerInfo.url} target="_blank" rel="noreferrer" className="p-1 rounded-md hover:bg-white/10 transition-all duration-300">
-            <img src={explorerInfo.logo} alt="Explorer" className="w-3 h-3 rounded" onError={(e) => e.target.style.display = 'none'} />
-          </a>
-          <span className="text-[7px] sm:text-[9px] text-white/60 text-center">{formatDistanceToNow(new Date(timestamp), { addSuffix: true })}</span>
-          {txHash && (
-            <motion.button
-              onClick={() => {
-                navigator.clipboard.writeText(txHash);
-                toast.success("Transaction hash copied!", { autoClose: 2000 });
-              }}
-              className="absolute right-0 top-0 text-white/40 hover:text-white/80 opacity-0 group-hover:opacity-100 p-1 rounded-md hover:bg-white/10"
-              title="Copy transaction hash"
-              whileHover={{ scale: 1.1 }}
-              whileTap={{ scale: 0.9 }}
-            >
-              <svg xmlns="http://www.w3.org/2000/svg" className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
-              </svg>
-            </motion.button>
-          )}
-        </div>
-
-        {/* From Address */}
-        <div className="flex-[2] flex items-center justify-center gap-2 group relative">
-          {fromAddressInfo.image && <img src={fromAddressInfo.image} alt={`${fromAddressInfo.nameTag || 'Address'} logo`} className="w-3 h-3 rounded-md" onError={(e) => e.target.style.display = 'none'} />}
-          <a
-            href={isBitcoin ? `https://mempool.space/address/${item.inputs?.[0]?.address}` : getExplorerUrls(chain, null, item.tx_from_address?.address).addressUrl}
-            target="_blank"
-            rel="noreferrer"
-            className="text-white hover:text-white/80 transition-colors font-medium text-[9px] sm:text-[11px]"
-            title={isBitcoin ? item.inputs?.[0]?.address : item.tx_from_address?.address}
-          >
-            {fromAddressInfo.nameTag ? (
-              <span className="flex items-center gap-1">
-                <span className="text-[10px]">{fromAddressInfo.nameTag}</span>
-              </span>
-            ) : (
-              <span className="text-[9px] sm:text-[11px]">{isBitcoin ? `${item.inputs?.[0]?.address?.slice(0, 6)}...${item.inputs?.[0]?.address?.slice(-4)}` : `${item.tx_from_address?.address?.slice(0, 6)}...${item.tx_from_address?.address?.slice(-4)}`}</span>
-            )}
-          </a>
-          <motion.button
-            onClick={() => navigator.clipboard.writeText(isBitcoin ? item.inputs?.[0]?.address : item.tx_from_address?.address) && toast.success("Address copied!", { autoClose: 2000 })}
-            className="absolute right-0 text-white/40 hover:text-white/80 opacity-0 group-hover:opacity-100 p-1 rounded-md hover:bg-white/10"
-            title="Copy address"
-            whileHover={{ scale: 1.1 }}
-            whileTap={{ scale: 0.9 }}
-          >
-            <svg xmlns="http://www.w3.org/2000/svg" className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
-            </svg>
-          </motion.button>
-        </div>
-
-        {/* To Address */}
-        <div className="flex-[2] flex items-center justify-center gap-2 group relative">
-          {toAddressInfo.image && <img src={toAddressInfo.image} alt={`${toAddressInfo.nameTag || 'Address'} logo`} className="w-3 h-3 rounded-md" onError={(e) => e.target.style.display = 'none'} />}
-          <a
-            href={isBitcoin ? `https://mempool.space/address/${item.outputs?.[0]?.address}` : getExplorerUrls(chain, null, item.to_token_address?.address).addressUrl}
-            target="_blank"
-            rel="noreferrer"
-            className="text-white hover:text-white/80 transition-colors font-medium text-[10px]"
-            title={isBitcoin ? item.outputs?.[0]?.address : item.to_token_address?.address}
-          >
-            {toAddressInfo.nameTag ? (
-              <span className="flex items-center gap-1">
-                <span className="text-[10px]">{toAddressInfo.nameTag}</span>
-              </span>
-            ) : (
-              <span className="text-[10px]">{isBitcoin ? `${item.outputs?.[0]?.address?.slice(0, 6)}...${item.outputs?.[0]?.address?.slice(-4)}` : `${item.to_token_address?.address?.slice(0, 6)}...${item.to_token_address?.address?.slice(-4)}`}</span>
-            )}
-          </a>
-          <motion.button
-            onClick={() => navigator.clipboard.writeText(isBitcoin ? item.outputs?.[0]?.address : item.to_token_address?.address) && toast.success("Address copied!", { autoClose: 2000 })}
-            className="absolute right-0 text-white/40 hover:text-white/80 opacity-0 group-hover:opacity-100 p-1 rounded-md hover:bg-white/10"
-            title="Copy address"
-            whileHover={{ scale: 1.1 }}
-            whileTap={{ scale: 0.9 }}
-          >
-            <svg xmlns="http://www.w3.org/2000/svg" className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
-            </svg>
-          </motion.button>
-        </div>
-
-        {/* Value */}
-        <div className="flex-1 flex flex-col gap-1 items-center justify-center text-[10px]">
-          <span className="font-semibold flex items-center gap-2 text-[8px] sm:text-[10px]">
-            {isBitcoin ? (
-              <>
-                {(item.value_btc || 0).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                <img src="/logos/bitcoin.webp" alt="BTC" className="w-3 h-3 rounded" onError={(e) => e.target.style.display = 'none'} />
-                <span>BTC</span>
-              </>
-            ) : (
-              <>
-                {(Number.parseFloat(item.to_token_amount || 0) || 0).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                {selectedToken?.symbol?.toUpperCase()}
-              </>
-            )}
-          </span>
-          <div className="flex items-center gap-2 text-[7px] sm:text-[9px]">
-            <span className="text-white/60">${(Number.parseFloat(isBitcoin ? item.value_usd : item.volume_in_usd || 0) || 0).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
-          </div>
-        </div>
-
-        {/* Fee/Status */}
-        <div className="flex-1 flex flex-col gap-1 items-center justify-center text-center text-[9px] sm:text-[11px]">
-          {isBitcoin && (
-            <div className="text-[7px] sm:text-[9px] text-white/70 text-center">Fee: {item.fee.toLocaleString("en-US")} sat</div>
-          )}
-          {isBitcoin ? (
-            <span className={`px-1 py-0.5 rounded-full text-[7px] sm:text-[9px] font-semibold text-center ${item.status.confirmed ? "bg-emerald-400/10 text-emerald-400" : "bg-yellow-500/10 text-yellow-500"}`}>
-              {item.status.confirmed ? "Confirmed" : "Pending"}
-            </span>
-          ) : (
-            <span className="px-1 py-0.5 rounded-full text-[7px] sm:text-[9px] font-semibold text-center bg-emerald-400/10 text-emerald-400">
-              Success
-            </span>
-          )}
-        </div>
-        {!isBitcoin && (
-          <div className="flex-1 flex items-center justify-center">
-            <img
-              src={`/logos/${item.chain}.webp`}
-              alt={`${item.chain} logo`}
-              className="w-4 h-4 rounded"
-              onError={(e) => { e.target.src = "/logos/ethereum.webp"; }}
-            />
-          </div>
-        )}
-      </motion.div>
-    );
-  });
-
-  // Improved Skeleton row components with shine effect and darker color
-  const HolderSkeletonRow = React.memo(() => (
-    <motion.div
-      className="flex border-t border-white/10 bg-black/80 px-3 py-1.5 text-[9px] sm:text-[11px]" // Reduced py for less whitespace
-      variants={rowVariants}
-      initial="hidden"
-      animate="visible"
-    >
-      <div className="flex-1 flex items-center gap-2">
-        <Skeleton width={24} height={24} circle className="skeleton-shine bg-gray-700/50" />
-        <div className="flex flex-col space-y-0.5"> {/* Reduced space-y */}
-          <Skeleton width={80} height={10} className="skeleton-shine bg-gray-700/50" />
-          <Skeleton width={60} height={8} className="skeleton-shine bg-gray-700/50" />
-        </div>
-      </div>
-      <div className="w-28 text-right">
-        <Skeleton width={60} height={10} className="skeleton-shine bg-gray-700/50" />
-      </div>
-    </motion.div>
-  ));
-
-  const TickerSkeletonRow = React.memo(() => (
-    <motion.div
-      className="flex border-t border-white/10 bg-black/80 px-3 py-1.5 text-[9px] sm:text-[11px]" // Reduced py
-      variants={rowVariants}
-      initial="hidden"
-      animate="visible"
-    >
-      <div className="flex-[2] flex items-center justify-center gap-2">
-        <Skeleton width={20} height={20} circle className="skeleton-shine bg-gray-700/50" />
-        <Skeleton width={100} height={10} className="skeleton-shine bg-gray-700/50" />
-      </div>
-      <div className="flex-1 text-center">
-        <Skeleton width={50} height={10} className="skeleton-shine bg-gray-700/50" />
-      </div>
-      <div className="flex-1 text-center">
-        <Skeleton width={60} height={10} className="skeleton-shine bg-gray-700/50" />
-      </div>
-      <div className="flex-1 text-center">
-        <Skeleton width={80} height={10} className="skeleton-shine bg-gray-700/50" />
-      </div>
-      <div className="flex-1 text-center">
-        <Skeleton width={40} height={10} className="skeleton-shine bg-gray-700/50" />
-      </div>
-    </motion.div>
-  ));
-
-  const DexSkeletonRow = React.memo(({ isBitcoin }) => (
-    <motion.div
-      className="flex border-t border-white/10 bg-black/80 p-2 text-[9px] sm:text-[11px]" // Reduced p for less whitespace
-      variants={rowVariants}
-      initial="hidden"
-      animate="visible"
-    >
-      <div className="flex-1 flex flex-col gap-0.5 items-center justify-center"> {/* Reduced gap */}
-        <Skeleton width={12} height={12} circle className="skeleton-shine bg-gray-700/50" />
-        <Skeleton width={80} height={8} className="skeleton-shine bg-gray-700/50" />
-      </div>
-      <div className="flex-[2] flex items-center justify-center gap-2">
-        <Skeleton width={12} height={12} circle className="skeleton-shine bg-gray-700/50" />
-        <Skeleton width={80} height={8} className="skeleton-shine bg-gray-700/50" />
-      </div>
-      <div className="flex-[2] flex items-center justify-center gap-2">
-        <Skeleton width={12} height={12} circle className="skeleton-shine bg-gray-700/50" />
-        <Skeleton width={80} height={8} className="skeleton-shine bg-gray-700/50" />
-      </div>
-      <div className="flex-1 flex flex-col gap-0.5 items-center justify-center">
-        <Skeleton width={60} height={8} className="skeleton-shine bg-gray-700/50" />
-        <Skeleton width={50} height={6} className="skeleton-shine bg-gray-700/50" />
-      </div>
-      <div className="flex-1 flex flex-col gap-0.5 items-center justify-center">
-        {isBitcoin && <Skeleton width={40} height={6} className="skeleton-shine bg-gray-700/50" />}
-        <Skeleton width={40} height={8} className="skeleton-shine bg-gray-700/50" />
-      </div>
-      {!isBitcoin && <div className="flex-1 flex items-center justify-center">
-        <Skeleton width={16} height={16} circle className="skeleton-shine bg-gray-700/50" />
-      </div>}
-    </motion.div>
-  ));
-
-  // Pagination component
-  const PaginationControls = ({ currentPage, totalPages, onPrev, onNext, isBitcoin }) => (
-    <div className="flex items-center justify-between gap-2 text-[9px] text-white/60 p-2">
-      <div className="flex items-center gap-2">
-        <motion.button
-          onClick={onPrev}
-          disabled={currentPage <= 1}
-          className="px-2 py-1 bg-white/10 rounded hover:bg-white/20 disabled:opacity-50 disabled:cursor-not-allowed text-white"
-          whileHover={{ scale: 1.05 }}
-          whileTap={{ scale: 0.95 }}
-        >
-          ‹
-        </motion.button>
-        <span>Page {currentPage} of {totalPages}</span>
-        <motion.button
-          onClick={onNext}
-          disabled={currentPage >= totalPages}
-          className="px-2 py-1 bg-white/10 rounded hover:bg-white/20 disabled:opacity-50 disabled:cursor-not-allowed text-white"
-          whileHover={{ scale: 1.05 }}
-          whileTap={{ scale: 0.95 }}
-        >
-          ›
-        </motion.button>
-      </div>
-      <span className="px-2 py-1">
-        Last Updated:{" "}
-        {lastDexFetchTime
-          ? new Date(lastDexFetchTime).toLocaleTimeString("en-US", {
-              hour: "2-digit",
-              minute: "2-digit",
-              second: "2-digit",
-            })
-          : "N/A"}
-      </span>
-    </div>
-  );
 
   return (
     <motion.section
@@ -1923,56 +1495,82 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                       setActiveMarketTab("holders")
                       setShowTrades(false)
                     }}
-                    className={`flex-1 px-6 py-2 font-semibold transition-all duration-300 relative p-1 ${activeMarketTab === "holders" 
-                      ? "text-white bg-white/5 border-b-2 border-white" 
-                      : "text-white/60 hover:text-white hover:bg-white/5"
-                    }`}
-                    whileHover={{ scale: 1.02 }}
-                    whileTap={{ scale: 0.98 }}
+                    className={`flex-1 px-6 py-2 font-semibold transition-all duration-300 relative p-1 ${activeMarketTab === "holders" ? "text-white" : "text-white/60 hover:text-white hover:bg-white/5"
+                      }`}
+                    transition={{ duration: 0.2 }}
                     role="tab"
                     aria-selected={activeMarketTab === "holders"}
                     aria-controls="holders-panel"
                     id="holders-tab"
                   >
                     TOP HOLDERS
+                    {activeMarketTab === "holders" && (
+                      <motion.div
+                        className="absolute bottom-0 left-0 right-0"
+                        layoutId="activeTab"
+                        transition={{ duration: 0.3, ease: "easeInOut" }}
+                      />
+                    )}
                   </motion.button>
                   <motion.button
                     onClick={() => {
                       setActiveMarketTab("cex")
                       setShowTrades(false)
                     }}
-                    className={`flex-1 px-6 py-2 font-semibold transition-all duration-300 relative p-1 ${activeMarketTab === "cex" 
-                      ? "text-white bg-white/5 border-b-2 border-white" 
-                      : "text-white/60 hover:text-white hover:bg-white/5"
-                    }`}
-                    whileHover={{ scale: 1.02 }}
-                    whileTap={{ scale: 0.98 }}
+                    className={`flex-1 px-6 py-2 font-semibold transition-all duration-300 relative p-1 ${activeMarketTab === "cex" ? "text-white" : "text-white/60 hover:text-white hover:bg-white/5"
+                      }`}
+                    transition={{ duration: 0.2 }}
                     role="tab"
                     aria-selected={activeMarketTab === "cex"}
                     aria-controls="cex-panel"
                     id="cex-tab"
                   >
                     CEX MARKETS
+                    {activeMarketTab === "cex" && (
+                      <motion.div
+                        className="absolute bottom-0 left-0 right-0"
+                        layoutId="activeTab"
+                        transition={{ duration: 0.3, ease: "easeInOut" }}
+                      />
+                    )}
                   </motion.button>
                   <motion.button
                     onClick={handleDexTabClick}
-                    className={`flex-1 px-6 py-2 font-semibold transition-all duration-300 relative p-1 ${activeMarketTab === "dex" 
-                      ? "text-white bg-white/5 border-b-2 border-white" 
-                      : "text-white/60 hover:text-white hover:bg-white/5"
-                    }`}
-                    whileHover={{ scale: 1.02 }}
-                    whileTap={{ scale: 0.98 }}
+                    className={`flex-1 px-6 py-2 font-semibold transition-all duration-300 relative p-1 ${activeMarketTab === "dex" ? "text-white" : "text-white/60 hover:text-white hover:bg-white/5"
+                      }`}
+                    transition={{ duration: 0.2 }}
                     role="tab"
                     aria-selected={activeMarketTab === "dex"}
                     aria-controls="dex-panel"
                     id="dex-tab"
                   >
                     ON-CHAIN
+                    {activeMarketTab === "dex" && (
+                      <motion.div
+                        className="absolute bottom-0 left-0 right-0"
+                        layoutId="activeTab"
+                        transition={{ duration: 0.3, ease: "easeInOut" }}
+                      />
+                    )}
                   </motion.button>
                 </div>
 
                 {/* Tab Content */}
                 <div className="flex-1 overflow-y-auto hide-scrollbar relative min-h-[500px] sm:min-h-[400px]">
+                  {activeMarketTab === "dex" && (
+                    <div className="p-4 text-right text-[9px] text-white/60">
+                      <span className="px-2 py-1">
+                        Last Updated:{" "}
+                        {lastDexFetchTime
+                          ? new Date(lastDexFetchTime).toLocaleTimeString("en-US", {
+                            hour: "2-digit",
+                            minute: "2-digit",
+                            second: "2-digit",
+                          })
+                          : "N/A"}
+                      </span>
+                    </div>
+                  )}
                   <div id="holders-panel" role="tabpanel" aria-labelledby="holders-tab" className={`flex-1 overflow-y-auto tab-content custom-scrollbar hide-scrollbar relative min-h-[500px] sm:min-h-[400px] ${activeMarketTab !== "holders" ? "hidden" : ""}`}>
                     {activeMarketTab === "holders" && (
                       <div className="flex-1 tab-content relative min-h-[500px] sm:min-h-[400px]">
@@ -2000,16 +1598,8 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                               </h4>
                             </div>
                             {isLoadingOnChain ? (
-                              <div className="flex flex-col h-[600px]">
-                                <div className="flex bg-black/80 border-b border-white/10 p-2 font-semibold text-white text-[10px] sticky top-0 z-10">
-                                  <div className="flex-1">Address/Name</div>
-                                  <div className="w-28 text-right">Balance</div>
-                                </div>
-                                <div className="flex-1 overflow-y-auto hide-scrollbar">
-                                  {Array.from({ length: 3 }).map((_, i) => (
-                                    <HolderSkeletonRow key={i} />
-                                  ))}
-                                </div>
+                              <div className="text-sm text-white/60 text-center p-6">
+                                {/* Loading handled by LoadingOverlay */}
                               </div>
                             ) : onChainError && !NON_EVM_CHAINS.includes(selectedToken?.id.toLowerCase()) ? (
                               <div className="text-sm text-center p-6">
@@ -2024,15 +1614,84 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                                 <Virtuoso
                                   style={{ height: '100%', overflow: 'auto', scrollbarWidth: 'none', msOverflowStyle: 'none' }}
                                   className="hide-scrollbar"
-                                  data={onChainData.topHolders.slice(0, 100).map((holder, idx) => ({
-                                    ...holder,
-                                    displayText: truncateAddress(holder.address, nameTags, selectedToken?.id.toLowerCase() === 'bitcoin' ? 'Blockchair' : undefined).text,
-                                    shortAddress: truncateAddress(holder.address, nameTags, selectedToken?.id.toLowerCase() === 'bitcoin' ? 'Blockchair' : undefined).shortAddress,
-                                    isValidAddress: holder.address && (holder.address.match(/^0x[a-fA-F0-9]{40}$/) || holder.address.match(/^(1|3|bc1)[a-zA-Z0-9]+$/)),
-                                    image: truncateAddress(holder.address, nameTags, selectedToken?.id.toLowerCase() === 'bitcoin' ? 'Blockchair' : undefined).image,
-                                  }))}
-                                  itemContent={(index, holder) => <HolderRow key={index} holder={holder} index={index} isBitcoin={selectedToken?.id.toLowerCase() === 'bitcoin'} />}
-                                  overscan={400}
+                                  data={onChainData.topHolders.slice(0, 100)}
+                                  itemContent={(index, holder) => {
+                                    const isBitcoin = selectedToken?.id.toLowerCase() === 'bitcoin';
+                                    const address = holder.address?.toLowerCase();
+                                    const { text: displayText, image, shortAddress } = truncateAddress(
+                                      holder.address,
+                                      nameTags,
+                                      isBitcoin ? 'Blockchair' : undefined
+                                    );
+                                    const isValidAddress =
+                                      holder.address &&
+                                      (holder.address.match(/^0x[a-fA-F0-9]{40}$/) || holder.address.match(/^(1|3|bc1)[a-zA-Z0-9]+$/));
+
+                                    const HolderRow = React.memo(() => (
+                                      <motion.div
+                                        className="flex border-t border-white/10 bg-black/80 px-3 py-2 text-[9px] sm:text-[11px]"
+                                        variants={rowVariants}
+                                        initial="hidden"
+                                        animate="visible"
+                                      >
+                                        <div className="flex-1 flex items-center gap-2 group relative">
+                                          {image && (
+                                            <img
+                                              src={image}
+                                              alt={`${displayText} logo`}
+                                              className="w-5 h-5 sm:w-6 sm:h-6 rounded-md"
+                                              onError={(e) => e.target.style.display = 'none'}
+                                            />
+                                          )}
+                                          {isBitcoin && isValidAddress ? (
+                                            <a
+                                              href={`https://mempool.space/address/${holder.address}`}
+                                              target="_blank"
+                                              rel="noreferrer"
+                                              className="text-white hover:text-white/80 transition-colors font-medium"
+                                              title={holder.address}
+                                            >
+                                              <div className="flex flex-col">
+                                                {displayText !== shortAddress && <span className="text-[9px] sm:text-[11px]">{displayText}</span>}
+                                                <span className="text-[9px] sm:text-[11px] text-gray-500">{shortAddress}</span>
+                                              </div>
+                                            </a>
+                                          ) : (
+                                            <span
+                                              className={`text-white font-medium ${isValidAddress ? "cursor-pointer hover:text-white/80 transition-colors" : "cursor-default"} text-[10px]`}
+                                              onClick={() => isValidAddress && handleAddressClick(holder.address)}
+                                              title={holder.address}
+                                            >
+                                              <div className="flex flex-col">
+                                                {displayText !== shortAddress && <span className="text-[9px] sm:text-[11px]">{displayText}</span>}
+                                                <span className="text-[9px] sm:text-[11px] text-gray-500">{shortAddress}</span>
+                                              </div>
+                                            </span>
+                                          )}
+                                          {isValidAddress && (
+                                            <motion.button
+                                              onClick={() => {
+                                                navigator.clipboard.writeText(holder.address);
+                                                toast.success("Address copied!", { autoClose: 2000 });
+                                              }}
+                                              className="absolute right-0 text-white/40 hover:text-white/80 transition-colors flex-shrink-0 opacity-0 group-hover:opacity-100 p-1 rounded-lg hover:bg-white/10"
+                                              title="Copy address"
+                                              whileHover={{ scale: 1.1 }}
+                                              whileTap={{ scale: 0.9 }}
+                                            >
+                                              <svg xmlns="http://www.w3.org/2000/svg" className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                                <path strokeLinecap="round" strokeLinejoin="round" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                                              </svg>
+                                            </motion.button>
+                                          )}
+                                        </div>
+                                        <div className="w-28 text-right font-bold text-white text-[10px]">
+                                          <span>{Math.floor(holder.balance).toLocaleString("en-US")}</span>
+                                        </div>
+                                      </motion.div>
+                                    ));
+                                    return <HolderRow key={index} />;
+                                  }}
                                 />
                               </div>
                             ) : (
@@ -2066,37 +1725,67 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                             </motion.button>
                           </div>
                         ) : isLoadingTickers && !tickerData?.length ? (
-                          <div className="flex flex-col h-[600px]">
-                            <div className="flex bg-black/80 border-b border-white/10 p-2 font-semibold text-white text-[9px] sm:text-[11px] sticky top-0 z-10">
-                              <div className="flex-[2] text-center">Market</div>
-                              <div className="flex-1 text-center">Pair</div>
-                              <div className="flex-1 text-center">Price</div>
-                              <div className="flex-1 text-center">Volume</div>
-                              <div className="flex-1 text-center">Last Traded</div>
-                            </div>
-                            <div className="flex-1 overflow-y-auto hide-scrollbar">
-                              {Array.from({ length: 3 }).map((_, i) => (
-                                <TickerSkeletonRow key={i} />
-                              ))}
-                            </div>
-                          </div>
+                          <SkeletonLoader count={5} isMobile={isMobile} />
                         ) : tickerData.length > 0 ? (
-                          <div className="flex flex-col h-[600px]">
-                            <div className="flex bg-black/80 border-b border-white/10 p-2 font-semibold text-white text-[9px] sm:text-[11px] sticky top-0 z-10">
-                              <div className="flex-[2] text-center">Market</div>
-                              <div className="flex-1 text-center">Pair</div>
-                              <div className="flex-1 text-center">Price</div>
-                              <div className="flex-1 text-center">Volume</div>
-                              <div className="flex-1 text-center">Last Traded</div>
-                            </div>
-                            <Virtuoso
-                              style={{ height: '100%', overflow: 'auto', scrollbarWidth: 'none', msOverflowStyle: 'none' }}
-                              className="hide-scrollbar"
-                              data={tickerData.slice(0, 30)}
-                              itemContent={(index, ticker) => <TickerRow key={index} ticker={ticker} index={index} />}
-                              overscan={400}
-                            />
-                          </div>
+                          <Virtuoso
+                            style={{ height: '600px', overflow: 'auto', scrollbarWidth: 'none', msOverflowStyle: 'none' }}
+                            className="hide-scrollbar"
+                            data={tickerData.slice(0, 30)}
+                            itemContent={(index, ticker) => {
+                              const TickerRow = React.memo(() => (
+                                <motion.div
+                                  className="flex border-t border-white/10 hover:bg-black/80 px-3 py-2 text-[9px] sm:text-[11px]"
+                                  variants={rowVariants}
+                                  initial="hidden"
+                                  animate="visible"
+                                >
+                                  <div className="flex-[2] flex items-center justify-center gap-2">
+                                    {ticker.market.logo && (
+                                      <img
+                                        src={ticker.market.logo}
+                                        alt={`${ticker.market.name} logo`}
+                                        className="w-5 h-5 rounded-md"
+                                        onError={(e) => e.target.style.display = 'none'}
+                                      />
+                                    )}
+                                    <a
+                                      href={ticker.trade_url}
+                                      target="_blank"
+                                      rel="noreferrer"
+                                      className="text-white hover:text-white/80 transition-colors font-medium truncate text-[9px] sm:text-[11px]"
+                                      title={ticker.market.name}
+                                    >
+                                      {ticker.market.name}
+                                    </a>
+                                  </div>
+                                  <div className="flex-1 text-center text-white/90 font-medium text-[9px] sm:text-[11px]">
+                                    <span className="bg-white/5 px-1.5 py-0.5 rounded-md">{ticker.base}/{ticker.target}</span>
+                                  </div>
+                                  <div className="flex-1 text-center text-white font-semibold text-[9px] sm:text-[11px]">
+                                    {ticker.converted_last.usd != null ? formatPrice(ticker.converted_last.usd, "usd", 8) : "N/A"}
+                                  </div>
+                                  <div className="flex-1 text-center text-white/90 text-[9px] sm:text-[11px]">
+                                    ${ticker.converted_volume.usd?.toLocaleString("en-US", { minimumFractionDigits: 0, maximumFractionDigits: 0 }) || "N/A"}
+                                  </div>
+                                  <div className="flex-1 text-center text-white/70 text-[9px] sm:text-[11px]">
+                                    {ticker.last_traded_at ? new Date(ticker.last_traded_at).toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" }) : "N/A"}
+                                  </div>
+                                </motion.div>
+                              ));
+                              return <TickerRow key={index} />;
+                            }}
+                            components={{
+                              Header: () => (
+                                <div className="flex bg-black/80 border-b border-white/10 p-2 font-semibold text-white text-[9px] sm:text-[11px]">
+                                  <div className="flex-[2] text-center">Market</div>
+                                  <div className="flex-1 text-center">Pair</div>
+                                  <div className="flex-1 text-center">Price</div>
+                                  <div className="flex-1 text-center">Volume</div>
+                                  <div className="flex-1 text-center">Last Traded</div>
+                                </div>
+                              ),
+                            }}
+                          />
                         ) : (
                           !isLoadingTickers && (
                             <div className="text-sm text-white/60 text-center p-6">
@@ -2111,6 +1800,7 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                   </div>
                   <div id="dex-panel" role="tabpanel" aria-labelledby="dex-tab" className={`flex-1 overflow-y-auto tab-content custom-scrollbar hide-scrollbar relative min-h-[500px] sm:min-h-[400px] ${activeMarketTab !== "dex" ? "hidden" : ""}`}>
                     {activeMarketTab === "dex" && (
+
                       <div className="flex-1 overflow-y-auto tab-content custom-scrollbar hide-scrollbar relative min-h-[500px] sm:min-h-[400px]">
                         {session ? (
                           <>
@@ -2124,77 +1814,224 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                             />
                             {(() => {
                               const isBitcoin = selectedToken?.id.toLowerCase() === 'bitcoin';
-                              const trades = isBitcoin ? mempoolTransactions : sortedTrades;
-                              const isInitialLoading = (isBitcoin ? isLoadingMempool : isLoadingDex) && trades.length === 0;
-                              const showNoData = !(isBitcoin ? isLoadingMempool : isLoadingDex || isLoadingMoreDex) && trades.length === 0;
-                              const showVirtuoso = trades.length > 0;
-                              const currentPage = isBitcoin ? currentMempoolPage : currentDexPage;
-                              const totalPages = isBitcoin ? totalMempoolPages : totalDexPages;
-                              const onPrev = isBitcoin ? handleMempoolPrevPage : handleDexPrevPage;
-                              const onNext = isBitcoin ? handleMempoolNextPage : handleDexNextPage;
-                              const headerColumns = isBitcoin ? (
+                              const trades = isBitcoin ? mempoolTransactions : sortedTrades; // Use sorted trades
+                              const handleEndReached = isBitcoin 
+                                ? () => {} // Bitcoin loads all initially, no more to load
+                                : () => {
+                                    if (hasMoreDex && !isLoadingMoreDex) {
+                                      const { chain, tokenAddress } = getDefaultChainAndAddress(selectedToken, selectedChain);
+                                      loadMoreDexData(chain, tokenAddress);
+                                    }
+                                  };
+                              return trades.length > 0 ? (
                                 <>
-                                  <div className="flex-1 text-center">Tx/Time</div>
-                                  <div className="flex-[2] text-center">From Address</div>
-                                  <div className="flex-[2] text-center">To Address</div>
-                                  <div className="flex-1 text-center">Value</div>
-                                  <div className="flex-1 text-center">Fee</div>
+                                  <Virtuoso
+                                    style={{ height: '600px', overflow: 'auto', scrollbarWidth: 'none', msOverflowStyle: 'none' }}
+                                    className="hide-scrollbar"
+                                    data={trades} // Use sorted trades
+                                    endReached={handleEndReached}
+                                    itemContent={(index, item) => {
+                                      console.log('Debug tx item:', {
+                                        index,
+                                        tx_hash: item.tx_hash,  // ← Thêm log này
+                                        chain: item.chain,
+                                        fullItem: item
+                                      });
+                                      const txHash = isBitcoin ? item.txid : item.tx_hash;
+                                      const timestamp = isBitcoin ? item.timestamp * 1000 : item.block_timestamp;
+                                      const chain = isBitcoin ? 'bitcoin' : item.chain;  // Sửa: dùng item.chain thay vì selectedChain
+                                      const explorerInfo = getExplorerInfo(chain, txHash, null);
+                                      console.log('Debug explorerInfo:', { txHash, explorerInfo });
+                                      const fromAddressInfo = getNameTagInfo(isBitcoin ? item.inputs?.[0]?.address : item.tx_from_address?.address, chain);
+                                      const toAddressInfo = getNameTagInfo(isBitcoin ? item.outputs?.[0]?.address : item.to_token_address?.address, chain);
+
+                                      const DexRow = React.memo(() => (
+                                        <motion.div
+                                          className="flex border-t border-white/10 bg-black/80 p-3 text-[9px] sm:text-[11px]"
+                                          variants={rowVariants}
+                                          initial="hidden"
+                                          animate="visible"
+                                        >
+                                          {/* Tx/Time */}
+                                          <div className="flex-1 flex flex-col gap-1 items-center justify-center group relative">
+                                            <a href={explorerInfo.url} target="_blank" rel="noreferrer" className="p-1 rounded-md hover:bg-white/10 transition-all duration-300">
+                                              <img src={explorerInfo.logo} alt="Explorer" className="w-3 h-3 rounded" onError={(e) => e.target.style.display = 'none'} />
+                                            </a>
+                                            <span className="text-[7px] sm:text-[9px] text-white/60 text-center">{formatDistanceToNow(new Date(timestamp), { addSuffix: true })}</span>
+                                            {txHash && (
+                                              <motion.button
+                                                onClick={() => {
+                                                  navigator.clipboard.writeText(txHash);
+                                                  toast.success("Transaction hash copied!", { autoClose: 2000 });
+                                                }}
+                                                className="absolute right-0 top-0 text-white/40 hover:text-white/80 opacity-0 group-hover:opacity-100 p-1 rounded-md hover:bg-white/10"
+                                                title="Copy transaction hash"
+                                                whileHover={{ scale: 1.1 }}
+                                                whileTap={{ scale: 0.9 }}
+                                              >
+                                                <svg xmlns="http://www.w3.org/2000/svg" className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                                  <path strokeLinecap="round" strokeLinejoin="round" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                                                </svg>
+                                              </motion.button>
+                                            )}
+                                          </div>
+
+                                          {/* From Address */}
+                                          <div className="flex-[2] flex items-center justify-center gap-2 group relative">
+                                            {fromAddressInfo.image && <img src={fromAddressInfo.image} alt={`${fromAddressInfo.nameTag || 'Address'} logo`} className="w-3 h-3 rounded-md" onError={(e) => e.target.style.display = 'none'} />}
+                                            <a
+                                              href={isBitcoin ? `https://mempool.space/address/${item.inputs?.[0]?.address}` : getExplorerUrls(chain, null, item.tx_from_address?.address).addressUrl}  // Sửa: dùng chain và null cho hash
+                                              target="_blank"
+                                              rel="noreferrer"
+                                              className="text-white hover:text-white/80 transition-colors font-medium text-[9px] sm:text-[11px]"
+                                              title={isBitcoin ? item.inputs?.[0]?.address : item.tx_from_address?.address}
+                                            >
+                                              {fromAddressInfo.nameTag ? (
+                                                <span className="flex items-center gap-1">
+                                                  <span className="text-[10px]">{fromAddressInfo.nameTag}</span>
+                                                </span>
+                                              ) : (
+                                                <span className="text-[9px] sm:text-[11px]">{isBitcoin ? `${item.inputs?.[0]?.address?.slice(0, 6)}...${item.inputs?.[0]?.address?.slice(-4)}` : `${item.tx_from_address?.address?.slice(0, 6)}...${item.tx_from_address?.address?.slice(-4)}`}</span>
+                                              )}
+                                            </a>
+                                            <motion.button
+                                              onClick={() => navigator.clipboard.writeText(isBitcoin ? item.inputs?.[0]?.address : item.tx_from_address?.address) && toast.success("Address copied!", { autoClose: 2000 })}
+                                              className="absolute right-0 text-white/40 hover:text-white/80 opacity-0 group-hover:opacity-100 p-1 rounded-md hover:bg-white/10"
+                                              title="Copy address"
+                                              whileHover={{ scale: 1.1 }}
+                                              whileTap={{ scale: 0.9 }}
+                                            >
+                                              <svg xmlns="http://www.w3.org/2000/svg" className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                                <path strokeLinecap="round" strokeLinejoin="round" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                                              </svg>
+                                            </motion.button>
+                                          </div>
+
+                                          {/* To Address */}
+                                          <div className="flex-[2] flex items-center justify-center gap-2 group relative">
+                                            {toAddressInfo.image && <img src={toAddressInfo.image} alt={`${toAddressInfo.nameTag || 'Address'} logo`} className="w-3 h-3 rounded-md" onError={(e) => e.target.style.display = 'none'} />}
+                                            <a
+                                              href={isBitcoin ? `https://mempool.space/address/${item.outputs?.[0]?.address}` : getExplorerUrls(chain, null, item.to_token_address?.address).addressUrl}  // Sửa: dùng chain và null cho hash
+                                              target="_blank"
+                                              rel="noreferrer"
+                                              className="text-white hover:text-white/80 transition-colors font-medium text-[10px]"
+                                              title={isBitcoin ? item.outputs?.[0]?.address : item.to_token_address?.address}
+                                            >
+                                              {toAddressInfo.nameTag ? (
+                                                <span className="flex items-center gap-1">
+                                                  <span className="text-[10px]">{toAddressInfo.nameTag}</span>
+                                                </span>
+                                              ) : (
+                                                <span className="text-[10px]">{isBitcoin ? `${item.outputs?.[0]?.address?.slice(0, 6)}...${item.outputs?.[0]?.address?.slice(-4)}` : `${item.to_token_address?.address?.slice(0, 6)}...${item.to_token_address?.address?.slice(-4)}`}</span>
+                                              )}
+                                            </a>
+                                            <motion.button
+                                              onClick={() => navigator.clipboard.writeText(isBitcoin ? item.outputs?.[0]?.address : item.to_token_address?.address) && toast.success("Address copied!", { autoClose: 2000 })}
+                                              className="absolute right-0 text-white/40 hover:text-white/80 opacity-0 group-hover:opacity-100 p-1 rounded-md hover:bg-white/10"
+                                              title="Copy address"
+                                              whileHover={{ scale: 1.1 }}
+                                              whileTap={{ scale: 0.9 }}
+                                            >
+                                              <svg xmlns="http://www.w3.org/2000/svg" className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                                <path strokeLinecap="round" strokeLinejoin="round" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                                              </svg>
+                                            </motion.button>
+                                          </div>
+
+                                          {/* Value */}
+                                          <div className="flex-1 flex flex-col gap-1 items-center justify-center text-[10px]">
+                                            <span className="font-semibold flex items-center gap-2 text-[8px] sm:text-[10px]">
+                                              {isBitcoin ? (
+                                                <>
+                                                  {(item.value_btc || 0).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                                  <img src="/logos/bitcoin.webp" alt="BTC" className="w-3 h-3 rounded" onError={(e) => e.target.style.display = 'none'} />
+                                                  <span>BTC</span>
+                                                </>
+                                              ) : (
+                                                <>
+                                                  {(Number.parseFloat(item.to_token_amount || 0) || 0).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                                  {selectedToken?.symbol?.toUpperCase()}
+                                                </>
+                                              )}
+                                            </span>
+                                            <div className="flex items-center gap-2 text-[7px] sm:text-[9px]">
+                                              <span className="text-white/60">${(Number.parseFloat(isBitcoin ? item.value_usd : item.volume_in_usd || 0) || 0).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                                            </div>
+                                          </div>
+
+                                          {/* Fee/Status */}
+                                          <div className="flex-1 flex flex-col gap-1 items-center justify-center text-center text-[9px] sm:text-[11px]">
+                                            {isBitcoin && (
+                                              <div className="text-[7px] sm:text-[9px] text-white/70 text-center">Fee: {item.fee.toLocaleString("en-US")} sat</div>
+                                            )}
+                                            {isBitcoin ? (
+                                              <span className={`px-1 py-0.5 rounded-full text-[7px] sm:text-[9px] font-semibold text-center ${item.status.confirmed ? "bg-emerald-400/10 text-emerald-400" : "bg-yellow-500/10 text-yellow-500"}`}>
+                                                {item.status.confirmed ? "Confirmed" : "Pending"}
+                                              </span>
+                                            ) : (
+                                              <span className="px-1 py-0.5 rounded-full text-[7px] sm:text-[9px] font-semibold text-center bg-emerald-400/10 text-emerald-400">
+                                                Success
+                                              </span>
+                                            )}
+                                          </div>
+                                          {!isBitcoin && (
+                                            <div className="flex-1 flex items-center justify-center">
+                                              <img
+                                                src={`/logos/${item.chain}.webp`}
+                                                alt={`${item.chain} logo`}
+                                                className="w-4 h-4 rounded"
+                                                onError={(e) => { e.target.src = "/logos/ethereum.webp"; }}
+                                              />
+                                            </div>
+                                          )}
+                                        </motion.div>
+                                      ));
+                                      return <DexRow key={index} />;
+                                    }}
+                                    components={{
+                                      Header: () => {
+                                        const isBitcoin = selectedToken?.id.toLowerCase() === 'bitcoin';
+                                        if (isBitcoin) {
+                                          return (
+                                            <div className="flex bg-black/80 border-b border-white/10 p-2 font-semibold text-white text-[9px] sm:text-[11px]">
+                                              <div className="flex-1 text-center">Tx/Time</div>
+                                              <div className="flex-[2] text-center">From Address</div>
+                                              <div className="flex-[2] text-center">To Address</div>
+                                              <div className="flex-1 text-center">Value</div>
+                                              <div className="flex-1 text-center">Fee</div>
+                                            </div>
+                                          );
+                                        } else {
+                                          return (
+                                            <div className="flex bg-black/80 border-b border-white/10 p-2 font-semibold text-white text-[9px] sm:text-[11px]">
+                                              <div className="flex-1 text-center">Tx/Time</div>
+                                              <div className="flex-[2] text-center">From Address</div>
+                                              <div className="flex-[2] text-center">To Address</div>
+                                              <div className="flex-1 text-center">Value</div>
+                                              <div className="flex-1 text-center">Status</div>
+                                              <div className="flex-1 text-center">Chain</div>
+                                            </div>
+                                          );
+                                        }
+                                      },
+                                      Footer: () => isLoadingMoreDex && !isBitcoin ? (
+                                        <div className="p-2 text-center border-t border-white/10 bg-black/40">
+                                          <motion.div
+                                            className="flex items-center justify-center gap-2 text-white text-[10px]"
+                                            initial={{ opacity: 0, y: 10 }}
+                                            animate={{ opacity: 1, y: 0 }}
+                                            exit={{ opacity: 0, y: -10 }}
+                                          >
+                                            <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+                                            Loading more transactions...
+                                          </motion.div>
+                                        </div>
+                                      ) : null,
+                                    }}
+                                  />
                                 </>
                               ) : (
-                                <>
-                                  <div className="flex-1 text-center">Tx/Time</div>
-                                  <div className="flex-[2] text-center">From Address</div>
-                                  <div className="flex-[2] text-center">To Address</div>
-                                  <div className="flex-1 text-center">Value</div>
-                                  <div className="flex-1 text-center">Status</div>
-                                  <div className="flex-1 text-center">Chain</div>
-                                </>
-                              );
-                              const header = (
-                                <div className="flex bg-black/80 border-b border-white/10 p-2 font-semibold text-white text-[9px] sm:text-[11px] sticky top-0 z-10">
-                                  {headerColumns}
-                                </div>
-                              );
-                              if (isInitialLoading) {
-                                return (
-                                  <div className="flex flex-col h-[600px]">
-                                    <PaginationControls
-                                      currentPage={1}
-                                      totalPages={1}
-                                      onPrev={() => {}}
-                                      onNext={() => {}}
-                                      isBitcoin={isBitcoin}
-                                    />
-                                    {header}
-                                    <div className="flex-1 overflow-y-auto hide-scrollbar">
-                                      {Array.from({ length: 3 }).map((_, i) => (
-                                        <DexSkeletonRow key={i} isBitcoin={isBitcoin} />
-                                      ))}
-                                    </div>
-                                  </div>
-                                );
-                              } else if (showVirtuoso) {
-                                return (
-                                  <div className="flex flex-col h-[600px]">
-                                    <PaginationControls
-                                      currentPage={currentPage}
-                                      totalPages={totalPages}
-                                      onPrev={onPrev}
-                                      onNext={onNext}
-                                      isBitcoin={isBitcoin}
-                                    />
-                                    {header}
-                                    <Virtuoso
-                                      style={{ height: 'calc(100% - 40px)', overflow: 'auto', scrollbarWidth: 'none', msOverflowStyle: 'none' }} // Adjust height for pagination
-                                      className="hide-scrollbar"
-                                      data={trades.map((item, idx) => ({ ...item, index: idx }))}
-                                      itemContent={(index, item) => <DexRow key={index} item={item} index={index} isBitcoin={isBitcoin} />}
-                                      overscan={400}
-                                    />
-                                  </div>
-                                );
-                              } else if (showNoData) {
-                                return (
+                                !(isBitcoin ? isLoadingMempool : isLoadingDex || isLoadingMoreDex) && (
                                   <div className="text-[9px] sm:text-[11px] text-white/60 text-center p-6">
                                     No {isBitcoin ? "mempool transactions" : "DEX data"} available for{" "}
                                     {selectedToken?.symbol?.toUpperCase() || "selected token"} on{" "}
@@ -2202,9 +2039,8 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                                       ? "Bitcoin network"
                                       : chains.find((c) => c.value === selectedChain)?.label || "selected chain"}.
                                   </div>
-                                );
-                              }
-                              return null;
+                                )
+                              );
                             })()}
                           </>
                         ) : (
@@ -2371,26 +2207,6 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
           borderRadius: "16px",
         }}
       />
-      <style jsx global>{`
-        .skeleton-shine {
-          position: relative;
-          overflow: hidden;
-        }
-        .skeleton-shine::after {
-          content: '';
-          position: absolute;
-          top: 0;
-          left: -100%;
-          width: 100%;
-          height: 100%;
-          background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
-          animation: shine 1.5s infinite;
-        }
-        @keyframes shine {
-          0% { left: -100%; }
-          100% { left: 100%; }
-        }
-      `}</style>
     </motion.section>
   )
 }
