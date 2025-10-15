@@ -203,6 +203,7 @@ export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initi
   const [hasMoreDex, setHasMoreDex] = useState(true);
   const [isLoadingMoreDex, setIsLoadingMoreDex] = useState(false);
   const isInitialMempoolFetch = useRef(true);
+  const concurrencyLimit = pLimit(3);
 
   const isTokenPage = typeof window !== 'undefined' && window.location.pathname.startsWith('/token/');
 
@@ -1636,6 +1637,7 @@ export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initi
             const uniqueAddresses = new Set();
 
             // Fetch from each available chain
+            // Prioritize selected chain if available
             const chainPromises = availableChains.map(async (ch) => {
               const platformId = ch.coingeckoId;
               const tokenAddr = selectedToken.detail_platforms?.[platformId]?.contract_address;
@@ -1648,7 +1650,7 @@ export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initi
                 chain: ch.value,
                 tokenAddress: tokenAddr,
                 page,
-                offset: 5000,  // Increased to 5000 for bulk fetch
+                offset: 1000,  // Reduced for faster initial load
               };
 
               const response = await fetch('/api/etherscan', {
@@ -1691,7 +1693,7 @@ export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initi
               const chainAddresses = new Set();
 
               // Map to trade format
-              const chainTrades = trades.map((tx) => { // No slice, respect offset
+              const chainTrades = trades.map((tx) => {
                 const amount = parseFloat(tx.value) / Math.pow(10, parseInt(tx.decimals || 18));
                 const usdValue = amount * (selectedToken.current_price?.[currency] || 0);
                 const gasFee = (BigInt(tx.gasUsed || 0) * BigInt(tx.gasPrice || 0)) / BigInt(10 ** 18);
@@ -1730,7 +1732,7 @@ export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initi
             });
 
             // Fetch nametags for unique EVM addresses
-            const addressesArray = Array.from(uniqueAddresses).filter(addr => addr.match(/^0x[a-fA-F0-9]{40}$/));
+            const addressesArray = Array.from(uniqueAddresses).filter(addr => addr && addr.match(/^0x[a-fA-F0-9]{40}$/));
             if (addressesArray.length > 0) {
               await fetchNameTagsForAddresses(addressesArray);
             }
@@ -1769,10 +1771,10 @@ export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initi
           if (page === 1) {
             setDexData(dexDataBatch);
             setCurrentDexPage(1);
-            setHasMoreDex(dexDataBatch.trades.length === 5000 * availableChains.length); // If full batch, possibly more
+            setHasMoreDex(dexDataBatch.trades.length === 1000 * availableChains.length); // If full batch, possibly more
           } else {
             const newTrades = dexDataBatch.trades;
-            if (newTrades.length < 5000 * availableChains.length) {
+            if (newTrades.length < 1000 * availableChains.length) {
               setHasMoreDex(false);
             }
             setDexData(prev => ({
@@ -1812,7 +1814,7 @@ export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initi
       },
       300
     ),
-    [session, status, toast, fetchNameTagsForAddresses, nameTagsRef, selectedToken, currency, getAvailableChains, fetchMempoolTransactions]
+    [session, status, toast, fetchNameTagsForAddresses, nameTagsRef, selectedToken, currency, selectedChain, getAvailableChains, fetchMempoolTransactions]
   );
 
   const loadMoreDexData = useCallback(async (chain, tokenAddress) => {
@@ -1832,7 +1834,7 @@ export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initi
     }
 
     // Initial fetch
-    fetchDexData(chain, tokenAddress, 1);
+    fetchDexData(chain, tokenAddress); // Remove explicit page and offset, use defaults
 
     // Set up interval for background refresh (only initial)
     const interval = setInterval(() => {

@@ -357,7 +357,7 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
       } else {
         const { chain, tokenAddress } = getDefaultChainAndAddress(selectedToken, selectedChain);
         if (chain && tokenAddress) {
-          fetchDexData(chain, tokenAddress, 5000); // Load max 5000 initially
+          fetchDexData(chain, tokenAddress); // Load initial batch with default smaller offset for faster UI
         }
       }
     }

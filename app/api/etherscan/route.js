@@ -1,6 +1,5 @@
 // app\api\etherscan\route.js
-// Updated: app/api/etherscan/route.js
-// app/api/etherscan/route.js
+// app\api\etherscan\route.js
 import { NextResponse } from 'next/server';
 import axios from 'axios';
 import { z } from 'zod';
@@ -39,6 +38,7 @@ const chainIdMap = {
   fantom: '250',
   matic: '137', // Alias for polygon
   avalanche_c: '43114', // Alias for avalanche
+  sonic: '146', // Sonic Chain
 };
 
 // Allowed origins
@@ -86,7 +86,7 @@ const bodySchema = z.object({
   address: z.string().optional().refine((val) => !val || isAddress(val), { message: 'Wallet address must be a valid EVM address' }),
   tokenAddress: z.string().optional().refine((val) => !val || isAddress(val), { message: 'Token address must be a valid EVM address' }),
   page: z.number().int().min(1).optional().default(1),
-  offset: z.number().int().min(1).max(5000).optional().default(100),
+  offset: z.number().int().min(1).max(100).optional().default(100), // Reduced max to 100 for faster loads
 }).refine(
   (data) => (['wallet-balances', 'transactions'].includes(data.action) ? !!data.address : true),
   { message: 'Wallet address is required for wallet-balances and transactions', path: ['address'] }
