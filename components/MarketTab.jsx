@@ -1,3 +1,4 @@
+// components\MarketTab.jsx
 "use client"
 
 import React, { useState, useEffect, useRef, useCallback, useMemo } from "react"
@@ -1800,24 +1801,13 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                   </div>
                   <div id="dex-panel" role="tabpanel" aria-labelledby="dex-tab" className={`flex-1 overflow-y-auto tab-content custom-scrollbar hide-scrollbar relative min-h-[500px] sm:min-h-[400px] ${activeMarketTab !== "dex" ? "hidden" : ""}`}>
                     {activeMarketTab === "dex" && (
-                      <div id="dex-panel" role="tabpanel" aria-labelledby="dex-tab" className={`flex-1 overflow-y-auto tab-content custom-scrollbar hide-scrollbar relative min-h-[500px] sm:min-h-[400px] ${activeMarketTab !== "dex" ? "hidden" : ""}`}>
-                        <div className="p-4 text-right text-[9px] text-white/60">
-                          <span className="px-2 py-1">
-                            Last Updated:{" "}
-                            {lastDexFetchTime
-                              ? new Date(lastDexFetchTime).toLocaleTimeString("en-US", {
-                                hour: "2-digit",
-                                minute: "2-digit",
-                                second: "2-digit",
-                              })
-                              : "N/A"}
-                          </span>
-                        </div>
+
+                      <div className="flex-1 overflow-y-auto tab-content custom-scrollbar hide-scrollbar relative min-h-[500px] sm:min-h-[400px]">
                         {session ? (
                           <>
                             <LoadingOverlay
                               isLoading={
-                                (selectedToken?.id === "bitcoin" ? isLoadingMempool : isLoadingDex) &&
+                                (selectedToken?.id === "bitcoin" ? isLoadingMempool : isLoadingDex || isLoadingMoreDex) &&
                                 !(selectedToken?.id === "bitcoin" ? mempoolTransactions : dexData.trades)?.length
                               }
                               isMobile={isMobile}
@@ -1826,12 +1816,14 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                             {(() => {
                               const isBitcoin = selectedToken?.id.toLowerCase() === 'bitcoin';
                               const trades = isBitcoin ? mempoolTransactions : sortedTrades; // Use sorted trades
-                              const handleEndReached = isBitcoin
-                                ? () => { } // Bitcoin loads all initially, no more to load
+                              const handleEndReached = isBitcoin 
+                                ? () => {} // Bitcoin loads all initially, no more to load
                                 : () => {
-                                  // Disabled: Bulk load already done, no more to load
-                                };
-
+                                    if (hasMoreDex && !isLoadingMoreDex) {
+                                      const { chain, tokenAddress } = getDefaultChainAndAddress(selectedToken, selectedChain);
+                                      loadMoreDexData(chain, tokenAddress);
+                                    }
+                                  };
                               return trades.length > 0 ? (
                                 <>
                                   <Virtuoso
@@ -1839,26 +1831,24 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                                     className="hide-scrollbar"
                                     data={trades} // Use sorted trades
                                     endReached={handleEndReached}
-                                    increaseViewportBy={{ top: 200, bottom: 200 }} // Preload for smooth scroll
-                                    itemSize={60} // Fixed row height for perf
                                     itemContent={(index, item) => {
                                       console.log('Debug tx item:', {
                                         index,
-                                        tx_hash: item.tx_hash,
+                                        tx_hash: item.tx_hash,  // ← Thêm log này
                                         chain: item.chain,
                                         fullItem: item
                                       });
                                       const txHash = isBitcoin ? item.txid : item.tx_hash;
                                       const timestamp = isBitcoin ? item.timestamp * 1000 : item.block_timestamp;
-                                      const chain = isBitcoin ? 'bitcoin' : item.chain;
+                                      const chain = isBitcoin ? 'bitcoin' : item.chain;  // Sửa: dùng item.chain thay vì selectedChain
                                       const explorerInfo = getExplorerInfo(chain, txHash, null);
                                       console.log('Debug explorerInfo:', { txHash, explorerInfo });
                                       const fromAddressInfo = getNameTagInfo(isBitcoin ? item.inputs?.[0]?.address : item.tx_from_address?.address, chain);
                                       const toAddressInfo = getNameTagInfo(isBitcoin ? item.outputs?.[0]?.address : item.to_token_address?.address, chain);
 
                                       const DexRow = React.memo(() => (
-                                        <div // Bỏ motion.div để tránh flicker khi scroll
-                                          className="dex-row flex border-t border-white/10 bg-black/80 p-3 text-[9px] sm:text-[11px]" // Fixed height class
+                                        <div  // Removed motion.div to avoid flickering
+                                          className="flex border-t border-white/10 bg-black/80 p-3 text-[9px] sm:text-[11px]"
                                         >
                                           {/* Tx/Time */}
                                           <div className="flex-1 flex flex-col gap-1 items-center justify-center group relative">
@@ -1867,20 +1857,18 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                                             </a>
                                             <span className="text-[7px] sm:text-[9px] text-white/60 text-center">{formatDistanceToNow(new Date(timestamp), { addSuffix: true })}</span>
                                             {txHash && (
-                                              <motion.button
+                                              <button  // Removed motion.button
                                                 onClick={() => {
                                                   navigator.clipboard.writeText(txHash);
                                                   toast.success("Transaction hash copied!", { autoClose: 2000 });
                                                 }}
                                                 className="absolute right-0 top-0 text-white/40 hover:text-white/80 opacity-0 group-hover:opacity-100 p-1 rounded-md hover:bg-white/10"
                                                 title="Copy transaction hash"
-                                                whileHover={{ scale: 1.1 }}
-                                                whileTap={{ scale: 0.9 }}
                                               >
                                                 <svg xmlns="http://www.w3.org/2000/svg" className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                                                   <path strokeLinecap="round" strokeLinejoin="round" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
                                                 </svg>
-                                              </motion.button>
+                                              </button>
                                             )}
                                           </div>
 
@@ -1888,7 +1876,7 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                                           <div className="flex-[2] flex items-center justify-center gap-2 group relative">
                                             {fromAddressInfo.image && <img src={fromAddressInfo.image} alt={`${fromAddressInfo.nameTag || 'Address'} logo`} className="w-3 h-3 rounded-md" onError={(e) => e.target.style.display = 'none'} />}
                                             <a
-                                              href={isBitcoin ? `https://mempool.space/address/${item.inputs?.[0]?.address}` : getExplorerUrls(chain, null, item.tx_from_address?.address).addressUrl}
+                                              href={isBitcoin ? `https://mempool.space/address/${item.inputs?.[0]?.address}` : getExplorerUrls(chain, null, item.tx_from_address?.address).addressUrl}  // Sửa: dùng chain và null cho hash
                                               target="_blank"
                                               rel="noreferrer"
                                               className="text-white hover:text-white/80 transition-colors font-medium text-[9px] sm:text-[11px]"
@@ -1902,24 +1890,22 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                                                 <span className="text-[9px] sm:text-[11px]">{isBitcoin ? `${item.inputs?.[0]?.address?.slice(0, 6)}...${item.inputs?.[0]?.address?.slice(-4)}` : `${item.tx_from_address?.address?.slice(0, 6)}...${item.tx_from_address?.address?.slice(-4)}`}</span>
                                               )}
                                             </a>
-                                            <motion.button
+                                            <button  // Removed motion.button
                                               onClick={() => navigator.clipboard.writeText(isBitcoin ? item.inputs?.[0]?.address : item.tx_from_address?.address) && toast.success("Address copied!", { autoClose: 2000 })}
                                               className="absolute right-0 text-white/40 hover:text-white/80 opacity-0 group-hover:opacity-100 p-1 rounded-md hover:bg-white/10"
                                               title="Copy address"
-                                              whileHover={{ scale: 1.1 }}
-                                              whileTap={{ scale: 0.9 }}
                                             >
                                               <svg xmlns="http://www.w3.org/2000/svg" className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                                                 <path strokeLinecap="round" strokeLinejoin="round" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
                                               </svg>
-                                            </motion.button>
+                                            </button>
                                           </div>
 
                                           {/* To Address */}
                                           <div className="flex-[2] flex items-center justify-center gap-2 group relative">
                                             {toAddressInfo.image && <img src={toAddressInfo.image} alt={`${toAddressInfo.nameTag || 'Address'} logo`} className="w-3 h-3 rounded-md" onError={(e) => e.target.style.display = 'none'} />}
                                             <a
-                                              href={isBitcoin ? `https://mempool.space/address/${item.outputs?.[0]?.address}` : getExplorerUrls(chain, null, item.to_token_address?.address).addressUrl}
+                                              href={isBitcoin ? `https://mempool.space/address/${item.outputs?.[0]?.address}` : getExplorerUrls(chain, null, item.to_token_address?.address).addressUrl}  // Sửa: dùng chain và null cho hash
                                               target="_blank"
                                               rel="noreferrer"
                                               className="text-white hover:text-white/80 transition-colors font-medium text-[10px]"
@@ -1933,17 +1919,15 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                                                 <span className="text-[10px]">{isBitcoin ? `${item.outputs?.[0]?.address?.slice(0, 6)}...${item.outputs?.[0]?.address?.slice(-4)}` : `${item.to_token_address?.address?.slice(0, 6)}...${item.to_token_address?.address?.slice(-4)}`}</span>
                                               )}
                                             </a>
-                                            <motion.button
+                                            <button  // Removed motion.button
                                               onClick={() => navigator.clipboard.writeText(isBitcoin ? item.outputs?.[0]?.address : item.to_token_address?.address) && toast.success("Address copied!", { autoClose: 2000 })}
                                               className="absolute right-0 text-white/40 hover:text-white/80 opacity-0 group-hover:opacity-100 p-1 rounded-md hover:bg-white/10"
                                               title="Copy address"
-                                              whileHover={{ scale: 1.1 }}
-                                              whileTap={{ scale: 0.9 }}
                                             >
                                               <svg xmlns="http://www.w3.org/2000/svg" className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                                                 <path strokeLinecap="round" strokeLinejoin="round" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
                                               </svg>
-                                            </motion.button>
+                                            </button>
                                           </div>
 
                                           {/* Value */}
@@ -2022,17 +2006,24 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                                           );
                                         }
                                       },
-                                      Footer: () => (
-                                        <div className="p-2 text-center border-t border-white/10 bg-black/40 text-white/60 text-[10px]">
-                                          Total Transactions Loaded: {trades.length.toLocaleString()}
-                                          {isBitcoin ? " (Mempool - Recent High-Value)" : " (EVM Transfers - Bulk Loaded)"}
+                                      Footer: () => isLoadingMoreDex && !isBitcoin ? (
+                                        <div className="p-2 text-center border-t border-white/10 bg-black/40">
+                                          <motion.div
+                                            className="flex items-center justify-center gap-2 text-white text-[10px]"
+                                            initial={{ opacity: 0, y: 10 }}
+                                            animate={{ opacity: 1, y: 0 }}
+                                            exit={{ opacity: 0, y: -10 }}
+                                          >
+                                            <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+                                            Loading more transactions...
+                                          </motion.div>
                                         </div>
-                                      ), // Thêm footer để hiển thị total
+                                      ) : null,
                                     }}
                                   />
                                 </>
                               ) : (
-                                !(isBitcoin ? isLoadingMempool : isLoadingDex) && (
+                                !(isBitcoin ? isLoadingMempool : isLoadingDex || isLoadingMoreDex) && (
                                   <div className="text-[9px] sm:text-[11px] text-white/60 text-center p-6">
                                     No {isBitcoin ? "mempool transactions" : "DEX data"} available for{" "}
                                     {selectedToken?.symbol?.toUpperCase() || "selected token"} on{" "}

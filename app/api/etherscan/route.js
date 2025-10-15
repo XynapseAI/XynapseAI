@@ -1,3 +1,4 @@
+// app\api\etherscan\route.js
 // Updated: app/api/etherscan/route.js
 // app/api/etherscan/route.js
 import { NextResponse } from 'next/server';
@@ -85,7 +86,7 @@ const bodySchema = z.object({
   address: z.string().optional().refine((val) => !val || isAddress(val), { message: 'Wallet address must be a valid EVM address' }),
   tokenAddress: z.string().optional().refine((val) => !val || isAddress(val), { message: 'Token address must be a valid EVM address' }),
   page: z.number().int().min(1).optional().default(1),
-  offset: z.number().int().min(1).max(10000).optional().default(100),
+  offset: z.number().int().min(1).max(5000).optional().default(100),
 }).refine(
   (data) => (['wallet-balances', 'transactions'].includes(data.action) ? !!data.address : true),
   { message: 'Wallet address is required for wallet-balances and transactions', path: ['address'] }
