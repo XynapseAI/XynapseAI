@@ -1571,7 +1571,7 @@ export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initi
 
   const fetchDexData = useCallback(
     debounce(
-      async (chain, tokenAddress, page = 1, offset = 200) => { // Increased default offset to 200
+      async (chain, tokenAddress, page = 1) => {
         if (status !== 'authenticated') {
           const errorMessage = 'Please log in to access DEX data.';
           setDexError(errorMessage);
@@ -1606,6 +1606,7 @@ export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initi
           return;
         }
 
+        // Rate limit check (giữ nguyên)
         const userId = session?.user?.id || 'anonymous';
         const now = Date.now();
         const userRequests = dexRequestTracker.get(userId) || { count: 0, lastReset: now };
@@ -1625,10 +1626,8 @@ export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initi
           setDexRequestCount((prev) => prev + 1);
         }
 
-        const isAppend = page > 1;
-        const cacheKey = `onchain-tx-${selectedToken.id}${isAppend ? `-page-${page}` : ''}-session_required`;
-        setIsLoadingDex(!isAppend);
-        setIsLoadingMoreDex(isAppend);
+        const cacheKey = `onchain-tx-${selectedToken.id}-bulk`; // Bulk key, no page
+        setIsLoadingDex(true);
         setDexError(null);
 
         try {
@@ -1636,7 +1635,7 @@ export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initi
             const allTrades = [];
             const uniqueAddresses = new Set();
 
-            // Fetch from each available chain
+            // Fetch from each available chain - chỉ 1 lần với offset cao (5000)
             const chainPromises = availableChains.map(async (ch) => {
               const platformId = ch.coingeckoId;
               const tokenAddr = selectedToken.detail_platforms?.[platformId]?.contract_address;
@@ -1648,8 +1647,8 @@ export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initi
                 action: 'token-transactions',
                 chain: ch.value,
                 tokenAddress: tokenAddr,
-                page,
-                offset, // Use the passed offset
+                page: 1, // Chỉ page 1
+                offset: 5000, // Tăng lên 5000 để lấy bulk
               };
 
               const response = await fetch('/api/etherscan', {
@@ -1676,7 +1675,6 @@ export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initi
                 if (done) break;
                 buffer += decoder.decode(value, { stream: true });
 
-                // Simple parsing for array of objects (adapt from existing streaming logic)
                 try {
                   const parsed = JSON.parse(buffer);
                   if (parsed.success && Array.isArray(parsed.data)) {
@@ -1691,8 +1689,8 @@ export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initi
               // Local set for this chain's addresses
               const chainAddresses = new Set();
 
-              // Map to trade format
-              const chainTrades = trades.map((tx) => { // No slice, respect offset
+              // Map to trade format (giữ nguyên logic map)
+              const chainTrades = trades.map((tx) => {
                 const amount = parseFloat(tx.value) / Math.pow(10, parseInt(tx.decimals || 18));
                 const usdValue = amount * (selectedToken.current_price?.[currency] || 0);
                 const gasFee = (BigInt(tx.gasUsed || 0) * BigInt(tx.gasPrice || 0)) / BigInt(10 ** 18);
@@ -1736,7 +1734,7 @@ export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initi
               await fetchNameTagsForAddresses(addressesArray);
             }
 
-            // Apply nametags
+            // Apply nametags (giữ nguyên)
             const tradesWithTags = allTrades.map((trade) => {
               const fromAddr = trade.tx_from_address?.address?.toLowerCase();
               const toAddr = trade.to_token_address?.address?.toLowerCase();
@@ -1765,24 +1763,14 @@ export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initi
             return { pools: [], trades: finalTrades, poolTokens: {} };
           };
 
-          const dexDataBatch = await getCachedData(cacheKey, fetchFn, CACHE_DURATIONS.DEFI_POOL, 0, true, session, status);
+          const dexDataBatch = await getCachedData(cacheKey, fetchFn, 30 * 60 * 1000, 0, true, session, status); // Cache 30p
 
-          if (page === 1) {
-            setDexData(dexDataBatch);
-            setCurrentDexPage(1);
-            setHasMoreDex(dexDataBatch.trades.length >= offset); // Check if full page loaded
-          } else {
-            const newTrades = dexDataBatch.trades;
-            setHasMoreDex(newTrades.length >= offset); // Update hasMore based on last fetch
-            setDexData(prev => ({
-              ...prev,
-              trades: [...prev.trades, ...newTrades]
-            }));
-            setCurrentDexPage(page);
-          }
+          setDexData(dexDataBatch);
+          setHasMoreDex(false); // Không load more, đã bulk
 
           setLastDexFetchTime(Date.now());
         } catch (error) {
+          // Error handling giữ nguyên, nhưng tăng cache fallback
           const safeErrorMessage =
             error.response?.status === 429
               ? 'Too many requests from your IP or API limit exceeded. Please try again later.'
@@ -1792,15 +1780,7 @@ export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initi
           setDexError(safeErrorMessage);
           toast.error(safeErrorMessage, { position: 'top-center', autoClose: 5000 });
           if (localCache.current[cacheKey]?.data) {
-            const cachedData = localCache.current[cacheKey].data;
-            if (page === 1) {
-              setDexData(cachedData);
-            } else {
-              setDexData(prev => ({
-                ...prev,
-                trades: [...prev.trades, ...cachedData.trades]
-              }));
-            }
+            setDexData(localCache.current[cacheKey].data);
           } else {
             setDexData({ pools: [], trades: [], poolTokens: {} });
           }
@@ -1814,14 +1794,12 @@ export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initi
     [session, status, toast, fetchNameTagsForAddresses, nameTagsRef, selectedToken, currency, getAvailableChains, fetchMempoolTransactions]
   );
 
+  // Bỏ loadMoreDexData vì không cần paging nữa
   const loadMoreDexData = useCallback(async () => {
-    if (!selectedToken || dexError || isLoadingMoreDex || !hasMoreDex) return;
-    const { chain, tokenAddress } = getDefaultChainAndAddress(selectedToken, selectedChain);
-    if (!chain || !tokenAddress) return;
-    await fetchDexData(chain, tokenAddress, currentDexPage + 1, 200); // Pass higher offset
-  }, [selectedToken, dexError, isLoadingMoreDex, hasMoreDex, getDefaultChainAndAddress, currentDexPage, fetchDexData]);
+    // Disabled: Bulk load already done
+  }, []);
 
-  // Update the useEffect for dex data fetch to pass page=1 and offset=200:
+  // Update useEffect để chỉ gọi initial
   useEffect(() => {
     if (!selectedToken?.id || ['bitcoin', 'ethereum'].includes(selectedToken.id.toLowerCase()) || document.visibilityState !== 'visible') {
       return;
@@ -1832,26 +1810,26 @@ export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initi
       return;
     }
 
-    // Initial fetch with higher offset
-    fetchDexData(chain, tokenAddress, 1, 200);
+    // Chỉ initial fetch 1 lần
+    fetchDexData(chain, tokenAddress, 1);
 
-    // Set up interval for background refresh (only initial)
+    // Interval refresh cache (giữ nguyên)
     const interval = setInterval(() => {
-      const cacheKey = `onchain-tx-${selectedToken.id}`;
-      const cached = tickerCache[cacheKey];
-      if (cached && Date.now() - cached.timestamp < CACHE_DURATIONS.DEFI_POOL) {
+      const cacheKey = `onchain-tx-${selectedToken.id}-bulk`;
+      const cached = localCache.current[cacheKey]; // Use localCache
+      if (cached && Date.now() - cached.timestamp < 30 * 60 * 1000) {
         return;
       }
       if (document.visibilityState === 'visible') {
-        fetchDexData(chain, tokenAddress, 1, 200);
+        fetchDexData(chain, tokenAddress, 1);
       }
-    }, CACHE_DURATIONS.DEFI_POOL);
+    }, 30 * 60 * 1000); // 30p
 
     return () => {
       clearInterval(interval);
       fetchDexData.cancel && fetchDexData.cancel();
     };
-  }, [selectedToken?.id, selectedChain, getDefaultChainAndAddress, fetchDexData, tickerCache]);
+  }, [selectedToken?.id, selectedChain, getDefaultChainAndAddress, fetchDexData]);
 
   const fetchTrendingTokens = useCallback(
     debounce(

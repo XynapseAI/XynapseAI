@@ -160,6 +160,17 @@ button:hover:not(:disabled) {
   box-shadow: 0 4px 12px rgba(0, 191, 255, 0.3);
 }
 
+.dex-row {
+  height: 60px; /* Fixed height cho Virtuoso perf */
+  display: flex;
+  align-items: center;
+  transition: background-color 0.2s ease; /* Smooth hover */
+}
+.dex-row:hover {
+  background: rgba(255, 255, 255, 0.05);
+  transform: scale(1.005); /* Nhẹ, không flicker */
+}
+
 /* Responsive Adjustments */
 @media (max-width: 640px) {
   .table-fixed th,
