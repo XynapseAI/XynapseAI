@@ -199,7 +199,7 @@ export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initi
   const [mempoolError, setMempoolError] = useState(null);
   const mempoolWsRef = useRef(null);
   const mempoolTxCache = useRef(new Set());
-  const [currentDexPage, setCurrentDexPage] = useState(1);
+  const [currentDexPage, setCurrentDexPage] = useState(0);
   const [hasMoreDex, setHasMoreDex] = useState(true);
   const [isLoadingMoreDex, setIsLoadingMoreDex] = useState(false);
   const isInitialMempoolFetch = useRef(true);
@@ -1571,7 +1571,7 @@ export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initi
 
   const fetchDexData = useCallback(
     debounce(
-      async (chain, tokenAddress, page = 1) => {
+      async (chain, tokenAddress, page = 1, limit = 25) => {
         if (status !== 'authenticated') {
           const errorMessage = 'Please log in to access DEX data.';
           setDexError(errorMessage);
@@ -1648,7 +1648,7 @@ export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initi
                 chain: ch.value,
                 tokenAddress: tokenAddr,
                 page,
-                offset: 25,
+                offset: limit,
               };
 
               const response = await fetch('/api/etherscan', {
@@ -1769,12 +1769,10 @@ export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initi
           if (page === 1) {
             setDexData(dexDataBatch);
             setCurrentDexPage(1);
-            setHasMoreDex(true);
+            setHasMoreDex(dexDataBatch.trades.length >= limit);
           } else {
             const newTrades = dexDataBatch.trades;
-            if (newTrades.length < 25) {
-              setHasMoreDex(false);
-            }
+            setHasMoreDex(newTrades.length >= limit && newTrades.length > 0);
             setDexData(prev => ({
               ...prev,
               trades: [...prev.trades, ...newTrades]
@@ -1796,14 +1794,18 @@ export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initi
             const cachedData = localCache.current[cacheKey].data;
             if (page === 1) {
               setDexData(cachedData);
+              setHasMoreDex(cachedData.trades.length >= limit);
             } else {
+              const newTrades = cachedData.trades;
+              setHasMoreDex(newTrades.length >= limit && newTrades.length > 0);
               setDexData(prev => ({
                 ...prev,
-                trades: [...prev.trades, ...cachedData.trades]
+                trades: [...prev.trades, ...newTrades]
               }));
             }
           } else {
             setDexData({ pools: [], trades: [], poolTokens: {} });
+            setHasMoreDex(false);
           }
         } finally {
           setIsLoadingDex(false);
@@ -1815,12 +1817,10 @@ export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initi
     [session, status, toast, fetchNameTagsForAddresses, nameTagsRef, selectedToken, currency, getAvailableChains, fetchMempoolTransactions]
   );
 
-  const loadMoreDexData = useCallback(async () => {
-    if (!selectedToken || dexError || isLoadingMoreDex || !hasMoreDex) return;
-    const { chain, tokenAddress } = getDefaultChainAndAddress(selectedToken, selectedChain);
-    if (!chain || !tokenAddress) return;
-    await fetchDexData(chain, tokenAddress, currentDexPage + 1);
-  }, [selectedToken, dexError, isLoadingMoreDex, hasMoreDex, getDefaultChainAndAddress, currentDexPage, fetchDexData]);
+  const loadMoreDexData = useCallback(async (chain, tokenAddress) => {
+    const nextPage = currentDexPage + 1;
+    await fetchDexData(chain, tokenAddress, nextPage, 500); // Smaller limit for subsequent loads
+  }, [currentDexPage, fetchDexData]);
 
   // Update the useEffect for dex data fetch to pass page=1:
   useEffect(() => {

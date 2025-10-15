@@ -27,6 +27,7 @@ import {
   LoadingOverlay,
 } from "../utils/helpers"
 import "react-loading-skeleton/dist/skeleton.css"
+import Skeleton from "react-loading-skeleton"
 import { useCurrency } from './CurrencyContext';
 import { logger } from '../utils/clientLogger';
 import remarkGfm from 'remark-gfm';
@@ -358,7 +359,7 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
       } else {
         const { chain, tokenAddress } = getDefaultChainAndAddress(selectedToken, selectedChain);
         if (chain && tokenAddress) {
-          fetchDexData(chain, tokenAddress, 5000); // Load max 5000 initially
+          fetchDexData(chain, tokenAddress, 1, 1000); // Load initial with page 1, limit 1000
         }
       }
     }
@@ -934,6 +935,86 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
       </motion.div>
     );
   });
+
+  // Skeleton row components
+  const HolderSkeletonRow = React.memo(() => (
+    <motion.div
+      className="flex border-t border-white/10 bg-black/80 px-3 py-2 text-[9px] sm:text-[11px]"
+      variants={rowVariants}
+      initial="hidden"
+      animate="visible"
+    >
+      <div className="flex-1 flex items-center gap-2">
+        <Skeleton width={24} height={24} circle />
+        <div className="flex flex-col space-y-1">
+          <Skeleton width={80} height={12} />
+          <Skeleton width={60} height={10} />
+        </div>
+      </div>
+      <div className="w-28 text-right">
+        <Skeleton width={60} height={12} />
+      </div>
+    </motion.div>
+  ));
+
+  const TickerSkeletonRow = React.memo(() => (
+    <motion.div
+      className="flex border-t border-white/10 bg-black/80 px-3 py-2 text-[9px] sm:text-[11px]"
+      variants={rowVariants}
+      initial="hidden"
+      animate="visible"
+    >
+      <div className="flex-[2] flex items-center justify-center gap-2">
+        <Skeleton width={20} height={20} />
+        <Skeleton width={100} height={12} />
+      </div>
+      <div className="flex-1 text-center">
+        <Skeleton width={50} height={12} />
+      </div>
+      <div className="flex-1 text-center">
+        <Skeleton width={60} height={12} />
+      </div>
+      <div className="flex-1 text-center">
+        <Skeleton width={80} height={12} />
+      </div>
+      <div className="flex-1 text-center">
+        <Skeleton width={40} height={12} />
+      </div>
+    </motion.div>
+  ));
+
+  const DexSkeletonRow = React.memo(({ isBitcoin }) => (
+    <motion.div
+      className="flex border-t border-white/10 bg-black/80 p-3 text-[9px] sm:text-[11px]"
+      variants={rowVariants}
+      initial="hidden"
+      animate="visible"
+    >
+      <div className="flex-1 flex flex-col gap-1 items-center justify-center">
+        <Skeleton width={12} height={12} circle />
+        <Skeleton width={80} height={8} />
+      </div>
+      <div className="flex-[2] flex items-center justify-center gap-2">
+        <Skeleton width={12} height={12} circle />
+        <Skeleton width={80} height={10} />
+      </div>
+      <div className="flex-[2] flex items-center justify-center gap-2">
+        <Skeleton width={12} height={12} circle />
+        <Skeleton width={80} height={10} />
+      </div>
+      <div className="flex-1 flex flex-col gap-1 items-center justify-center">
+        <Skeleton width={60} height={10} />
+        <Skeleton width={50} height={8} />
+      </div>
+      <div className="flex-1 flex flex-col gap-1 items-center justify-center">
+        {isBitcoin && <Skeleton width={40} height={8} />}
+        <Skeleton width={40} height={10} />
+      </div>
+      {!isBitcoin && <div className="flex-1 flex items-center justify-center">
+        <Skeleton width={16} height={16} circle />
+      </div>}
+    </motion.div>
+  ));
 
   return (
     <motion.section
@@ -1855,8 +1936,16 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                               </h4>
                             </div>
                             {isLoadingOnChain ? (
-                              <div className="h-full">
-                                <SkeletonLoader count={10} isMobile={isMobile} />
+                              <div className="flex flex-col h-[600px]">
+                                <div className="flex bg-black/80 border-b border-white/10 p-2 font-semibold text-white text-[10px] sticky top-0 z-10">
+                                  <div className="flex-1">Address/Name</div>
+                                  <div className="w-28 text-right">Balance</div>
+                                </div>
+                                <div className="flex-1 overflow-y-auto hide-scrollbar">
+                                  {Array.from({ length: 3 }).map((_, i) => (
+                                    <HolderSkeletonRow key={i} />
+                                  ))}
+                                </div>
                               </div>
                             ) : onChainError && !NON_EVM_CHAINS.includes(selectedToken?.id.toLowerCase()) ? (
                               <div className="text-sm text-center p-6">
@@ -1913,8 +2002,19 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                             </motion.button>
                           </div>
                         ) : isLoadingTickers && !tickerData?.length ? (
-                          <div className="h-full">
-                            <SkeletonLoader count={5} isMobile={isMobile} />
+                          <div className="flex flex-col h-[600px]">
+                            <div className="flex bg-black/80 border-b border-white/10 p-2 font-semibold text-white text-[9px] sm:text-[11px] sticky top-0 z-10">
+                              <div className="flex-[2] text-center">Market</div>
+                              <div className="flex-1 text-center">Pair</div>
+                              <div className="flex-1 text-center">Price</div>
+                              <div className="flex-1 text-center">Volume</div>
+                              <div className="flex-1 text-center">Last Traded</div>
+                            </div>
+                            <div className="flex-1 overflow-y-auto hide-scrollbar">
+                              {Array.from({ length: 3 }).map((_, i) => (
+                                <TickerSkeletonRow key={i} />
+                              ))}
+                            </div>
                           </div>
                         ) : tickerData.length > 0 ? (
                           <div className="flex flex-col h-[600px]">
@@ -1961,53 +2061,72 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                             {(() => {
                               const isBitcoin = selectedToken?.id.toLowerCase() === 'bitcoin';
                               const trades = isBitcoin ? mempoolTransactions : sortedTrades;
-                              return trades.length > 0 ? (
+                              const isInitialLoading = (isBitcoin ? isLoadingMempool : isLoadingDex) && trades.length === 0;
+                              const showNoData = !(isBitcoin ? isLoadingMempool : isLoadingDex || isLoadingMoreDex) && trades.length === 0;
+                              const showVirtuoso = trades.length > 0;
+                              const headerColumns = isBitcoin ? (
                                 <>
+                                  <div className="flex-1 text-center">Tx/Time</div>
+                                  <div className="flex-[2] text-center">From Address</div>
+                                  <div className="flex-[2] text-center">To Address</div>
+                                  <div className="flex-1 text-center">Value</div>
+                                  <div className="flex-1 text-center">Fee</div>
+                                </>
+                              ) : (
+                                <>
+                                  <div className="flex-1 text-center">Tx/Time</div>
+                                  <div className="flex-[2] text-center">From Address</div>
+                                  <div className="flex-[2] text-center">To Address</div>
+                                  <div className="flex-1 text-center">Value</div>
+                                  <div className="flex-1 text-center">Status</div>
+                                  <div className="flex-1 text-center">Chain</div>
+                                </>
+                              );
+                              const header = (
+                                <div className="flex bg-black/80 border-b border-white/10 p-2 font-semibold text-white text-[9px] sm:text-[11px] sticky top-0 z-10">
+                                  {headerColumns}
+                                </div>
+                              );
+                              if (isInitialLoading) {
+                                return (
                                   <div className="flex flex-col h-[600px]">
-                                    <div className="flex bg-black/80 border-b border-white/10 p-2 font-semibold text-white text-[9px] sm:text-[11px] sticky top-0 z-10">
-                                      {isBitcoin ? (
-                                        <>
-                                          <div className="flex-1 text-center">Tx/Time</div>
-                                          <div className="flex-[2] text-center">From Address</div>
-                                          <div className="flex-[2] text-center">To Address</div>
-                                          <div className="flex-1 text-center">Value</div>
-                                          <div className="flex-1 text-center">Fee</div>
-                                        </>
-                                      ) : (
-                                        <>
-                                          <div className="flex-1 text-center">Tx/Time</div>
-                                          <div className="flex-[2] text-center">From Address</div>
-                                          <div className="flex-[2] text-center">To Address</div>
-                                          <div className="flex-1 text-center">Value</div>
-                                          <div className="flex-1 text-center">Status</div>
-                                          <div className="flex-1 text-center">Chain</div>
-                                        </>
-                                      )}
+                                    {header}
+                                    <div className="flex-1 overflow-y-auto hide-scrollbar p-3">
+                                      {Array.from({ length: 3 }).map((_, i) => (
+                                        <DexSkeletonRow key={i} isBitcoin={isBitcoin} />
+                                      ))}
                                     </div>
+                                  </div>
+                                );
+                              } else if (showVirtuoso) {
+                                return (
+                                  <div className="flex flex-col h-[600px]">
+                                    {header}
                                     <Virtuoso
                                       style={{ height: '100%', overflow: 'auto', scrollbarWidth: 'none', msOverflowStyle: 'none' }}
                                       className="hide-scrollbar"
                                       data={trades.map((item, idx) => ({ ...item, index: idx }))}
                                       itemContent={(index, item) => <DexRow key={index} item={item} index={index} isBitcoin={isBitcoin} />}
+                                      endReached={() => {
+                                        if (!isBitcoin && hasMoreDex && !isLoadingMoreDex) {
+                                          handleLoadMore();
+                                        }
+                                      }}
                                       overscan={400}
+                                      components={{
+                                        Footer: () => isLoadingMoreDex ? (
+                                          <div className="p-3">
+                                            {Array.from({ length: 3 }).map((_, i) => (
+                                              <DexSkeletonRow key={i} isBitcoin={isBitcoin} />
+                                            ))}
+                                          </div>
+                                        ) : null,
+                                      }}
                                     />
                                   </div>
-                                  {!isBitcoin && hasMoreDex && (
-                                    <div className="p-4 border-t border-white/10 bg-black/40">
-                                      <motion.button
-                                        onClick={handleLoadMore}
-                                        disabled={isLoadingMoreDex}
-                                        className="w-full px-4 py-2 text-white text-[10px] border border-white/20 rounded-xl hover:bg-white/10 transition-all duration-300 disabled:opacity-50"
-                                        whileHover={{ scale: 1.02 }}
-                                        whileTap={{ scale: 0.98 }}
-                                      >
-                                        {isLoadingMoreDex ? 'Loading...' : 'Load More Transactions'}
-                                      </motion.button>
-                                    </div>
-                                  )}
-                                </>
-                              ) : (
-                                !(isBitcoin ? isLoadingMempool : isLoadingDex || isLoadingMoreDex) && (
+                                );
+                              } else if (showNoData) {
+                                return (
                                   <div className="text-[9px] sm:text-[11px] text-white/60 text-center p-6">
                                     No {isBitcoin ? "mempool transactions" : "DEX data"} available for{" "}
                                     {selectedToken?.symbol?.toUpperCase() || "selected token"} on{" "}
@@ -2015,8 +2134,9 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                                       ? "Bitcoin network"
                                       : chains.find((c) => c.value === selectedChain)?.label || "selected chain"}.
                                   </div>
-                                )
-                              );
+                                );
+                              }
+                              return null;
                             })()}
                           </>
                         ) : (
