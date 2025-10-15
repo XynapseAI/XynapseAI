@@ -1,3 +1,4 @@
+// components/MarketTab.jsx
 "use client"
 
 import React, { useState, useEffect, useRef, useCallback, useMemo } from "react"
@@ -143,6 +144,14 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
     isLoadingMoreDex,
     setIsLoadingMoreDex, // Added for controlling loading state
     setHasMoreDex, // Added to control hasMore state
+    currentDexPage,
+    setCurrentDexPage,
+    totalDexPages,
+    setTotalDexPages,
+    currentMempoolPage,
+    setCurrentMempoolPage,
+    totalMempoolPages,
+    setTotalMempoolPages,
   } = useMarketTabLogic({ recaptchaRef, toast, initialTokenData, toast })
 
   const dropdownRef = useRef(null)
@@ -163,6 +172,38 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
   const tokenRefs = useRef({})
   const lastFetchedSlugRef = useRef(null)
   const [showLoadMoreButton, setShowLoadMoreButton] = useState(false)
+
+  // Pagination handlers for DEX
+  const handleDexPrevPage = useCallback(() => {
+    if (currentDexPage > 1) {
+      const { chain, tokenAddress } = getDefaultChainAndAddress(selectedToken, selectedChain);
+      if (chain && tokenAddress) {
+        fetchDexData(chain, tokenAddress, currentDexPage - 1, 100);
+      }
+    }
+  }, [currentDexPage, selectedToken, selectedChain, getDefaultChainAndAddress, fetchDexData]);
+
+  const handleDexNextPage = useCallback(() => {
+    if (currentDexPage < totalDexPages) {
+      const { chain, tokenAddress } = getDefaultChainAndAddress(selectedToken, selectedChain);
+      if (chain && tokenAddress) {
+        fetchDexData(chain, tokenAddress, currentDexPage + 1, 100);
+      }
+    }
+  }, [currentDexPage, totalDexPages, selectedToken, selectedChain, getDefaultChainAndAddress, fetchDexData]);
+
+  // Pagination handlers for Mempool (Bitcoin)
+  const handleMempoolPrevPage = useCallback(() => {
+    if (currentMempoolPage > 1) {
+      fetchMempoolTransactions(currentMempoolPage - 1);
+    }
+  }, [currentMempoolPage, fetchMempoolTransactions]);
+
+  const handleMempoolNextPage = useCallback(() => {
+    if (currentMempoolPage < totalMempoolPages) {
+      fetchMempoolTransactions(currentMempoolPage + 1);
+    }
+  }, [currentMempoolPage, totalMempoolPages, fetchMempoolTransactions]);
 
   // Map exchange IDs to match ClusterTab's EXCHANGE_MAPPING
   const EXCHANGE_MAPPING = {
@@ -355,11 +396,11 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
     setShowLoadMoreButton(false); // Reset load more button
     if (selectedToken) {
       if (selectedToken.id === "bitcoin") {
-        fetchMempoolTransactions(); // Ensure full load for Bitcoin
+        fetchMempoolTransactions(1); // Initial page 1 for Bitcoin
       } else {
         const { chain, tokenAddress } = getDefaultChainAndAddress(selectedToken, selectedChain);
         if (chain && tokenAddress) {
-          fetchDexData(chain, tokenAddress, 1, 1000); // Load initial with page 1, limit 1000
+          fetchDexData(chain, tokenAddress, 1, 100); // Load initial with page 1, limit 100
         }
       }
     }
@@ -936,85 +977,122 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
     );
   });
 
-  // Skeleton row components
+  // Improved Skeleton row components with shine effect and darker color
   const HolderSkeletonRow = React.memo(() => (
     <motion.div
-      className="flex border-t border-white/10 bg-black/80 px-3 py-2 text-[9px] sm:text-[11px]"
+      className="flex border-t border-white/10 bg-black/80 px-3 py-1.5 text-[9px] sm:text-[11px]" // Reduced py for less whitespace
       variants={rowVariants}
       initial="hidden"
       animate="visible"
     >
       <div className="flex-1 flex items-center gap-2">
-        <Skeleton width={24} height={24} circle />
-        <div className="flex flex-col space-y-1">
-          <Skeleton width={80} height={12} />
-          <Skeleton width={60} height={10} />
+        <Skeleton width={24} height={24} circle className="skeleton-shine bg-gray-700/50" />
+        <div className="flex flex-col space-y-0.5"> {/* Reduced space-y */}
+          <Skeleton width={80} height={10} className="skeleton-shine bg-gray-700/50" />
+          <Skeleton width={60} height={8} className="skeleton-shine bg-gray-700/50" />
         </div>
       </div>
       <div className="w-28 text-right">
-        <Skeleton width={60} height={12} />
+        <Skeleton width={60} height={10} className="skeleton-shine bg-gray-700/50" />
       </div>
     </motion.div>
   ));
 
   const TickerSkeletonRow = React.memo(() => (
     <motion.div
-      className="flex border-t border-white/10 bg-black/80 px-3 py-2 text-[9px] sm:text-[11px]"
+      className="flex border-t border-white/10 bg-black/80 px-3 py-1.5 text-[9px] sm:text-[11px]" // Reduced py
       variants={rowVariants}
       initial="hidden"
       animate="visible"
     >
       <div className="flex-[2] flex items-center justify-center gap-2">
-        <Skeleton width={20} height={20} />
-        <Skeleton width={100} height={12} />
+        <Skeleton width={20} height={20} circle className="skeleton-shine bg-gray-700/50" />
+        <Skeleton width={100} height={10} className="skeleton-shine bg-gray-700/50" />
       </div>
       <div className="flex-1 text-center">
-        <Skeleton width={50} height={12} />
+        <Skeleton width={50} height={10} className="skeleton-shine bg-gray-700/50" />
       </div>
       <div className="flex-1 text-center">
-        <Skeleton width={60} height={12} />
+        <Skeleton width={60} height={10} className="skeleton-shine bg-gray-700/50" />
       </div>
       <div className="flex-1 text-center">
-        <Skeleton width={80} height={12} />
+        <Skeleton width={80} height={10} className="skeleton-shine bg-gray-700/50" />
       </div>
       <div className="flex-1 text-center">
-        <Skeleton width={40} height={12} />
+        <Skeleton width={40} height={10} className="skeleton-shine bg-gray-700/50" />
       </div>
     </motion.div>
   ));
 
   const DexSkeletonRow = React.memo(({ isBitcoin }) => (
     <motion.div
-      className="flex border-t border-white/10 bg-black/80 p-3 text-[9px] sm:text-[11px]"
+      className="flex border-t border-white/10 bg-black/80 p-2 text-[9px] sm:text-[11px]" // Reduced p for less whitespace
       variants={rowVariants}
       initial="hidden"
       animate="visible"
     >
-      <div className="flex-1 flex flex-col gap-1 items-center justify-center">
-        <Skeleton width={12} height={12} circle />
-        <Skeleton width={80} height={8} />
+      <div className="flex-1 flex flex-col gap-0.5 items-center justify-center"> {/* Reduced gap */}
+        <Skeleton width={12} height={12} circle className="skeleton-shine bg-gray-700/50" />
+        <Skeleton width={80} height={8} className="skeleton-shine bg-gray-700/50" />
       </div>
       <div className="flex-[2] flex items-center justify-center gap-2">
-        <Skeleton width={12} height={12} circle />
-        <Skeleton width={80} height={10} />
+        <Skeleton width={12} height={12} circle className="skeleton-shine bg-gray-700/50" />
+        <Skeleton width={80} height={8} className="skeleton-shine bg-gray-700/50" />
       </div>
       <div className="flex-[2] flex items-center justify-center gap-2">
-        <Skeleton width={12} height={12} circle />
-        <Skeleton width={80} height={10} />
+        <Skeleton width={12} height={12} circle className="skeleton-shine bg-gray-700/50" />
+        <Skeleton width={80} height={8} className="skeleton-shine bg-gray-700/50" />
       </div>
-      <div className="flex-1 flex flex-col gap-1 items-center justify-center">
-        <Skeleton width={60} height={10} />
-        <Skeleton width={50} height={8} />
+      <div className="flex-1 flex flex-col gap-0.5 items-center justify-center">
+        <Skeleton width={60} height={8} className="skeleton-shine bg-gray-700/50" />
+        <Skeleton width={50} height={6} className="skeleton-shine bg-gray-700/50" />
       </div>
-      <div className="flex-1 flex flex-col gap-1 items-center justify-center">
-        {isBitcoin && <Skeleton width={40} height={8} />}
-        <Skeleton width={40} height={10} />
+      <div className="flex-1 flex flex-col gap-0.5 items-center justify-center">
+        {isBitcoin && <Skeleton width={40} height={6} className="skeleton-shine bg-gray-700/50" />}
+        <Skeleton width={40} height={8} className="skeleton-shine bg-gray-700/50" />
       </div>
       {!isBitcoin && <div className="flex-1 flex items-center justify-center">
-        <Skeleton width={16} height={16} circle />
+        <Skeleton width={16} height={16} circle className="skeleton-shine bg-gray-700/50" />
       </div>}
     </motion.div>
   ));
+
+  // Pagination component
+  const PaginationControls = ({ currentPage, totalPages, onPrev, onNext, isBitcoin }) => (
+    <div className="flex items-center justify-between gap-2 text-[9px] text-white/60 p-2">
+      <div className="flex items-center gap-2">
+        <motion.button
+          onClick={onPrev}
+          disabled={currentPage <= 1}
+          className="px-2 py-1 bg-white/10 rounded hover:bg-white/20 disabled:opacity-50 disabled:cursor-not-allowed text-white"
+          whileHover={{ scale: 1.05 }}
+          whileTap={{ scale: 0.95 }}
+        >
+          ‹
+        </motion.button>
+        <span>Page {currentPage} of {totalPages}</span>
+        <motion.button
+          onClick={onNext}
+          disabled={currentPage >= totalPages}
+          className="px-2 py-1 bg-white/10 rounded hover:bg-white/20 disabled:opacity-50 disabled:cursor-not-allowed text-white"
+          whileHover={{ scale: 1.05 }}
+          whileTap={{ scale: 0.95 }}
+        >
+          ›
+        </motion.button>
+      </div>
+      <span className="px-2 py-1">
+        Last Updated:{" "}
+        {lastDexFetchTime
+          ? new Date(lastDexFetchTime).toLocaleTimeString("en-US", {
+              hour: "2-digit",
+              minute: "2-digit",
+              second: "2-digit",
+            })
+          : "N/A"}
+      </span>
+    </div>
+  );
 
   return (
     <motion.section
@@ -1895,20 +1973,6 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
 
                 {/* Tab Content */}
                 <div className="flex-1 overflow-y-auto hide-scrollbar relative min-h-[500px] sm:min-h-[400px]">
-                  {activeMarketTab === "dex" && (
-                    <div className="p-4 text-right text-[9px] text-white/60">
-                      <span className="px-2 py-1">
-                        Last Updated:{" "}
-                        {lastDexFetchTime
-                          ? new Date(lastDexFetchTime).toLocaleTimeString("en-US", {
-                            hour: "2-digit",
-                            minute: "2-digit",
-                            second: "2-digit",
-                          })
-                          : "N/A"}
-                      </span>
-                    </div>
-                  )}
                   <div id="holders-panel" role="tabpanel" aria-labelledby="holders-tab" className={`flex-1 overflow-y-auto tab-content custom-scrollbar hide-scrollbar relative min-h-[500px] sm:min-h-[400px] ${activeMarketTab !== "holders" ? "hidden" : ""}`}>
                     {activeMarketTab === "holders" && (
                       <div className="flex-1 tab-content relative min-h-[500px] sm:min-h-[400px]">
@@ -2064,6 +2128,10 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                               const isInitialLoading = (isBitcoin ? isLoadingMempool : isLoadingDex) && trades.length === 0;
                               const showNoData = !(isBitcoin ? isLoadingMempool : isLoadingDex || isLoadingMoreDex) && trades.length === 0;
                               const showVirtuoso = trades.length > 0;
+                              const currentPage = isBitcoin ? currentMempoolPage : currentDexPage;
+                              const totalPages = isBitcoin ? totalMempoolPages : totalDexPages;
+                              const onPrev = isBitcoin ? handleMempoolPrevPage : handleDexPrevPage;
+                              const onNext = isBitcoin ? handleMempoolNextPage : handleDexNextPage;
                               const headerColumns = isBitcoin ? (
                                 <>
                                   <div className="flex-1 text-center">Tx/Time</div>
@@ -2090,8 +2158,15 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                               if (isInitialLoading) {
                                 return (
                                   <div className="flex flex-col h-[600px]">
+                                    <PaginationControls
+                                      currentPage={1}
+                                      totalPages={1}
+                                      onPrev={() => {}}
+                                      onNext={() => {}}
+                                      isBitcoin={isBitcoin}
+                                    />
                                     {header}
-                                    <div className="flex-1 overflow-y-auto hide-scrollbar p-3">
+                                    <div className="flex-1 overflow-y-auto hide-scrollbar">
                                       {Array.from({ length: 3 }).map((_, i) => (
                                         <DexSkeletonRow key={i} isBitcoin={isBitcoin} />
                                       ))}
@@ -2101,27 +2176,20 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                               } else if (showVirtuoso) {
                                 return (
                                   <div className="flex flex-col h-[600px]">
+                                    <PaginationControls
+                                      currentPage={currentPage}
+                                      totalPages={totalPages}
+                                      onPrev={onPrev}
+                                      onNext={onNext}
+                                      isBitcoin={isBitcoin}
+                                    />
                                     {header}
                                     <Virtuoso
-                                      style={{ height: '100%', overflow: 'auto', scrollbarWidth: 'none', msOverflowStyle: 'none' }}
+                                      style={{ height: 'calc(100% - 40px)', overflow: 'auto', scrollbarWidth: 'none', msOverflowStyle: 'none' }} // Adjust height for pagination
                                       className="hide-scrollbar"
                                       data={trades.map((item, idx) => ({ ...item, index: idx }))}
                                       itemContent={(index, item) => <DexRow key={index} item={item} index={index} isBitcoin={isBitcoin} />}
-                                      endReached={() => {
-                                        if (!isBitcoin && hasMoreDex && !isLoadingMoreDex) {
-                                          handleLoadMore();
-                                        }
-                                      }}
                                       overscan={400}
-                                      components={{
-                                        Footer: () => isLoadingMoreDex ? (
-                                          <div className="p-3">
-                                            {Array.from({ length: 3 }).map((_, i) => (
-                                              <DexSkeletonRow key={i} isBitcoin={isBitcoin} />
-                                            ))}
-                                          </div>
-                                        ) : null,
-                                      }}
                                     />
                                   </div>
                                 );
@@ -2303,6 +2371,26 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
           borderRadius: "16px",
         }}
       />
+      <style jsx global>{`
+        .skeleton-shine {
+          position: relative;
+          overflow: hidden;
+        }
+        .skeleton-shine::after {
+          content: '';
+          position: absolute;
+          top: 0;
+          left: -100%;
+          width: 100%;
+          height: 100%;
+          background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
+          animation: shine 1.5s infinite;
+        }
+        @keyframes shine {
+          0% { left: -100%; }
+          100% { left: 100%; }
+        }
+      `}</style>
     </motion.section>
   )
 }

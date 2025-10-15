@@ -199,7 +199,10 @@ export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initi
   const [mempoolError, setMempoolError] = useState(null);
   const mempoolWsRef = useRef(null);
   const mempoolTxCache = useRef(new Set());
-  const [currentDexPage, setCurrentDexPage] = useState(0);
+  const [currentDexPage, setCurrentDexPage] = useState(1);
+  const [totalDexPages, setTotalDexPages] = useState(1);
+  const [currentMempoolPage, setCurrentMempoolPage] = useState(1);
+  const [totalMempoolPages, setTotalMempoolPages] = useState(1);
   const [hasMoreDex, setHasMoreDex] = useState(true);
   const [isLoadingMoreDex, setIsLoadingMoreDex] = useState(false);
   const isInitialMempoolFetch = useRef(true);
@@ -637,60 +640,46 @@ export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initi
     [session, status, toast]
   );
 
-  const fetchMempoolTransactions = useCallback(async () => {
-    if (selectedToken?.id !== 'bitcoin' || document.visibilityState !== 'visible') {
-      setMempoolTransactions([]);
+  const fetchMempoolTransactions = useCallback(async (page = 1) => {
+  if (selectedToken?.id !== 'bitcoin' || document.visibilityState !== 'visible') {
+    setMempoolTransactions([]);
+    setIsLoadingMempool(false);
+    setMempoolError(null);
+    setCurrentMempoolPage(1);
+    setTotalMempoolPages(1);
+    return;
+  }
+
+  setIsLoadingMempool(true);
+  setMempoolError(null);
+  try {
+    // Fetch BTC price from CoinGecko
+    const btcPriceResponse = await axios.get('https://api.coingecko.com/api/v3/simple/price?ids=bitcoin&vs_currencies=usd', { timeout: 10000 });
+    const btcPrice = btcPriceResponse.data.bitcoin?.usd || 0;
+    if (!btcPrice) {
+      setMempoolError('BTC price not available');
       setIsLoadingMempool(false);
-      setMempoolError(null);
       return;
     }
 
-    setIsLoadingMempool(true);
-    setMempoolError(null);
-    try {
-      // Fetch BTC price from CoinGecko
-      const btcPriceResponse = await axios.get('https://api.coingecko.com/api/v3/simple/price?ids=bitcoin&vs_currencies=usd', { timeout: 10000 });
-      const btcPrice = btcPriceResponse.data.bitcoin?.usd || 0;
-      if (!btcPrice) {
-        setMempoolError('BTC price not available');
-        setIsLoadingMempool(false);
-        return;
-      }
+    const limit = 100; // Fixed limit for pagination
+    const params = {
+      maxAge: MEMPOOL_MAX_AGE,
+      limit,
+      page,
+    };
+    const response = await axios.get('/api/mempool-transactions', {
+      params,
+      headers: {
+        Authorization: session?.accessToken ? `Bearer ${session.accessToken}` : undefined,
+      },
+      timeout: 50000,
+    });
 
-      // Determine params based on initial fetch or polling
-      const isInitial = isInitialMempoolFetch.current && mempoolTransactions.length === 0;
-      const limit = isInitial ? MEMPOOL_INIT_LIMIT : MEMPOOL_POLL_LIMIT;
-      let allRawTxs = [];
-      let currentPage = 1;
-      let hasMore = true;
+    if (response.data.success && Array.isArray(response.data.data)) {
+      const rawTxs = response.data.data;
 
-      while (hasMore) {
-        const params = {
-          maxAge: MEMPOOL_MAX_AGE,
-          limit,
-          page: currentPage,
-        };
-        const response = await axios.get('/api/mempool-transactions', {
-          params,
-          headers: {
-            Authorization: session?.accessToken ? `Bearer ${session.accessToken}` : undefined,
-          },
-          timeout: 50000,
-        });
-
-        if (response.data.success && Array.isArray(response.data.data)) {
-          allRawTxs = [...allRawTxs, ...response.data.data];
-          const pagination = response.data.pagination || {};
-          hasMore = pagination.totalPages > currentPage;
-          if (hasMore) currentPage++;
-          if (isInitial) isInitialMempoolFetch.current = false;
-        } else {
-          setMempoolError('Invalid mempool transaction data');
-          break;
-        }
-      }
-
-      const rawNewTxs = allRawTxs
+      const rawNewTxs = rawTxs
         .filter((tx) => {
           const isNew = !mempoolTxCache.current.has(tx.txid);
           const valueUSD = (tx.value_btc * btcPrice) || 0;
@@ -752,24 +741,33 @@ export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initi
           };
         });
 
-      // Update mempoolTransactions with new data, keeping up to MAX_MEMPOOL_TXS transactions
-      setMempoolTransactions((prev) => {
-        const updated = [...newTxs, ...prev].slice(0, MAX_MEMPOOL_TXS).sort((a, b) => b.timestamp - a.timestamp);
-        return updated;
-      });
-    } catch (error) {
-      const errorMessage =
-        error.response?.status === 401
-          ? 'Unauthorized: Please log in again.'
-          : error.response?.status === 429
-            ? 'Too many requests. Please try again later.'
-            : error.response?.data?.detail || `Failed to fetch mempool transactions: ${error.message}`;
-      setMempoolError(errorMessage);
-      console.error('Mempool transaction fetch error:', { error: errorMessage });
-    } finally {
-      setIsLoadingMempool(false);
+      // Replace with current page data (no append)
+      setMempoolTransactions(newTxs.sort((a, b) => b.timestamp - a.timestamp));
+
+      // Update pagination from response
+      const pagination = response.data.pagination || {};
+      setCurrentMempoolPage(page);
+      setTotalMempoolPages(pagination.totalPages || 1);
+    } else {
+      setMempoolError('Invalid mempool transaction data');
+      setMempoolTransactions([]);
+      setTotalMempoolPages(1);
     }
-  }, [selectedToken, session, fetchNameTagsForAddresses, nameTagsRef]);
+  } catch (error) {
+    const errorMessage =
+      error.response?.status === 401
+        ? 'Unauthorized: Please log in again.'
+        : error.response?.status === 429
+          ? 'Too many requests. Please try again later.'
+          : error.response?.data?.detail || `Failed to fetch mempool transactions: ${error.message}`;
+    setMempoolError(errorMessage);
+    console.error('Mempool transaction fetch error:', { error: errorMessage });
+    setMempoolTransactions([]);
+    setTotalMempoolPages(1);
+  } finally {
+    setIsLoadingMempool(false);
+  }
+}, [selectedToken, session, fetchNameTagsForAddresses, nameTagsRef, setCurrentMempoolPage, setTotalMempoolPages, setMempoolTransactions, setMempoolError, setIsLoadingMempool]);
 
 
   useEffect(() => {
@@ -1570,252 +1568,227 @@ export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initi
   );
 
   const fetchDexData = useCallback(
-    debounce(
-      async (chain, tokenAddress, page = 1, limit = 25) => {
-        if (status !== 'authenticated') {
-          const errorMessage = 'Please log in to access DEX data.';
-          setDexError(errorMessage);
-          setIsLoadingDex(false);
-          return;
-        }
+  debounce(
+    async (chain, tokenAddress, page = 1, limit = 100) => {
+      if (status !== 'authenticated') {
+        const errorMessage = 'Please log in to access DEX data.';
+        setDexError(errorMessage);
+        setIsLoadingDex(false);
+        return;
+      }
 
-        // Handle Bitcoin case - unchanged
-        if (chain === 'bitcoin') {
-          setIsLoadingDex(false);
-          setDexError(null);
-          setDexData({ pools: [], trades: [], poolTokens: {} });
-          fetchMempoolTransactions(); // Trigger mempool data fetch for Bitcoin
-          return;
-        }
-
-        // For EVM chains, fetch token transactions from all supported EVM chains using Etherscan
-        if (!selectedToken || !selectedToken.detail_platforms) {
-          const errorMessage = 'Invalid token data for on-chain transactions';
-          setDexError(errorMessage);
-          setIsLoadingDex(false);
-          toast.error(errorMessage, { position: 'top-center', autoClose: 5000 });
-          return;
-        }
-
-        const availableChains = getAvailableChains().filter(c => !c.testnet); // Exclude testnets
-        if (availableChains.length === 0) {
-          const errorMessage = `No supported EVM chains found for ${selectedToken.symbol}`;
-          setDexError(errorMessage);
-          setIsLoadingDex(false);
-          toast.error(errorMessage, { position: 'top-center', autoClose: 5000 });
-          return;
-        }
-
-        const userId = session?.user?.id || 'anonymous';
-        const now = Date.now();
-        const userRequests = dexRequestTracker.get(userId) || { count: 0, lastReset: now };
-
-        if (now - userRequests.lastReset >= DEX_REQUEST_WINDOW) {
-          dexRequestTracker.set(userId, { count: 1, lastReset: now });
-          setDexRequestCount(1);
-          setLastDexRequestTime(now);
-        } else if (userRequests.count >= DEX_REQUEST_LIMIT) {
-          const errorMessage = 'Too many DEX requests. Please wait a minute and try again.';
-          setDexError(errorMessage);
-          setIsLoadingDex(false);
-          toast.error(errorMessage, { position: 'top-center', autoClose: 5000 });
-          return;
-        } else {
-          dexRequestTracker.set(userId, { count: userRequests.count + 1, lastReset: userRequests.lastReset });
-          setDexRequestCount((prev) => prev + 1);
-        }
-
-        const isAppend = page > 1;
-        const cacheKey = `onchain-tx-${selectedToken.id}${isAppend ? `-page-${page}` : ''}-session_required`;
-        setIsLoadingDex(!isAppend);
+      // Handle Bitcoin case
+      if (chain === 'bitcoin') {
+        setIsLoadingDex(false);
         setDexError(null);
+        setDexData({ pools: [], trades: [], poolTokens: {} });
+        fetchMempoolTransactions(page); // Pass page to mempool fetch
+        return;
+      }
 
-        try {
-          const fetchFn = async () => {
-            const allTrades = [];
-            const uniqueAddresses = new Set();
+      // For EVM chains, fetch token transactions from all supported EVM chains using Etherscan
+      if (!selectedToken || !selectedToken.detail_platforms) {
+        const errorMessage = 'Invalid token data for on-chain transactions';
+        setDexError(errorMessage);
+        setIsLoadingDex(false);
+        toast.error(errorMessage, { position: 'top-center', autoClose: 5000 });
+        return;
+      }
 
-            // Fetch from each available chain
-            const chainPromises = availableChains.map(async (ch) => {
-              const platformId = ch.coingeckoId;
-              const tokenAddr = selectedToken.detail_platforms?.[platformId]?.contract_address;
-              if (!tokenAddr || !tokenAddr.match(/^0x[a-fA-F0-9]{40}$/)) {
-                return { chain: ch.value, trades: [], addresses: new Set() };
-              }
+      const availableChains = getAvailableChains().filter(c => !c.testnet); // Exclude testnets
+      if (availableChains.length === 0) {
+        const errorMessage = `No supported EVM chains found for ${selectedToken.symbol}`;
+        setDexError(errorMessage);
+        setIsLoadingDex(false);
+        toast.error(errorMessage, { position: 'top-center', autoClose: 5000 });
+        return;
+      }
 
-              const payload = {
-                action: 'token-transactions',
-                chain: ch.value,
-                tokenAddress: tokenAddr,
-                page,
-                offset: limit,
-              };
+      const userId = session?.user?.id || 'anonymous';
+      const now = Date.now();
+      const userRequests = dexRequestTracker.get(userId) || { count: 0, lastReset: now };
 
-              const response = await fetch('/api/etherscan', {
-                method: 'POST',
-                headers: {
-                  'Content-Type': 'application/json',
-                  ...(session?.accessToken && { Authorization: `Bearer ${session.accessToken}` }),
-                },
-                body: JSON.stringify(payload),
-              });
+      if (now - userRequests.lastReset >= DEX_REQUEST_WINDOW) {
+        dexRequestTracker.set(userId, { count: 1, lastReset: now });
+        setDexRequestCount(1);
+        setLastDexRequestTime(now);
+      } else if (userRequests.count >= DEX_REQUEST_LIMIT) {
+        const errorMessage = 'Too many DEX requests. Please wait a minute and try again.';
+        setDexError(errorMessage);
+        setIsLoadingDex(false);
+        toast.error(errorMessage, { position: 'top-center', autoClose: 5000 });
+        return;
+      } else {
+        dexRequestTracker.set(userId, { count: userRequests.count + 1, lastReset: userRequests.lastReset });
+        setDexRequestCount((prev) => prev + 1);
+      }
 
-              if (!response.ok) {
-                console.warn(`Failed to fetch token tx for ${ch.value}: ${response.status}`);
-                return { chain: ch.value, trades: [], addresses: new Set() };
-              }
+      const cacheKey = `onchain-tx-${selectedToken.id}-page-${page}-session_required`;
+      setIsLoadingDex(true);
+      setDexError(null);
 
-              const reader = response.body.getReader();
-              const decoder = new TextDecoder();
-              let buffer = '';
-              let trades = [];
+      try {
+        const fetchFn = async () => {
+          const allTrades = [];
+          const uniqueAddresses = new Set();
+          let totalCount = 0; // To calculate approximate total pages
 
-              while (true) {
-                const { done, value } = await reader.read();
-                if (done) break;
-                buffer += decoder.decode(value, { stream: true });
-
-                // Simple parsing for array of objects (adapt from existing streaming logic)
-                try {
-                  const parsed = JSON.parse(buffer);
-                  if (parsed.success && Array.isArray(parsed.data)) {
-                    trades = parsed.data;
-                  }
-                  buffer = '';
-                } catch (e) {
-                  // Continue accumulating
-                }
-              }
-
-              // Local set for this chain's addresses
-              const chainAddresses = new Set();
-
-              // Map to trade format
-              const chainTrades = trades.map((tx) => { // No slice, respect offset
-                const amount = parseFloat(tx.value) / Math.pow(10, parseInt(tx.decimals || 18));
-                const usdValue = amount * (selectedToken.current_price?.[currency] || 0);
-                const gasFee = (BigInt(tx.gasUsed || 0) * BigInt(tx.gasPrice || 0)) / BigInt(10 ** 18);
-
-                chainAddresses.add(tx.from);
-                chainAddresses.add(tx.to);
-
-                return {
-                  tx_hash: tx.txhash,
-                  block_timestamp: new Date(parseInt(tx.timeStamp) * 1000).toISOString(),
-                  tx_from_address: { address: tx.from },
-                  to_token_address: { address: tx.to },
-                  from_token_amount: '0', // For transfer, use to_token_amount
-                  to_token_amount: amount.toString(),
-                  volume_in_usd: usdValue,
-                  pool_name: `${ch.value.toUpperCase()} Transfer`, // Show chain
-                  pool_address: null,
-                  kind: 'transfer', // Custom kind for frontend compatibility
-                  chain: ch.value, // Add chain for display
-                  gas_fee: gasFee.toString(), // Native gas fee in ETH/BNB etc.
-                  decimals: parseInt(tx.tokenDecimal || 18),
-                  symbol: tx.tokenSymbol || selectedToken.symbol,
-                };
-              });
-
-              return { chain: ch.value, trades: chainTrades, addresses: chainAddresses };
-            });
-
-            const results = await Promise.allSettled(chainPromises);
-            results.forEach((result) => {
-              if (result.status === 'fulfilled') {
-                allTrades.push(...result.value.trades);
-                // Union the chain's addresses into the global uniqueAddresses
-                result.value.addresses.forEach(addr => uniqueAddresses.add(addr));
-              }
-            });
-
-            // Fetch nametags for unique EVM addresses
-            const addressesArray = Array.from(uniqueAddresses).filter(addr => addr.match(/^0x[a-fA-F0-9]{40}$/));
-            if (addressesArray.length > 0) {
-              await fetchNameTagsForAddresses(addressesArray);
+          // Fetch from each available chain for the specific page
+          const chainPromises = availableChains.map(async (ch) => {
+            const platformId = ch.coingeckoId;
+            const tokenAddr = selectedToken.detail_platforms?.[platformId]?.contract_address;
+            if (!tokenAddr || !tokenAddr.match(/^0x[a-fA-F0-9]{40}$/)) {
+              return { chain: ch.value, trades: [], addresses: new Set(), total: 0 };
             }
 
-            // Apply nametags
-            const tradesWithTags = allTrades.map((trade) => {
-              const fromAddr = trade.tx_from_address?.address?.toLowerCase();
-              const toAddr = trade.to_token_address?.address?.toLowerCase();
-              const fromTag = fromAddr ? nameTagsRef.current[fromAddr] : null;
-              const toTag = toAddr ? nameTagsRef.current[toAddr] : null;
+            const payload = {
+              action: 'token-transactions',
+              chain: ch.value,
+              tokenAddress: tokenAddr,
+              page,
+              offset: limit,
+            };
+
+            const response = await fetch('/api/etherscan', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                ...(session?.accessToken && { Authorization: `Bearer ${session.accessToken}` }),
+              },
+              body: JSON.stringify(payload),
+            });
+
+            if (!response.ok) {
+              console.warn(`Failed to fetch token tx for ${ch.value}: ${response.status}`);
+              return { chain: ch.value, trades: [], addresses: new Set(), total: 0 };
+            }
+
+            // Assuming API returns JSON directly; adjust if streaming needed
+            const data = await response.json();
+            let trades = [];
+            if (data.success && Array.isArray(data.data)) {
+              trades = data.data;
+              totalCount += trades.length; // Approximate; for real total, API should return count
+            }
+
+            // Local set for this chain's addresses
+            const chainAddresses = new Set();
+
+            // Map to trade format
+            const chainTrades = trades.map((tx) => {
+              const amount = parseFloat(tx.value) / Math.pow(10, parseInt(tx.tokenDecimal || 18));
+              const usdValue = amount * (selectedToken.current_price?.[currency] || 0);
+              const gasFee = (BigInt(tx.gasUsed || 0) * BigInt(tx.gasPrice || 0)) / BigInt(10 ** 18);
+
+              chainAddresses.add(tx.from);
+              chainAddresses.add(tx.to);
 
               return {
-                ...trade,
-                tx_from_address: {
-                  ...trade.tx_from_address,
-                  nameTag: fromTag?.nameTag || null,
-                  image: fromTag?.image || null,
-                },
-                to_token_address: {
-                  ...trade.to_token_address,
-                  nameTag: toTag?.nameTag || null,
-                  image: toTag?.image || null,
-                },
+                tx_hash: tx.txhash || tx.hash,
+                block_timestamp: new Date(parseInt(tx.timeStamp) * 1000).toISOString(),
+                tx_from_address: { address: tx.from },
+                to_token_address: { address: tx.to },
+                from_token_amount: '0', // For transfer, use to_token_amount
+                to_token_amount: amount.toString(),
+                volume_in_usd: usdValue,
+                pool_name: `${ch.value.toUpperCase()} Transfer`, // Show chain
+                pool_address: null,
+                kind: 'transfer', // Custom kind for frontend compatibility
+                chain: ch.value, // Add chain for display
+                gas_fee: gasFee.toString(), // Native gas fee in ETH/BNB etc.
+                decimals: parseInt(tx.tokenDecimal || 18),
+                symbol: tx.tokenSymbol || selectedToken.symbol,
               };
             });
 
-            // Sort by timestamp desc
-            const finalTrades = tradesWithTags.sort((a, b) => new Date(b.block_timestamp) - new Date(a.block_timestamp));
+            return { chain: ch.value, trades: chainTrades, addresses: chainAddresses, total: trades.length };
+          });
 
-            // Pools and poolTokens as empty or fallback since not DEX-specific
-            return { pools: [], trades: finalTrades, poolTokens: {} };
-          };
-
-          const dexDataBatch = await getCachedData(cacheKey, fetchFn, CACHE_DURATIONS.DEFI_POOL, 0, true, session, status);
-
-          if (page === 1) {
-            setDexData(dexDataBatch);
-            setCurrentDexPage(1);
-            setHasMoreDex(dexDataBatch.trades.length >= limit);
-          } else {
-            const newTrades = dexDataBatch.trades;
-            setHasMoreDex(newTrades.length >= limit && newTrades.length > 0);
-            setDexData(prev => ({
-              ...prev,
-              trades: [...prev.trades, ...newTrades]
-            }));
-            setCurrentDexPage(page);
-          }
-
-          setLastDexFetchTime(Date.now());
-        } catch (error) {
-          const safeErrorMessage =
-            error.response?.status === 429
-              ? 'Too many requests from your IP or API limit exceeded. Please try again later.'
-              : error.response?.status === 404
-                ? `No on-chain data found for token ${selectedToken.symbol} on supported EVM chains.`
-                : 'Failed to load on-chain data.';
-          setDexError(safeErrorMessage);
-          toast.error(safeErrorMessage, { position: 'top-center', autoClose: 5000 });
-          if (localCache.current[cacheKey]?.data) {
-            const cachedData = localCache.current[cacheKey].data;
-            if (page === 1) {
-              setDexData(cachedData);
-              setHasMoreDex(cachedData.trades.length >= limit);
-            } else {
-              const newTrades = cachedData.trades;
-              setHasMoreDex(newTrades.length >= limit && newTrades.length > 0);
-              setDexData(prev => ({
-                ...prev,
-                trades: [...prev.trades, ...newTrades]
-              }));
+          const results = await Promise.allSettled(chainPromises);
+          results.forEach((result) => {
+            if (result.status === 'fulfilled') {
+              allTrades.push(...result.value.trades);
+              // Union the chain's addresses into the global uniqueAddresses
+              result.value.addresses.forEach(addr => uniqueAddresses.add(addr));
             }
-          } else {
-            setDexData({ pools: [], trades: [], poolTokens: {} });
-            setHasMoreDex(false);
+          });
+
+          // Fetch nametags for unique EVM addresses
+          const addressesArray = Array.from(uniqueAddresses).filter(addr => addr.match(/^0x[a-fA-F0-9]{40}$/));
+          if (addressesArray.length > 0) {
+            await fetchNameTagsForAddresses(addressesArray);
           }
-        } finally {
-          setIsLoadingDex(false);
-          setIsLoadingMoreDex(false);
+
+          // Apply nametags
+          const tradesWithTags = allTrades.map((trade) => {
+            const fromAddr = trade.tx_from_address?.address?.toLowerCase();
+            const toAddr = trade.to_token_address?.address?.toLowerCase();
+            const fromTag = fromAddr ? nameTagsRef.current[fromAddr] : null;
+            const toTag = toAddr ? nameTagsRef.current[toAddr] : null;
+
+            return {
+              ...trade,
+              tx_from_address: {
+                ...trade.tx_from_address,
+                nameTag: fromTag?.nameTag || null,
+                image: fromTag?.image || null,
+              },
+              to_token_address: {
+                ...trade.to_token_address,
+                nameTag: toTag?.nameTag || null,
+                image: toTag?.image || null,
+              },
+            };
+          });
+
+          // Sort by timestamp desc
+          const finalTrades = tradesWithTags.sort((a, b) => new Date(b.block_timestamp) - new Date(a.block_timestamp));
+
+          // Approximate total pages; in real impl, fetch total count from API or estimate
+          const approxTotalPages = Math.ceil(totalCount / limit) || 1;
+
+          // Pools and poolTokens as empty or fallback since not DEX-specific
+          return { 
+            pools: [], 
+            trades: finalTrades, 
+            poolTokens: {},
+            totalPages: approxTotalPages 
+          };
+        };
+
+        const dexDataBatch = await getCachedData(cacheKey, fetchFn, CACHE_DURATIONS.DEFI_POOL, 0, true, session, status);
+
+        // Always replace trades for the current page (no append)
+        setDexData(dexDataBatch);
+        setCurrentDexPage(page);
+        setTotalDexPages(dexDataBatch.totalPages || 1);
+
+        setLastDexFetchTime(Date.now());
+      } catch (error) {
+        const safeErrorMessage =
+          error.response?.status === 429
+            ? 'Too many requests from your IP or API limit exceeded. Please try again later.'
+            : error.response?.status === 404
+              ? `No on-chain data found for token ${selectedToken.symbol} on supported EVM chains.`
+              : 'Failed to load on-chain data.';
+        setDexError(safeErrorMessage);
+        toast.error(safeErrorMessage, { position: 'top-center', autoClose: 5000 });
+        if (localCache.current[cacheKey]?.data) {
+          const cachedData = localCache.current[cacheKey].data;
+          setDexData(cachedData);
+          setTotalDexPages(cachedData.totalPages || 1);
+        } else {
+          setDexData({ pools: [], trades: [], poolTokens: {} });
+          setTotalDexPages(1);
         }
-      },
-      300
-    ),
-    [session, status, toast, fetchNameTagsForAddresses, nameTagsRef, selectedToken, currency, getAvailableChains, fetchMempoolTransactions]
-  );
+      } finally {
+        setIsLoadingDex(false);
+      }
+    },
+    300
+  ),
+  [session, status, toast, fetchNameTagsForAddresses, nameTagsRef, selectedToken, currency, getAvailableChains, fetchMempoolTransactions, setCurrentDexPage, setTotalDexPages, setDexData, setDexError, setIsLoadingDex, setLastDexFetchTime]
+);
 
   const loadMoreDexData = useCallback(async (chain, tokenAddress) => {
     const nextPage = currentDexPage + 1;
@@ -2972,125 +2945,132 @@ Predict **${selectedToken.symbol}/USD** price movement (1-3 days) in Markdown fo
   }, [onChainData.topHolders]);
 
   return {
-    dailyMarketInteractions,
-    setDailyMarketInteractions,
-    analysis,
-    setAnalysis,
-    analysisLinks,
-    setAnalysisLinks,
-    setPrediction,
-    tokens,
-    loading,
-    error,
-    selectedToken,
-    setSelectedToken,
-    selectedPair,
-    selectedChain,
-    analysis,
-    prediction,
-    priceHistory,
-    timeRange,
-    searchQuery,
-    searchResults,
-    isSearching,
-    isDropdownOpen,
-    analysisLinks,
-    isAnalyzing,
-    isPredicting,
-    onChainData,
-    activeTab,
-    walletAddress,
-    selectedNetwork,
-    isLoadingOnChain,
-    onChainError,
-    selectedWallet,
-    setSelectedWallet,
-    walletBalances,
-    setWalletBalances,
-    isLoadingWalletBalances,
-    setIsLoadingWalletBalances,
-    walletBalancesError,
-    setWalletBalancesError,
-    transactions,
-    setTransactions,
-    isLoadingTransactions,
-    setTransactionsError,
-    walletSearchCount,
-    setWalletSearchCount,
-    lastWalletSearchTime,
-    setLastWalletSearchTime,
-    fetchPriceHistory,
-    setPriceHistory,
-    debouncedHandleTokenSelect,
-    tickerData,
-    isLoadingTickers,
-    tickerError,
-    tickerCache,
-    nameTags,
-    isLoadingNameTags,
-    fetchNameTag,
-    fetchNameTagsForAddresses,
-    setSearchQuery,
-    setIsDropdownOpen,
-    setSelectedChain,
-    setTimeRange,
-    setWalletAddress,
-    setError,
-    debouncedHandleAnalysis,
-    debouncedHandlePrediction,
-    handleWalletSearch,
-    fetchTransactions,
-    fetchOnChainData,
-    handleAddressClick,
-    getAvailableChains,
-    getDefaultChainAndAddress,
-    fetchPublicTreasuryData,
-    fetchTickerData,
-    chains,
-    fetchSupportedChains,
-    dexData,
-    dexError,
-    fetchDexData,
-    dexRequestCount,
-    lastDexRequestTime,
-    isLoadingDex,
-    lastDexFetchTime,
-    setLastDexFetchTime,
-    blockchairRequestCount,
-    setBlockchairRequestCount,
-    lastBlockchairRequestTime,
-    setLastBlockchairRequestTime,
-    currency, // Add currency
-    setCurrency, // Add setCurrency
-    availableCurrencies,
-    trendingTokens,
-    isLoadingTrending,
-    trendingError,
-    fetchTrendingTokens,
-    isLoadingSelectedToken, // Add new state
-    localCache,
-    // Constants
-    SUPPORTED_CHAINS,
-    WALLET_SEARCH_LIMIT,
-    WALLET_SEARCH_WINDOW,
-    BLOCKCHAIR_REQUEST_LIMIT,
-    BLOCKCHAIR_REQUEST_WINDOW,
-    NON_EVM_CHAINS,
-    lastFetchedTokenRef,
-    // Refs
-    lastFetchedTokenRef,
-    prevTopHoldersRef,
-    prevAvailableChainsRef,
-    blockchairCache,
-    analysisLogs,
-    setIsAnalyzing,
-    setIsPredicting,
-    mempoolTransactions,
-    isLoadingMempool,
-    mempoolError,
-    fetchMempoolTransactions,
-    loadMoreDexData,
-    hasMoreDex,
-    isLoadingMoreDex,
-  };
+  dailyMarketInteractions,
+  setDailyMarketInteractions,
+  analysis,
+  setAnalysis,
+  analysisLinks,
+  setAnalysisLinks,
+  setPrediction,
+  tokens,
+  loading,
+  error,
+  selectedToken,
+  setSelectedToken,
+  selectedPair,
+  selectedChain,
+  analysis,
+  prediction,
+  priceHistory,
+  timeRange,
+  searchQuery,
+  searchResults,
+  isSearching,
+  isDropdownOpen,
+  analysisLinks,
+  isAnalyzing,
+  isPredicting,
+  onChainData,
+  activeTab,
+  walletAddress,
+  selectedNetwork,
+  isLoadingOnChain,
+  onChainError,
+  selectedWallet,
+  setSelectedWallet,
+  walletBalances,
+  setWalletBalances,
+  isLoadingWalletBalances,
+  setIsLoadingWalletBalances,
+  walletBalancesError,
+  setWalletBalancesError,
+  transactions,
+  setTransactions,
+  isLoadingTransactions,
+  setTransactionsError,
+  walletSearchCount,
+  setWalletSearchCount,
+  lastWalletSearchTime,
+  setLastWalletSearchTime,
+  fetchPriceHistory,
+  setPriceHistory,
+  debouncedHandleTokenSelect,
+  tickerData,
+  isLoadingTickers,
+  tickerError,
+  tickerCache,
+  nameTags,
+  isLoadingNameTags,
+  fetchNameTag,
+  fetchNameTagsForAddresses,
+  setSearchQuery,
+  setIsDropdownOpen,
+  setSelectedChain,
+  setTimeRange,
+  setWalletAddress,
+  setError,
+  debouncedHandleAnalysis,
+  debouncedHandlePrediction,
+  handleWalletSearch,
+  fetchTransactions,
+  fetchOnChainData,
+  handleAddressClick,
+  getAvailableChains,
+  getDefaultChainAndAddress,
+  fetchPublicTreasuryData,
+  fetchTickerData,
+  chains,
+  fetchSupportedChains,
+  dexData,
+  dexError,
+  fetchDexData,
+  dexRequestCount,
+  lastDexRequestTime,
+  isLoadingDex,
+  lastDexFetchTime,
+  setLastDexFetchTime,
+  blockchairRequestCount,
+  setBlockchairRequestCount,
+  lastBlockchairRequestTime,
+  setLastBlockchairRequestTime,
+  currency, // Add currency
+  setCurrency, // Add setCurrency
+  availableCurrencies,
+  trendingTokens,
+  isLoadingTrending,
+  trendingError,
+  fetchTrendingTokens,
+  isLoadingSelectedToken, // Add new state
+  localCache,
+  // Constants
+  SUPPORTED_CHAINS,
+  WALLET_SEARCH_LIMIT,
+  WALLET_SEARCH_WINDOW,
+  BLOCKCHAIR_REQUEST_LIMIT,
+  BLOCKCHAIR_REQUEST_WINDOW,
+  NON_EVM_CHAINS,
+  lastFetchedTokenRef,
+  // Refs
+  lastFetchedTokenRef,
+  prevTopHoldersRef,
+  prevAvailableChainsRef,
+  blockchairCache,
+  analysisLogs,
+  setIsAnalyzing,
+  setIsPredicting,
+  mempoolTransactions,
+  isLoadingMempool,
+  mempoolError,
+  fetchMempoolTransactions,
+  // Removed: loadMoreDexData, hasMoreDex, isLoadingMoreDex
+  // Added for pagination
+  currentDexPage,
+  setCurrentDexPage,
+  totalDexPages,
+  setTotalDexPages,
+  currentMempoolPage,
+  setCurrentMempoolPage,
+  totalMempoolPages,
+  setTotalMempoolPages,
+};
 };
