@@ -1,7 +1,7 @@
 {
   "0x00000000219ab540356cbb839cbe05303d7705fa": {
     "Address": "0x00000000219ab540356cbb839cbe05303d7705fa",
-    "Balance": 69433608.06897621,
+    "Balance": 71173413.34032623,
     "Labels": {
       "ethereum": {
         "Name Tag": "Beacon Deposit Contract",
@@ -13,7 +13,7 @@
   },
   "0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2": {
     "Address": "0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2",
-    "Balance": 2342933.55995205,
+    "Balance": 2316563.7995093,
     "Labels": {
       "ethereum": {
         "Name Tag": "Wrapped Ether",
@@ -25,7 +25,7 @@
   },
   "0xbe0eb53f46cd790cd13851d5eff43d12404d33e8": {
     "Address": "0xbe0eb53f46cd790cd13851d5eff43d12404d33e8",
-    "Balance": 1996008.37038775,
+    "Balance": 1996008.37046653,
     "Labels": {
       "ethereum": {
         "Name Tag": "Binance 7",
@@ -49,7 +49,7 @@
   },
   "0x49048044d57e1c92a77f79988d21fa8faf74e97e": {
     "Address": "0x49048044d57e1c92a77f79988d21fa8faf74e97e",
-    "Balance": 715628.57759458,
+    "Balance": 725294.2967861,
     "Labels": {
       "ethereum": {
         "Name Tag": "Base: Base Portal",
@@ -61,7 +61,7 @@
   },
   "0x0e58e8993100f1cbe45376c410f97f4893d9bfcd": {
     "Address": "0x0e58e8993100f1cbe45376c410f97f4893d9bfcd",
-    "Balance": 759657.33069316,
+    "Balance": 781615.62249874,
     "Labels": {
       "ethereum": {
         "Name Tag": "Upbit 41",
@@ -73,7 +73,7 @@
   },
   "0x8315177ab297ba92a06054ce80a67ed4dbd7ed3a": {
     "Address": "0x8315177ab297ba92a06054ce80a67ed4dbd7ed3a",
-    "Balance": 787647.26471745,
+    "Balance": 768099.80169468,
     "Labels": {
       "ethereum": {
         "Name Tag": "Arbitrum: Bridge",
@@ -85,7 +85,7 @@
   },
   "0xf977814e90da44bfa03b6295a0616a897441acec": {
     "Address": "0xf977814e90da44bfa03b6295a0616a897441acec",
-    "Balance": 638622.39644326,
+    "Balance": 638622.38448315,
     "Labels": {
       "ethereum": {
         "Name Tag": "Binance: Hot Wallet 20",
@@ -121,19 +121,19 @@
   },
   "0x8d05d9924fe935bd533a844271a1b2078eae6fcf": {
     "Address": "0x8d05d9924fe935bd533a844271a1b2078eae6fcf",
-    "Balance": 329444.01793543,
+    "Balance": 329444.01803643,
     "Labels": {
       "ethereum": {
-        "Name Tag": null,
+        "Name Tag": "Kraken: Cold Wallet 3",
         "Description": null,
         "Subcategory": "Others",
-        "image": null
+        "image": "/icons/kraken.webp"
       }
     }
   },
   "0xca8fa8f0b631ecdb18cda619c4fc9d197c8affca": {
     "Address": "0xca8fa8f0b631ecdb18cda619c4fc9d197c8affca",
-    "Balance": 325000.48296047,
+    "Balance": 325000.48309894,
     "Labels": {
       "ethereum": {
         "Name Tag": null,
@@ -145,7 +145,7 @@
   },
   "0x61edcdf5bb737adffe5043706e7c5bb1f1a56eea": {
     "Address": "0x61edcdf5bb737adffe5043706e7c5bb1f1a56eea",
-    "Balance": 309498.97066154,
+    "Balance": 279498.97066154,
     "Labels": {
       "ethereum": {
         "Name Tag": "Gemini 3",
@@ -169,7 +169,7 @@
   },
   "0xd3a22590f8243f8e83ac230d1842c9af0404c4a1": {
     "Address": "0xd3a22590f8243f8e83ac230d1842c9af0404c4a1",
-    "Balance": 270810.97464857,
+    "Balance": 192583.86240864,
     "Labels": {
       "ethereum": {
         "Name Tag": "Ceffu: Custody Hot Wallet 2",
@@ -184,10 +184,10 @@
     "Balance": 292784.45884044,
     "Labels": {
       "ethereum": {
-        "Name Tag": null,
+        "Name Tag": "Kraken: Cold Wallet 4",
         "Description": null,
         "Subcategory": "Others",
-        "image": null
+        "image": "/icons/kraken.webp"
       }
     }
   },
@@ -217,7 +217,7 @@
   },
   "0xafcd96e580138cfa2332c632e66308eacd45c5da": {
     "Address": "0xafcd96e580138cfa2332c632e66308eacd45c5da",
-    "Balance": 259713.80200112,
+    "Balance": 297763.80209203,
     "Labels": {
       "ethereum": {
         "Name Tag": null,
@@ -229,7 +229,7 @@
   },
   "0x0a4c79ce84202b03e95b7a692e5d728d83c44c76": {
     "Address": "0x0a4c79ce84202b03e95b7a692e5d728d83c44c76",
-    "Balance": 154247.95525163,
+    "Balance": 154247.95533041,
     "Labels": {
       "ethereum": {
         "Name Tag": null,
@@ -259,7 +259,7 @@
         "Name Tag": "Rain Lohmus",
         "Description": null,
         "Subcategory": "Others",
-        "image": "/icons/default.webp"
+        "image": null
       }
     }
   },
@@ -301,13 +301,13 @@
   },
   "0x220866b1a2219f40e72f5c628b65d54268ca3a9d": {
     "Address": "0x220866b1a2219f40e72f5c628b65d54268ca3a9d",
-    "Balance": 240000.00206029,
+    "Balance": 240000.0022714,
     "Labels": {
       "ethereum": {
         "Name Tag": "Vb 3",
         "Description": null,
         "Subcategory": "Others",
-        "image": "/icons/default.webp"
+        "image": null
       }
     }
   },
@@ -325,7 +325,7 @@
   },
   "0x17e5545b11b468072283cee1f066a059fb0dbf24": {
     "Address": "0x17e5545b11b468072283cee1f066a059fb0dbf24",
-    "Balance": 221248.88133409,
+    "Balance": 217590.33215012,
     "Labels": {
       "ethereum": {
         "Name Tag": null,
@@ -373,7 +373,7 @@
   },
   "0x322b47ff1fa8d5611f761e3e275c45b71b294d43": {
     "Address": "0x322b47ff1fa8d5611f761e3e275c45b71b294d43",
-    "Balance": 185725.92194345,
+    "Balance": 179793.65239648,
     "Labels": {
       "ethereum": {
         "Name Tag": null,
@@ -409,7 +409,7 @@
   },
   "0xde0b295669a9fd93d5f28d9ec85e40f4cb697bae": {
     "Address": "0xde0b295669a9fd93d5f28d9ec85e40f4cb697bae",
-    "Balance": 172774.4054742,
+    "Balance": 172774.41894683,
     "Labels": {
       "ethereum": {
         "Name Tag": "EthDev",
@@ -427,7 +427,7 @@
         "Name Tag": "QuadrigaCX 4",
         "Description": null,
         "Subcategory": "Others",
-        "image": "/icons/default.webp"
+        "image": null
       }
     }
   },
@@ -457,7 +457,7 @@
   },
   "0xd19d4b5d358258f05d7b411e21a1460d11b0876f": {
     "Address": "0xd19d4b5d358258f05d7b411e21a1460d11b0876f",
-    "Balance": 151274.02559391,
+    "Balance": 119484.58534355,
     "Labels": {
       "ethereum": {
         "Name Tag": "Linea: L1 Message Service",
@@ -469,7 +469,7 @@
   },
   "0x742d35cc6634c0532925a3b844bc454e4438f44e": {
     "Address": "0x742d35cc6634c0532925a3b844bc454e4438f44e",
-    "Balance": 153977.81286881,
+    "Balance": 101090.66793742,
     "Labels": {
       "ethereum": {
         "Name Tag": "Bitfinex 2",
@@ -481,7 +481,7 @@
   },
   "0x73af3bcf944a6559933396c1577b257e2054d935": {
     "Address": "0x73af3bcf944a6559933396c1577b257e2054d935",
-    "Balance": 157434.51563236,
+    "Balance": 171442.51563037,
     "Labels": {
       "ethereum": {
         "Name Tag": "Robinhood 6",
@@ -517,7 +517,7 @@
   },
   "0xa023f08c70a23abc7edfc5b6b5e171d78dfc947e": {
     "Address": "0xa023f08c70a23abc7edfc5b6b5e171d78dfc947e",
-    "Balance": 126379.25849291,
+    "Balance": 122462.41316303,
     "Labels": {
       "ethereum": {
         "Name Tag": "Crypto.com 22",
@@ -529,7 +529,7 @@
   },
   "0xa160cdab225685da1d56aa342ad8841c3b53f291": {
     "Address": "0xa160cdab225685da1d56aa342ad8841c3b53f291",
-    "Balance": 135700,
+    "Balance": 138000,
     "Labels": {
       "ethereum": {
         "Name Tag": "Tornado.Cash: 100 ETH",
@@ -571,13 +571,13 @@
         "Name Tag": "Iconomi: MultiSig 1",
         "Description": null,
         "Subcategory": "Others",
-        "image": "/icons/default.webp"
+        "image": null
       }
     }
   },
   "0x8484ef722627bf18ca5ae6bcf031c23e6e922b30": {
     "Address": "0x8484ef722627bf18ca5ae6bcf031c23e6e922b30",
-    "Balance": 115601.51875389,
+    "Balance": 114540.04333491,
     "Labels": {
       "ethereum": {
         "Name Tag": "Polygon (Matic): Ether Bridge",
@@ -745,7 +745,7 @@
   },
   "0xde6cf64ec6ad9fc35b38fff55cae1f469cbc1703": {
     "Address": "0xde6cf64ec6ad9fc35b38fff55cae1f469cbc1703",
-    "Balance": 110379.25181517,
+    "Balance": 117276.28101228,
     "Labels": {
       "ethereum": {
         "Name Tag": null,
@@ -961,7 +961,7 @@
   },
   "0x3727cfcbd85390bb11b3ff421878123adb866be8": {
     "Address": "0x3727cfcbd85390bb11b3ff421878123adb866be8",
-    "Balance": 89708.22046545,
+    "Balance": 90699.72262845,
     "Labels": {
       "ethereum": {
         "Name Tag": "Bitbank 2",
@@ -985,7 +985,7 @@
   },
   "0xc882b111a75c0c657fc507c04fbfcd2cc984f071": {
     "Address": "0xc882b111a75c0c657fc507c04fbfcd2cc984f071",
-    "Balance": 135472.9876755,
+    "Balance": 148516.80697029,
     "Labels": {
       "ethereum": {
         "Name Tag": "Gate Dep: 0xc882b111a75c0c657fc507c04fbfcd2cc984f071",
@@ -1165,7 +1165,7 @@
   },
   "0xdf9eb223bafbe5c5271415c75aecd68c21fe3d7f": {
     "Address": "0xdf9eb223bafbe5c5271415c75aecd68c21fe3d7f",
-    "Balance": 80492.90445523,
+    "Balance": 80723.50984466,
     "Labels": {
       "ethereum": {
         "Name Tag": "Liquity: Active Pool",
@@ -1195,13 +1195,13 @@
         "Name Tag": "Multisig Exploit Hacker",
         "Description": null,
         "Subcategory": "Others",
-        "image": "/icons/default.webp"
+        "image": null
       }
     }
   },
   "0x28c6c06298d514db089934071355e5743bf21d60": {
     "Address": "0x28c6c06298d514db089934071355e5743bf21d60",
-    "Balance": 209202.79510727,
+    "Balance": 92089.32237686,
     "Labels": {
       "ethereum": {
         "Name Tag": "Binance 14",
@@ -1213,19 +1213,19 @@
   },
   "0xf30ba13e4b04ce5dc4d254ae5fa95477800f0eb0": {
     "Address": "0xf30ba13e4b04ce5dc4d254ae5fa95477800f0eb0",
-    "Balance": 203306.27675807,
+    "Balance": 284341.21052339,
     "Labels": {
       "ethereum": {
-        "Name Tag": null,
+        "Name Tag": "Kraken: Hot Wallet 2",
         "Description": null,
         "Subcategory": "Others",
-        "image": null
+        "image": "/icons/kraken.webp"
       }
     }
   },
   "0xb61a16bda6d61d9b8ad493bf05962c5b98d1712f": {
     "Address": "0xb61a16bda6d61d9b8ad493bf05962c5b98d1712f",
-    "Balance": 198300.0000101,
+    "Balance": 198300.00003333,
     "Labels": {
       "ethereum": {
         "Name Tag": null,
@@ -1237,7 +1237,7 @@
   },
   "0xd2dd7b597fd2435b6db61ddf48544fd931e6869f": {
     "Address": "0xd2dd7b597fd2435b6db61ddf48544fd931e6869f",
-    "Balance": 180996.85881394,
+    "Balance": 149578.82879611,
     "Labels": {
       "ethereum": {
         "Name Tag": null,
@@ -1333,19 +1333,19 @@
   },
   "0xbf4ed7b27f1d666546e30d74d50d173d20bca754": {
     "Address": "0xbf4ed7b27f1d666546e30d74d50d173d20bca754",
-    "Balance": 82189.25818864,
+    "Balance": 82189.01887671,
     "Labels": {
       "ethereum": {
         "Name Tag": "WithdrawDAO",
         "Description": null,
         "Subcategory": "Others",
-        "image": "/icons/default.webp"
+        "image": null
       }
     }
   },
   "0xc54cb22944f2be476e02decfcd7e3e7d3e15a8fb": {
     "Address": "0xc54cb22944f2be476e02decfcd7e3e7d3e15a8fb",
-    "Balance": 81887.56346368,
+    "Balance": 82549.47642836,
     "Labels": {
       "ethereum": {
         "Name Tag": "Mantle: Proxy",
@@ -1394,6 +1394,66 @@
   "0xc39cc669a548c661dfa6b5a1eeaa389d1ec53143": {
     "Address": "0xc39cc669a548c661dfa6b5a1eeaa389d1ec53143",
     "Balance": 80000.00046879,
+    "Labels": {
+      "ethereum": {
+        "Name Tag": null,
+        "Description": null,
+        "Subcategory": "Others",
+        "image": null
+      }
+    }
+  },
+  "0x02d613c8e5646bf3649c6a32ea0367880a0fb392": {
+    "Address": "0x02d613c8e5646bf3649c6a32ea0367880a0fb392",
+    "Balance": 79461.38449833,
+    "Labels": {
+      "ethereum": {
+        "Name Tag": null,
+        "Description": null,
+        "Subcategory": "Others",
+        "image": null
+      }
+    }
+  },
+  "0x918fa381cb534677bad24afb29cb3c2acaf16385": {
+    "Address": "0x918fa381cb534677bad24afb29cb3c2acaf16385",
+    "Balance": 79340.38169495,
+    "Labels": {
+      "ethereum": {
+        "Name Tag": null,
+        "Description": null,
+        "Subcategory": "Others",
+        "image": null
+      }
+    }
+  },
+  "0xd2b0b1daed605718080f861034d3241f1cfd89cb": {
+    "Address": "0xd2b0b1daed605718080f861034d3241f1cfd89cb",
+    "Balance": 79122.43033994,
+    "Labels": {
+      "ethereum": {
+        "Name Tag": null,
+        "Description": null,
+        "Subcategory": "Others",
+        "image": null
+      }
+    }
+  },
+  "0xbddf00563c9abd25b576017f08c46982012f12be": {
+    "Address": "0xbddf00563c9abd25b576017f08c46982012f12be",
+    "Balance": 79001.39802796,
+    "Labels": {
+      "ethereum": {
+        "Name Tag": null,
+        "Description": null,
+        "Subcategory": "Others",
+        "image": null
+      }
+    }
+  },
+  "0xbed1eb542f9a5aa6419ff3deb921a372681111f6": {
+    "Address": "0xbed1eb542f9a5aa6419ff3deb921a372681111f6",
+    "Balance": 75008.78396256,
     "Labels": {
       "ethereum": {
         "Name Tag": null,

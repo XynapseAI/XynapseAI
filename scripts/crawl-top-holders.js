@@ -274,7 +274,7 @@ async function saveHoldersToJson(holders, chainLabel) {
 
       // Update or add holders
       holders.forEach((holder) => {
-        const addr = holder.address.toLowerCase();
+        const addr = holder.address;
         existingData[addr] = {
           Address: addr,
           Balance: holder.balance,
@@ -321,7 +321,7 @@ async function crawlEtherscanTopHolders(url, chainName, chainLabel) {
 
         const addressAnchor = $(tds[1]).find('a[href^="/address/"]').first();
         if (!addressAnchor.length) return;
-        const address = addressAnchor.attr("href").split("/").pop().toLowerCase();
+        const address = addressAnchor.attr("href").split("/").pop();
         if (!address) return;
 
         let nameTag = cleanText($(tds[2]).text());
@@ -405,7 +405,7 @@ async function crawlBitinfochartsTopHolders(urls, chainName, chainLabel) {
               console.warn(`[${chainName}] Skipping row ${index + 1} in ${tableSelector}: Could not extract address from href`);
               return;
             }
-            const address = addressMatch[1].toLowerCase();
+            const address = addressMatch[1];
             if (!address) {
               console.warn(`[${chainName}] Skipping row ${index + 1} in ${tableSelector}: Empty address`);
               return;
@@ -508,7 +508,7 @@ async function crawlBitboTopHolders(url, chainName, chainLabel) {
         if (!href) return;
         const addressMatch = href.match(/\/treasuries\/([^\?\/]+)/);
         if (!addressMatch || !addressMatch[1]) return;
-        const address = addressMatch[1].toLowerCase();
+        const address = addressMatch[1];
 
         const balanceRaw = $(tds[4]).text().trim();
         const balanceNumeric = balanceRaw.replace(/,/g, "").match(/[\d.]+/);
