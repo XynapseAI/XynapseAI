@@ -1571,7 +1571,7 @@ export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initi
 
   const fetchDexData = useCallback(
     debounce(
-      async (chain, tokenAddress, page = 1) => {
+      async (chain, tokenAddress, page = 1, offset = 200) => { // Increased default offset to 200
         if (status !== 'authenticated') {
           const errorMessage = 'Please log in to access DEX data.';
           setDexError(errorMessage);
@@ -1628,6 +1628,7 @@ export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initi
         const isAppend = page > 1;
         const cacheKey = `onchain-tx-${selectedToken.id}${isAppend ? `-page-${page}` : ''}-session_required`;
         setIsLoadingDex(!isAppend);
+        setIsLoadingMoreDex(isAppend);
         setDexError(null);
 
         try {
@@ -1648,7 +1649,7 @@ export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initi
                 chain: ch.value,
                 tokenAddress: tokenAddr,
                 page,
-                offset: 25,
+                offset, // Use the passed offset
               };
 
               const response = await fetch('/api/etherscan', {
@@ -1769,12 +1770,10 @@ export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initi
           if (page === 1) {
             setDexData(dexDataBatch);
             setCurrentDexPage(1);
-            setHasMoreDex(true);
+            setHasMoreDex(dexDataBatch.trades.length >= offset); // Check if full page loaded
           } else {
             const newTrades = dexDataBatch.trades;
-            if (newTrades.length < 25) {
-              setHasMoreDex(false);
-            }
+            setHasMoreDex(newTrades.length >= offset); // Update hasMore based on last fetch
             setDexData(prev => ({
               ...prev,
               trades: [...prev.trades, ...newTrades]
@@ -1819,10 +1818,10 @@ export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initi
     if (!selectedToken || dexError || isLoadingMoreDex || !hasMoreDex) return;
     const { chain, tokenAddress } = getDefaultChainAndAddress(selectedToken, selectedChain);
     if (!chain || !tokenAddress) return;
-    await fetchDexData(chain, tokenAddress, currentDexPage + 1);
+    await fetchDexData(chain, tokenAddress, currentDexPage + 1, 200); // Pass higher offset
   }, [selectedToken, dexError, isLoadingMoreDex, hasMoreDex, getDefaultChainAndAddress, currentDexPage, fetchDexData]);
 
-  // Update the useEffect for dex data fetch to pass page=1:
+  // Update the useEffect for dex data fetch to pass page=1 and offset=200:
   useEffect(() => {
     if (!selectedToken?.id || ['bitcoin', 'ethereum'].includes(selectedToken.id.toLowerCase()) || document.visibilityState !== 'visible') {
       return;
@@ -1833,8 +1832,8 @@ export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initi
       return;
     }
 
-    // Initial fetch
-    fetchDexData(chain, tokenAddress, 1);
+    // Initial fetch with higher offset
+    fetchDexData(chain, tokenAddress, 1, 200);
 
     // Set up interval for background refresh (only initial)
     const interval = setInterval(() => {
@@ -1844,7 +1843,7 @@ export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initi
         return;
       }
       if (document.visibilityState === 'visible') {
-        fetchDexData(chain, tokenAddress, 1);
+        fetchDexData(chain, tokenAddress, 1, 200);
       }
     }, CACHE_DURATIONS.DEFI_POOL);
 
