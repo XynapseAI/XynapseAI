@@ -105,9 +105,9 @@ async function trackViolation(ip, reason) {
 
 async function checkRateLimit(ip, userId = null) {
     const client = await getRedisClient();
-    const windowSeconds = 15 * 60; // 15 minutes
-    const ipMax = process.env.NODE_ENV === 'development' ? 100 : 50;
-    const userMax = process.env.NODE_ENV === 'development' ? 50 : 30;
+    const windowSeconds = 5 * 60; // 15 minutes
+    const ipMax = process.env.NODE_ENV === 'development' ? 100 : 10;
+    const userMax = process.env.NODE_ENV === 'development' ? 50 : 10;
 
     const multi = client.multi();
     const ipKey = `rate:ip:${ip}`;

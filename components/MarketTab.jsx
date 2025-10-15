@@ -660,11 +660,76 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
       opacity: 1,
       y: 0,
       transition: {
-        duration: 0.2,
+        duration: isMobile ? 0 : 0.2,
         ease: [0.25, 0.46, 0.45, 0.94],
       },
     },
   };
+
+  // Skeleton row components for each table
+  const HoldersSkeletonRow = () => (
+    <div className="flex border-t border-white/10 bg-black/80 px-3 py-2 text-[9px] sm:text-[11px]">
+      <div className="flex-1 flex items-center gap-2">
+        <div className="w-5 h-5 bg-white/10 rounded-md animate-pulse"></div>
+        <div className="flex flex-col space-y-1">
+          <div className="h-3 bg-white/10 rounded animate-pulse w-20"></div>
+          <div className="h-2.5 bg-white/10 rounded animate-pulse w-16"></div>
+        </div>
+      </div>
+      <div className="w-28">
+        <div className="h-4 bg-white/10 rounded animate-pulse w-12 mx-auto"></div>
+      </div>
+    </div>
+  );
+
+  const CexSkeletonRow = () => (
+    <div className="flex border-t border-white/10 hover:bg-black/80 px-3 py-2 text-[9px] sm:text-[11px]">
+      <div className="flex-[2] flex items-center justify-center gap-2">
+        <div className="w-5 h-5 bg-white/10 rounded-md animate-pulse"></div>
+        <div className="h-3 bg-white/10 rounded animate-pulse w-20"></div>
+      </div>
+      <div className="flex-1">
+        <div className="h-3 bg-white/10 rounded animate-pulse w-10 mx-auto"></div>
+      </div>
+      <div className="flex-1">
+        <div className="h-4 bg-white/10 rounded animate-pulse w-16 mx-auto"></div>
+      </div>
+      <div className="flex-1">
+        <div className="h-4 bg-white/10 rounded animate-pulse w-20 mx-auto"></div>
+      </div>
+      <div className="flex-1">
+        <div className="h-3 bg-white/10 rounded animate-pulse w-16 mx-auto"></div>
+      </div>
+    </div>
+  );
+
+  const DexSkeletonRow = () => (
+    <div className="flex border-t border-white/10 bg-black/80 p-3 text-[9px] sm:text-[11px]">
+      <div className="flex-1 flex flex-col gap-1 items-center justify-center">
+        <div className="w-3 h-3 bg-white/10 rounded animate-pulse"></div>
+        <div className="h-2 bg-white/10 rounded animate-pulse w-20"></div>
+      </div>
+      <div className="flex-[2] flex items-center justify-center gap-2">
+        <div className="w-3 h-3 bg-white/10 rounded-md animate-pulse"></div>
+        <div className="h-3 bg-white/10 rounded animate-pulse w-16"></div>
+      </div>
+      <div className="flex-[2] flex items-center justify-center gap-2">
+        <div className="w-3 h-3 bg-white/10 rounded-md animate-pulse"></div>
+        <div className="h-3 bg-white/10 rounded animate-pulse w-16"></div>
+      </div>
+      <div className="flex-1 flex flex-col gap-1 items-center justify-center">
+        <div className="h-3 bg-white/10 rounded animate-pulse w-12"></div>
+        <div className="h-2 bg-white/10 rounded animate-pulse w-16"></div>
+      </div>
+      <div className="flex-1 flex flex-col gap-1 items-center justify-center">
+        <div className="h-3 bg-white/10 rounded animate-pulse w-12"></div>
+        <div className="w-3 h-3 bg-white/10 rounded-full animate-pulse"></div>
+      </div>
+      <div className="flex-1 flex items-center justify-center">
+        <div className="w-4 h-4 bg-white/10 rounded animate-pulse"></div>
+      </div>
+    </div>
+  );
 
   return (
     <motion.section
@@ -1506,9 +1571,9 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                     TOP HOLDERS
                     {activeMarketTab === "holders" && (
                       <motion.div
-                        className="absolute bottom-0 left-0 right-0"
-                        layoutId="activeTab"
-                        transition={{ duration: 0.3, ease: "easeInOut" }}
+                        className="absolute bottom-0 left-0 right-0 h-0.5 bg-gradient-to-r from-neon-blue to-emerald-400"
+                        layoutId="activeTabIndicator"
+                        transition={{ duration: 0.4, ease: "easeInOut" }}
                       />
                     )}
                   </motion.button>
@@ -1528,9 +1593,9 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                     CEX MARKETS
                     {activeMarketTab === "cex" && (
                       <motion.div
-                        className="absolute bottom-0 left-0 right-0"
-                        layoutId="activeTab"
-                        transition={{ duration: 0.3, ease: "easeInOut" }}
+                        className="absolute bottom-0 left-0 right-0 h-0.5 bg-gradient-to-r from-neon-blue to-emerald-400"
+                        layoutId="activeTabIndicator"
+                        transition={{ duration: 0.4, ease: "easeInOut" }}
                       />
                     )}
                   </motion.button>
@@ -1547,9 +1612,9 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                     ON-CHAIN
                     {activeMarketTab === "dex" && (
                       <motion.div
-                        className="absolute bottom-0 left-0 right-0"
-                        layoutId="activeTab"
-                        transition={{ duration: 0.3, ease: "easeInOut" }}
+                        className="absolute bottom-0 left-0 right-0 h-0.5 bg-gradient-to-r from-neon-blue to-emerald-400"
+                        layoutId="activeTabIndicator"
+                        transition={{ duration: 0.4, ease: "easeInOut" }}
                       />
                     )}
                   </motion.button>
@@ -1598,8 +1663,16 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                               </h4>
                             </div>
                             {isLoadingOnChain ? (
-                              <div className="text-sm text-white/60 text-center p-6">
-                                {/* Loading handled by LoadingOverlay */}
+                              <div className="flex flex-col h-[600px]">
+                                <div className="flex bg-black/80 border-b border-white/10 p-2 font-semibold text-white text-[10px] sticky top-0 z-10">
+                                  <div className="flex-1">Address/Name</div>
+                                  <div className="w-28 text-right">Balance</div>
+                                </div>
+                                <div className="flex-1 overflow-y-auto">
+                                  {Array.from({ length: 10 }).map((_, i) => (
+                                    <HoldersSkeletonRow key={i} />
+                                  ))}
+                                </div>
                               </div>
                             ) : onChainError && !NON_EVM_CHAINS.includes(selectedToken?.id.toLowerCase()) ? (
                               <div className="text-sm text-center p-6">
@@ -1629,7 +1702,7 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
 
                                     const HolderRow = React.memo(() => (
                                       <motion.div
-                                        className="flex border-t border-white/10 bg-black/80 px-3 py-2 text-[9px] sm:text-[11px]"
+                                        className={`flex border-t border-white/10 bg-black/80 px-3 py-2 text-[9px] sm:text-[11px] ${isMobile ? 'will-change-transform' : ''}`}
                                         variants={rowVariants}
                                         initial="hidden"
                                         animate="visible"
@@ -1725,67 +1798,78 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                             </motion.button>
                           </div>
                         ) : isLoadingTickers && !tickerData?.length ? (
-                          <SkeletonLoader count={5} isMobile={isMobile} />
+                          <div className="h-[600px] flex flex-col">
+                            <div className="flex bg-black/80 border-b border-white/10 p-2 font-semibold text-white text-[9px] sm:text-[11px] sticky top-0 z-10">
+                              <div className="flex-[2] text-center">Market</div>
+                              <div className="flex-1 text-center">Pair</div>
+                              <div className="flex-1 text-center">Price</div>
+                              <div className="flex-1 text-center">Volume</div>
+                              <div className="flex-1 text-center">Last Traded</div>
+                            </div>
+                            <div className="flex-1 overflow-y-auto">
+                              {Array.from({ length: 5 }).map((_, i) => (
+                                <CexSkeletonRow key={i} />
+                              ))}
+                            </div>
+                          </div>
                         ) : tickerData.length > 0 ? (
-                          <Virtuoso
-                            style={{ height: '600px', overflow: 'auto', scrollbarWidth: 'none', msOverflowStyle: 'none' }}
-                            className="hide-scrollbar"
-                            data={tickerData.slice(0, 30)}
-                            itemContent={(index, ticker) => {
-                              const TickerRow = React.memo(() => (
-                                <motion.div
-                                  className="flex border-t border-white/10 hover:bg-black/80 px-3 py-2 text-[9px] sm:text-[11px]"
-                                  variants={rowVariants}
-                                  initial="hidden"
-                                  animate="visible"
-                                >
-                                  <div className="flex-[2] flex items-center justify-center gap-2">
-                                    {ticker.market.logo && (
-                                      <img
-                                        src={ticker.market.logo}
-                                        alt={`${ticker.market.name} logo`}
-                                        className="w-5 h-5 rounded-md"
-                                        onError={(e) => e.target.style.display = 'none'}
-                                      />
-                                    )}
-                                    <a
-                                      href={ticker.trade_url}
-                                      target="_blank"
-                                      rel="noreferrer"
-                                      className="text-white hover:text-white/80 transition-colors font-medium truncate text-[9px] sm:text-[11px]"
-                                      title={ticker.market.name}
-                                    >
-                                      {ticker.market.name}
-                                    </a>
-                                  </div>
-                                  <div className="flex-1 text-center text-white/90 font-medium text-[9px] sm:text-[11px]">
-                                    <span className="bg-white/5 px-1.5 py-0.5 rounded-md">{ticker.base}/{ticker.target}</span>
-                                  </div>
-                                  <div className="flex-1 text-center text-white font-semibold text-[9px] sm:text-[11px]">
-                                    {ticker.converted_last.usd != null ? formatPrice(ticker.converted_last.usd, "usd", 8) : "N/A"}
-                                  </div>
-                                  <div className="flex-1 text-center text-white/90 text-[9px] sm:text-[11px]">
-                                    ${ticker.converted_volume.usd?.toLocaleString("en-US", { minimumFractionDigits: 0, maximumFractionDigits: 0 }) || "N/A"}
-                                  </div>
-                                  <div className="flex-1 text-center text-white/70 text-[9px] sm:text-[11px]">
-                                    {ticker.last_traded_at ? new Date(ticker.last_traded_at).toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" }) : "N/A"}
-                                  </div>
-                                </motion.div>
-                              ));
-                              return <TickerRow key={index} />;
-                            }}
-                            components={{
-                              Header: () => (
-                                <div className="flex bg-black/80 border-b border-white/10 p-2 font-semibold text-white text-[9px] sm:text-[11px]">
-                                  <div className="flex-[2] text-center">Market</div>
-                                  <div className="flex-1 text-center">Pair</div>
-                                  <div className="flex-1 text-center">Price</div>
-                                  <div className="flex-1 text-center">Volume</div>
-                                  <div className="flex-1 text-center">Last Traded</div>
-                                </div>
-                              ),
-                            }}
-                          />
+                          <div className="h-[600px] flex flex-col">
+                            <div className="flex bg-black/80 border-b border-white/10 p-2 font-semibold text-white text-[9px] sm:text-[11px] sticky top-0 z-10">
+                              <div className="flex-[2] text-center">Market</div>
+                              <div className="flex-1 text-center">Pair</div>
+                              <div className="flex-1 text-center">Price</div>
+                              <div className="flex-1 text-center">Volume</div>
+                              <div className="flex-1 text-center">Last Traded</div>
+                            </div>
+                            <Virtuoso
+                              style={{ height: '100%', overflow: 'auto', scrollbarWidth: 'none', msOverflowStyle: 'none' }}
+                              className="hide-scrollbar"
+                              data={tickerData.slice(0, 30)}
+                              itemContent={(index, ticker) => {
+                                const TickerRow = React.memo(() => (
+                                  <motion.div
+                                    className={`flex border-t border-white/10 hover:bg-black/80 px-3 py-2 text-[9px] sm:text-[11px] ${isMobile ? 'will-change-transform' : ''}`}
+                                    variants={rowVariants}
+                                    initial="hidden"
+                                    animate="visible"
+                                  >
+                                    <div className="flex-[2] flex items-center justify-center gap-2">
+                                      {ticker.market.logo && (
+                                        <img
+                                          src={ticker.market.logo}
+                                          alt={`${ticker.market.name} logo`}
+                                          className="w-5 h-5 rounded-md"
+                                          onError={(e) => e.target.style.display = 'none'}
+                                        />
+                                      )}
+                                      <a
+                                        href={ticker.trade_url}
+                                        target="_blank"
+                                        rel="noreferrer"
+                                        className="text-white hover:text-white/80 transition-colors font-medium truncate text-[9px] sm:text-[11px]"
+                                        title={ticker.market.name}
+                                      >
+                                        {ticker.market.name}
+                                      </a>
+                                    </div>
+                                    <div className="flex-1 text-center text-white/90 font-medium text-[9px] sm:text-[11px]">
+                                      <span className="bg-white/5 px-1.5 py-0.5 rounded-md">{ticker.base}/{ticker.target}</span>
+                                    </div>
+                                    <div className="flex-1 text-center text-white font-semibold text-[9px] sm:text-[11px]">
+                                      {ticker.converted_last.usd != null ? formatPrice(ticker.converted_last.usd, "usd", 8) : "N/A"}
+                                    </div>
+                                    <div className="flex-1 text-center text-white/90 text-[9px] sm:text-[11px]">
+                                      ${ticker.converted_volume.usd?.toLocaleString("en-US", { minimumFractionDigits: 0, maximumFractionDigits: 0 }) || "N/A"}
+                                    </div>
+                                    <div className="flex-1 text-center text-white/70 text-[9px] sm:text-[11px]">
+                                      {ticker.last_traded_at ? new Date(ticker.last_traded_at).toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" }) : "N/A"}
+                                    </div>
+                                  </motion.div>
+                                ));
+                                return <TickerRow key={index} />;
+                              }}
+                            />
+                          </div>
                         ) : (
                           !isLoadingTickers && (
                             <div className="text-sm text-white/60 text-center p-6">
@@ -1847,7 +1931,7 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
 
                                       const DexRow = React.memo(() => (
                                         <motion.div
-                                          className="flex border-t border-white/10 bg-black/80 p-3 text-[9px] sm:text-[11px]"
+                                          className={`flex border-t border-white/10 bg-black/80 p-3 text-[9px] sm:text-[11px] ${isMobile ? 'will-change-transform' : ''}`}
                                           variants={rowVariants}
                                           initial="hidden"
                                           animate="visible"
@@ -2016,15 +2100,11 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                                       },
                                       Footer: () => isLoadingMoreDex && !isBitcoin ? (
                                         <div className="p-2 text-center border-t border-white/10 bg-black/40">
-                                          <motion.div
-                                            className="flex items-center justify-center gap-2 text-white text-[10px]"
-                                            initial={{ opacity: 0, y: 10 }}
-                                            animate={{ opacity: 1, y: 0 }}
-                                            exit={{ opacity: 0, y: -10 }}
-                                          >
-                                            <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
-                                            Loading more transactions...
-                                          </motion.div>
+                                          <div className="space-y-2">
+                                            {Array.from({ length: 3 }).map((_, i) => (
+                                              <DexSkeletonRow key={i} />
+                                            ))}
+                                          </div>
                                         </div>
                                       ) : null,
                                     }}

@@ -99,7 +99,7 @@ async function fetchWithRateLimit(url, config) {
 
 // Optimized Bottleneck for Etherscan's 5 calls/second
 const limiterBottleneck = new Bottleneck({
-  maxConcurrent: process.env.NODE_ENV === 'production' ? 5 : 2,
+  maxConcurrent: process.env.NODE_ENV === 'production' ? 10 : 2,
   minTime: 300, // 200ms per call for 5 calls/second
   reservoir: 100,
   reservoirRefreshAmount: 100,

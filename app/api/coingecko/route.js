@@ -119,7 +119,7 @@ axiosRetry(axios, {
 });
 
 const limiterBottleneck = new Bottleneck({
-  maxConcurrent: process.env.NODE_ENV === "production" ? 5 : 5,
+  maxConcurrent: process.env.NODE_ENV === "production" ? 10 : 5,
   minTime: process.env.NODE_ENV === "production" ? 2400 : 1000,  // ~25/min
   reservoir: 25, 
   reservoirRefreshAmount: 25,
