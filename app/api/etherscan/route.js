@@ -15,7 +15,7 @@ const limiterBottleneck = new Bottleneck({
 
 const fetchWithRateLimit = limiterBottleneck.wrap(async (url, config) => {
   try {
-    return await axios.get(url, config);
+    return await axios.get(url, { ...config, timeout: 30000 }); // Increased timeout
   } catch (error) {
     if (error.response?.status === 429 || error.code === 'ECONNABORTED') {
       throw error;
@@ -33,11 +33,12 @@ const chainIdMap = {
   arbitrum: '42161',
   optimism: '10',
   avalanche: '43114',
+  avalanche_c: '43114', // Alias for avalanche_c
+  sonic: '146', // Add Sonic Mainnet
   celo: '42220',
   base: '8453',
   fantom: '250',
   matic: '137', // Alias for polygon
-  avalanche_c: '43114', // Alias for avalanche
 };
 
 // Allowed origins

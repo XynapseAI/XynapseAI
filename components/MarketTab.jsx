@@ -1825,7 +1825,6 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                                 };
                               return trades.length > 0 ? (
                                 <>
-                                  // Replace the Virtuoso component in the dex-panel section of components/MarketTab.jsx (inside the dex tab conditional)
                                   <Virtuoso
                                     style={{ height: '600px', overflow: 'auto', scrollbarWidth: 'none', msOverflowStyle: 'none' }}
                                     className="hide-scrollbar"
