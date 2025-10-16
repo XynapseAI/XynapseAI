@@ -136,12 +136,8 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
     mempoolTransactions,
     isLoadingMempool,
     mempoolError,
+    fullDexTrades,
     fetchMempoolTransactions,
-    loadMoreDexData,
-    hasMoreDex,
-    isLoadingMoreDex,
-    setIsLoadingMoreDex, // Added for controlling loading state
-    setHasMoreDex, // Added to control hasMore state
   } = useMarketTabLogic({ recaptchaRef, toast, initialTokenData, toast })
 
   const dropdownRef = useRef(null)
@@ -161,6 +157,8 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
   const [tooltipToken, setTooltipToken] = useState(null)
   const tokenRefs = useRef({})
   const lastFetchedSlugRef = useRef(null)
+  const [currentDexPage, setCurrentDexPage] = useState(1);
+  const [dexPageSize] = useState(100);
 
   // Map exchange IDs to match ClusterTab's EXCHANGE_MAPPING
   const EXCHANGE_MAPPING = {
@@ -350,13 +348,14 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
     }
     setActiveMarketTab("dex");
     setShowTrades(false);
+    setCurrentDexPage(1); // Reset to first page
     if (selectedToken) {
       if (selectedToken.id === "bitcoin") {
         fetchMempoolTransactions(); // Ensure full load for Bitcoin
       } else {
         const { chain, tokenAddress } = getDefaultChainAndAddress(selectedToken, selectedChain);
         if (chain && tokenAddress) {
-          fetchDexData(chain, tokenAddress, 1); // Load initial with page=1
+          fetchDexData(); // No page param, fetches full
         }
       }
     }
@@ -649,9 +648,14 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
 
   // Sort trades by timestamp descending (newest first)
   const sortedTrades = useMemo(() => {
-    if (!dexData.trades || dexData.trades.length === 0) return [];
-    return [...dexData.trades].sort((a, b) => new Date(b.block_timestamp) - new Date(a.block_timestamp));
-  }, [dexData.trades]);
+    if (!fullDexTrades.trades || fullDexTrades.trades.length === 0) return [];
+    return [...fullDexTrades.trades].sort((a, b) => new Date(b.block_timestamp) - new Date(a.block_timestamp));
+  }, [fullDexTrades.trades]);
+
+  const paginatedTrades = useMemo(() => {
+    const startIndex = (currentDexPage - 1) * dexPageSize;
+    return sortedTrades.slice(startIndex, startIndex + dexPageSize);
+  }, [sortedTrades, currentDexPage, dexPageSize]);
 
   const rowVariants = {
     hidden: { opacity: 0, y: 10 },
@@ -1799,32 +1803,35 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                   </div>
                   <div id="dex-panel" role="tabpanel" aria-labelledby="dex-tab" className={`flex-1 overflow-y-auto tab-content custom-scrollbar hide-scrollbar relative min-h-[500px] sm:min-h-[400px] ${activeMarketTab !== "dex" ? "hidden" : ""}`}>
                     {activeMarketTab === "dex" && (
-
                       <div className="flex-1 overflow-y-auto tab-content custom-scrollbar hide-scrollbar relative min-h-[500px] sm:min-h-[400px]">
                         {session ? (
                           <>
                             <LoadingOverlay
                               isLoading={
-                                (selectedToken?.id === "bitcoin" ? isLoadingMempool : isLoadingDex || isLoadingMoreDex) &&
-                                !(selectedToken?.id === "bitcoin" ? mempoolTransactions : dexData.trades)?.length
+                                (selectedToken?.id === "bitcoin" ? isLoadingMempool : isLoadingDex) &&
+                                !(selectedToken?.id === "bitcoin" ? mempoolTransactions : fullDexTrades.trades)?.length
                               }
                               isMobile={isMobile}
                               className="h-full w-full"
                             />
                             {(() => {
                               const isBitcoin = selectedToken?.id.toLowerCase() === 'bitcoin';
-                              const trades = isBitcoin ? mempoolTransactions : sortedTrades; // Use sorted trades
-                              const handleLoadMore = () => {
-                                if (isBitcoin) return; // No more for Bitcoin
-                                loadMoreDexData();
+                              const trades = isBitcoin ? mempoolTransactions : paginatedTrades; // Use paginated
+                              const totalTrades = isBitcoin ? mempoolTransactions.length : sortedTrades.length;
+                              const totalPages = Math.ceil(totalTrades / dexPageSize);
+                              const handlePageChange = (newPage) => {
+                                if (newPage >= 1 && newPage <= totalPages) {
+                                  setCurrentDexPage(newPage);
+                                }
                               };
+
                               return trades.length > 0 ? (
                                 <>
                                   <Virtuoso
-                                    style={{ height: '600px', overflow: 'auto', scrollbarWidth: 'none', msOverflowStyle: 'none' }}
+                                    style={{ height: '500px', overflow: 'auto', scrollbarWidth: 'none', msOverflowStyle: 'none' }}
                                     className="hide-scrollbar"
-                                    data={trades.slice(0, 2000)} // Cap at 2000
-                                    overscan={200} // Increased overscan for smoother scrolling, pre-renders more rows
+                                    data={trades}
+                                    overscan={200}
                                     itemContent={(index, item) => {
                                       console.log('Debug tx item:', {
                                         index,
@@ -1834,16 +1841,13 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                                       });
                                       const txHash = isBitcoin ? item.txid : item.tx_hash;
                                       const timestamp = isBitcoin ? item.timestamp * 1000 : item.block_timestamp;
-                                      const chain = isBitcoin ? 'bitcoin' : item.chain;  // Sửa: dùng item.chain thay vì selectedChain
+                                      const chain = isBitcoin ? 'bitcoin' : item.chain;
                                       const explorerInfo = getExplorerInfo(chain, txHash, null);
-                                      console.log('Debug explorerInfo:', { txHash, explorerInfo });
                                       const fromAddressInfo = getNameTagInfo(isBitcoin ? item.inputs?.[0]?.address : item.tx_from_address?.address, chain);
                                       const toAddressInfo = getNameTagInfo(isBitcoin ? item.outputs?.[0]?.address : item.to_token_address?.address, chain);
 
                                       const DexRow = React.memo(() => (
-                                        <div // Removed motion.div to prevent flicker
-                                          className="flex border-t border-white/10 bg-black/80 p-3 text-[9px] sm:text-[11px]"
-                                        >
+                                        <div className="flex border-t border-white/10 bg-black/80 p-3 text-[9px] sm:text-[11px]">
                                           {/* Tx/Time */}
                                           <div className="flex-1 flex flex-col gap-1 items-center justify-center group relative">
                                             <a href={explorerInfo.url} target="_blank" rel="noreferrer" className="p-1 rounded-md hover:bg-white/10 transition-all duration-300">
@@ -2007,7 +2011,7 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                                         }
                                       },
                                       Footer: () => {
-                                        if (isLoadingMoreDex && !isBitcoin) {
+                                        if (isLoadingDex && !isBitcoin) {
                                           return (
                                             <div className="p-2 text-center border-t border-white/10 bg-black/40">
                                               <motion.div
@@ -2017,42 +2021,46 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                                                 exit={{ opacity: 0, y: -10 }}
                                               >
                                                 <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
-                                                Loading more transactions...
+                                                Loading transactions...
                                               </motion.div>
                                             </div>
                                           );
                                         }
-                                        if (!isBitcoin && hasMoreDex && trades.length < 2000) {
-                                          return (
-                                            <div className="p-2 text-center border-t border-white/10 bg-black/40">
+                                        // Pagination controls
+                                        return (
+                                          <div className="p-2 text-center border-t border-white/10 bg-black/40 flex flex-col gap-2">
+                                            <p className="text-white/60 text-[10px]">
+                                              Showing {Math.min((currentDexPage - 1) * dexPageSize + 1, totalTrades)} - {Math.min(currentDexPage * dexPageSize, totalTrades)} of {totalTrades} transactions
+                                            </p>
+                                            <div className="flex justify-center items-center gap-2">
                                               <motion.button
-                                                onClick={handleLoadMore}
-                                                className="flex items-center gap-2 px-4 py-2 text-white text-[10px] border border-white/20 rounded-xl hover:bg-white/10 transition-all duration-300"
+                                                onClick={() => handlePageChange(currentDexPage - 1)}
+                                                disabled={currentDexPage === 1}
+                                                className="px-3 py-1 text-white text-[10px] border border-white/20 rounded disabled:opacity-50 disabled:cursor-not-allowed hover:bg-white/10 transition-all duration-300"
                                                 whileHover={{ scale: 1.05 }}
                                                 whileTap={{ scale: 0.95 }}
                                               >
-                                                <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                                                  <path strokeLinecap="round" strokeLinejoin="round" d="M19 14l-7 7m0 0l-7-7m7 7V3" />
-                                                </svg>
-                                                Load More (Loaded: {trades.length}/2000)
+                                                Previous
+                                              </motion.button>
+                                              <span className="text-white/60 text-[10px]">{currentDexPage} / {totalPages}</span>
+                                              <motion.button
+                                                onClick={() => handlePageChange(currentDexPage + 1)}
+                                                disabled={currentDexPage === totalPages}
+                                                className="px-3 py-1 text-white text-[10px] border border-white/20 rounded disabled:opacity-50 disabled:cursor-not-allowed hover:bg-white/10 transition-all duration-300"
+                                                whileHover={{ scale: 1.05 }}
+                                                whileTap={{ scale: 0.95 }}
+                                              >
+                                                Next
                                               </motion.button>
                                             </div>
-                                          );
-                                        }
-                                        if (!isBitcoin && trades.length >= 2000) {
-                                          return (
-                                            <div className="p-2 text-center border-t border-white/10 bg-black/40">
-                                              <p className="text-white/60 text-[10px]">All transactions loaded (max 2000)</p>
-                                            </div>
-                                          );
-                                        }
-                                        return null;
+                                          </div>
+                                        );
                                       },
                                     }}
                                   />
                                 </>
                               ) : (
-                                !(isBitcoin ? isLoadingMempool : isLoadingDex || isLoadingMoreDex) && (
+                                !(isBitcoin ? isLoadingMempool : isLoadingDex) && (
                                   <div className="text-[9px] sm:text-[11px] text-white/60 text-center p-6">
                                     No {isBitcoin ? "mempool transactions" : "DEX data"} available for{" "}
                                     {selectedToken?.symbol?.toUpperCase() || "selected token"} on{" "}
