@@ -161,8 +161,6 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
   const [tooltipToken, setTooltipToken] = useState(null)
   const tokenRefs = useRef({})
   const lastFetchedSlugRef = useRef(null)
-  const [currentDexPage, setCurrentDexPage] = useState(1);
-  const itemsPerPage = 50; // Items per page for local pagination
 
   // Map exchange IDs to match ClusterTab's EXCHANGE_MAPPING
   const EXCHANGE_MAPPING = {
@@ -652,10 +650,8 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
   // Sort trades by timestamp descending (newest first)
   const sortedTrades = useMemo(() => {
     if (!dexData.trades || dexData.trades.length === 0) return [];
-    const startIndex = (currentDexPage - 1) * itemsPerPage;
-    const endIndex = startIndex + itemsPerPage;
-    return dexData.trades.slice(startIndex, endIndex).sort((a, b) => new Date(b.block_timestamp) - new Date(a.block_timestamp));
-  }, [dexData.trades, currentDexPage]);
+    return [...dexData.trades].sort((a, b) => new Date(b.block_timestamp) - new Date(a.block_timestamp));
+  }, [dexData.trades]);
 
   const rowVariants = {
     hidden: { opacity: 0, y: 10 },
@@ -1827,8 +1823,8 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                                   <Virtuoso
                                     style={{ height: '600px', overflow: 'auto', scrollbarWidth: 'none', msOverflowStyle: 'none' }}
                                     className="hide-scrollbar"
-                                    data={sortedTrades} // Sử dụng sliced trades
-                                    overscan={200}
+                                    data={trades.slice(0, 2000)} // Cap at 2000
+                                    overscan={200} // Increased overscan for smoother scrolling, pre-renders more rows
                                     itemContent={(index, item) => {
                                       console.log('Debug tx item:', {
                                         index,
@@ -2011,33 +2007,46 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                                         }
                                       },
                                       Footer: () => {
-                                        const totalPages = Math.ceil((dexData.trades?.length || 0) / itemsPerPage);
-                                        if (totalPages <= 1) return null;
-                                        return (
-                                          <div className="p-2 text-center border-t border-white/10 bg-black/40 flex justify-center items-center gap-2">
-                                            <motion.button
-                                              onClick={() => setCurrentDexPage(prev => Math.max(prev - 1, 1))}
-                                              disabled={currentDexPage === 1}
-                                              className="px-3 py-1 text-white text-[10px] border border-white/20 rounded-xl hover:bg-white/10 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-300"
-                                              whileHover={{ scale: 1.05 }}
-                                              whileTap={{ scale: 0.95 }}
-                                            >
-                                              Prev
-                                            </motion.button>
-                                            <span className="text-white/60 text-[10px]">
-                                              Page {currentDexPage} of {totalPages} (Total: {dexData.trades?.length || 0} tx)
-                                            </span>
-                                            <motion.button
-                                              onClick={() => setCurrentDexPage(prev => Math.min(prev + 1, totalPages))}
-                                              disabled={currentDexPage === totalPages}
-                                              className="px-3 py-1 text-white text-[10px] border border-white/20 rounded-xl hover:bg-white/10 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-300"
-                                              whileHover={{ scale: 1.05 }}
-                                              whileTap={{ scale: 0.95 }}
-                                            >
-                                              Next
-                                            </motion.button>
-                                          </div>
-                                        );
+                                        if (isLoadingMoreDex && !isBitcoin) {
+                                          return (
+                                            <div className="p-2 text-center border-t border-white/10 bg-black/40">
+                                              <motion.div
+                                                className="flex items-center justify-center gap-2 text-white text-[10px]"
+                                                initial={{ opacity: 0, y: 10 }}
+                                                animate={{ opacity: 1, y: 0 }}
+                                                exit={{ opacity: 0, y: -10 }}
+                                              >
+                                                <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+                                                Loading more transactions...
+                                              </motion.div>
+                                            </div>
+                                          );
+                                        }
+                                        if (!isBitcoin && hasMoreDex && trades.length < 2000) {
+                                          return (
+                                            <div className="p-2 text-center border-t border-white/10 bg-black/40">
+                                              <motion.button
+                                                onClick={handleLoadMore}
+                                                className="flex items-center gap-2 px-4 py-2 text-white text-[10px] border border-white/20 rounded-xl hover:bg-white/10 transition-all duration-300"
+                                                whileHover={{ scale: 1.05 }}
+                                                whileTap={{ scale: 0.95 }}
+                                              >
+                                                <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                                  <path strokeLinecap="round" strokeLinejoin="round" d="M19 14l-7 7m0 0l-7-7m7 7V3" />
+                                                </svg>
+                                                Load More (Loaded: {trades.length}/2000)
+                                              </motion.button>
+                                            </div>
+                                          );
+                                        }
+                                        if (!isBitcoin && trades.length >= 2000) {
+                                          return (
+                                            <div className="p-2 text-center border-t border-white/10 bg-black/40">
+                                              <p className="text-white/60 text-[10px]">All transactions loaded (max 2000)</p>
+                                            </div>
+                                          );
+                                        }
+                                        return null;
                                       },
                                     }}
                                   />

@@ -203,8 +203,6 @@ export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initi
   const [hasMoreDex, setHasMoreDex] = useState(true);
   const [isLoadingMoreDex, setIsLoadingMoreDex] = useState(false);
   const isInitialMempoolFetch = useRef(true);
-  const [fullDexTrades, setFullDexTrades] = useState([]);
-  const loadMoreDexData = useCallback(() => { }, []);
 
   const isTokenPage = typeof window !== 'undefined' && window.location.pathname.startsWith('/token/');
 
@@ -1627,14 +1625,15 @@ export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initi
           setDexRequestCount((prev) => prev + 1);
         }
 
-        // Chỉ fetch nếu page === 1 (initial load), fetch tổng max 5000 tx từ tất cả chains
-        if (page !== 1) {
-          setIsLoadingDex(false);
-          return; // Không refetch, pagination local
+        const isAppend = page > 1;
+        if (isAppend && dexData.trades.length >= 2000) {
+          setHasMoreDex(false);
+          setIsLoadingMoreDex(false);
+          return;
         }
-
-        const cacheKey = `onchain-tx-full-${selectedToken.id}-session_required`; // Cache full data
-        setIsLoadingDex(true);
+        const cacheKey = `onchain-tx-${selectedToken.id}${isAppend ? `-page-${page}` : ''}-session_required`;
+        setIsLoadingDex(!isAppend);
+        setIsLoadingMoreDex(isAppend);
         setDexError(null);
 
         try {
@@ -1642,8 +1641,7 @@ export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initi
             const allTrades = [];
             const uniqueAddresses = new Set();
 
-            // Phân bổ offset: ~500 tx/chain để tổng <=5000
-            const offsetPerChain = Math.max(100, Math.floor(5000 / availableChains.length));
+            // Fetch from each available chain
             const chainPromises = availableChains.map(async (ch) => {
               const platformId = ch.coingeckoId;
               const tokenAddr = selectedToken.detail_platforms?.[platformId]?.contract_address;
@@ -1655,8 +1653,8 @@ export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initi
                 action: 'token-transactions',
                 chain: ch.value,
                 tokenAddress: tokenAddr,
-                page: 1, // Luôn page 1 để lấy newest
-                offset: offsetPerChain, // Offset per chain
+                page,
+                offset: 100, // Each load per chain: 100 tx
               };
 
               const response = await fetch('/api/etherscan', {
@@ -1683,7 +1681,7 @@ export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initi
                 if (done) break;
                 buffer += decoder.decode(value, { stream: true });
 
-                // Simple parsing for array of objects
+                // Simple parsing for array of objects (adapt from existing streaming logic)
                 try {
                   const parsed = JSON.parse(buffer);
                   if (parsed.success && Array.isArray(parsed.data)) {
@@ -1699,7 +1697,7 @@ export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initi
               const chainAddresses = new Set();
 
               // Map to trade format
-              const chainTrades = trades.map((tx) => {
+              const chainTrades = trades.map((tx) => { // No slice, respect offset
                 const amount = parseFloat(tx.value) / Math.pow(10, parseInt(tx.decimals || 18));
                 const usdValue = amount * (selectedToken.current_price?.[currency] || 0);
                 const gasFee = (BigInt(tx.gasUsed || 0) * BigInt(tx.gasPrice || 0)) / BigInt(10 ** 18);
@@ -1765,17 +1763,30 @@ export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initi
               };
             });
 
-            // Sort by timestamp desc, slice top 5000 newest
-            const finalTrades = tradesWithTags.sort((a, b) => new Date(b.block_timestamp) - new Date(a.block_timestamp)).slice(0, 5000);
+            // Sort by timestamp desc
+            const finalTrades = tradesWithTags.sort((a, b) => new Date(b.block_timestamp) - new Date(a.block_timestamp));
 
             // Pools and poolTokens as empty or fallback since not DEX-specific
             return { pools: [], trades: finalTrades, poolTokens: {} };
           };
 
-          const dexDataFull = await getCachedData(cacheKey, fetchFn, CACHE_DURATIONS.DEFI_POOL, 0, true, session, status);
-          setFullDexTrades(dexDataFull.trades); // Cache full 5000 tx
-          setDexData(dexDataFull);
-          setHasMoreDex(false); // No more, all loaded
+          const dexDataBatch = await getCachedData(cacheKey, fetchFn, CACHE_DURATIONS.DEFI_POOL, 0, true, session, status);
+
+          if (page === 1) {
+            // Initial load: cap at 2000
+            const initialTrades = dexDataBatch.trades.slice(0, 2000);
+            setDexData({ ...dexDataBatch, trades: initialTrades });
+            setHasMoreDex(initialTrades.length > 0 && initialTrades.length < 2000);
+          } else {
+            // Append: add up to 100 new trades, cap total at 2000
+            const prevTrades = dexData.trades || [];
+            const maxAdd = Math.min(100, 2000 - prevTrades.length);
+            const newTradesToAdd = dexDataBatch.trades.slice(0, maxAdd);
+            const updatedTrades = [...prevTrades, ...newTradesToAdd];
+            const finalUpdatedTrades = updatedTrades.slice(0, 2000); // Ensure cap
+            setDexData({ ...dexData, trades: finalUpdatedTrades });
+            setHasMoreDex(newTradesToAdd.length === 100 && finalUpdatedTrades.length < 2000);
+          }
 
           setLastDexFetchTime(Date.now());
         } catch (error) {
@@ -1789,23 +1800,44 @@ export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initi
           toast.error(safeErrorMessage, { position: 'top-center', autoClose: 5000 });
           if (localCache.current[cacheKey]?.data) {
             const cachedData = localCache.current[cacheKey].data;
-            setFullDexTrades(cachedData.trades || []);
-            setDexData(cachedData);
-            setHasMoreDex(false);
+            if (page === 1) {
+              const initialTrades = cachedData.trades.slice(0, 2000);
+              setDexData({ ...cachedData, trades: initialTrades });
+              setHasMoreDex(initialTrades.length > 0 && initialTrades.length < 2000);
+            } else {
+              const prevTrades = dexData.trades || [];
+              const maxAdd = Math.min(100, 2000 - prevTrades.length);
+              const newTradesToAdd = cachedData.trades.slice(0, maxAdd);
+              const updatedTrades = [...prevTrades, ...newTradesToAdd];
+              const finalUpdatedTrades = updatedTrades.slice(0, 2000);
+              setDexData({ ...dexData, trades: finalUpdatedTrades });
+              setHasMoreDex(newTradesToAdd.length === 100 && finalUpdatedTrades.length < 2000);
+            }
           } else {
             setDexData({ pools: [], trades: [], poolTokens: {} });
-            setFullDexTrades([]);
             setHasMoreDex(false);
           }
         } finally {
           setIsLoadingDex(false);
+          setIsLoadingMoreDex(false);
         }
       },
       300
     ),
-    [session, status, toast, fetchNameTagsForAddresses, nameTagsRef, selectedToken, currency, getAvailableChains, fetchMempoolTransactions]
+    [session, status, toast, fetchNameTagsForAddresses, nameTagsRef, selectedToken, currency, getAvailableChains, fetchMempoolTransactions, dexData, setHasMoreDex]
   );
 
+  const loadMoreDexData = useCallback(async () => {
+    if (!selectedToken || dexError || isLoadingMoreDex || !hasMoreDex || dexData.trades.length >= 2000) {
+      setHasMoreDex(false);
+      return;
+    }
+    const { chain, tokenAddress } = getDefaultChainAndAddress(selectedToken, selectedChain);
+    if (!chain || !tokenAddress) return;
+    // Use current page from logic or increment
+    await fetchDexData(chain, tokenAddress, (dexData.currentPage || 1) + 1);
+  }, [selectedToken, dexError, isLoadingMoreDex, hasMoreDex, dexData, getDefaultChainAndAddress, fetchDexData, setHasMoreDex]);
+  
   // Update the useEffect for dex data fetch to pass page=1:
   useEffect(() => {
     if (!selectedToken?.id || ['bitcoin', 'ethereum'].includes(selectedToken.id.toLowerCase()) || document.visibilityState !== 'visible') {
@@ -3073,10 +3105,8 @@ Predict **${selectedToken.symbol}/USD** price movement (1-3 days) in Markdown fo
     isLoadingMempool,
     mempoolError,
     fetchMempoolTransactions,
-    fullDexTrades,
-    setFullDexTrades,
     loadMoreDexData,
-    hasMoreDex: false, // Always false after initial load
-    isLoadingMoreDex: false,
+    hasMoreDex,
+    isLoadingMoreDex,
   };
 };
