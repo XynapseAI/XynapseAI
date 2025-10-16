@@ -15,7 +15,7 @@ const limiterBottleneck = new Bottleneck({
 
 const fetchWithRateLimit = limiterBottleneck.wrap(async (url, config) => {
   try {
-    return await axios.get(url, { ...config, timeout: 30000 }); // Increased timeout
+    return await axios.get(url, config);
   } catch (error) {
     if (error.response?.status === 429 || error.code === 'ECONNABORTED') {
       throw error;
@@ -33,12 +33,11 @@ const chainIdMap = {
   arbitrum: '42161',
   optimism: '10',
   avalanche: '43114',
-  avalanche_c: '43114', // Alias for avalanche_c
-  sonic: '146', // Add Sonic Mainnet
   celo: '42220',
   base: '8453',
   fantom: '250',
   matic: '137', // Alias for polygon
+  avalanche_c: '43114', // Alias for avalanche
 };
 
 // Allowed origins
@@ -79,14 +78,13 @@ function isAllowedOrigin(origin, referer) {
     return false;
   }
 }
-
 const bodySchema = z.object({
   action: z.enum(['wallet-balances', 'transactions', 'token-supply', 'token-info', 'token-transactions'], { message: 'Invalid action' }),
   chain: z.string().nonempty('Chain is required'),
   address: z.string().optional().refine((val) => !val || isAddress(val), { message: 'Wallet address must be a valid EVM address' }),
   tokenAddress: z.string().optional().refine((val) => !val || isAddress(val), { message: 'Token address must be a valid EVM address' }),
   page: z.number().int().min(1).optional().default(1),
-  offset: z.number().int().min(1).max(10000).optional().default(500), // Increased default offset for faster loading
+  offset: z.number().int().min(1).max(10000).optional().default(500), // Increased default to 500, max 10000
 }).refine(
   (data) => (['wallet-balances', 'transactions'].includes(data.action) ? !!data.address : true),
   { message: 'Wallet address is required for wallet-balances and transactions', path: ['address'] }

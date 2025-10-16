@@ -352,11 +352,11 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
     setShowTrades(false);
     if (selectedToken) {
       if (selectedToken.id === "bitcoin") {
-        fetchMempoolTransactions(); // Ensure full load for Bitcoin
+        fetchMempoolTransactions();
       } else {
         const { chain, tokenAddress } = getDefaultChainAndAddress(selectedToken, selectedChain);
         if (chain && tokenAddress) {
-          fetchDexData(chain, tokenAddress); // Remove the 5000 param, use default page=1 with large offset
+          fetchDexData(chain, tokenAddress, 5000); // Now uses initialLimit=5000 for large initial load
         }
       }
     }
@@ -1800,7 +1800,6 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                   </div>
                   <div id="dex-panel" role="tabpanel" aria-labelledby="dex-tab" className={`flex-1 overflow-y-auto tab-content custom-scrollbar hide-scrollbar relative min-h-[500px] sm:min-h-[400px] ${activeMarketTab !== "dex" ? "hidden" : ""}`}>
                     {activeMarketTab === "dex" && (
-
                       <div className="flex-1 overflow-y-auto tab-content custom-scrollbar hide-scrollbar relative min-h-[500px] sm:min-h-[400px]">
                         {session ? (
                           <>
@@ -1814,9 +1813,9 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                             />
                             {(() => {
                               const isBitcoin = selectedToken?.id.toLowerCase() === 'bitcoin';
-                              const trades = isBitcoin ? mempoolTransactions : sortedTrades; // Use sorted trades
+                              const trades = isBitcoin ? mempoolTransactions : sortedTrades;
                               const handleEndReached = isBitcoin
-                                ? () => { } // Bitcoin loads all initially, no more to load
+                                ? () => { }
                                 : () => {
                                   if (hasMoreDex && !isLoadingMoreDex) {
                                     const { chain, tokenAddress } = getDefaultChainAndAddress(selectedToken, selectedChain);
@@ -1826,35 +1825,64 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                               return trades.length > 0 ? (
                                 <>
                                   <Virtuoso
-                                    style={{ height: '600px', overflow: 'auto', scrollbarWidth: 'none', msOverflowStyle: 'none' }}
+                                    style={{ height: '100%', overflow: 'auto', scrollbarWidth: 'none', msOverflowStyle: 'none' }} // Full height for better scroll
                                     className="hide-scrollbar"
-                                    data={trades} // Use sorted trades
+                                    data={trades}
                                     endReached={handleEndReached}
-                                    overscan={200} // Preload more rows for smoother scrolling
+                                    overscan={200} // Increased overscan for smoother scrolling, pre-renders more rows
+                                    itemSize={60} // Fixed item height to prevent layout shifts and flickering
+                                    computeItemKey={(index, item) => `${item.tx_hash || item.txid}-${index}`} // Stable keys to reduce re-renders
+                                    initialTopMostItemIndex={0}
                                     itemContent={(index, item) => {
+                                      // Show skeleton for initial loading more rows (up to 5 skeletons)
+                                      if (isLoadingMoreDex && index >= trades.length - 5) {
+                                        return (
+                                          <div className="flex border-t border-white/10 bg-black/80 p-3 animate-pulse">
+                                            <div className="flex-1 flex flex-col gap-1 items-center justify-center">
+                                              <div className="w-3 h-3 bg-white/20 rounded-full"></div>
+                                              <div className="w-20 h-3 bg-white/20 rounded"></div>
+                                            </div>
+                                            <div className="flex-[2] flex items-center justify-center gap-2">
+                                              <div className="w-3 h-3 bg-white/20 rounded-full"></div>
+                                              <div className="w-24 h-3 bg-white/20 rounded"></div>
+                                            </div>
+                                            <div className="flex-[2] flex items-center justify-center gap-2">
+                                              <div className="w-3 h-3 bg-white/20 rounded-full"></div>
+                                              <div className="w-24 h-3 bg-white/20 rounded"></div>
+                                            </div>
+                                            <div className="flex-1 flex flex-col gap-1 items-center justify-center">
+                                              <div className="w-20 h-3 bg-white/20 rounded"></div>
+                                              <div className="w-16 h-3 bg-white/20 rounded"></div>
+                                            </div>
+                                            <div className="flex-1 flex flex-col gap-1 items-center justify-center">
+                                              <div className="w-16 h-3 bg-white/20 rounded"></div>
+                                            </div>
+                                            {!isBitcoin && <div className="flex-1 flex items-center justify-center"><div className="w-4 h-4 bg-white/20 rounded"></div></div>}
+                                          </div>
+                                        );
+                                      }
+
                                       console.log('Debug tx item:', {
                                         index,
-                                        tx_hash: item.tx_hash,  // ← Thêm log này
-                                        chain: item.chain,
+                                        tx_hash: item.tx_hash || item.txid,
+                                        chain: item.chain || 'bitcoin',
                                         fullItem: item
                                       });
                                       const txHash = isBitcoin ? item.txid : item.tx_hash;
                                       const timestamp = isBitcoin ? item.timestamp * 1000 : item.block_timestamp;
-                                      const chain = isBitcoin ? 'bitcoin' : item.chain;  // Sửa: dùng item.chain thay vì selectedChain
+                                      const chain = isBitcoin ? 'bitcoin' : item.chain;
                                       const explorerInfo = getExplorerInfo(chain, txHash, null);
                                       console.log('Debug explorerInfo:', { txHash, explorerInfo });
                                       const fromAddressInfo = getNameTagInfo(isBitcoin ? item.inputs?.[0]?.address : item.tx_from_address?.address, chain);
                                       const toAddressInfo = getNameTagInfo(isBitcoin ? item.outputs?.[0]?.address : item.to_token_address?.address, chain);
 
                                       const DexRow = React.memo(() => (
-                                        <div // Remove motion.div to avoid flicker during scroll
+                                        <motion.div
                                           className="flex border-t border-white/10 bg-black/80 p-3 text-[9px] sm:text-[11px]"
-                                          style={{ // Add fixed height and transform for smooth rendering
-                                            height: '64px',
-                                            display: 'flex',
-                                            alignItems: 'center',
-                                            transition: 'none', // Disable transitions for rows
-                                          }}
+                                          variants={rowVariants}
+                                          initial="hidden"
+                                          animate="visible"
+                                          layout // Added layout for smoother animations without flicker
                                         >
                                           {/* Tx/Time */}
                                           <div className="flex-1 flex flex-col gap-1 items-center justify-center group relative">
@@ -1884,7 +1912,7 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                                           <div className="flex-[2] flex items-center justify-center gap-2 group relative">
                                             {fromAddressInfo.image && <img src={fromAddressInfo.image} alt={`${fromAddressInfo.nameTag || 'Address'} logo`} className="w-3 h-3 rounded-md" onError={(e) => e.target.style.display = 'none'} />}
                                             <a
-                                              href={isBitcoin ? `https://mempool.space/address/${item.inputs?.[0]?.address}` : getExplorerUrls(chain, null, item.tx_from_address?.address).addressUrl}  // Sửa: dùng chain và null cho hash
+                                              href={isBitcoin ? `https://mempool.space/address/${item.inputs?.[0]?.address}` : getExplorerUrls(chain, null, item.tx_from_address?.address).addressUrl}
                                               target="_blank"
                                               rel="noreferrer"
                                               className="text-white hover:text-white/80 transition-colors font-medium text-[9px] sm:text-[11px]"
@@ -1915,7 +1943,7 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                                           <div className="flex-[2] flex items-center justify-center gap-2 group relative">
                                             {toAddressInfo.image && <img src={toAddressInfo.image} alt={`${toAddressInfo.nameTag || 'Address'} logo`} className="w-3 h-3 rounded-md" onError={(e) => e.target.style.display = 'none'} />}
                                             <a
-                                              href={isBitcoin ? `https://mempool.space/address/${item.outputs?.[0]?.address}` : getExplorerUrls(chain, null, item.to_token_address?.address).addressUrl}  // Sửa: dùng chain và null cho hash
+                                              href={isBitcoin ? `https://mempool.space/address/${item.outputs?.[0]?.address}` : getExplorerUrls(chain, null, item.to_token_address?.address).addressUrl}
                                               target="_blank"
                                               rel="noreferrer"
                                               className="text-white hover:text-white/80 transition-colors font-medium text-[10px]"
@@ -1988,9 +2016,9 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                                               />
                                             </div>
                                           )}
-                                        </div>
+                                        </motion.div>
                                       ));
-                                      return <DexRow key={index} />;
+                                      return <DexRow key={`${item.tx_hash || item.txid}-${index}`} />; // Stable key
                                     }}
                                     components={{
                                       Header: () => {
@@ -2018,19 +2046,31 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                                           );
                                         }
                                       },
-                                      Footer: () => isLoadingMoreDex && !isBitcoin ? (
-                                        <div className="p-2 text-center border-t border-white/10 bg-black/40">
-                                          <motion.div
-                                            className="flex items-center justify-center gap-2 text-white text-[10px]"
-                                            initial={{ opacity: 0, y: 10 }}
-                                            animate={{ opacity: 1, y: 0 }}
-                                            exit={{ opacity: 0, y: -10 }}
-                                          >
-                                            <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
-                                            Loading more transactions...
-                                          </motion.div>
-                                        </div>
-                                      ) : null,
+                                      Footer: () => {
+                                        if (isLoadingMoreDex && !isBitcoin) {
+                                          return (
+                                            <div className="p-4 text-center border-t border-white/10 bg-black/40">
+                                              <motion.div
+                                                className="flex items-center justify-center gap-2 text-white text-[10px]"
+                                                initial={{ opacity: 0, y: 10 }}
+                                                animate={{ opacity: 1, y: 0 }}
+                                                transition={{ duration: 0.3 }}
+                                              >
+                                                <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+                                                <span>Loading more transactions ({trades.length} loaded so far)...</span>
+                                              </motion.div>
+                                            </div>
+                                          );
+                                        }
+                                        if (!hasMoreDex && trades.length > 0) {
+                                          return (
+                                            <div className="p-4 text-center border-t border-white/10 bg-black/40">
+                                              <span className="text-white/60 text-[10px]">All {trades.length} transactions loaded</span>
+                                            </div>
+                                          );
+                                        }
+                                        return null;
+                                      },
                                     }}
                                   />
                                 </>
