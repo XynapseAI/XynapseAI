@@ -38,7 +38,7 @@ const chainIdMap = {
   fantom: '250',
   matic: '137', // Alias for polygon
   avalanche_c: '43114', // Alias for avalanche
-  sonic : '147', // Sonic Chain
+  sonic: '147', // Sonic Chain
 };
 
 // Allowed origins
@@ -86,7 +86,7 @@ const bodySchema = z.object({
   address: z.string().optional().refine((val) => !val || isAddress(val), { message: 'Wallet address must be a valid EVM address' }),
   tokenAddress: z.string().optional().refine((val) => !val || isAddress(val), { message: 'Token address must be a valid EVM address' }),
   page: z.number().int().min(1).optional().default(1),
-  offset: z.number().int().min(1).max(5000).optional().default(500),
+  offset: z.number().int().min(1).max(5000).optional().default(1000),
 }).refine(
   (data) => (['wallet-balances', 'transactions'].includes(data.action) ? !!data.address : true),
   { message: 'Wallet address is required for wallet-balances and transactions', path: ['address'] }
