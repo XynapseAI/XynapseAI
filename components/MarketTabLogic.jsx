@@ -203,7 +203,6 @@ export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initi
   const [hasMoreDex, setHasMoreDex] = useState(true);
   const [isLoadingMoreDex, setIsLoadingMoreDex] = useState(false);
   const isInitialMempoolFetch = useRef(true);
-  const concurrencyLimit = pLimit(3);
 
   const isTokenPage = typeof window !== 'undefined' && window.location.pathname.startsWith('/token/');
 
@@ -1637,7 +1636,6 @@ export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initi
             const uniqueAddresses = new Set();
 
             // Fetch from each available chain
-            // Prioritize selected chain if available
             const chainPromises = availableChains.map(async (ch) => {
               const platformId = ch.coingeckoId;
               const tokenAddr = selectedToken.detail_platforms?.[platformId]?.contract_address;
@@ -1645,12 +1643,14 @@ export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initi
                 return { chain: ch.value, trades: [], addresses: new Set() };
               }
 
+              // Increased offset for faster loading: 5000 for initial, 1000 for append
+              const offset = page === 1 ? 5000 : 1000;
               const payload = {
                 action: 'token-transactions',
                 chain: ch.value,
                 tokenAddress: tokenAddr,
                 page,
-                offset: 1000,  // Reduced for faster initial load
+                offset,
               };
 
               const response = await fetch('/api/etherscan', {
@@ -1693,7 +1693,7 @@ export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initi
               const chainAddresses = new Set();
 
               // Map to trade format
-              const chainTrades = trades.map((tx) => {
+              const chainTrades = trades.map((tx) => { // No slice, respect offset
                 const amount = parseFloat(tx.value) / Math.pow(10, parseInt(tx.decimals || 18));
                 const usdValue = amount * (selectedToken.current_price?.[currency] || 0);
                 const gasFee = (BigInt(tx.gasUsed || 0) * BigInt(tx.gasPrice || 0)) / BigInt(10 ** 18);
@@ -1719,7 +1719,7 @@ export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initi
                 };
               });
 
-              return { chain: ch.value, trades: chainTrades, addresses: chainAddresses };
+              return { chain: ch.value, trades: chainTrades, addresses: chainAddresses, offset };
             });
 
             const results = await Promise.allSettled(chainPromises);
@@ -1732,7 +1732,7 @@ export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initi
             });
 
             // Fetch nametags for unique EVM addresses
-            const addressesArray = Array.from(uniqueAddresses).filter(addr => addr && addr.match(/^0x[a-fA-F0-9]{40}$/));
+            const addressesArray = Array.from(uniqueAddresses).filter(addr => addr.match(/^0x[a-fA-F0-9]{40}$/));
             if (addressesArray.length > 0) {
               await fetchNameTagsForAddresses(addressesArray);
             }
@@ -1771,10 +1771,11 @@ export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initi
           if (page === 1) {
             setDexData(dexDataBatch);
             setCurrentDexPage(1);
-            setHasMoreDex(dexDataBatch.trades.length === 1000 * availableChains.length); // If full batch, possibly more
+            setHasMoreDex(true);
           } else {
             const newTrades = dexDataBatch.trades;
-            if (newTrades.length < 1000 * availableChains.length) {
+            const offset = page === 1 ? 5000 : 1000; // Match the offset used in fetch
+            if (newTrades.length < offset) {
               setHasMoreDex(false);
             }
             setDexData(prev => ({
@@ -1814,13 +1815,15 @@ export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initi
       },
       300
     ),
-    [session, status, toast, fetchNameTagsForAddresses, nameTagsRef, selectedToken, currency, selectedChain, getAvailableChains, fetchMempoolTransactions]
+    [session, status, toast, fetchNameTagsForAddresses, nameTagsRef, selectedToken, currency, getAvailableChains, fetchMempoolTransactions]
   );
 
-  const loadMoreDexData = useCallback(async (chain, tokenAddress) => {
-    setIsLoadingMoreDex(true);
+  const loadMoreDexData = useCallback(async () => {
+    if (!selectedToken || dexError || isLoadingMoreDex || !hasMoreDex) return;
+    const { chain, tokenAddress } = getDefaultChainAndAddress(selectedToken, selectedChain);
+    if (!chain || !tokenAddress) return;
     await fetchDexData(chain, tokenAddress, currentDexPage + 1);
-  }, [fetchDexData, currentDexPage]);
+  }, [selectedToken, dexError, isLoadingMoreDex, hasMoreDex, getDefaultChainAndAddress, currentDexPage, fetchDexData]);
 
   // Update the useEffect for dex data fetch to pass page=1:
   useEffect(() => {
@@ -1834,7 +1837,7 @@ export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initi
     }
 
     // Initial fetch
-    fetchDexData(chain, tokenAddress); // Remove explicit page and offset, use defaults
+    fetchDexData(chain, tokenAddress, 1);
 
     // Set up interval for background refresh (only initial)
     const interval = setInterval(() => {

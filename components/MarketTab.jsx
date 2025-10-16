@@ -1,4 +1,3 @@
-// components\MarketTab.jsx
 "use client"
 
 import React, { useState, useEffect, useRef, useCallback, useMemo } from "react"
@@ -357,7 +356,7 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
       } else {
         const { chain, tokenAddress } = getDefaultChainAndAddress(selectedToken, selectedChain);
         if (chain && tokenAddress) {
-          fetchDexData(chain, tokenAddress); // Load initial batch with default smaller offset for faster UI
+          fetchDexData(chain, tokenAddress); // Remove the 5000 param, use default page=1 with large offset
         }
       }
     }
@@ -1816,21 +1815,23 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                             {(() => {
                               const isBitcoin = selectedToken?.id.toLowerCase() === 'bitcoin';
                               const trades = isBitcoin ? mempoolTransactions : sortedTrades; // Use sorted trades
-                              const handleEndReached = isBitcoin 
-                                ? () => {} // Bitcoin loads all initially, no more to load
+                              const handleEndReached = isBitcoin
+                                ? () => { } // Bitcoin loads all initially, no more to load
                                 : () => {
-                                    if (hasMoreDex && !isLoadingMoreDex) {
-                                      const { chain, tokenAddress } = getDefaultChainAndAddress(selectedToken, selectedChain);
-                                      loadMoreDexData(chain, tokenAddress);
-                                    }
-                                  };
+                                  if (hasMoreDex && !isLoadingMoreDex) {
+                                    const { chain, tokenAddress } = getDefaultChainAndAddress(selectedToken, selectedChain);
+                                    loadMoreDexData(chain, tokenAddress);
+                                  }
+                                };
                               return trades.length > 0 ? (
                                 <>
+                                  // Replace the Virtuoso component in the dex-panel section of components/MarketTab.jsx (inside the dex tab conditional)
                                   <Virtuoso
                                     style={{ height: '600px', overflow: 'auto', scrollbarWidth: 'none', msOverflowStyle: 'none' }}
                                     className="hide-scrollbar"
                                     data={trades} // Use sorted trades
                                     endReached={handleEndReached}
+                                    overscan={200} // Preload more rows for smoother scrolling
                                     itemContent={(index, item) => {
                                       console.log('Debug tx item:', {
                                         index,
@@ -1847,8 +1848,14 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                                       const toAddressInfo = getNameTagInfo(isBitcoin ? item.outputs?.[0]?.address : item.to_token_address?.address, chain);
 
                                       const DexRow = React.memo(() => (
-                                        <div  // Removed motion.div to avoid flickering
+                                        <div // Remove motion.div to avoid flicker during scroll
                                           className="flex border-t border-white/10 bg-black/80 p-3 text-[9px] sm:text-[11px]"
+                                          style={{ // Add fixed height and transform for smooth rendering
+                                            height: '64px',
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            transition: 'none', // Disable transitions for rows
+                                          }}
                                         >
                                           {/* Tx/Time */}
                                           <div className="flex-1 flex flex-col gap-1 items-center justify-center group relative">
@@ -1857,18 +1864,20 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                                             </a>
                                             <span className="text-[7px] sm:text-[9px] text-white/60 text-center">{formatDistanceToNow(new Date(timestamp), { addSuffix: true })}</span>
                                             {txHash && (
-                                              <button  // Removed motion.button
+                                              <motion.button
                                                 onClick={() => {
                                                   navigator.clipboard.writeText(txHash);
                                                   toast.success("Transaction hash copied!", { autoClose: 2000 });
                                                 }}
                                                 className="absolute right-0 top-0 text-white/40 hover:text-white/80 opacity-0 group-hover:opacity-100 p-1 rounded-md hover:bg-white/10"
                                                 title="Copy transaction hash"
+                                                whileHover={{ scale: 1.1 }}
+                                                whileTap={{ scale: 0.9 }}
                                               >
                                                 <svg xmlns="http://www.w3.org/2000/svg" className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                                                   <path strokeLinecap="round" strokeLinejoin="round" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
                                                 </svg>
-                                              </button>
+                                              </motion.button>
                                             )}
                                           </div>
 
@@ -1890,15 +1899,17 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                                                 <span className="text-[9px] sm:text-[11px]">{isBitcoin ? `${item.inputs?.[0]?.address?.slice(0, 6)}...${item.inputs?.[0]?.address?.slice(-4)}` : `${item.tx_from_address?.address?.slice(0, 6)}...${item.tx_from_address?.address?.slice(-4)}`}</span>
                                               )}
                                             </a>
-                                            <button  // Removed motion.button
+                                            <motion.button
                                               onClick={() => navigator.clipboard.writeText(isBitcoin ? item.inputs?.[0]?.address : item.tx_from_address?.address) && toast.success("Address copied!", { autoClose: 2000 })}
                                               className="absolute right-0 text-white/40 hover:text-white/80 opacity-0 group-hover:opacity-100 p-1 rounded-md hover:bg-white/10"
                                               title="Copy address"
+                                              whileHover={{ scale: 1.1 }}
+                                              whileTap={{ scale: 0.9 }}
                                             >
                                               <svg xmlns="http://www.w3.org/2000/svg" className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                                                 <path strokeLinecap="round" strokeLinejoin="round" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
                                               </svg>
-                                            </button>
+                                            </motion.button>
                                           </div>
 
                                           {/* To Address */}
@@ -1919,15 +1930,17 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                                                 <span className="text-[10px]">{isBitcoin ? `${item.outputs?.[0]?.address?.slice(0, 6)}...${item.outputs?.[0]?.address?.slice(-4)}` : `${item.to_token_address?.address?.slice(0, 6)}...${item.to_token_address?.address?.slice(-4)}`}</span>
                                               )}
                                             </a>
-                                            <button  // Removed motion.button
+                                            <motion.button
                                               onClick={() => navigator.clipboard.writeText(isBitcoin ? item.outputs?.[0]?.address : item.to_token_address?.address) && toast.success("Address copied!", { autoClose: 2000 })}
                                               className="absolute right-0 text-white/40 hover:text-white/80 opacity-0 group-hover:opacity-100 p-1 rounded-md hover:bg-white/10"
                                               title="Copy address"
+                                              whileHover={{ scale: 1.1 }}
+                                              whileTap={{ scale: 0.9 }}
                                             >
                                               <svg xmlns="http://www.w3.org/2000/svg" className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                                                 <path strokeLinecap="round" strokeLinejoin="round" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
                                               </svg>
-                                            </button>
+                                            </motion.button>
                                           </div>
 
                                           {/* Value */}
