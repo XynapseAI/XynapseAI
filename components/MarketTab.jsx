@@ -1,4 +1,4 @@
-// Fixed components/MarketTab.jsx
+// Upgraded components/MarketTab.jsx
 "use client"
 
 import React, { useState, useEffect, useRef, useCallback, useMemo } from "react"
@@ -1912,12 +1912,11 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                                           </>
                                         )}
                                       </div>
-                                      {isLoadingPage ? (
-                                        <div className="flex-1 flex items-center justify-center p-4">
-                                          <SkeletonLoader count={5} height={60} isMobile={isMobile} />
-                                        </div>
-                                      ) : (
-                                        trades.map((item, index) => {
+                                      <Virtuoso
+                                        style={{ height: '100%', overflow: 'auto', scrollbarWidth: 'none', msOverflowStyle: 'none' }}
+                                        className="hide-scrollbar"
+                                        data={trades}
+                                        itemContent={(index, item) => {
                                           const txHash = isBitcoin ? item.txid : item.tx_hash;
                                           const timestamp = isBitcoin ? item.timestamp * 1000 : item.block_timestamp;
                                           const chain = isBitcoin ? 'bitcoin' : item.chain;
@@ -1925,10 +1924,9 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                                           const fromAddressInfo = getNameTagInfo(isBitcoin ? item.inputs?.[0]?.address : item.tx_from_address?.address, chain);
                                           const toAddressInfo = getNameTagInfo(isBitcoin ? item.outputs?.[0]?.address : item.to_token_address?.address, chain);
 
-                                          return (
+                                          const TradeRow = React.memo(() => (
                                             <motion.div
-                                              key={index}
-                                              className="flex border-t border-white/10 bg-black/80 py-1.5 px-2 text-[9px] sm:text-[11px]"  // Giảm py từ 3 → 1.5, px từ 3 → 2
+                                              className="flex border-t border-white/10 bg-black/80 py-1.5 px-2 text-[9px] sm:text-[11px]"
                                               variants={rowVariants}
                                               initial="hidden"
                                               animate="visible"
@@ -2066,9 +2064,10 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                                                 </div>
                                               )}
                                             </motion.div>
-                                          );
-                                        })
-                                      )}
+                                          ));
+                                          return <TradeRow key={index} />;
+                                        }}
+                                      />
                                     </div>
                                   </>
                                 ) : (

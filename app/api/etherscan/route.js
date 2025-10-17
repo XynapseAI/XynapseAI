@@ -1,4 +1,4 @@
-// Fixed app/api/etherscan/route.js (no changes needed, but included for completeness)
+// Upgraded app/api/etherscan/route.js (minor fix for V2 compatibility, no major changes)
 import { NextResponse } from 'next/server';
 import axios from 'axios';
 import { z } from 'zod';
@@ -85,7 +85,7 @@ const bodySchema = z.object({
   address: z.string().optional().refine((val) => !val || isAddress(val), { message: 'Wallet address must be a valid EVM address' }),
   tokenAddress: z.string().optional().refine((val) => !val || isAddress(val), { message: 'Token address must be a valid EVM address' }),
   page: z.number().int().min(1).optional().default(1),
-  offset: z.number().int().min(1).max(5000).optional().default(500),
+  offset: z.number().int().min(1).max(10000).optional().default(100), // Increased max offset for more pages
 }).refine(
   (data) => (['wallet-balances', 'transactions'].includes(data.action) ? !!data.address : true),
   { message: 'Wallet address is required for wallet-balances and transactions', path: ['address'] }
