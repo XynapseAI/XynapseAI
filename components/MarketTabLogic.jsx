@@ -1627,10 +1627,10 @@ export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initi
         }
 
         const isInitial = page === 1 && dexData.fullTrades.length === 0;
-        const baseOffset = isInitial ? 20 : 200;
-        const maxOffsetPerCall = 500; // Cap per call to avoid overload
-        const offset = Math.min(baseOffset * page, maxOffsetPerCall); // Scale offset with page for progressive load
-        const maxTotalTxs = 2000; // Increase cap for more pages
+        const OFFSET_PER_CALL = 100;
+        const maxTotalTxs = 1000; // Hỗ trợ 10 pages (100 tx/page)
+        const offset = OFFSET_PER_CALL; // Fixed offset per API call
+        const maxOffsetPerCall = 100; // Giữ nguyên offset fixed
         if (dexData.fullTrades.length >= maxTotalTxs) {
           setHasMoreDex(false);
           return;
@@ -1656,8 +1656,8 @@ export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initi
                 action: 'token-transactions',
                 chain: ch.value,
                 tokenAddress: tokenAddr,
-                page: 1, // Luôn page 1 cho recent txs
-                offset, // Offset động based on page
+                page, // API page
+                offset, // Fixed offset
               };
 
               const response = await fetch('/api/etherscan', {
@@ -1751,20 +1751,20 @@ export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initi
             });
             updatedFullTrades = updatedFullTrades.slice(0, maxTotalTxs);
 
-            // Background progressive load for initial
+            // Background progressive load for initial: load up to 10 pages sequentially with delays
             if (isInitial) {
-              // Chain calls to load more progressively
-              setTimeout(async () => {
-                setIsLoadingMoreDex(true);
-                try {
-                  // Load next batch with higher offset
-                  await fetchDexData(chain, tokenAddress, 2);
-                } catch (bgErr) {
-                  console.warn('Background full load failed:', bgErr);
-                } finally {
-                  setIsLoadingMoreDex(false);
-                }
-              }, 1500);
+              for (let bgPage = 2; bgPage <= 10; bgPage++) {
+                setTimeout(async () => {
+                  setIsLoadingMoreDex(true);
+                  try {
+                    await fetchDexData(chain, tokenAddress, bgPage);
+                  } catch (bgErr) {
+                    console.warn(`Background page ${bgPage} failed:`, bgErr);
+                  } finally {
+                    setIsLoadingMoreDex(false);
+                  }
+                }, (bgPage - 1) * 1000); // Delay 1s between each background page
+              }
             }
 
             return { pools: [], trades: sortedNewTrades.slice(0, 100), poolTokens: {}, fullTrades: updatedFullTrades };
@@ -1815,15 +1815,19 @@ export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initi
 
   // Updated loadMoreDexData: Now paginates client-side from cache
   const loadMoreDexData = useCallback(async () => {
-    if (!selectedToken || dexError || isLoadingMoreDex || dexData.fullTrades.length >= 2000) {
+    if (!selectedToken || dexError || isLoadingMoreDex || dexData.fullTrades.length >= 1000) {
+      setHasMoreDex(false);
+      return;
+    }
+    const OFFSET_PER_CALL = 100;
+    const nextPage = Math.floor(dexData.fullTrades.length / OFFSET_PER_CALL) + 1;
+    if (nextPage > 10) {
       setHasMoreDex(false);
       return;
     }
     setIsLoadingMoreDex(true);
     const { chain, tokenAddress } = getDefaultChainAndAddress(selectedToken, selectedChain);
     if (chain && tokenAddress) {
-      // Call with next "page" to load more offset
-      const nextPage = Math.ceil(dexData.fullTrades.length / 200) + 1;
       try {
         await fetchDexData(chain, tokenAddress, nextPage);
       } catch (err) {
@@ -1831,9 +1835,8 @@ export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initi
       }
     }
     setIsLoadingMoreDex(false);
-    setHasMoreDex(dexData.fullTrades.length < 2000);
+    setHasMoreDex(dexData.fullTrades.length < 1000);
   }, [selectedToken, dexError, isLoadingMoreDex, dexData.fullTrades, selectedChain, getDefaultChainAndAddress, fetchDexData]);
-
 
   useEffect(() => {
     const isBitcoin = selectedToken?.id.toLowerCase() === 'bitcoin';

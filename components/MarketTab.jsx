@@ -1833,18 +1833,8 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                   >
                     {activeMarketTab === "dex" && (
                       <>
-                        <div className="p-4 text-right text-[9px] text-white/60 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 sm:gap-0 sticky top-0 bg-black/80 z-10 border-b border-white/10">
-                          <span className="px-2 py-1 order-2 sm:order-1">
-                            Last Updated:{" "}
-                            {lastDexFetchTime
-                              ? new Date(lastDexFetchTime).toLocaleTimeString("en-US", {
-                                hour: "2-digit",
-                                minute: "2-digit",
-                                second: "2-digit",
-                              })
-                              : "N/A"}
-                          </span>
-                          <div className="flex items-center justify-end gap-1 order-1 sm:order-2 text-[8px]">
+                        <div className="p-2 text-[9px] text-white/60 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 sm:gap-0 sticky top-0 bg-black/80 z-10 border-b border-white/10">
+                          <div className="flex items-center justify-start gap-1 order-1 sm:order-1 text-[8px]">
                             <motion.button
                               onClick={handlePrevPage}
                               disabled={currentDexPage === 1 || isLoadingPage}
@@ -1869,6 +1859,16 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                               ›
                             </motion.button>
                           </div>
+                          <span className="px-2 py-0.5 order-2 sm:order-2 text-right">
+                            Last Updated:{" "}
+                            {lastDexFetchTime
+                              ? new Date(lastDexFetchTime).toLocaleTimeString("en-US", {
+                                hour: "2-digit",
+                                minute: "2-digit",
+                                second: "2-digit",
+                              })
+                              : "N/A"}
+                          </span>
                         </div>
                         <div className="flex-1 overflow-y-auto tab-content custom-scrollbar hide-scrollbar relative min-h-[500px] sm:min-h-[400px]">
                           {session ? (
