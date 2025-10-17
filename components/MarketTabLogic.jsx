@@ -92,7 +92,7 @@ const NON_EVM_CHAINS = ['bitcoin', 'ethereum', 'dogecoin', 'litecoin'];
 const BLOCKCHAIR_REQUEST_LIMIT = 60; // Limit of 30 requests per minute
 const BLOCKCHAIR_REQUEST_WINDOW = 60 * 1000; // 1 minute
 const blockchairRequestTracker = new Map();
-const DEX_REQUEST_LIMIT = 30; // Max 30 requests per minute
+const DEX_REQUEST_LIMIT = 50; // Max 5 requests per minute
 const DEX_REQUEST_WINDOW = 60 * 1000; // 1 minute
 const dexRequestTracker = new Map();
 const limit = pLimit(60);
@@ -111,8 +111,13 @@ const SUPPORTED_EVM_CHAINS = [
   { value: 'arbitrum', coingeckoId: 'arbitrum-one', label: 'Arbitrum One', chainId: 42161, testnet: false },
   { value: 'optimism', coingeckoId: 'optimism', label: 'Optimism', chainId: 10, testnet: false },
   { value: 'avalanche_c', coingeckoId: 'avalanche', label: 'Avalanche C-Chain', chainId: 43114, testnet: false },
+  { value: 'sonic', coingeckoId: 'sonic', label: 'Sonic', chainId: 146, testnet: false },
   { value: 'base', coingeckoId: 'base', label: 'Base', chainId: 8453, testnet: false },
   { value: 'celo', coingeckoId: 'celo', label: 'Celo', chainId: 42220, testnet: false },
+  { value: 'scroll', coingeckoId: 'scroll', label: 'Scroll', chainId: 534352, testnet: false },
+  { value: 'mantle', coingeckoId: 'mantle', label: 'Mantle', chainId: 5000, testnet: false },
+  { value: 'linea', coingeckoId: 'linea', label: 'Linea', chainId: 59144, testnet: false },
+
 ];
 
 export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initialTokenData }) => {
@@ -1593,7 +1598,7 @@ export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initi
           return;
         }
 
-        const availableChains = getAvailableChains().filter(c => !c.testnet).slice(0, 10); // Updated to 10 chains
+        const availableChains = getAvailableChains().filter(c => !c.testnet).slice(0, 5); // Limit to 5 chains for ~5000 txs
         if (availableChains.length === 0) {
           const errorMessage = `No supported EVM chains found for ${selectedToken.symbol}`;
           setDexError(errorMessage);
@@ -1772,7 +1777,7 @@ export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initi
           const dexDataBatch = await getCachedData(cacheKey, fetchFn, CACHE_DURATIONS.DEFI_POOL, 0, true, session, status);
 
           // Always load full batch once, then paginate
-          const fullTrades = dexDataBatch.fullTrades.slice(0, 5000);
+          const fullTrades = dexDataBatch.fullTrades.slice(0, 5000); // Cap at 5000
           setDexData({ ...dexDataBatch, fullTrades }); // trades already set to first page in fetchFn
           setHasMoreDex(fullTrades.length > dexPaginationSize); // Fixed: Enable pagination if more than one page
           setCurrentDexPage(1); // Ensure page 1 after load
