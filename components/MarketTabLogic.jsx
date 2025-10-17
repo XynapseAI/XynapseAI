@@ -1779,7 +1779,7 @@ export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initi
           // Always load full batch once, then paginate
           const fullTrades = dexDataBatch.fullTrades.slice(0, 5000); // Cap at 5000
           setDexData({ ...dexDataBatch, fullTrades }); // trades already set to first page in fetchFn
-          setHasMoreDex(fullTrades.length >= 5000);
+          setHasMoreDex(fullTrades.length > dexPaginationSize); // Fixed: Enable pagination if more than one page
           setCurrentDexPage(1); // Ensure page 1 after load
 
           setLastDexFetchTime(Date.now());
@@ -1798,7 +1798,7 @@ export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initi
             // Set first page from cache
             const firstPageTrades = fullTrades.slice(0, 100);
             setDexData({ ...cachedData, fullTrades, trades: firstPageTrades });
-            setHasMoreDex(fullTrades.length >= 5000);
+            setHasMoreDex(fullTrades.length > dexPaginationSize); // Fixed: Enable from cache too
             setCurrentDexPage(1);
           } else {
             setDexData({ pools: [], trades: [], poolTokens: {}, fullTrades: [] });
@@ -1824,7 +1824,7 @@ export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initi
 
   // Updated loadMoreDexData: Now paginates client-side from cache
   const loadMoreDexData = useCallback(async () => {
-    if (!selectedToken || dexError || isLoadingMoreDex || !hasMoreDex || dexData.fullTrades.length <= currentDexPage * dexPaginationSize) {
+    if (!selectedToken || dexError || isLoadingMoreDex || dexData.fullTrades.length <= currentDexPage * dexPaginationSize) {
       setHasMoreDex(false);
       return;
     }

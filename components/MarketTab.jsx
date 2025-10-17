@@ -1,3 +1,4 @@
+// Fixed components/MarketTab.jsx
 "use client"
 
 import React, { useState, useEffect, useRef, useCallback, useMemo } from "react"
@@ -112,7 +113,6 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
     fetchPublicTreasuryData,
     fetchTickerData,
     fetchPriceHistory,
-    fetchTrendingTokens,
     isLoadingSelectedToken,
     localCache,
     nameTags,
@@ -1614,7 +1614,7 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                         </span>
                         <motion.button
                           onClick={handleNextPage}
-                          disabled={!hasMoreDex || currentDexPage >= getTotalDexPages()}
+                          disabled={currentDexPage >= getTotalDexPages()}
                           className="px-1 py-0.5 text-white/60 hover:text-white disabled:opacity-30 disabled:cursor-not-allowed bg-white/5 rounded transition-all"
                           whileHover={{ scale: 1.05 }}
                           whileTap={{ scale: 0.95 }}

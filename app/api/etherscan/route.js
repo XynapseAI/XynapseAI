@@ -1,4 +1,4 @@
-// app\api\etherscan\route.js (fixed chainIdMap space)
+// Fixed app/api/etherscan/route.js (no changes needed, but included for completeness)
 import { NextResponse } from 'next/server';
 import axios from 'axios';
 import { z } from 'zod';
