@@ -355,7 +355,8 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
       setShowTrades(false);
       return;
     }
-    if (dexRequestCount >= 5 && Date.now() - lastDexRequestTime < 60 * 1000) {
+    if (dexRequestCount >= DEX_REQUEST_LIMIT && Date.now() - lastDexRequestTime < 60 * 1000) {
+      toast.error("Too many DEX requests. Please wait a minute.", { position: "top-center", autoClose: 3000 });
       return;
     }
     setActiveMarketTab("dex");
@@ -370,7 +371,7 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
         }
       }
     }
-  }, [session, dexRequestCount, lastDexRequestTime, selectedToken, selectedChain, fetchMempoolTransactions, fetchDexData, getDefaultChainAndAddress, setActiveMarketTab, setShowTrades]);
+  }, [session, dexRequestCount, lastDexRequestTime, selectedToken, selectedChain, fetchMempoolTransactions, fetchDexData, getDefaultChainAndAddress, setActiveMarketTab, setShowTrades, toast]);
 
   const handlePoolClick = (poolAddress) => {
     if (process.env.NODE_ENV === "development") {
@@ -1865,7 +1866,7 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                               ? new Date(lastDexFetchTime).toLocaleTimeString("en-US", {
                                 hour: "2-digit",
                                 minute: "2-digit",
-                                second: "2-digit",
+                                // Bỏ second để không update liên tục
                               })
                               : "N/A"}
                           </span>
@@ -1930,6 +1931,7 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                                               variants={rowVariants}
                                               initial="hidden"
                                               animate="visible"
+                                              key={item.tx_hash} // Key stable để memo
                                             >
                                               {/* Tx/Time */}
                                               <div className="flex-1 flex flex-col gap-1 items-center justify-center group relative">
@@ -2065,6 +2067,7 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                                               )}
                                             </motion.div>
                                           ));
+                                          TradeRow.displayName = 'TradeRow';
                                           return <TradeRow key={index} />;
                                         }}
                                       />
