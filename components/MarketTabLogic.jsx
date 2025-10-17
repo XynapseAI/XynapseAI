@@ -92,8 +92,8 @@ const NON_EVM_CHAINS = ['bitcoin', 'ethereum', 'dogecoin', 'litecoin'];
 const BLOCKCHAIR_REQUEST_LIMIT = 60; // Limit of 30 requests per minute
 const BLOCKCHAIR_REQUEST_WINDOW = 60 * 1000; // 1 minute
 const blockchairRequestTracker = new Map();
-const DEX_REQUEST_LIMIT = 50; // Max 5 requests per minute
-const DEX_REQUEST_WINDOW = 5 * 60 * 1000; // 1 minute
+const DEX_REQUEST_LIMIT = 30; // Max 5 requests per minute
+const DEX_REQUEST_WINDOW = 60 * 1000; // 1 minute
 const dexRequestTracker = new Map();
 const limit = pLimit(60);
 
@@ -1598,7 +1598,7 @@ export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initi
           return;
         }
 
-        const availableChains = getAvailableChains().filter(c => !c.testnet).slice(0, 5); // Limit to 5 chains for ~5000 txs
+        const availableChains = getAvailableChains().filter(c => !c.testnet).slice(0, 10); // Limit to 5 chains for ~5000 txs
         if (availableChains.length === 0) {
           const errorMessage = `No supported EVM chains found for ${selectedToken.symbol}`;
           setDexError(errorMessage);
@@ -1655,7 +1655,7 @@ export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initi
                 chain: ch.value,
                 tokenAddress: tokenAddr,
                 page: 1, // Always page 1 for bulk load
-                offset: 1000, // 1000 per chain
+                offset: 500, // 1000 per chain
               };
 
               const response = await fetch('/api/etherscan', {
@@ -1875,6 +1875,13 @@ export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initi
       fetchDexData.cancel && fetchDexData.cancel();
     };
   }, [selectedToken?.id, selectedChain, getDefaultChainAndAddress, fetchDexData, tickerCache]);
+
+  useEffect(() => {
+    const userId = session?.user?.id || 'anonymous';
+    dexRequestTracker.set(userId, { count: 0, lastReset: Date.now() });
+    setDexRequestCount(0);
+    setLastDexRequestTime(Date.now());
+  }, [selectedToken?.id, session?.user?.id]);
 
   const fetchTrendingTokens = useCallback(
     debounce(

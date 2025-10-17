@@ -149,6 +149,7 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
     goToDexPage,
     getTotalDexPages,
     setDexData,
+    fetchTrendingTokens,
   } = useMarketTabLogic({ recaptchaRef, toast, initialTokenData, toast })
 
   const dropdownRef = useRef(null)
