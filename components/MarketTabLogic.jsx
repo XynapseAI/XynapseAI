@@ -171,7 +171,7 @@ export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initi
   const prevTopHoldersRef = useRef([]);
   const prevAvailableChainsRef = useRef([]);
   const [chains, setChains] = useState([]);
-  const [dexData, setDexData] = useState({ pools: [], trades: [], poolTokens: {} });
+  const [dexData, setDexData] = useState({ pools: [], trades: [], poolTokens: {}, fullTrades: [] }); // Added fullTrades for cache
   const [isLoadingDex, setIsLoadingDex] = useState(false);
   const [dexError, setDexError] = useState(null);
   const [dexRequestCount, setDexRequestCount] = useState(0);
@@ -199,7 +199,8 @@ export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initi
   const [mempoolError, setMempoolError] = useState(null);
   const mempoolWsRef = useRef(null);
   const mempoolTxCache = useRef(new Set());
-  const [currentDexPage, setCurrentDexPage] = useState(1);
+  const [currentDexPage, setCurrentDexPage] = useState(1); // New: for pagination
+  const [dexPaginationSize] = useState(100); // 100 txs per page
   const [hasMoreDex, setHasMoreDex] = useState(true);
   const [isLoadingMoreDex, setIsLoadingMoreDex] = useState(false);
   const isInitialMempoolFetch = useRef(true);
@@ -1583,7 +1584,7 @@ export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initi
         if (chain === 'bitcoin') {
           setIsLoadingDex(false);
           setDexError(null);
-          setDexData({ pools: [], trades: [], poolTokens: {} });
+          setDexData({ pools: [], trades: [], poolTokens: {}, fullTrades: [] });
           fetchMempoolTransactions(); // Trigger mempool data fetch for Bitcoin
           return;
         }
@@ -1597,7 +1598,7 @@ export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initi
           return;
         }
 
-        const availableChains = getAvailableChains().filter(c => !c.testnet); // Exclude testnets
+        const availableChains = getAvailableChains().filter(c => !c.testnet).slice(0, 5); // Limit to 5 chains for ~5000 txs
         if (availableChains.length === 0) {
           const errorMessage = `No supported EVM chains found for ${selectedToken.symbol}`;
           setDexError(errorMessage);
@@ -1626,12 +1627,12 @@ export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initi
         }
 
         const isAppend = page > 1;
-        if (isAppend && dexData.trades.length >= 2000) {
+        if (dexData.fullTrades.length >= 5000) { // Updated cap to 5000
           setHasMoreDex(false);
           setIsLoadingMoreDex(false);
           return;
         }
-        const cacheKey = `onchain-tx-${selectedToken.id}${isAppend ? `-page-${page}` : ''}-session_required`;
+        const cacheKey = `onchain-tx-${selectedToken.id}-full-session_required`;
         setIsLoadingDex(!isAppend);
         setIsLoadingMoreDex(isAppend);
         setDexError(null);
@@ -1641,7 +1642,7 @@ export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initi
             const allTrades = [];
             const uniqueAddresses = new Set();
 
-            // Fetch from each available chain
+            // Fetch from each available chain: 1000 txs per chain
             const chainPromises = availableChains.map(async (ch) => {
               const platformId = ch.coingeckoId;
               const tokenAddr = selectedToken.detail_platforms?.[platformId]?.contract_address;
@@ -1653,8 +1654,8 @@ export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initi
                 action: 'token-transactions',
                 chain: ch.value,
                 tokenAddress: tokenAddr,
-                page,
-                offset: 100, // Each load per chain: 100 tx
+                page: 1, // Always page 1 for bulk load
+                offset: 1000, // 1000 per chain
               };
 
               const response = await fetch('/api/etherscan', {
@@ -1767,26 +1768,15 @@ export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initi
             const finalTrades = tradesWithTags.sort((a, b) => new Date(b.block_timestamp) - new Date(a.block_timestamp));
 
             // Pools and poolTokens as empty or fallback since not DEX-specific
-            return { pools: [], trades: finalTrades, poolTokens: {} };
+            return { pools: [], trades: finalTrades, poolTokens: {}, fullTrades: finalTrades }; // Cache full in fullTrades
           };
 
           const dexDataBatch = await getCachedData(cacheKey, fetchFn, CACHE_DURATIONS.DEFI_POOL, 0, true, session, status);
 
-          if (page === 1) {
-            // Initial load: cap at 2000
-            const initialTrades = dexDataBatch.trades.slice(0, 2000);
-            setDexData({ ...dexDataBatch, trades: initialTrades });
-            setHasMoreDex(initialTrades.length > 0 && initialTrades.length < 2000);
-          } else {
-            // Append: add up to 100 new trades, cap total at 2000
-            const prevTrades = dexData.trades || [];
-            const maxAdd = Math.min(100, 2000 - prevTrades.length);
-            const newTradesToAdd = dexDataBatch.trades.slice(0, maxAdd);
-            const updatedTrades = [...prevTrades, ...newTradesToAdd];
-            const finalUpdatedTrades = updatedTrades.slice(0, 2000); // Ensure cap
-            setDexData({ ...dexData, trades: finalUpdatedTrades });
-            setHasMoreDex(newTradesToAdd.length === 100 && finalUpdatedTrades.length < 2000);
-          }
+          // Always load full batch once, then paginate
+          const fullTrades = dexDataBatch.fullTrades.slice(0, 5000); // Cap at 5000
+          setDexData({ ...dexDataBatch, fullTrades, trades: [] }); // trades will be set via pagination
+          setHasMoreDex(fullTrades.length >= 5000);
 
           setLastDexFetchTime(Date.now());
         } catch (error) {
@@ -1800,21 +1790,11 @@ export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initi
           toast.error(safeErrorMessage, { position: 'top-center', autoClose: 5000 });
           if (localCache.current[cacheKey]?.data) {
             const cachedData = localCache.current[cacheKey].data;
-            if (page === 1) {
-              const initialTrades = cachedData.trades.slice(0, 2000);
-              setDexData({ ...cachedData, trades: initialTrades });
-              setHasMoreDex(initialTrades.length > 0 && initialTrades.length < 2000);
-            } else {
-              const prevTrades = dexData.trades || [];
-              const maxAdd = Math.min(100, 2000 - prevTrades.length);
-              const newTradesToAdd = cachedData.trades.slice(0, maxAdd);
-              const updatedTrades = [...prevTrades, ...newTradesToAdd];
-              const finalUpdatedTrades = updatedTrades.slice(0, 2000);
-              setDexData({ ...dexData, trades: finalUpdatedTrades });
-              setHasMoreDex(newTradesToAdd.length === 100 && finalUpdatedTrades.length < 2000);
-            }
+            const fullTrades = cachedData.fullTrades.slice(0, 5000);
+            setDexData({ ...cachedData, fullTrades, trades: [] });
+            setHasMoreDex(fullTrades.length >= 5000);
           } else {
-            setDexData({ pools: [], trades: [], poolTokens: {} });
+            setDexData({ pools: [], trades: [], poolTokens: {}, fullTrades: [] });
             setHasMoreDex(false);
           }
         } finally {
@@ -1827,18 +1807,37 @@ export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initi
     [session, status, toast, fetchNameTagsForAddresses, nameTagsRef, selectedToken, currency, getAvailableChains, fetchMempoolTransactions, dexData, setHasMoreDex]
   );
 
+  // New: Function to get paginated trades from cached fullTrades
+  const getPaginatedTrades = useCallback((page) => {
+    const start = (page - 1) * dexPaginationSize;
+    const end = start + dexPaginationSize;
+    const fullTrades = dexData.fullTrades || [];
+    return fullTrades.slice(start, end);
+  }, [dexData.fullTrades, dexPaginationSize]);
+
+  // Updated loadMoreDexData: Now paginates client-side from cache
   const loadMoreDexData = useCallback(async () => {
-    if (!selectedToken || dexError || isLoadingMoreDex || !hasMoreDex || dexData.trades.length >= 2000) {
+    if (!selectedToken || dexError || isLoadingMoreDex || !hasMoreDex || dexData.fullTrades.length <= currentDexPage * dexPaginationSize) {
       setHasMoreDex(false);
       return;
     }
-    const { chain, tokenAddress } = getDefaultChainAndAddress(selectedToken, selectedChain);
-    if (!chain || !tokenAddress) return;
-    // Use current page from logic or increment
-    await fetchDexData(chain, tokenAddress, (dexData.currentPage || 1) + 1);
-  }, [selectedToken, dexError, isLoadingMoreDex, hasMoreDex, dexData, getDefaultChainAndAddress, fetchDexData, setHasMoreDex]);
-  
+    setIsLoadingMoreDex(true);
+    setCurrentDexPage(prev => prev + 1);
+    setIsLoadingMoreDex(false);
+  }, [selectedToken, dexError, isLoadingMoreDex, hasMoreDex, dexData.fullTrades, currentDexPage, dexPaginationSize]);
+
+  // New: Go to specific page
+  const goToDexPage = useCallback((page) => {
+    if (page < 1 || page > Math.ceil((dexData.fullTrades?.length || 0) / dexPaginationSize)) return;
+    setCurrentDexPage(page);
+  }, [dexData.fullTrades, dexPaginationSize]);
+
+  // New: Get total pages
+  const getTotalDexPages = useCallback(() => {
+    return Math.ceil((dexData.fullTrades?.length || 0) / dexPaginationSize);
+  }, [dexData.fullTrades, dexPaginationSize]);
   // Update the useEffect for dex data fetch to pass page=1:
+
   useEffect(() => {
     if (!selectedToken?.id || ['bitcoin', 'ethereum'].includes(selectedToken.id.toLowerCase()) || document.visibilityState !== 'visible') {
       return;
@@ -1849,8 +1848,9 @@ export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initi
       return;
     }
 
-    // Initial fetch
+    // Initial fetch (full load)
     fetchDexData(chain, tokenAddress, 1);
+    setCurrentDexPage(1); // Reset to page 1
 
     // Set up interval for background refresh (only initial)
     const interval = setInterval(() => {
@@ -3085,6 +3085,12 @@ Predict **${selectedToken.symbol}/USD** price movement (1-3 days) in Markdown fo
     fetchTrendingTokens,
     isLoadingSelectedToken, // Add new state
     localCache,
+    // New pagination exports
+    currentDexPage,
+    setCurrentDexPage,
+    getPaginatedTrades,
+    goToDexPage,
+    getTotalDexPages,
     // Constants
     SUPPORTED_CHAINS,
     WALLET_SEARCH_LIMIT,
@@ -3108,5 +3114,6 @@ Predict **${selectedToken.symbol}/USD** price movement (1-3 days) in Markdown fo
     loadMoreDexData,
     hasMoreDex,
     isLoadingMoreDex,
+    setDexData,
   };
 };

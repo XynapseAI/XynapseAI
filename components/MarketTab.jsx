@@ -140,8 +140,15 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
     loadMoreDexData,
     hasMoreDex,
     isLoadingMoreDex,
-    setIsLoadingMoreDex, // Added for controlling loading state
-    setHasMoreDex, // Added to control hasMore state
+    setIsLoadingMoreDex,
+    setHasMoreDex,
+    // New pagination
+    currentDexPage,
+    setCurrentDexPage,
+    getPaginatedTrades,
+    goToDexPage,
+    getTotalDexPages,
+    setDexData,
   } = useMarketTabLogic({ recaptchaRef, toast, initialTokenData, toast })
 
   const dropdownRef = useRef(null)
@@ -664,6 +671,28 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
       },
     },
   };
+
+  // New: Handle next/prev page
+  const handleNextPage = useCallback(() => {
+    const totalPages = getTotalDexPages();
+    if (currentDexPage < totalPages) {
+      goToDexPage(currentDexPage + 1);
+    }
+  }, [currentDexPage, getTotalDexPages, goToDexPage]);
+
+  const handlePrevPage = useCallback(() => {
+    if (currentDexPage > 1) {
+      goToDexPage(currentDexPage - 1);
+    }
+  }, [currentDexPage, goToDexPage]);
+
+  // New: Update trades on page change
+  useEffect(() => {
+    const isBitcoin = selectedToken?.id.toLowerCase() === 'bitcoin';
+    if (isBitcoin) return; // Bitcoin unchanged
+    const paginated = getPaginatedTrades(currentDexPage);
+    setDexData(prev => ({ ...prev, trades: paginated }));
+  }, [currentDexPage, getPaginatedTrades, selectedToken]);
 
   return (
     <motion.section
@@ -1557,17 +1586,43 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                 {/* Tab Content */}
                 <div className="flex-1 overflow-y-auto hide-scrollbar relative min-h-[500px] sm:min-h-[400px]">
                   {activeMarketTab === "dex" && (
-                    <div className="p-4 text-right text-[9px] text-white/60">
-                      <span className="px-2 py-1">
+                    <div className="p-4 text-right text-[9px] text-white/60 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 sm:gap-0">
+                      <span className="px-2 py-1 order-2 sm:order-1">
                         Last Updated:{" "}
                         {lastDexFetchTime
                           ? new Date(lastDexFetchTime).toLocaleTimeString("en-US", {
-                            hour: "2-digit",
-                            minute: "2-digit",
-                            second: "2-digit",
-                          })
+                              hour: "2-digit",
+                              minute: "2-digit",
+                              second: "2-digit",
+                            })
                           : "N/A"}
                       </span>
+                      {/* New: Pagination - same line on sm+, below on mobile */}
+                      <div className="flex items-center justify-end gap-1 order-1 sm:order-2 text-[8px]">
+                        <motion.button
+                          onClick={handlePrevPage}
+                          disabled={currentDexPage === 1}
+                          className="px-1 py-0.5 text-white/60 hover:text-white disabled:opacity-30 disabled:cursor-not-allowed bg-white/5 rounded transition-all"
+                          whileHover={{ scale: 1.05 }}
+                          whileTap={{ scale: 0.95 }}
+                          title="Previous Page"
+                        >
+                          ‹
+                        </motion.button>
+                        <span className="px-2 py-0.5 bg-white/10 rounded text-white">
+                          Page {currentDexPage} / {getTotalDexPages()}
+                        </span>
+                        <motion.button
+                          onClick={handleNextPage}
+                          disabled={!hasMoreDex || currentDexPage >= getTotalDexPages()}
+                          className="px-1 py-0.5 text-white/60 hover:text-white disabled:opacity-30 disabled:cursor-not-allowed bg-white/5 rounded transition-all"
+                          whileHover={{ scale: 1.05 }}
+                          whileTap={{ scale: 0.95 }}
+                          title="Next Page"
+                        >
+                          ›
+                        </motion.button>
+                      </div>
                     </div>
                   )}
                   <div id="holders-panel" role="tabpanel" aria-labelledby="holders-tab" className={`flex-1 overflow-y-auto tab-content custom-scrollbar hide-scrollbar relative min-h-[500px] sm:min-h-[400px] ${activeMarketTab !== "holders" ? "hidden" : ""}`}>
@@ -1820,30 +1875,42 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                               };
                               return trades.length > 0 ? (
                                 <>
-                                  <Virtuoso
-                                    style={{ height: '600px', overflow: 'auto', scrollbarWidth: 'none', msOverflowStyle: 'none' }}
-                                    className="hide-scrollbar"
-                                    data={trades.slice(0, 2000)} // Cap at 2000
-                                    overscan={200} // Increased overscan for smoother scrolling, pre-renders more rows
-                                    itemContent={(index, item) => {
-                                      console.log('Debug tx item:', {
-                                        index,
-                                        tx_hash: item.tx_hash,  // ← Thêm log này
-                                        chain: item.chain,
-                                        fullItem: item
-                                      });
+                                  {/* Updated: Use fixed list instead of Virtuoso for pagination */}
+                                  <div className="flex flex-col h-[600px]">
+                                    <div className="flex bg-black/80 border-b border-white/10 p-2 font-semibold text-white text-[9px] sm:text-[11px] sticky top-0 z-10">
+                                      {/* Header for non-Bitcoin */}
+                                      {!isBitcoin && (
+                                        <>
+                                          <div className="flex-1 text-center">Tx/Time</div>
+                                          <div className="flex-[2] text-center">From Address</div>
+                                          <div className="flex-[2] text-center">To Address</div>
+                                          <div className="flex-1 text-center">Value</div>
+                                          <div className="flex-1 text-center">Status</div>
+                                          <div className="flex-1 text-center">Chain</div>
+                                        </>
+                                      )}
+                                      {/* Bitcoin header */}
+                                      {isBitcoin && (
+                                        <div className="flex bg-black/80 border-b border-white/10 p-2 font-semibold text-white text-[9px] sm:text-[11px]">
+                                          <div className="flex-1 text-center">Tx/Time</div>
+                                          <div className="flex-[2] text-center">From Address</div>
+                                          <div className="flex-[2] text-center">To Address</div>
+                                          <div className="flex-1 text-center">Value</div>
+                                          <div className="flex-1 text-center">Fee</div>
+                                        </div>
+                                      )}
+                                    </div>
+                                    {/* Rows: Use map instead of Virtuoso */}
+                                    {trades.map((item, index) => {
                                       const txHash = isBitcoin ? item.txid : item.tx_hash;
                                       const timestamp = isBitcoin ? item.timestamp * 1000 : item.block_timestamp;
-                                      const chain = isBitcoin ? 'bitcoin' : item.chain;  // Sửa: dùng item.chain thay vì selectedChain
+                                      const chain = isBitcoin ? 'bitcoin' : item.chain;
                                       const explorerInfo = getExplorerInfo(chain, txHash, null);
-                                      console.log('Debug explorerInfo:', { txHash, explorerInfo });
                                       const fromAddressInfo = getNameTagInfo(isBitcoin ? item.inputs?.[0]?.address : item.tx_from_address?.address, chain);
                                       const toAddressInfo = getNameTagInfo(isBitcoin ? item.outputs?.[0]?.address : item.to_token_address?.address, chain);
 
-                                      const DexRow = React.memo(() => (
-                                        <div // Removed motion.div to prevent flicker
-                                          className="flex border-t border-white/10 bg-black/80 p-3 text-[9px] sm:text-[11px]"
-                                        >
+                                      return (
+                                        <div key={index} className="flex border-t border-white/10 bg-black/80 p-3 text-[9px] sm:text-[11px]">
                                           {/* Tx/Time */}
                                           <div className="flex-1 flex flex-col gap-1 items-center justify-center group relative">
                                             <a href={explorerInfo.url} target="_blank" rel="noreferrer" className="p-1 rounded-md hover:bg-white/10 transition-all duration-300">
@@ -1872,7 +1939,7 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                                           <div className="flex-[2] flex items-center justify-center gap-2 group relative">
                                             {fromAddressInfo.image && <img src={fromAddressInfo.image} alt={`${fromAddressInfo.nameTag || 'Address'} logo`} className="w-3 h-3 rounded-md" onError={(e) => e.target.style.display = 'none'} />}
                                             <a
-                                              href={isBitcoin ? `https://mempool.space/address/${item.inputs?.[0]?.address}` : getExplorerUrls(chain, null, item.tx_from_address?.address).addressUrl}  // Sửa: dùng chain và null cho hash
+                                              href={isBitcoin ? `https://mempool.space/address/${item.inputs?.[0]?.address}` : getExplorerUrls(chain, null, item.tx_from_address?.address).addressUrl}
                                               target="_blank"
                                               rel="noreferrer"
                                               className="text-white hover:text-white/80 transition-colors font-medium text-[9px] sm:text-[11px]"
@@ -1903,7 +1970,7 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                                           <div className="flex-[2] flex items-center justify-center gap-2 group relative">
                                             {toAddressInfo.image && <img src={toAddressInfo.image} alt={`${toAddressInfo.nameTag || 'Address'} logo`} className="w-3 h-3 rounded-md" onError={(e) => e.target.style.display = 'none'} />}
                                             <a
-                                              href={isBitcoin ? `https://mempool.space/address/${item.outputs?.[0]?.address}` : getExplorerUrls(chain, null, item.to_token_address?.address).addressUrl}  // Sửa: dùng chain và null cho hash
+                                              href={isBitcoin ? `https://mempool.space/address/${item.outputs?.[0]?.address}` : getExplorerUrls(chain, null, item.to_token_address?.address).addressUrl}
                                               target="_blank"
                                               rel="noreferrer"
                                               className="text-white hover:text-white/80 transition-colors font-medium text-[10px]"
@@ -1977,79 +2044,9 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                                             </div>
                                           )}
                                         </div>
-                                      ));
-                                      return <DexRow key={index} />;
-                                    }}
-                                    components={{
-                                      Header: () => {
-                                        const isBitcoin = selectedToken?.id.toLowerCase() === 'bitcoin';
-                                        if (isBitcoin) {
-                                          return (
-                                            <div className="flex bg-black/80 border-b border-white/10 p-2 font-semibold text-white text-[9px] sm:text-[11px]">
-                                              <div className="flex-1 text-center">Tx/Time</div>
-                                              <div className="flex-[2] text-center">From Address</div>
-                                              <div className="flex-[2] text-center">To Address</div>
-                                              <div className="flex-1 text-center">Value</div>
-                                              <div className="flex-1 text-center">Fee</div>
-                                            </div>
-                                          );
-                                        } else {
-                                          return (
-                                            <div className="flex bg-black/80 border-b border-white/10 p-2 font-semibold text-white text-[9px] sm:text-[11px]">
-                                              <div className="flex-1 text-center">Tx/Time</div>
-                                              <div className="flex-[2] text-center">From Address</div>
-                                              <div className="flex-[2] text-center">To Address</div>
-                                              <div className="flex-1 text-center">Value</div>
-                                              <div className="flex-1 text-center">Status</div>
-                                              <div className="flex-1 text-center">Chain</div>
-                                            </div>
-                                          );
-                                        }
-                                      },
-                                      Footer: () => {
-                                        if (isLoadingMoreDex && !isBitcoin) {
-                                          return (
-                                            <div className="p-2 text-center border-t border-white/10 bg-black/40">
-                                              <motion.div
-                                                className="flex items-center justify-center gap-2 text-white text-[10px]"
-                                                initial={{ opacity: 0, y: 10 }}
-                                                animate={{ opacity: 1, y: 0 }}
-                                                exit={{ opacity: 0, y: -10 }}
-                                              >
-                                                <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
-                                                Loading more transactions...
-                                              </motion.div>
-                                            </div>
-                                          );
-                                        }
-                                        if (!isBitcoin && hasMoreDex && trades.length < 2000) {
-                                          return (
-                                            <div className="p-2 text-center border-t border-white/10 bg-black/40">
-                                              <motion.button
-                                                onClick={handleLoadMore}
-                                                className="flex items-center gap-2 px-4 py-2 text-white text-[10px] border border-white/20 rounded-xl hover:bg-white/10 transition-all duration-300"
-                                                whileHover={{ scale: 1.05 }}
-                                                whileTap={{ scale: 0.95 }}
-                                              >
-                                                <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                                                  <path strokeLinecap="round" strokeLinejoin="round" d="M19 14l-7 7m0 0l-7-7m7 7V3" />
-                                                </svg>
-                                                Load More (Loaded: {trades.length}/2000)
-                                              </motion.button>
-                                            </div>
-                                          );
-                                        }
-                                        if (!isBitcoin && trades.length >= 2000) {
-                                          return (
-                                            <div className="p-2 text-center border-t border-white/10 bg-black/40">
-                                              <p className="text-white/60 text-[10px]">All transactions loaded (max 2000)</p>
-                                            </div>
-                                          );
-                                        }
-                                        return null;
-                                      },
-                                    }}
-                                  />
+                                      );
+                                    })}
+                                  </div>
                                 </>
                               ) : (
                                 !(isBitcoin ? isLoadingMempool : isLoadingDex || isLoadingMoreDex) && (

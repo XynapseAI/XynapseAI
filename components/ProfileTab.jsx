@@ -1257,7 +1257,7 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
                             href={`https://x.com/${userData.twitterHandle}`}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="text-white text-sm font-semibold underline hover:decoration-blue-300 transition-colors"
+                            className="m-2 text-white text-sm font-semibold underline hover:decoration-blue-300 transition-colors"
                           >
                             @{userData.twitterHandle}
                           </a>
