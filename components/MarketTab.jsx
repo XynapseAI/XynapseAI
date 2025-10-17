@@ -1928,7 +1928,7 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                                           return (
                                             <motion.div
                                               key={index}
-                                              className="flex border-t border-white/10 bg-black/80 p-3 text-[9px] sm:text-[11px]"
+                                              className="flex border-t border-white/10 bg-black/80 py-1.5 px-2 text-[9px] sm:text-[11px]"  // Giảm py từ 3 → 1.5, px từ 3 → 2
                                               variants={rowVariants}
                                               initial="hidden"
                                               animate="visible"
