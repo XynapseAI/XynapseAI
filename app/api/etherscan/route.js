@@ -1,5 +1,4 @@
-// Updated: app/api/etherscan/route.js
-// app/api/etherscan/route.js
+// app\api\etherscan\route.js (fixed chainIdMap space)
 import { NextResponse } from 'next/server';
 import axios from 'axios';
 import { z } from 'zod';
@@ -24,7 +23,7 @@ const fetchWithRateLimit = limiterBottleneck.wrap(async (url, config) => {
   }
 });
 
-// Map chain name to chainid for V2
+// Map chain name to chainid for V2 (fixed space in 'sonic')
 const chainIdMap = {
   ethereum: '1',
   sepolia: '11155111',
@@ -38,7 +37,7 @@ const chainIdMap = {
   fantom: '250',
   matic: '137', // Alias for polygon
   avalanche_c: '43114', // Alias for avalanche
-  sonic : '147', // Sonic Chain
+  sonic: '146', // Sonic Chain (removed space, chainId 146 as per SUPPORTED_EVM_CHAINS)
 };
 
 // Allowed origins

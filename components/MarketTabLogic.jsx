@@ -1767,16 +1767,20 @@ export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initi
             // Sort by timestamp desc
             const finalTrades = tradesWithTags.sort((a, b) => new Date(b.block_timestamp) - new Date(a.block_timestamp));
 
+            // Set first page immediately for UI
+            const firstPageTrades = finalTrades.slice(0, 100);
+
             // Pools and poolTokens as empty or fallback since not DEX-specific
-            return { pools: [], trades: finalTrades, poolTokens: {}, fullTrades: finalTrades }; // Cache full in fullTrades
+            return { pools: [], trades: firstPageTrades, poolTokens: {}, fullTrades: finalTrades }; // Cache full in fullTrades, initial trades first 100
           };
 
           const dexDataBatch = await getCachedData(cacheKey, fetchFn, CACHE_DURATIONS.DEFI_POOL, 0, true, session, status);
 
           // Always load full batch once, then paginate
           const fullTrades = dexDataBatch.fullTrades.slice(0, 5000); // Cap at 5000
-          setDexData({ ...dexDataBatch, fullTrades, trades: [] }); // trades will be set via pagination
+          setDexData({ ...dexDataBatch, fullTrades }); // trades already set to first page in fetchFn
           setHasMoreDex(fullTrades.length >= 5000);
+          setCurrentDexPage(1); // Ensure page 1 after load
 
           setLastDexFetchTime(Date.now());
         } catch (error) {
@@ -1791,8 +1795,11 @@ export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initi
           if (localCache.current[cacheKey]?.data) {
             const cachedData = localCache.current[cacheKey].data;
             const fullTrades = cachedData.fullTrades.slice(0, 5000);
-            setDexData({ ...cachedData, fullTrades, trades: [] });
+            // Set first page from cache
+            const firstPageTrades = fullTrades.slice(0, 100);
+            setDexData({ ...cachedData, fullTrades, trades: firstPageTrades });
             setHasMoreDex(fullTrades.length >= 5000);
+            setCurrentDexPage(1);
           } else {
             setDexData({ pools: [], trades: [], poolTokens: {}, fullTrades: [] });
             setHasMoreDex(false);
@@ -1836,8 +1843,8 @@ export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initi
   const getTotalDexPages = useCallback(() => {
     return Math.ceil((dexData.fullTrades?.length || 0) / dexPaginationSize);
   }, [dexData.fullTrades, dexPaginationSize]);
-  // Update the useEffect for dex data fetch to pass page=1:
 
+  // Update the useEffect for dex data fetch to pass page=1:
   useEffect(() => {
     if (!selectedToken?.id || ['bitcoin', 'ethereum'].includes(selectedToken.id.toLowerCase()) || document.visibilityState !== 'visible') {
       return;
@@ -1850,7 +1857,6 @@ export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initi
 
     // Initial fetch (full load)
     fetchDexData(chain, tokenAddress, 1);
-    setCurrentDexPage(1); // Reset to page 1
 
     // Set up interval for background refresh (only initial)
     const interval = setInterval(() => {
