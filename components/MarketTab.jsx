@@ -689,14 +689,6 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
     }
   }, [currentDexPage, goToDexPage]);
 
-  // New: Update trades on page change
-  useEffect(() => {
-    const isBitcoin = selectedToken?.id.toLowerCase() === 'bitcoin';
-    if (isBitcoin) return; // Bitcoin unchanged
-    const paginated = getPaginatedTrades(currentDexPage);
-    setDexData(prev => ({ ...prev, trades: paginated }));
-  }, [currentDexPage, getPaginatedTrades, selectedToken]);
-
   return (
     <motion.section
       initial={{ opacity: 0, y: 20 }}
@@ -1650,11 +1642,8 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                                       (holder.address.match(/^0x[a-fA-F0-9]{40}$/) || holder.address.match(/^(1|3|bc1)[a-zA-Z0-9]+$/));
 
                                     const HolderRow = React.memo(() => (
-                                      <motion.div
+                                      <div // Removed motion.div to prevent animation jitter
                                         className="flex border-t border-white/10 bg-black/80 px-3 py-2 text-[9px] sm:text-[11px]"
-                                        variants={rowVariants}
-                                        initial="hidden"
-                                        animate="visible"
                                       >
                                         <div className="flex-1 flex items-center gap-2 group relative">
                                           {image && (
@@ -1710,9 +1699,9 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                                         <div className="w-28 text-right font-bold text-white text-[10px]">
                                           <span>{Math.floor(holder.balance).toLocaleString("en-US")}</span>
                                         </div>
-                                      </motion.div>
+                                      </div>
                                     ));
-                                    return <HolderRow key={index} />;
+                                    return <HolderRow key={holder.address} />; // Use unique key
                                   }}
                                 />
                               </div>
@@ -1760,11 +1749,8 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                             data={tickerData.slice(0, 30)}
                             itemContent={(index, ticker) => {
                               const TickerRow = React.memo(() => (
-                                <motion.div
+                                <div // Removed motion.div to prevent animation jitter
                                   className="flex border-t border-white/10 hover:bg-black/80 px-3 py-2 text-[9px] sm:text-[11px]"
-                                  variants={rowVariants}
-                                  initial="hidden"
-                                  animate="visible"
                                 >
                                   <div className="flex-[2] flex items-center justify-center gap-2">
                                     {ticker.market.logo && (
@@ -1797,9 +1783,9 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                                   <div className="flex-1 text-center text-white/70 text-[9px] sm:text-[11px]">
                                     {ticker.last_traded_at ? new Date(ticker.last_traded_at).toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" }) : "N/A"}
                                   </div>
-                                </motion.div>
+                                </div>
                               ));
-                              return <TickerRow key={index} />;
+                              return <TickerRow key={ticker.market.identifier + ticker.base + ticker.target} />; // Use unique key
                             }}
                             components={{
                               Header: () => (
@@ -1865,7 +1851,6 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                               ? new Date(lastDexFetchTime).toLocaleTimeString("en-US", {
                                 hour: "2-digit",
                                 minute: "2-digit",
-                                second: "2-digit",
                               })
                               : "N/A"}
                           </span>
@@ -1925,11 +1910,8 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                                           const toAddressInfo = getNameTagInfo(isBitcoin ? item.outputs?.[0]?.address : item.to_token_address?.address, chain);
 
                                           const TradeRow = React.memo(() => (
-                                            <motion.div
+                                            <div // Removed motion.div to prevent animation jitter
                                               className="flex border-t border-white/10 bg-black/80 py-1.5 px-2 text-[9px] sm:text-[11px]"
-                                              variants={rowVariants}
-                                              initial="hidden"
-                                              animate="visible"
                                             >
                                               {/* Tx/Time */}
                                               <div className="flex-1 flex flex-col gap-1 items-center justify-center group relative">
@@ -2063,10 +2045,11 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                                                   />
                                                 </div>
                                               )}
-                                            </motion.div>
+                                            </div>
                                           ));
-                                          return <TradeRow key={index} />;
+                                          return <TradeRow key={item.tx_hash} />; // Use unique key
                                         }}
+                                        endReached={loadMoreDexData} // Infinite scroll
                                       />
                                     </div>
                                   </>
