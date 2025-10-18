@@ -7,7 +7,7 @@ import { useSession } from 'next-auth/react';
 import debounce from 'lodash.debounce';
 import rateLimit from 'axios-rate-limit';
 import pLimit from 'p-limit';
-import { GECKOTERMINAL_CHAIN_MAPPING, SUPPORTED_CHAINS, CHAIN_MAPPING, SUPPORTED_CHAIN_IDS } from '../utils/constants';
+import { GECKOTERMINAL_CHAIN_MAPPING, SUPPORTED_CHAINS, CHAIN_MAPPING } from '../utils/constants';
 import btcTopHolders from '../public/nametags/bitcoin-top-holders.json';
 import btcNameTags from '../public/nametags/btc-top-holders.json';
 import bnbNameTags from '../public/nametags/bnb-top-holders.json';
@@ -15,6 +15,7 @@ import ethNameTags from '../public/nametags/eth-top-holders.json';
 import dogeNameTags from '../public/nametags/dogecoin-top-holders.json';
 import ltcNameTags from '../public/nametags/litecoin-top-holders.json';
 import useSWR from 'swr';
+import useSWRInfinite from 'swr/infinite';
 import Bottleneck from 'bottleneck';
 import axiosRetry from 'axios-retry';
 
@@ -73,7 +74,7 @@ const CACHE_DURATIONS = {
   DEFI_POOL: 4 * 60 * 60 * 1000,
   DEFAULT: 4 * 60 * 60 * 1000,
   TICKERS: 4 * 60 * 60 * 1000,
-  TRENDING: 5 * 60 * 60 * 1000,
+  TRENDING: 5 * 60 * 1000,
   NAMETAGS: 48 * 60 * 60 * 1000,
   TOP_HOLDERS: 12 * 60 * 60 * 1000, // 12 h
 };
@@ -172,7 +173,6 @@ export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initi
   const prevAvailableChainsRef = useRef([]);
   const [chains, setChains] = useState([]);
   const [dexData, setDexData] = useState({ pools: [], trades: [], poolTokens: {}, fullTrades: [] }); // Added fullTrades for cache
-  const [isLoadingDex, setIsLoadingDex] = useState(false);
   const [dexError, setDexError] = useState(null);
   const [dexRequestCount, setDexRequestCount] = useState(0);
   const [lastDexRequestTime, setLastDexRequestTime] = useState(0);
@@ -205,10 +205,6 @@ export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initi
   const [isLoadingMoreDex, setIsLoadingMoreDex] = useState(false);
   const isInitialMempoolFetch = useRef(true);
   const [isLoadingPage, setIsLoadingPage] = useState(false);
-  const progressiveLoadRef = useRef(null); // To manage progressive loading chain
-  const lastFetchTimeRef = useRef(0);
-  const lastErrorTimeRef = useRef(0);
-
   const isTokenPage = typeof window !== 'undefined' && window.location.pathname.startsWith('/token/');
 
   const getCachedData = async (key, fetchFn, ttl = CACHE_DURATIONS.DEFAULT, retryCount = 0, requiresSession = false, session = null, status = 'unauthenticated') => {
@@ -1512,7 +1508,7 @@ export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initi
       const normalizedPlatforms = Object.keys(token.detail_platforms || {}).reduce((acc, cgId) => {
         const chain = SUPPORTED_EVM_CHAINS.find((c) => c.coingeckoId === cgId);
         if (chain && token.detail_platforms[cgId]?.contract_address?.match(/^0x[a-fA-F0-9]{40}$/)) {
-          const decimalPlace = Number(token.detail_platforms[cgId].decimal_place) || 18;
+          const decimalPlace = Number(token.detail_platforms[cgId].decimal_decimal_place) || 18;
           acc[chain.value] = {
             address: token.detail_platforms[cgId].contract_address.toLowerCase(),
             decimal_place: decimalPlace,
@@ -1574,378 +1570,218 @@ export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initi
     [setOnChainError]
   );
 
-  const fetchDexData = useCallback(
-    debounce(
-      async (chain, tokenAddress, page = 1) => {
-        // Guard against rapid calls (prevent 1s loop)
-        if (Date.now() - lastFetchTimeRef.current < 5000) {
-          console.log('Fetch skipped: too soon after last call');
-          return;
-        }
-        lastFetchTimeRef.current = Date.now();
+  // SWR Infinite for DEX data
+  const getDexKey = useCallback((pageIndex) => {
+    if (!selectedToken?.id || pageIndex < 0) return null;
+    return ['dex-data', selectedToken.id, pageIndex + 1];
+  }, [selectedToken?.id]);
 
-        if (status !== 'authenticated') {
-          const errorMessage = 'Please log in to access DEX data.';
-          setDexError(errorMessage);
-          setIsLoadingDex(false);
-          return;
-        }
+  const {
+    data: dexPages,
+    error: swrDexError,
+    isLoading: isLoadingDexInitial,
+    size: dexPageSize,
+    setSize: setDexPageSize,
+    isValidating: isValidatingDex,
+  } = useSWRInfinite(
+    getDexKey,
+    async ([_key, tokenId, page]) => {
+      if (status !== 'authenticated') {
+        throw new Error('Please log in to access DEX data.');
+      }
 
-        // Handle Bitcoin case - unchanged
-        if (chain === 'bitcoin') {
-          setIsLoadingDex(false);
-          setDexError(null);
-          setDexData({ pools: [], trades: [], poolTokens: {}, fullTrades: [] });
-          fetchMempoolTransactions();
-          return;
-        }
+      if (!selectedToken || !selectedToken.detail_platforms) {
+        throw new Error('Invalid token data for on-chain transactions');
+      }
 
-        if (!selectedToken || !selectedToken.detail_platforms) {
-          const errorMessage = 'Invalid token data for on-chain transactions';
-          setDexError(errorMessage);
-          setIsLoadingDex(false);
-          toast.error(errorMessage, { position: "top-center", autoClose: 5000 });
-          return;
-        }
+      const availableChains = getAvailableChains().filter(c => !c.testnet).slice(0, 5);
+      if (availableChains.length === 0) {
+        throw new Error(`No supported EVM chains found for ${selectedToken.symbol}`);
+      }
 
-        const availableChains = getAvailableChains().filter(c => !c.testnet).slice(0, 5);
-        if (availableChains.length === 0) {
-          const errorMessage = `No supported EVM chains found for ${selectedToken.symbol}`;
-          setDexError(errorMessage);
-          setIsLoadingDex(false);
-          toast.error(errorMessage, { position: "top-center", autoClose: 5000 });
-          return;
-        }
+      const OFFSET_PER_CALL = 1000; // Increased for faster loading to 5000 total (5 pages)
+      const maxTotalTxs = 5000;
+      const maxPages = Math.ceil(maxTotalTxs / OFFSET_PER_CALL); // 5 pages
+      if (page > maxPages) {
+        return { trades: [] }; // Stop fetching
+      }
 
-        // Rate limit check (unchanged)
-        const userId = session?.user?.id || 'anonymous';
-        const now = Date.now();
-        const userRequests = dexRequestTracker.get(userId) || { count: 0, lastReset: now };
-        if (now - userRequests.lastReset >= DEX_REQUEST_WINDOW) {
-          dexRequestTracker.set(userId, { count: 1, lastReset: now });
-          setDexRequestCount(1);
-          setLastDexRequestTime(now);
-        } else if (userRequests.count >= DEX_REQUEST_LIMIT) {
-          const errorMessage = 'Too many DEX requests. Please wait a minute and try again.';
-          setDexError(errorMessage);
-          setIsLoadingDex(false);
-          toast.error(errorMessage, { position: "top-center", autoClose: 5000 });
-          return;
-        } else {
-          dexRequestTracker.set(userId, { count: userRequests.count + 1, lastReset: userRequests.lastReset });
-          setDexRequestCount((prev) => prev + 1);
-        }
+      let newTrades = [];
+      let uniqueAddresses = new Set();
 
-        const isInitial = page === 1 && dexData.fullTrades.length === 0;
-        const OFFSET_PER_CALL = 200;
-        const maxTotalTxs = 5000;
-        if (dexData.fullTrades.length >= maxTotalTxs) {
-          setHasMoreDex(false);
-          return;
+      // Sequential fetch to avoid rate limit
+      for (const ch of availableChains) {
+        const platformId = ch.coingeckoId;
+        const tokenAddr = selectedToken.detail_platforms?.[platformId]?.contract_address;
+        if (!tokenAddr || !tokenAddr.match(/^0x[a-fA-F0-9]{40}$/)) continue;
+
+        const payload = {
+          action: 'token-transactions',
+          chain: ch.value,
+          tokenAddress: tokenAddr,
+          page,
+          offset: OFFSET_PER_CALL,
+        };
+
+        const response = await fetch('/api/etherscan', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            ...(session?.accessToken && { Authorization: `Bearer ${session.accessToken}` }),
+          },
+          body: JSON.stringify(payload),
+        });
+
+        if (!response.ok) {
+          console.warn(`Failed to fetch token tx for ${ch.value}: ${response.status}`);
+          await new Promise(r => setTimeout(r, 200)); // Delay between chains
+          continue;
         }
 
-        const cacheKey = `onchain-tx-${selectedToken.id}-page-${page}-session_required`;
-        setIsLoadingDex(isInitial);
-        setIsLoadingPage(!isInitial && page > 1);
-        setDexError(null);
-
+        // Parse response
+        const text = await response.text();
+        let trades = [];
         try {
-          const fetchFn = async () => {
-            let newTrades = [];
-            let uniqueAddresses = new Set();
-
-            // Sequential fetch for chains
-            for (const ch of availableChains) {
-              const platformId = ch.coingeckoId;
-              const tokenAddr = selectedToken.detail_platforms?.[platformId]?.contract_address;
-              if (!tokenAddr || !tokenAddr.match(/^0x[a-fA-F0-9]{40}$/)) continue;
-
-              // SIM payload for transactions on token contract (gets contract activity/transfers)
-              const payload = {
-                action: 'transactions',
-                address: tokenAddr,
-                chain_ids: SUPPORTED_CHAIN_IDS, // All EVM chains from constants (import if missing)
-                limit: OFFSET_PER_CALL,
-              };
-
-              const response = await fetch('/api/sim', {
-                method: 'POST',
-                headers: {
-                  'Content-Type': 'application/json',
-                  ...(session?.accessToken && { Authorization: `Bearer ${session.accessToken}` }),
-                },
-                body: JSON.stringify(payload),
-              });
-
-              if (!response.ok) {
-                console.warn(`Failed to fetch token tx for ${ch.value}: ${response.status}`);
-                await new Promise(r => setTimeout(r, 200));
-                continue;
-              }
-
-              // Streaming parse (copy from WatchlistTab's fetchDataQuery)
-              const reader = response.body.getReader();
-              const decoder = new TextDecoder();
-              let data = [];
-              let buffer = '';
-
-              const updateState = debounce((newData) => {
-                // Incremental add to newTrades (but defer full process)
-              }, 500);
-
-              while (true) {
-                const { done, value } = await reader.read();
-                if (done) break;
-
-                buffer += decoder.decode(value, { stream: true });
-
-                try {
-                  const trimmedBuffer = buffer.trim();
-                  if (trimmedBuffer.startsWith('[') && trimmedBuffer.endsWith(']')) {
-                    const parsed = JSON.parse(trimmedBuffer);
-                    data = [...data, ...parsed];
-                    updateState(parsed);
-                    buffer = '';
-                  } else {
-                    const lines = buffer.split('\n').filter((line) => line.trim());
-                    for (const line of lines) {
-                      if (line.startsWith('[') || line.endsWith(']')) continue;
-                      const cleanLine = line.startsWith(',') ? line.slice(1) : line;
-                      if (cleanLine) {
-                        try {
-                          const parsedChunk = JSON.parse(`[${cleanLine}]`);
-                          data = [...data, ...parsedChunk];
-                          updateState(parsedChunk);
-                        } catch (e) {
-                          logger.log(`Incomplete JSON chunk, continuing to read: ${e.message}`);
-                          continue;
-                        }
-                      }
-                    }
-                    buffer = lines.length > 0 ? lines[lines.length - 1] : '';
-                  }
-                } catch (e) {
-                  logger.log(`Incomplete JSON chunk, continuing to read: ${e.message}`);
-                  continue;
-                }
-              }
-
-              // Handle remaining buffer
-              if (buffer) {
-                try {
-                  const trimmedBuffer = buffer.trim();
-                  if (trimmedBuffer.startsWith('[') && trimmedBuffer.endsWith(']')) {
-                    const parsed = JSON.parse(trimmedBuffer);
-                    data = [...data, ...parsed];
-                    updateState(parsed);
-                  } else {
-                    logger.error(`Final buffer is not valid JSON:`, { buffer });
-                  }
-                } catch (e) {
-                  logger.error(`Error parsing final JSON buffer for ${ch.value}:`, { error: e.message, buffer });
-                }
-              }
-
-              // Map to trade format & filter for token transfers (only keep 'transfer' type or matching symbol)
-              const chainTrades = data
-                .filter(tx => tx.type === 'transfer' || (tx.token_metadata?.symbol?.toLowerCase() === selectedToken.symbol.toLowerCase()))
-                .map((tx) => {
-                  const amount = Number(tx.value) || 0;
-                  const usdValue = Number(tx.value_usd) || 0;
-                  const timestamp = tx.block_time ? new Date(tx.block_time).toISOString() : new Date().toISOString();
-                  const gasFee = Number(tx.gas_fee || 0);
-
-                  uniqueAddresses.add(tx.from);
-                  uniqueAddresses.add(tx.to);
-
-                  return {
-                    tx_hash: tx.hash,
-                    block_timestamp: timestamp,
-                    tx_from_address: { address: tx.from },
-                    to_token_address: { address: tx.to },
-                    from_token_amount: '0',
-                    to_token_amount: amount.toString(),
-                    volume_in_usd: usdValue,
-                    pool_name: `${ch.value.toUpperCase()} Transfer`,
-                    pool_address: null,
-                    kind: 'transfer',
-                    chain: ch.value,
-                    gas_fee: gasFee.toString(),
-                    decimals: tx.token_metadata?.decimals || 18,
-                    symbol: tx.token_metadata?.symbol || selectedToken.symbol,
-                    type: tx.type || 'transfer',
-                    token_metadata: tx.token_metadata || { symbol: selectedToken.symbol },
-                  };
-                });
-
-              newTrades.push(...chainTrades);
-              await new Promise(r => setTimeout(r, 200));
-            }
-
-            // If <10 trades from SIM, fallback to Etherscan (original logic, limited)
-            if (newTrades.length < 10) {
-              console.log('SIM data low, fallback to Etherscan');
-              // Add original Etherscan call here (condensed)
-              for (const ch of availableChains) {
-                // ... (paste original Etherscan payload/response handling, but limit to 50 txs)
-                // For brevity, assume you paste the original map logic for Etherscan
-              }
-            }
-
-            // Fetch nametags (unchanged)
-            const addressesArray = Array.from(uniqueAddresses).filter(addr => addr.match(/^0x[a-fA-F0-9]{40}$/));
-            if (addressesArray.length > 0) {
-              await fetchNameTagsForAddresses(addressesArray);
-            }
-
-            // Apply tags and sort (unchanged)
-            const tradesWithTags = newTrades.map((trade) => {
-              const fromAddr = trade.tx_from_address?.address?.toLowerCase();
-              const toAddr = trade.to_token_address?.address?.toLowerCase();
-              const fromTag = fromAddr ? nameTagsRef.current[fromAddr] : null;
-              const toTag = toAddr ? nameTagsRef.current[toAddr] : null;
-
-              return {
-                ...trade,
-                tx_from_address: { ...trade.tx_from_address, nameTag: fromTag?.nameTag || null, image: fromTag?.image || null },
-                to_token_address: { ...trade.to_token_address, nameTag: toTag?.nameTag || null, image: toTag?.image || null },
-              };
-            });
-
-            const sortedNewTrades = tradesWithTags.sort((a, b) => new Date(b.block_timestamp) - new Date(a.block_timestamp));
-
-            // Accumulate fullTrades (unchanged)
-            let updatedFullTrades = [...(dexData.fullTrades || []), ...sortedNewTrades];
-            const seen = new Set();
-            updatedFullTrades = updatedFullTrades.filter(trade => {
-              if (seen.has(trade.tx_hash)) return false;
-              seen.add(trade.tx_hash);
-              return true;
-            });
-            updatedFullTrades = updatedFullTrades.slice(0, maxTotalTxs);
-
-            // Progressive loading (unchanged)
-            if (isInitial && !progressiveLoadRef.current) {
-              progressiveLoadRef.current = setTimeout(async () => {
-                setIsLoadingMoreDex(true);
-                try {
-                  for (let p = 2; p <= 20; p++) {
-                    await new Promise(resolve => setTimeout(resolve, p * 2000));
-                    if (!hasMoreDex) break;
-                    await fetchDexData(chain, tokenAddress, p);
-                  }
-                } catch (bgErr) {
-                  console.warn('Background progressive load failed:', bgErr);
-                } finally {
-                  setIsLoadingMoreDex(false);
-                  progressiveLoadRef.current = null;
-                }
-              }, 1000);
-            }
-
-            return { pools: [], fullTrades: updatedFullTrades, poolTokens: {} };
-          };
-
-          const dexDataBatch = await getCachedData(cacheKey, fetchFn, CACHE_DURATIONS.DEFI_POOL, 0, true, session, status);
-          setDexData(prev => ({ ...prev, ...dexDataBatch }));
-          setHasMoreDex(dexDataBatch.fullTrades.length < maxTotalTxs);
-          setLastDexFetchTime(Date.now());
-        } catch (error) {
-          // Suppress repeated toasts
-          if (Date.now() - lastErrorTimeRef.current < 10000) {
-            console.log('Error toast skipped: too soon after last');
-            return;
+          const parsed = JSON.parse(text);
+          if (parsed.success && Array.isArray(parsed.data)) {
+            trades = parsed.data;
           }
-          lastErrorTimeRef.current = Date.now();
-
-          const safeErrorMessage = error.response?.status === 429
-            ? 'Too many requests. Please wait and retry.'
-            : error.response?.status === 404
-              ? `No on-chain data for ${selectedToken.symbol}.`
-              : 'Failed to load on-chain data.';
-          setDexError(safeErrorMessage);
-          toast.error(safeErrorMessage, { position: "top-center", autoClose: 5000 });
-          // Fallback cache (unchanged)
-          if (localCache.current[cacheKey]?.data) {
-            const cachedData = localCache.current[cacheKey].data;
-            setDexData(prev => ({ ...prev, ...cachedData }));
-            setHasMoreDex(cachedData.fullTrades.length < maxTotalTxs);
-          } else {
-            setDexData({ pools: [], trades: [], poolTokens: {}, fullTrades: [] });
-            setHasMoreDex(false);
-          }
-        } finally {
-          setIsLoadingDex(false);
-          setIsLoadingPage(false);
-          setIsLoadingMoreDex(false);
+        } catch (e) {
+          console.warn(`Parse error for ${ch.value}: ${e.message}`);
         }
-      },
-      1000  // Increase debounce to 1s to reduce calls
-    ),
-    // Dependencies unchanged
-    [session, status, toast, fetchNameTagsForAddresses, nameTagsRef, selectedToken, currency, getAvailableChains, fetchMempoolTransactions, dexData, setHasMoreDex]
+
+        // Map to trade format
+        const chainTrades = trades.map((tx) => {
+          const amount = parseFloat(tx.value) / Math.pow(10, parseInt(tx.tokenDecimal || 18));
+          const usdValue = amount * (selectedToken.current_price?.[currency] || 0);
+          const gasFee = (BigInt(tx.gasUsed || 0) * BigInt(tx.gasPrice || 0)) / BigInt(10 ** 18);
+
+          uniqueAddresses.add(tx.from);
+          uniqueAddresses.add(tx.to);
+
+          return {
+            tx_hash: tx.txhash,
+            block_timestamp: new Date(parseInt(tx.timeStamp) * 1000).toISOString(),
+            tx_from_address: { address: tx.from },
+            to_token_address: { address: tx.to },
+            from_token_amount: '0',
+            to_token_amount: amount.toString(),
+            volume_in_usd: usdValue,
+            pool_name: `${ch.value.toUpperCase()} Transfer`,
+            pool_address: null,
+            kind: 'transfer',
+            chain: ch.value,
+            gas_fee: gasFee.toString(),
+            decimals: parseInt(tx.tokenDecimal || 18),
+            symbol: tx.tokenSymbol || selectedToken.symbol,
+          };
+        });
+
+        newTrades.push(...chainTrades);
+        await new Promise(r => setTimeout(r, 200)); // Delay to avoid rate limit
+      }
+
+      // Fetch nametags
+      const addressesArray = Array.from(uniqueAddresses).filter(addr => addr.match(/^0x[a-fA-F0-9]{40}$/));
+      if (addressesArray.length > 0) {
+        await fetchNameTagsForAddresses(addressesArray);
+      }
+
+      // Apply tags and sort
+      const tradesWithTags = newTrades.map((trade) => {
+        const fromAddr = trade.tx_from_address?.address?.toLowerCase();
+        const toAddr = trade.to_token_address?.address?.toLowerCase();
+        const fromTag = fromAddr ? nameTagsRef.current[fromAddr] : null;
+        const toTag = toAddr ? nameTagsRef.current[toAddr] : null;
+
+        return {
+          ...trade,
+          tx_from_address: { ...trade.tx_from_address, nameTag: fromTag?.nameTag || null, image: fromTag?.image || null },
+          to_token_address: { ...trade.to_token_address, nameTag: toTag?.nameTag || null, image: toTag?.image || null },
+        };
+      });
+
+      const sortedNewTrades = tradesWithTags.sort((a, b) => new Date(b.block_timestamp) - new Date(a.block_timestamp));
+
+      return { trades: sortedNewTrades };
+    },
+    {
+      revalidateAll: false,
+      revalidateOnFocus: false,
+      revalidateIfStale: false,
+      initialSize: 1, // Load first page immediately for fast UI
+      revalidateFirstPage: true,
+    }
   );
 
-  // New: Function to get paginated trades from cached fullTrades
+  // Compute fullTrades from dexPages
+  const fullTrades = useMemo(() => {
+    if (!dexPages) return [];
+    return dexPages.flatMap((page) => page?.trades || []);
+  }, [dexPages]);
+
+  // Compute paginated trades
   const getPaginatedTrades = useCallback((page) => {
     const start = (page - 1) * dexPaginationSize;
     const end = start + dexPaginationSize;
-    const fullTrades = dexData.fullTrades || [];
     return fullTrades.slice(start, end);
-  }, [dexData.fullTrades, dexPaginationSize]);
+  }, [fullTrades, dexPaginationSize]);
 
-  // Updated loadMoreDexData: Now paginates client-side from cache, loads on demand
-  const loadMoreDexData = useCallback(async () => {
-    if (!selectedToken || dexError || isLoadingMoreDex || dexData.fullTrades.length >= 2000) {
-      setHasMoreDex(false);
-      return;
-    }
-    const OFFSET_PER_CALL = 200;
-    const nextPage = Math.floor(dexData.fullTrades.length / OFFSET_PER_CALL) + 1;
-    if (nextPage > 20) {
-      setHasMoreDex(false);
-      return;
-    }
-    setIsLoadingMoreDex(true);
-    const { chain, tokenAddress } = getDefaultChainAndAddress(selectedToken, selectedChain);
-    if (chain && tokenAddress) {
-      try {
-        await fetchDexData(chain, tokenAddress, nextPage);
-      } catch (err) {
-        console.warn('Load more failed:', err);
-      }
-    }
-    setIsLoadingMoreDex(false);
-    setHasMoreDex(dexData.fullTrades.length < 2000);
-  }, [selectedToken, dexError, isLoadingMoreDex, dexData.fullTrades, selectedChain, getDefaultChainAndAddress, fetchDexData]);
-
+  // Update dexData with computed values
+  const paginatedTrades = useMemo(() => getPaginatedTrades(currentDexPage), [getPaginatedTrades, currentDexPage]);
   useEffect(() => {
-    const isBitcoin = selectedToken?.id.toLowerCase() === 'bitcoin';
-    if (isBitcoin) return;
-    const paginated = getPaginatedTrades(currentDexPage);
-    setDexData(prev => ({ ...prev, trades: paginated }));
-    setIsLoadingPage(false); // Hide loading sau update
-  }, [currentDexPage, getPaginatedTrades, selectedToken]);
+    setDexData(prev => ({ ...prev, trades: paginatedTrades, fullTrades }));
+  }, [paginatedTrades, fullTrades]);
 
-  // New: Go to specific page
+  // Handle errors
+  useEffect(() => {
+    if (swrDexError) {
+      const safeErrorMessage =
+        swrDexError.message.includes('429')
+          ? 'Too many requests from your IP or API limit exceeded. Please try again later.'
+          : swrDexError.message.includes('404')
+            ? `No on-chain data found for token ${selectedToken?.symbol} on supported EVM chains.`
+            : 'Failed to load on-chain data.';
+      setDexError(safeErrorMessage);
+      toast.error(safeErrorMessage, { position: "top-center", autoClose: 5000 });
+      setDexData({ pools: [], trades: [], poolTokens: {}, fullTrades: [] });
+    } else {
+      setDexError(null);
+    }
+  }, [swrDexError, selectedToken?.symbol, toast]);
+
+  // Loading states
+  const isLoadingDex = isLoadingDexInitial || isValidatingDex;
+
+  // Background load all pages after first for full 5000 txs
+  useEffect(() => {
+    if (selectedToken?.id && dexPageSize === 1 && !['bitcoin', 'ethereum'].includes(selectedToken.id.toLowerCase())) {
+      // Delay to show first page fast, then load remaining 4 pages
+      const timer = setTimeout(() => {
+        setDexPageSize(5); // Load up to 5 pages (5000 txs)
+      }, 1000);
+      return () => clearTimeout(timer);
+    }
+  }, [selectedToken?.id, dexPageSize, setDexPageSize]);
+
+  // Update hasMoreDex based on fullTrades length
+  useEffect(() => {
+    setHasMoreDex(fullTrades.length < 5000);
+  }, [fullTrades.length]);
+
+  // New: Go to specific page (client-side)
   const goToDexPage = useCallback((page) => {
-    if (page < 1 || page > Math.ceil((dexData.fullTrades?.length || 0) / dexPaginationSize)) return;
+    const totalPages = Math.ceil(fullTrades.length / dexPaginationSize);
+    if (page < 1 || page > totalPages) return;
     setIsLoadingPage(true);
     setCurrentDexPage(page);
-
-    // Nếu chưa đủ data cho page này, trigger load more background
-    const requiredTxs = page * dexPaginationSize;
-    if (dexData.fullTrades.length < requiredTxs) {
-      loadMoreDexData(); // Sẽ load batch thêm
-    } else {
-      setTimeout(() => setIsLoadingPage(false), 300); // Short delay for smooth UX
-    }
-  }, [dexData.fullTrades, dexPaginationSize, loadMoreDexData]);
+    setTimeout(() => setIsLoadingPage(false), 300);
+  }, [fullTrades.length, dexPaginationSize]);
 
   // New: Get total pages
   const getTotalDexPages = useCallback(() => {
-    return Math.ceil((dexData.fullTrades?.length || 0) / dexPaginationSize);
-  }, [dexData.fullTrades, dexPaginationSize]);
+    return Math.ceil(fullTrades.length / dexPaginationSize);
+  }, [fullTrades.length, dexPaginationSize]);
 
   // Reset rate limit tracker on tab focus (fix idle error)
   useEffect(() => {
@@ -1960,42 +1796,42 @@ export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initi
     return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
   }, [session]);
 
-  // Update the useEffect for dex data fetch to pass page=1:
+  // Update the useEffect for dex data fetch: now handled by SWR
   useEffect(() => {
-    if (!selectedToken?.id || ['bitcoin', 'ethereum'].includes(selectedToken.id.toLowerCase()) || document.visibilityState !== 'visible' || isLoadingDex || isLoadingMoreDex) {
+    if (!selectedToken?.id || ['bitcoin', 'ethereum'].includes(selectedToken.id.toLowerCase()) || document.visibilityState !== 'visible') {
+      setDexData({ pools: [], trades: [], poolTokens: {}, fullTrades: [] });
+      setHasMoreDex(false);
       return;
     }
 
-    const { chain, tokenAddress } = getDefaultChainAndAddress(selectedToken, selectedChain);
-    if (!chain || !tokenAddress) {
+    const { chain } = getDefaultChainAndAddress(selectedToken, selectedChain);
+    if (!chain) {
+      setDexData({ pools: [], trades: [], poolTokens: {}, fullTrades: [] });
+      setHasMoreDex(false);
       return;
     }
 
-    // Add guard here too
-    if (Date.now() - lastFetchTimeRef.current < 5000) return;
+    // For Bitcoin, fetch mempool
+    if (selectedToken.id === 'bitcoin') {
+      fetchMempoolTransactions();
+    }
 
-    // Initial fetch
-    fetchDexData(chain, tokenAddress, 1);
-
-    // Interval (unchanged, but guard inside callback)
-    const interval = setInterval(() => {
-      const cacheKey = `onchain-tx-${selectedToken.id}`;
-      const cached = tickerCache[cacheKey];
-      if (cached && Date.now() - cached.timestamp < CACHE_DURATIONS.DEFI_POOL) {
-        return;
-      }
-      if (document.visibilityState === 'visible' && !isLoadingDex && !isLoadingMoreDex) {
-        if (Date.now() - lastFetchTimeRef.current < 5000) return; // Guard in interval
-        fetchDexData(chain, tokenAddress, 1);
-      }
-    }, CACHE_DURATIONS.DEFI_POOL);
+    // Reset pagination
+    setCurrentDexPage(1);
+    setHasMoreDex(true);
 
     return () => {
-      clearInterval(interval);
-      if (progressiveLoadRef.current) clearTimeout(progressiveLoadRef.current);
-      fetchDexData.cancel && fetchDexData.cancel();
+      // No need for interval, SWR handles revalidation
     };
-  }, [selectedToken?.id, selectedChain, getDefaultChainAndAddress, fetchDexData, tickerCache, isLoadingDex, isLoadingMoreDex]);
+  }, [selectedToken?.id, selectedChain, getDefaultChainAndAddress, fetchMempoolTransactions]);
+
+  useEffect(() => {
+    const isBitcoin = selectedToken?.id.toLowerCase() === 'bitcoin';
+    if (isBitcoin) return;
+    const paginated = getPaginatedTrades(currentDexPage);
+    setDexData(prev => ({ ...prev, trades: paginated }));
+    setIsLoadingPage(false); // Hide loading sau update
+  }, [currentDexPage, getPaginatedTrades, selectedToken]);
 
   const fetchTrendingTokens = useCallback(
     debounce(
@@ -2759,7 +2595,7 @@ Predict **${selectedToken.symbol}/USD** price movement (1-3 days) in Markdown fo
         if (err) {
           setError(
             err.response?.status === 429
-              ? 'API rate limit reached. Please wait a minute and try again.'
+              ? 'Too many requests from your IP or API limit exceeded. Please try again later.'
               : err.response?.data?.detail || 'Failed to load price history.'
           );
         }
@@ -2780,43 +2616,6 @@ Predict **${selectedToken.symbol}/USD** price movement (1-3 days) in Markdown fo
       };
     }
   }, [selectedToken, timeRange, currency, fetchPriceHistory, setError]);
-
-  useEffect(() => {
-    if (!selectedToken?.id || ['bitcoin', 'ethereum'].includes(selectedToken.id.toLowerCase()) || document.visibilityState !== 'visible') {
-      return;
-    }
-
-    const { chain, tokenAddress } = getDefaultChainAndAddress(selectedToken, selectedChain);
-    if (!chain || !tokenAddress) {
-      return;
-    }
-
-    // Initial fetch
-    fetchDexData(chain, tokenAddress);
-
-    // Set up interval for background refresh
-    const interval = setInterval(() => {
-      const cacheKey = `onchain-tx-${selectedToken.id}`;
-      const cached = tickerCache[cacheKey];
-      if (cached && Date.now() - cached.timestamp < CACHE_DURATIONS.DEFI_POOL) {
-        return;
-      }
-      if (document.visibilityState === 'visible') {
-        fetchDexData(chain, tokenAddress);
-      }
-    }, CACHE_DURATIONS.DEFI_POOL);
-
-    return () => {
-      clearInterval(interval);
-      fetchDexData.cancel && fetchDexData.cancel();
-    };
-  }, [selectedToken?.id, selectedChain, getDefaultChainAndAddress, fetchDexData, tickerCache]);
-
-  useEffect(() => {
-    if (walletBalances.length > 0 || walletBalancesError) {
-      setIsLoadingWalletBalances(false);
-    }
-  }, [walletBalances, walletBalancesError]);
 
   useEffect(() => {
     if (!selectedToken?.id) {
@@ -3157,7 +2956,7 @@ Predict **${selectedToken.symbol}/USD** price movement (1-3 days) in Markdown fo
     transactions,
     setTransactions,
     isLoadingTransactions,
-    setTransactionsError,
+    setIsLoadingTransactions,
     walletSearchCount,
     setWalletSearchCount,
     lastWalletSearchTime,
@@ -3193,9 +2992,6 @@ Predict **${selectedToken.symbol}/USD** price movement (1-3 days) in Markdown fo
     fetchSupportedChains,
     dexData,
     dexError,
-    fetchDexData,
-    dexRequestCount,
-    lastDexRequestTime,
     isLoadingDex,
     lastDexFetchTime,
     setLastDexFetchTime,
@@ -3238,7 +3034,6 @@ Predict **${selectedToken.symbol}/USD** price movement (1-3 days) in Markdown fo
     isLoadingMempool,
     mempoolError,
     fetchMempoolTransactions,
-    loadMoreDexData,
     hasMoreDex,
     isLoadingMoreDex,
     setDexData,

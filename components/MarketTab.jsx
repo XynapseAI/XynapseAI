@@ -363,14 +363,10 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
     if (selectedToken) {
       if (selectedToken.id === "bitcoin") {
         fetchMempoolTransactions(); // Ensure full load for Bitcoin
-      } else {
-        const { chain, tokenAddress } = getDefaultChainAndAddress(selectedToken, selectedChain);
-        if (chain && tokenAddress) {
-          fetchDexData(chain, tokenAddress, 1); // Load initial with page=1
-        }
       }
+      // Remove fetchDexData call; SWRInfinite handles loading on selectedToken change
     }
-  }, [session, dexRequestCount, lastDexRequestTime, selectedToken, selectedChain, fetchMempoolTransactions, fetchDexData, getDefaultChainAndAddress, setActiveMarketTab, setShowTrades]);
+  }, [session, dexRequestCount, lastDexRequestTime, selectedToken, fetchMempoolTransactions, setActiveMarketTab, setShowTrades]);
 
   const handlePoolClick = (poolAddress) => {
     if (process.env.NODE_ENV === "development") {
@@ -1860,7 +1856,7 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                             <>
                               <LoadingOverlay
                                 isLoading={
-                                  (selectedToken?.id === "bitcoin" ? isLoadingMempool : isLoadingDex || isLoadingMoreDex || isLoadingPage) &&
+                                  (selectedToken?.id === "bitcoin" ? isLoadingMempool : isLoadingDex || isLoadingPage) &&
                                   !(selectedToken?.id === "bitcoin" ? mempoolTransactions : dexData.trades)?.length
                                 }
                                 isMobile={isMobile}
