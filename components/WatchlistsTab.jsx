@@ -1,5 +1,4 @@
 // components/WatchlistsTab.jsx
-// components/WatchlistsTab.jsx
 'use client';
 
 import { motion, AnimatePresence } from 'framer-motion';
@@ -93,15 +92,14 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
   const [activeTab, setActiveTab] = useState(initialTab.toUpperCase());
   const [balances, setBalances] = useState([]);
   const [transactions, setTransactions] = useState([]);
-  const [nextCursor, setNextCursor] = useState(null);
-  const [hasMore, setHasMore] = useState(true);
-  const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [tokenInfo, setTokenInfo] = useState({});
   const [chainsWithAssets, setChainsWithAssets] = useState([]);
   const [nameTags, setNameTags] = useState({});
   const [chains, setChains] = useState([]);
   const [newWalletName, setNewWalletName] = useState('');
   const [forceFetch, setForceFetch] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
+  const transactionsPerPage = 100;
 
   const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || '/api';
   const EVM_LOGOS = ['ethereum', 'base', 'bnb'];
@@ -132,6 +130,23 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
     return totalValue.toLocaleString('en-US', { maximumFractionDigits: 2 });
   }, [totalValue]);
 
+  const filteredTransactions = useMemo(() => {
+    return transactions.filter((tx) => {
+      if (activeChain === null) return true;
+      return tx.chain === activeChain;
+    });
+  }, [transactions, activeChain]);
+
+  const totalPages = useMemo(() => {
+    return Math.ceil(filteredTransactions.length / transactionsPerPage);
+  }, [filteredTransactions.length]);
+
+  const currentTransactions = useMemo(() => {
+    const indexOfLast = currentPage * transactionsPerPage;
+    const indexOfFirst = indexOfLast - transactionsPerPage;
+    return filteredTransactions.slice(indexOfFirst, indexOfLast);
+  }, [filteredTransactions, currentPage]);
+
   // Debounced state update for transactions
   const debouncedSetTransactions = useCallback(
     debounce((newTransactions) => {
@@ -141,36 +156,6 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
       });
     }, 500),
     []
-  );
-
-  // New: Debounced loadTransactions
-  const debouncedLoadTransactions = useCallback(
-    debounce(async (cursor = null) => {
-      if (isLoadingMore) return;
-      setIsLoadingMore(true);
-      try {
-        const isValidEVM = isAddress(selectedWallet.address);
-        const payload = {
-          action: 'transactions',
-          address: selectedWallet.address,
-          ...(isValidEVM ? { chain_ids: '1,137,10,42161,8453' } : { chains: SUPPORTED_SVM_CHAINS.join(',') }),
-          limit: 200,  // Reduced from 500 to 200 for faster loads
-          cursor,
-        };
-
-        const { data: newTxs, nextCursor: newCursor } = await fetchTransactionsData(payload);
-
-        debouncedSetTransactions(newTxs);
-        setNextCursor(newCursor);
-        setHasMore(!!newCursor);
-      } catch (error) {
-        logger.error('Error loading transactions:', error);
-        toast.error('Failed to load more transactions');
-      } finally {
-        setIsLoadingMore(false);
-      }
-    }, 300),
-    [selectedWallet, isLoadingMore, debouncedSetTransactions]
   );
 
   // Log sorted balances to verify USDT position
@@ -226,6 +211,9 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
   const handleTabClick = useCallback((tab) => {
     logger.log('Tab clicked:', { tab });
     setActiveTab(tab);
+    if (tab === 'ACTIVITY') {
+      setCurrentPage(1);
+    }
   }, []);
 
   useEffect(() => {
@@ -264,8 +252,6 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
         setActiveChainType(wallet.chainType || 'EVM');
         setBalances([]);
         setTransactions([]);
-        setNextCursor(null);
-        setHasMore(true);
         setTokenInfo({});
         setActiveChain(null);
         lastSelectedWalletRef.current = wallet.address;
@@ -366,7 +352,7 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
       action,
       address,
       ...(isValidEVM ? { chain_ids: '1,137,10,42161,8453' } : { chains: SUPPORTED_SVM_CHAINS.join(',') }),
-      limit: 1000,
+      limit: action === 'transactions' ? 2000 : 1000,
     };
 
     try {
@@ -494,58 +480,6 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
     }
   };
 
-  const fetchTransactionsData = async (payload) => {
-    const { cursor, ...restPayload } = payload;
-    const cacheKey = `${restPayload.action}-${restPayload.address}-${restPayload.chainType || 'all'}${cursor ? `-cursor-${cursor.slice(0, 10)}` : ''}`;
-
-    let cachedData = null;
-    try {
-      cachedData = await getCachedData(cacheKey);
-    } catch { }
-
-    if (cachedData) return cachedData;
-
-    const apiUrl = `${API_BASE_URL}/api/sim`;
-    logger.log(`Fetching transactions:`, { payload: restPayload, cursor });
-
-    const response = await fetch(apiUrl, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        ...(session?.accessToken && { Authorization: `Bearer ${session.accessToken}` }),
-        'x-recaptcha-token': 'no-recaptcha',
-      },
-      body: JSON.stringify({ ...restPayload, cursor }),
-      credentials: 'include',
-    });
-
-    if (!response.ok) {
-      const text = await response.text();
-      let errorMessage = `Failed to fetch transactions data: ${response.status} ${response.statusText}`;
-      try {
-        const result = JSON.parse(text);
-        errorMessage = result.detail || errorMessage;
-      } catch {
-        errorMessage = `Failed to fetch transactions data: Invalid JSON response`;
-      }
-      throw new Error(errorMessage);
-    }
-
-    const result = await response.json();
-    if (!result.success) throw new Error(result.detail || 'Invalid response');
-
-    const data = result.data.map((tx) => ({
-      ...tx,
-      chain: CHAIN_ID_TO_NAME[tx.chain] || tx.chain,
-    }));
-
-    try {
-      await cacheData(cacheKey, { data, nextCursor: result.next_cursor });
-    } catch { }
-
-    return { data, nextCursor: result.next_cursor };
-  };
-
   const { data: balancesData, error: balancesError, isValidating: balancesValidating } = useSWR(
     selectedWallet ? ['wallet-balances', selectedWallet.address, activeChainType] : null,
     () => fetchDataQuery('wallet-balances', selectedWallet.address, activeChainType),
@@ -557,13 +491,25 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
     }
   );
 
-  useEffect(() => {
-    if (balancesError) {
-      const errorMessage = balancesError?.message || 'Failed to load data';
-      setError(errorMessage);
-      setBalances([]);
+  const { data: transactionsData, error: transactionsError, isValidating: transactionsValidating } = useSWR(
+    selectedWallet && activeTab === 'ACTIVITY' ? ['transactions', selectedWallet.address, activeChainType] : null,
+    () => fetchDataQuery('transactions', selectedWallet.address, activeChainType),
+    {
+      revalidateOnFocus: false,
+      revalidateOnReconnect: true,
+      refreshInterval: 15 * 60 * 1000,
+      dedupingInterval: 30 * 1000,
     }
-  }, [balancesError]);
+  );
+
+  useEffect(() => {
+    if (balancesError || transactionsError) {
+      const errorMessage = balancesError?.message || transactionsError?.message || 'Failed to load data';
+      setError(errorMessage);
+      if (balancesError) setBalances([]);
+      if (transactionsError) setTransactions([]);
+    }
+  }, [balancesError, transactionsError]);
 
   useEffect(() => {
     if (balancesData) {
@@ -574,29 +520,19 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
         setActiveChain(chainsWithData[0]);
       }
     }
+    if (transactionsData) {
+      debouncedSetTransactions(transactionsData.map((tx) => ({
+        ...tx,
+        chain: CHAIN_ID_TO_NAME[tx.chain] || tx.chain,
+      })));
+    }
     setLoadingStates({
       loading: chainsLoading,
       balances: balancesValidating,
-      transactions: false,
+      transactions: transactionsValidating,
       tokenInfo: false,
     });
-  }, [balancesData, chainsLoading, balancesValidating]);
-
-  // Initial load for transactions
-  useEffect(() => {
-    if (activeTab === 'ACTIVITY' && selectedWallet) {
-      setTransactions([]);
-      setNextCursor(null);
-      setHasMore(true);
-      debouncedLoadTransactions();
-    }
-  }, [activeTab, selectedWallet, activeChainType, debouncedLoadTransactions]);
-
-  const loadMore = useCallback(() => {
-    if (hasMore && !isLoadingMore) {
-      debouncedLoadTransactions(nextCursor);
-    }
-  }, [hasMore, isLoadingMore, nextCursor, debouncedLoadTransactions]);
+  }, [balancesData, transactionsData, chainsLoading, balancesValidating, transactionsValidating, debouncedSetTransactions]);
 
   const { data: tokenInfoData, error: tokenInfoError, isValidating: tokenInfoValidating } = useSWR(
     selectedWallet && balances.length > 0 ? ['tokenInfo', balances.map((b) => b.address)] : null,
@@ -1080,8 +1016,6 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
           setActiveChainType(newWallet?.chainType || 'EVM');
           setBalances([]);
           setTransactions([]);
-          setNextCursor(null);
-          setHasMore(true);
           setTokenInfo({});
           setActiveChain(null);
           setForceFetch(true);
@@ -1387,12 +1321,9 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
     );
   };
 
-  const filteredTransactions = useMemo(() => {
-    return transactions.filter((tx) => {
-      if (activeChain === null) return true;
-      return tx.chain === activeChain;
-    });
-  }, [transactions, activeChain]);
+  const handlePageChange = (page) => {
+    setCurrentPage(page);
+  };
 
   if (status !== 'authenticated') {
     return (
@@ -1485,7 +1416,7 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
                       disabled={isAtLimit || userTierLoading}
                       whileHover={!isAtLimit ? { scale: 1.05 } : {}}
                       whileTap={!isAtLimit ? { scale: 0.95 } : {}}
-                      className={`p-1 rounded-xl transition-all duration-300 ${isAtLimit ? 'opacity-50 cursor-not-allowed' : 'hover:bg-neon-blue/20'}`}
+                      className={`p-1 rounded-xl transition-all duration-300 ${isAtLimit ? 'opacity-50 cursor-not-allowed' : 'hover:bg-neon-neon-blue/20'}`}
                     >
                       <svg
                         xmlns="http://www.w3.org/2000/svg"
@@ -1516,8 +1447,6 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
                           setActiveChainType(wallet?.chainType || 'EVM');
                           setBalances([]);
                           setTransactions([]);
-                          setNextCursor(null);
-                          setHasMore(true);
                           setTokenInfo({});
                           setActiveChain(null);
                           lastSelectedWalletRef.current = wallet.address;
@@ -1627,8 +1556,6 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
                   setActiveChainType(wallet?.chainType || 'EVM');
                   setBalances([]);
                   setTransactions([]);
-                  setNextCursor(null);
-                  setHasMore(true);
                   setTokenInfo({});
                   setActiveChain(null);
                   lastSelectedWalletRef.current = wallet.address;
@@ -1880,101 +1807,124 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
                     )}
                     {activeTab === 'ACTIVITY' && (
                       <div className="h-full flex flex-col relative">
-                        <LoadingOverlay className="absolute inset-0 z-20" isLoading={isLoadingMore || loadingStates.transactions} isMobile={isMobile} />
-                        {error ? (
+                        <LoadingOverlay className="absolute inset-0 z-20" isLoading={loadingStates.transactions} isMobile={isMobile} />
+                        {transactionsError ? (
                           <div className="flex-1 flex items-center justify-center">
                             <p className="text-[9px] sm:text-[10px] text-red-400 text-center bg-red-400/10 p-2 sm:p-3 rounded-lg">
-                              Error: {error}
+                              Error: {transactionsError.message || 'Failed to load transactions'}
                             </p>
                           </div>
                         ) : filteredTransactions.length > 0 ? (
-                          (() => {
-                            const sampleTx = filteredTransactions[0];
-                            const isSVM = SUPPORTED_SVM_CHAINS.includes(sampleTx.chain);
-                            return (
-                              <div className="flex-1 bg-gradient-to-b from-black/80 to-black/90 rounded-b-xl border border-white/10 overflow-hidden shadow-inner">
-                                <div className="flex bg-gradient-to-r from-black/20 to-black/30 border-b border-white/10 px-2 py-2 text-[9px] sm:text-[10px] font-semibold text-white sticky top-0 z-10">
-                                  {!isSVM ? (
-                                    <>
-                                      <div className="w-[25%] px-2 flex items-center gap-1 text-left">
-                                        <svg xmlns="http://www.w3.org/2000/svg" className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                                        </svg>
-                                        Token
-                                      </div>
-                                      <div className="w-[25%] px-2 flex items-center gap-1 text-center">
-                                        <svg xmlns="http://www.w3.org/2000/svg" className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-                                        </svg>
-                                        Address
-                                      </div>
-                                      <div className="w-[25%] px-2 flex items-center gap-1 text-center">
-                                        <svg xmlns="http://www.w3.org/2000/svg" className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                                        </svg>
-                                        Balance
-                                      </div>
-                                      <div className="w-[25%] px-2 flex items-center gap-1 text-center">
-                                        <svg xmlns="http://www.w3.org/2000/svg" className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                                        </svg>
-                                        Tx / Time
-                                      </div>
-                                    </>
-                                  ) : (
-                                    <>
-                                      <div className="w-[25%] px-2 flex items-center gap-1 text-left">
-                                        <svg xmlns="http://www.w3.org/2000/svg" className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                                        </svg>
-                                        Token
-                                      </div>
-                                      <div className="w-[25%] px-2 flex items-center gap-1 text-center">
-                                        <svg xmlns="http://www.w3.org/2000/svg" className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                                        </svg>
-                                        Balance
-                                      </div>
-                                      <div className="w-[25%] px-2 flex items-center gap-1 text-center">
-                                        <svg xmlns="http://www.w3.org/2000/svg" className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                                        </svg>
-                                        Tx
-                                      </div>
-                                      <div className="w-[25%] px-2 flex items-center gap-1 text-center">
-                                        <svg xmlns="http://www.w3.org/2000/svg" className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                                        </svg>
-                                        Time
-                                      </div>
-                                    </>
-                                  )}
-                                </div>
-                                <div className="overflow-y-auto custom-scrollbar" style={{ height: 'calc(100% - 2.5rem)' }}>
-                                  <Virtuoso
-                                    className="custom-scrollbar"
-                                    style={{ height: '100%' }}
-                                    data={filteredTransactions}
-                                    itemContent={renderTransactionRow}
-                                    overscan={200}
-                                    endReached={loadMore}
-                                    components={{
-                                      EmptyPlaceholder: () => null,
-                                      Footer: () => (
-                                        <div className="p-4 text-center text-white/60 text-[9px]">
-                                          {isLoadingMore ? 'Loading more...' : !hasMore ? 'No more transactions' : null}
-                                        </div>
-                                      ),
-                                    }}
-                                  />
-                                </div>
+                          <>
+                            <div className="flex items-center justify-center gap-2 p-2 border-b border-white/10 bg-white/5">
+                              <motion.button
+                                onClick={() => handlePageChange(Math.max(1, currentPage - 1))}
+                                disabled={currentPage === 1}
+                                whileHover={{ scale: 1.05 }}
+                                whileTap={{ scale: 0.95 }}
+                                className="p-1 text-[9px] font-medium text-white border border-white/10 bg-white/5 rounded-xl disabled:opacity-50 disabled:cursor-not-allowed hover:bg-neon-blue/20 transition-all duration-300"
+                              >
+                                <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                                </svg>
+                              </motion.button>
+                              <div className="px-3 py-1 text-[9px] font-medium text-white border border-white/10 bg-white/5 rounded-xl">
+                                {currentPage}/{totalPages}
                               </div>
-                            );
-                          })()
+                              <motion.button
+                                onClick={() => handlePageChange(Math.min(totalPages, currentPage + 1))}
+                                disabled={currentPage === totalPages}
+                                whileHover={{ scale: 1.05 }}
+                                whileTap={{ scale: 0.95 }}
+                                className="p-1 text-[9px] font-medium text-white border border-white/10 bg-white/5 rounded-xl disabled:opacity-50 disabled:cursor-not-allowed hover:bg-neon-blue/20 transition-all duration-300"
+                              >
+                                <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                                </svg>
+                              </motion.button>
+                            </div>
+                            {(() => {
+                              const sampleTx = filteredTransactions[0];
+                              const isSVM = SUPPORTED_SVM_CHAINS.includes(sampleTx.chain);
+                              return (
+                                <div className="flex-1 bg-gradient-to-b from-black/80 to-black/90 rounded-b-xl border border-white/10 overflow-hidden shadow-inner">
+                                  <div className="flex bg-gradient-to-r from-black/20 to-black/30 border-b border-white/10 px-2 py-2 text-[9px] sm:text-[10px] font-semibold text-white sticky top-0 z-10">
+                                    {!isSVM ? (
+                                      <>
+                                        <div className="w-[25%] px-2 flex items-center gap-1 text-left">
+                                          <svg xmlns="http://www.w3.org/2000/svg" className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                          </svg>
+                                          Token
+                                        </div>
+                                        <div className="w-[25%] px-2 flex items-center gap-1 text-center">
+                                          <svg xmlns="http://www.w3.org/2000/svg" className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                                          </svg>
+                                          Address
+                                        </div>
+                                        <div className="w-[25%] px-2 flex items-center gap-1 text-center">
+                                          <svg xmlns="http://www.w3.org/2000/svg" className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                          </svg>
+                                          Balance
+                                        </div>
+                                        <div className="w-[25%] px-2 flex items-center gap-1 text-center">
+                                          <svg xmlns="http://www.w3.org/2000/svg" className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                          </svg>
+                                          Tx / Time
+                                        </div>
+                                      </>
+                                    ) : (
+                                      <>
+                                        <div className="w-[25%] px-2 flex items-center gap-1 text-left">
+                                          <svg xmlns="http://www.w3.org/2000/svg" className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                          </svg>
+                                          Token
+                                        </div>
+                                        <div className="w-[25%] px-2 flex items-center gap-1 text-center">
+                                          <svg xmlns="http://www.w3.org/2000/svg" className="w-3 h-3" fill="none" viewBox="0 0 24 0 24" stroke="currentColor">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                          </svg>
+                                          Balance
+                                        </div>
+                                        <div className="w-[25%] px-2 flex items-center gap-1 text-center">
+                                          <svg xmlns="http://www.w3.org/2000/svg" className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                          </svg>
+                                          Tx
+                                        </div>
+                                        <div className="w-[25%] px-2 flex items-center gap-1 text-center">
+                                          <svg xmlns="http://www.w3.org/2000/svg" className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                          </svg>
+                                          Time
+                                        </div>
+                                      </>
+                                    )}
+                                  </div>
+                                  <div className="overflow-y-auto custom-scrollbar" style={{ height: 'calc(100% - 2.5rem)' }}>
+                                    <Virtuoso
+                                      className="custom-scrollbar"
+                                      style={{ height: '100%' }}
+                                      data={currentTransactions}
+                                      itemContent={renderTransactionRow}
+                                      overscan={400}
+                                      components={{
+                                        EmptyPlaceholder: () => null,
+                                      }}
+                                    />
+                                  </div>
+                                </div>
+                              );
+                            })()}
+                          </>
                         ) : (
                           <div className="flex-1 flex items-center justify-center">
                             <p className="text-[9px] sm:text-[10px] text-white/60 text-center p-2 sm:p-3">
-                              {isLoadingMore ? 'Loading transactions...' : 'No transactions found for this wallet.'}
+                              {loadingStates.transactions ? 'Loading transactions...' : 'No transactions found for this wallet.'}
                             </p>
                           </div>
                         )}
@@ -2025,7 +1975,7 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
                   type="text"
                   value={newWalletName}
                   onChange={(e) => setNewWalletName(e.target.value)}
-                  className="w-full mt-1 p-2 text-[9px] sm:text-[10px] text-white bg-white/5 border border-white/10 rounded-lg focus:outline-none focus:ring-1 focus:ring-neon-blue shadow-md"
+                  className="w-full mt-1 p-2 text-[9px] sm:text-[10px] text-white bg-white/5 border border-white/10 rounded-lg focus:outline-none focus:ring-1 focus:ring-neon-blue shadow-shadow-md"
                   placeholder="Enter wallet name"
                 />
               </div>
