@@ -1,4 +1,5 @@
 // components/WatchlistsTab.jsx
+// components/WatchlistsTab.jsx
 'use client';
 
 import { motion, AnimatePresence } from 'framer-motion';
@@ -92,6 +93,9 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
   const [activeTab, setActiveTab] = useState(initialTab.toUpperCase());
   const [balances, setBalances] = useState([]);
   const [transactions, setTransactions] = useState([]);
+  const [nextCursor, setNextCursor] = useState(null);
+  const [hasMore, setHasMore] = useState(true);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [tokenInfo, setTokenInfo] = useState({});
   const [chainsWithAssets, setChainsWithAssets] = useState([]);
   const [nameTags, setNameTags] = useState({});
@@ -137,6 +141,36 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
       });
     }, 500),
     []
+  );
+
+  // New: Debounced loadTransactions
+  const debouncedLoadTransactions = useCallback(
+    debounce(async (cursor = null) => {
+      if (isLoadingMore) return;
+      setIsLoadingMore(true);
+      try {
+        const isValidEVM = isAddress(selectedWallet.address);
+        const payload = {
+          action: 'transactions',
+          address: selectedWallet.address,
+          ...(isValidEVM ? { chain_ids: '1,137,10,42161,8453' } : { chains: SUPPORTED_SVM_CHAINS.join(',') }),
+          limit: 200,  // Reduced from 500 to 200 for faster loads
+          cursor,
+        };
+
+        const { data: newTxs, nextCursor: newCursor } = await fetchTransactionsData(payload);
+
+        debouncedSetTransactions(newTxs);
+        setNextCursor(newCursor);
+        setHasMore(!!newCursor);
+      } catch (error) {
+        logger.error('Error loading transactions:', error);
+        toast.error('Failed to load more transactions');
+      } finally {
+        setIsLoadingMore(false);
+      }
+    }, 300),
+    [selectedWallet, isLoadingMore, debouncedSetTransactions]
   );
 
   // Log sorted balances to verify USDT position
@@ -230,6 +264,8 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
         setActiveChainType(wallet.chainType || 'EVM');
         setBalances([]);
         setTransactions([]);
+        setNextCursor(null);
+        setHasMore(true);
         setTokenInfo({});
         setActiveChain(null);
         lastSelectedWalletRef.current = wallet.address;
@@ -458,6 +494,58 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
     }
   };
 
+  const fetchTransactionsData = async (payload) => {
+    const { cursor, ...restPayload } = payload;
+    const cacheKey = `${restPayload.action}-${restPayload.address}-${restPayload.chainType || 'all'}${cursor ? `-cursor-${cursor.slice(0, 10)}` : ''}`;
+
+    let cachedData = null;
+    try {
+      cachedData = await getCachedData(cacheKey);
+    } catch { }
+
+    if (cachedData) return cachedData;
+
+    const apiUrl = `${API_BASE_URL}/api/sim`;
+    logger.log(`Fetching transactions:`, { payload: restPayload, cursor });
+
+    const response = await fetch(apiUrl, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(session?.accessToken && { Authorization: `Bearer ${session.accessToken}` }),
+        'x-recaptcha-token': 'no-recaptcha',
+      },
+      body: JSON.stringify({ ...restPayload, cursor }),
+      credentials: 'include',
+    });
+
+    if (!response.ok) {
+      const text = await response.text();
+      let errorMessage = `Failed to fetch transactions data: ${response.status} ${response.statusText}`;
+      try {
+        const result = JSON.parse(text);
+        errorMessage = result.detail || errorMessage;
+      } catch {
+        errorMessage = `Failed to fetch transactions data: Invalid JSON response`;
+      }
+      throw new Error(errorMessage);
+    }
+
+    const result = await response.json();
+    if (!result.success) throw new Error(result.detail || 'Invalid response');
+
+    const data = result.data.map((tx) => ({
+      ...tx,
+      chain: CHAIN_ID_TO_NAME[tx.chain] || tx.chain,
+    }));
+
+    try {
+      await cacheData(cacheKey, { data, nextCursor: result.next_cursor });
+    } catch { }
+
+    return { data, nextCursor: result.next_cursor };
+  };
+
   const { data: balancesData, error: balancesError, isValidating: balancesValidating } = useSWR(
     selectedWallet ? ['wallet-balances', selectedWallet.address, activeChainType] : null,
     () => fetchDataQuery('wallet-balances', selectedWallet.address, activeChainType),
@@ -469,25 +557,13 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
     }
   );
 
-  const { data: transactionsData, error: transactionsError, isValidating: transactionsValidating } = useSWR(
-    selectedWallet && activeTab === 'ACTIVITY' ? ['transactions', selectedWallet.address, activeChainType] : null,
-    () => fetchDataQuery('transactions', selectedWallet.address, activeChainType),
-    {
-      revalidateOnFocus: false,
-      revalidateOnReconnect: true,
-      refreshInterval: 15 * 60 * 1000,
-      dedupingInterval: 30 * 1000,
-    }
-  );
-
   useEffect(() => {
-    if (balancesError || transactionsError) {
-      const errorMessage = balancesError?.message || transactionsError?.message || 'Failed to load data';
+    if (balancesError) {
+      const errorMessage = balancesError?.message || 'Failed to load data';
       setError(errorMessage);
-      if (balancesError) setBalances([]);
-      if (transactionsError) setTransactions([]);
+      setBalances([]);
     }
-  }, [balancesError, transactionsError]);
+  }, [balancesError]);
 
   useEffect(() => {
     if (balancesData) {
@@ -498,19 +574,29 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
         setActiveChain(chainsWithData[0]);
       }
     }
-    if (transactionsData) {
-      debouncedSetTransactions(transactionsData.map((tx) => ({
-        ...tx,
-        chain: CHAIN_ID_TO_NAME[tx.chain] || tx.chain,
-      })));
-    }
     setLoadingStates({
       loading: chainsLoading,
       balances: balancesValidating,
-      transactions: transactionsValidating,
+      transactions: false,
       tokenInfo: false,
     });
-  }, [balancesData, transactionsData, chainsLoading, balancesValidating, transactionsValidating, debouncedSetTransactions]);
+  }, [balancesData, chainsLoading, balancesValidating]);
+
+  // Initial load for transactions
+  useEffect(() => {
+    if (activeTab === 'ACTIVITY' && selectedWallet) {
+      setTransactions([]);
+      setNextCursor(null);
+      setHasMore(true);
+      debouncedLoadTransactions();
+    }
+  }, [activeTab, selectedWallet, activeChainType, debouncedLoadTransactions]);
+
+  const loadMore = useCallback(() => {
+    if (hasMore && !isLoadingMore) {
+      debouncedLoadTransactions(nextCursor);
+    }
+  }, [hasMore, isLoadingMore, nextCursor, debouncedLoadTransactions]);
 
   const { data: tokenInfoData, error: tokenInfoError, isValidating: tokenInfoValidating } = useSWR(
     selectedWallet && balances.length > 0 ? ['tokenInfo', balances.map((b) => b.address)] : null,
@@ -994,6 +1080,8 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
           setActiveChainType(newWallet?.chainType || 'EVM');
           setBalances([]);
           setTransactions([]);
+          setNextCursor(null);
+          setHasMore(true);
           setTokenInfo({});
           setActiveChain(null);
           setForceFetch(true);
@@ -1428,6 +1516,8 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
                           setActiveChainType(wallet?.chainType || 'EVM');
                           setBalances([]);
                           setTransactions([]);
+                          setNextCursor(null);
+                          setHasMore(true);
                           setTokenInfo({});
                           setActiveChain(null);
                           lastSelectedWalletRef.current = wallet.address;
@@ -1537,6 +1627,8 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
                   setActiveChainType(wallet?.chainType || 'EVM');
                   setBalances([]);
                   setTransactions([]);
+                  setNextCursor(null);
+                  setHasMore(true);
                   setTokenInfo({});
                   setActiveChain(null);
                   lastSelectedWalletRef.current = wallet.address;
@@ -1788,11 +1880,11 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
                     )}
                     {activeTab === 'ACTIVITY' && (
                       <div className="h-full flex flex-col relative">
-                        <LoadingOverlay className="absolute inset-0 z-20" isLoading={loadingStates.transactions} isMobile={isMobile} />
-                        {transactionsError ? (
+                        <LoadingOverlay className="absolute inset-0 z-20" isLoading={isLoadingMore || loadingStates.transactions} isMobile={isMobile} />
+                        {error ? (
                           <div className="flex-1 flex items-center justify-center">
                             <p className="text-[9px] sm:text-[10px] text-red-400 text-center bg-red-400/10 p-2 sm:p-3 rounded-lg">
-                              Error: {transactionsError.message || 'Failed to load transactions'}
+                              Error: {error}
                             </p>
                           </div>
                         ) : filteredTransactions.length > 0 ? (
@@ -1864,9 +1956,15 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
                                     style={{ height: '100%' }}
                                     data={filteredTransactions}
                                     itemContent={renderTransactionRow}
-                                    overscan={400}
+                                    overscan={200}
+                                    endReached={loadMore}
                                     components={{
                                       EmptyPlaceholder: () => null,
+                                      Footer: () => (
+                                        <div className="p-4 text-center text-white/60 text-[9px]">
+                                          {isLoadingMore ? 'Loading more...' : !hasMore ? 'No more transactions' : null}
+                                        </div>
+                                      ),
                                     }}
                                   />
                                 </div>
@@ -1876,7 +1974,7 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
                         ) : (
                           <div className="flex-1 flex items-center justify-center">
                             <p className="text-[9px] sm:text-[10px] text-white/60 text-center p-2 sm:p-3">
-                              {loadingStates.transactions ? 'Loading transactions...' : 'No transactions found for this wallet.'}
+                              {isLoadingMore ? 'Loading transactions...' : 'No transactions found for this wallet.'}
                             </p>
                           </div>
                         )}

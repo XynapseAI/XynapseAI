@@ -245,6 +245,7 @@ const bodySchema = z.object({
   decimalPlace: z.number().int().min(0).optional(),
   limit: z.number().int().min(1).optional(),
   minValueUsd: z.number().min(0).optional(),
+  cursor: z.string().nullish(),  // Fixed: for pagination, allowing null/undefined
 }).refine(
   (data) => (data.action === 'proxy-image' ? !!data.imageUrl : true),
   { message: 'imageUrl is required for proxy-image action', path: ['imageUrl'] }
@@ -305,7 +306,7 @@ const CHAIN_ID_MAP = {
 const LIMIT_CONFIG = {
   "top-holders": 100,
   "wallet-balances": 2000,
-  transactions: 500,
+  transactions: 2000,
   collectibles: 200,
 };
 
@@ -419,6 +420,24 @@ function createJsonStream(controller, data, chunkSize = 200) {
   });
 }
 
+// New helper for streaming chunks (without full array bracket)
+function createJsonStreamChunk(controller, chunk) {
+  if (controller.locked) return;
+  if (!controller.streamWritten) {
+    controller.enqueue(new TextEncoder().encode('['));
+    controller.streamWritten = true;
+  }
+  const prefix = controller.lastChunkSent ? ',' : '';
+  controller.lastChunkSent = true;
+  const chunkString = prefix + JSON.stringify(chunk).slice(1, -1);
+  controller.enqueue(new TextEncoder().encode(chunkString));
+  if (chunk.length === 0) {
+    controller.enqueue(new TextEncoder().encode(']'));
+    controller.close();
+  }
+}
+
+// ================= Main Handler =================
 // ================= Main Handler =================
 export async function POST(request) {
   const ip = request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "unknown";
@@ -443,7 +462,7 @@ export async function POST(request) {
   // Check IP reputation
   if (!(await checkIp(ip))) {
     await trackViolation(ip, 'Suspicious IP');
-    return NextResponse.json({ detail: 'Request blocked due to suspicious IP.' }, { status: 403, headers: securityHeaders });
+    return NextResponse.json({ detail: 'Request blocked due to suspicious IP.' }, { status: 403, headers: securitySkeleton });
   }
 
   let body;
@@ -465,7 +484,7 @@ export async function POST(request) {
     return NextResponse.json({ detail: 'Validation failed', errors: err.errors }, { status: 400, headers: securityHeaders });
   }
 
-  const { action, imageUrl, chain, tokenAddress, address, addresses, decimalPlace, limit, minValueUsd } = parsedBody;
+  const { action, imageUrl, chain, tokenAddress, address, addresses, decimalPlace, limit, minValueUsd, cursor } = parsedBody;
 
   // Verify API key
   const apiKey = request.headers.get('x-api-key') || 'default-api-key';
@@ -514,6 +533,8 @@ export async function POST(request) {
           if (typeof limit === "number" && Number.isInteger(limit) && limit >= 1 && limit <= LIMIT_CONFIG[action]) {
             effectiveLimit = limit;
           }
+
+          let effectivePageLimit = Math.min(effectiveLimit, isEVMAddress ? 50 : 200);  // Reduced per-page limit for faster initial load: EVM 50, SVM 200
 
           if (action === "top-holders" && chain && tokenAddress) {
             const chainId = CHAIN_ID_MAP[chain?.toLowerCase()];
@@ -769,248 +790,265 @@ export async function POST(request) {
               return;
             }
           } else if (action === "transactions") {
-            logger.info(`Processing transactions for addresses: ${addresses || address}`, { ip });
+            logger.info(`Processing transactions for addresses: ${addresses || address}${cursor ? `, cursor: ${cursor}` : ''}`, { ip });
             const targetAddresses = [...new Set(addresses && addresses.length > 0 ? addresses : [address])];
             const chainParam = targetAddresses.some((addr) => isValidSolanaAddress(addr))
               ? `chains=${SUPPORTED_SVM_CHAINS.join(",")}`
               : `chain_ids=${SUPPORTED_CHAIN_IDS}`;
 
-            // Parallelize fetches for each address
             const fetchPromises = targetAddresses.map(async (addr) => {
               const isEVM = isAddress(addr);
-              const url = isEVM
-                ? `https://api.sim.dune.com/v1/evm/activity/${addr}?${chainParam}&limit=${effectiveLimit}&sort=desc`
-                : `https://api.sim.dune.com/beta/svm/transactions/${addr}?${chainParam}&limit=${effectiveLimit}&sort=desc`;
-              logger.info(`Calling Dune Sim API: ${url}`, { ip });
+              let allTransactions = [];
+              let nextOffset = cursor;
+              const isInfiniteMode = !!cursor;
+              const totalLimit = isInfiniteMode ? effectivePageLimit : LIMIT_CONFIG[action];
 
-              try {
-                const response = await fetchWithRateLimit(url, {
-                  headers: { "X-Sim-Api-Key": process.env.SIM_API_KEY },
-                });
+              do {
+                const pageLimit = isInfiniteMode ? effectivePageLimit : Math.min(effectivePageLimit, totalLimit - allTransactions.length);
+                const url = isEVM
+                  ? `https://api.sim.dune.com/v1/evm/activity/${addr}?${chainParam}&limit=${pageLimit}&sort=desc${nextOffset ? `&offset=${nextOffset}` : ''}`
+                  : `https://api.sim.dune.com/beta/svm/transactions/${addr}?${chainParam}&limit=${pageLimit}&sort=desc${nextOffset ? `&offset=${nextOffset}` : ''}`;
+                logger.info(`Calling Dune Sim API: ${url}`, { ip });
 
-                logger.info(
-                  `Transactions response for address ${addr}: ${response.data.activity?.length || response.data.transactions?.length || 0} transactions, time: ${Date.now() - startTime}ms`,
-                  { ip },
-                );
+                try {
+                  const response = await fetchWithRateLimit(url, {
+                    headers: { "X-Sim-Api-Key": process.env.SIM_API_KEY },
+                  });
 
-                const transactions = (isEVM ? response.data.activity : response.data.transactions) || [];
-                const filteredTransactions = await Promise.all(
-                  transactions.map(async (tx) => {
-                    if (isEVM) {
-                      const decimals = tx.asset_type === "native" ? 18 : tx.token_metadata?.decimals || 18;
-                      const value_usd = Number(tx.value_usd || 0);
-                      if (minValueUsd && value_usd < minValueUsd) return null;
-                      const tokenSymbol = tx.token_metadata?.symbol ||
-                        (tx.asset_type === "native" ? NATIVE_TOKEN_METADATA[tx.chain]?.symbol || "Native" : "Unknown");
-                      if (!isValidTokenSymbol(tokenSymbol) && !IMPORTANT_TOKENS.some((t) => t.chain === tx.chain && t.address === "native")) {
-                        logger.info(`Filtered out invalid token symbol: ${tokenSymbol} on ${tx.chain}`, { ip });
-                        return null;
-                      }
-                      return {
-                        chain:
-                          Object.keys(CHAIN_ID_MAP).find((key) => CHAIN_ID_MAP[key] === tx.chain_id) ||
-                          tx.chain_id || "Unknown",
-                        hash: tx.tx_hash || "Unknown",
-                        from: tx.from || tx.tx_from || "Unknown",
-                        to: tx.to || tx.tx_to || "None",
-                        value: Number(tx.value || 0) / Math.pow(10, decimals),
-                        value_usd,
-                        block_time: tx.block_time || null,
-                        block_slot: tx.block_number || null,
-                        token: tokenSymbol,
-                        type: tx.type || "Unknown",
-                        token_metadata: {
-                          symbol: tokenSymbol,
-                          logo: tx.token_metadata?.logo || NATIVE_TOKEN_METADATA[tx.chain]?.logo || null,
-                          name: tx.token_metadata?.name || NATIVE_TOKEN_METADATA[tx.chain]?.name || "Unknown",
-                        },
-                      };
-                    } else {
-                      let toAddress = "None";
-                      let fromAddress = tx.from || tx.address || "Unknown";
-                      let value = "0";
-                      let value_usd = 0;
-                      let type = "Unknown";
-                      let tokenSymbol = NATIVE_TOKEN_METADATA[tx.chain]?.symbol || "Unknown";
-                      let tokenLogo = NATIVE_TOKEN_METADATA[tx.chain]?.logo || null;
-                      let tokenName = NATIVE_TOKEN_METADATA[tx.chain]?.name || "Unknown";
-                      let swap_details = null;
+                  logger.info(
+                    `Transactions response for address ${addr}: ${response.data.activity?.length || response.data.transactions?.length || 0} transactions, time: ${Date.now() - startTime}ms`,
+                    { ip },
+                  );
 
-                      const sentTokens = [];
-                      const receivedTokens = [];
-                      if (tx.meta?.postTokenBalances && tx.meta?.preTokenBalances) {
-                        tx.meta.postTokenBalances.forEach((postBalance) => {
-                          if (postBalance.owner === addr) {
-                            const preBalance = tx.meta.preTokenBalances.find(
-                              (pre) => pre.mint === postBalance.mint && pre.owner === postBalance.owner,
-                            );
-                            if (preBalance) {
-                              const delta =
-                                Number(postBalance.uiTokenAmount.amount) - Number(preBalance.uiTokenAmount.amount);
-                              if (delta > 0) {
-                                const symbol = postBalance.mint.slice(0, 4) + "..." || "Unknown";
-                                if (!isValidTokenSymbol(symbol) && !IMPORTANT_TOKENS.some((t) => t.chain === tx.chain && t.address === "native")) {
-                                  logger.info(`Filtered out invalid token symbol: ${symbol} on ${tx.chain}`, { ip });
-                                  return;
+                  const pageTransactions = (isEVM ? response.data.activity : response.data.transactions) || [];
+                  const filteredPage = await Promise.all(
+                    pageTransactions.map(async (tx) => {
+                      if (isEVM) {
+                        const decimals = tx.asset_type === "native" ? 18 : tx.token_metadata?.decimals || 18;
+                        const value_usd = Number(tx.value_usd || 0);
+                        if (minValueUsd && value_usd < minValueUsd) return null;
+                        const tokenSymbol = tx.token_metadata?.symbol ||
+                          (tx.asset_type === "native" ? NATIVE_TOKEN_METADATA[tx.chain]?.symbol || "Native" : "Unknown");
+                        if (!isValidTokenSymbol(tokenSymbol) && !IMPORTANT_TOKENS.some((t) => t.chain === tx.chain && t.address === "native")) {
+                          logger.info(`Filtered out invalid token symbol: ${tokenSymbol} on ${tx.chain}`, { ip });
+                          return null;
+                        }
+                        return {
+                          chain:
+                            Object.keys(CHAIN_ID_MAP).find((key) => CHAIN_ID_MAP[key] === tx.chain_id) ||
+                            tx.chain_id || "Unknown",
+                          hash: tx.tx_hash || "Unknown",
+                          from: tx.from || tx.tx_from || "Unknown",
+                          to: tx.to || tx.tx_to || "None",
+                          value: Number(tx.value || 0) / Math.pow(10, decimals),
+                          value_usd,
+                          block_time: tx.block_time || null,
+                          block_slot: tx.block_number || null,
+                          token: tokenSymbol,
+                          type: tx.type || "Unknown",
+                          token_metadata: {
+                            symbol: tokenSymbol,
+                            logo: tx.token_metadata?.logo || NATIVE_TOKEN_METADATA[tx.chain]?.logo || null,
+                            name: tx.token_metadata?.name || NATIVE_TOKEN_METADATA[tx.chain]?.name || "Unknown",
+                          },
+                        };
+                      } else {
+                        let toAddress = "None";
+                        let fromAddress = tx.from || tx.address || "Unknown";
+                        let value = "0";
+                        let value_usd = 0;
+                        let type = "Unknown";
+                        let tokenSymbol = NATIVE_TOKEN_METADATA[tx.chain]?.symbol || "Unknown";
+                        let tokenLogo = NATIVE_TOKEN_METADATA[tx.chain]?.logo || null;
+                        let tokenName = NATIVE_TOKEN_METADATA[tx.chain]?.name || "Unknown";
+                        let swap_details = null;
+
+                        const sentTokens = [];
+                        const receivedTokens = [];
+                        if (tx.meta?.postTokenBalances && tx.meta?.preTokenBalances) {
+                          tx.meta.postTokenBalances.forEach((postBalance) => {
+                            if (postBalance.owner === addr) {
+                              const preBalance = tx.meta.preTokenBalances.find(
+                                (pre) => pre.mint === postBalance.mint && pre.owner === postBalance.owner,
+                              );
+                              if (preBalance) {
+                                const delta =
+                                  Number(postBalance.uiTokenAmount.amount) - Number(preBalance.uiTokenAmount.amount);
+                                if (delta > 0) {
+                                  const symbol = postBalance.mint.slice(0, 4) + "..." || "Unknown";
+                                  if (!isValidTokenSymbol(symbol) && !IMPORTANT_TOKENS.some((t) => t.chain === tx.chain && t.address === "native")) {
+                                    logger.info(`Filtered out invalid token symbol: ${symbol} on ${tx.chain}`, { ip });
+                                    return;
+                                  }
+                                  receivedTokens.push({
+                                    mint: postBalance.mint,
+                                    amount: delta / Math.pow(10, postBalance.uiTokenAmount.decimals || 9),
+                                    symbol,
+                                    logo: null,
+                                    decimals: postBalance.uiTokenAmount.decimals || 9,
+                                  });
+                                } else if (delta < 0) {
+                                  const symbol = postBalance.mint.slice(0, 4) + "..." || "Unknown";
+                                  if (!isValidTokenSymbol(symbol) && !IMPORTANT_TOKENS.some((t) => t.chain === tx.chain && t.address === "native")) {
+                                    logger.info(`Filtered out invalid token symbol: ${symbol} on ${tx.chain}`, { ip });
+                                    return;
+                                  }
+                                  sentTokens.push({
+                                    mint: postBalance.mint,
+                                    amount: -delta / Math.pow(10, postBalance.uiTokenAmount.decimals || 9),
+                                    symbol,
+                                    logo: null,
+                                    decimals: postBalance.uiTokenAmount.decimals || 9,
+                                  });
                                 }
-                                receivedTokens.push({
-                                  mint: postBalance.mint,
-                                  amount: delta / Math.pow(10, postBalance.uiTokenAmount.decimals || 9),
-                                  symbol,
-                                  logo: null,
-                                  decimals: postBalance.uiTokenAmount.decimals || 9,
-                                });
-                              } else if (delta < 0) {
-                                const symbol = postBalance.mint.slice(0, 4) + "..." || "Unknown";
-                                if (!isValidTokenSymbol(symbol) && !IMPORTANT_TOKENS.some((t) => t.chain === tx.chain && t.address === "native")) {
-                                  logger.info(`Filtered out invalid token symbol: ${symbol} on ${tx.chain}`, { ip });
-                                  return;
-                                }
-                                sentTokens.push({
-                                  mint: postBalance.mint,
-                                  amount: -delta / Math.pow(10, postBalance.uiTokenAmount.decimals || 9),
-                                  symbol,
-                                  logo: null,
-                                  decimals: postBalance.uiTokenAmount.decimals || 9,
-                                });
                               }
                             }
-                          }
-                        });
-                      }
+                          });
+                        }
 
-                      if (
-                        tx.meta?.postBalances &&
-                        tx.meta?.preBalances &&
-                        tx.raw_transaction?.transaction?.message?.accountKeys
-                      ) {
-                        const deltas = tx.meta.postBalances.map((post, i) => post - (tx.meta.preBalances[i] || 0));
-                        const accountKeys = tx.raw_transaction.transaction.message.accountKeys;
-                        const userIndex = accountKeys.findIndex((key) => key === addr);
-                        if (userIndex !== -1) {
-                          const nativeDelta = deltas[userIndex];
-                          const priceUsd = tx.price_usd || 0;
-                          if (nativeDelta > 0) {
-                            value_usd = (nativeDelta / 1e9) * priceUsd;
-                            if (minValueUsd && value_usd < minValueUsd) return null;
-                            receivedTokens.push({
-                              mint: "native",
-                              amount: nativeDelta / 1e9,
-                              symbol: tokenSymbol,
-                              logo: tokenLogo,
-                              decimals: 9,
-                            });
-                          } else if (nativeDelta < 0) {
-                            value_usd = (-nativeDelta / 1e9) * priceUsd;
-                            if (minValueUsd && value_usd < minValueUsd) return null;
-                            sentTokens.push({
-                              mint: "native",
-                              amount: -nativeDelta / 1e9,
-                              symbol: tokenSymbol,
-                              logo: tokenLogo,
-                              decimals: 9,
-                            });
+                        if (
+                          tx.meta?.postBalances &&
+                          tx.meta?.preBalances &&
+                          tx.raw_transaction?.transaction?.message?.accountKeys
+                        ) {
+                          const deltas = tx.meta.postBalances.map((post, i) => post - (tx.meta.preBalances[i] || 0));
+                          const accountKeys = tx.raw_transaction.transaction.message.accountKeys;
+                          const userIndex = accountKeys.findIndex((key) => key === addr);
+                          if (userIndex !== -1) {
+                            const nativeDelta = deltas[userIndex];
+                            const priceUsd = tx.price_usd || 0;
+                            if (nativeDelta > 0) {
+                              value_usd = (nativeDelta / 1e9) * priceUsd;
+                              if (minValueUsd && value_usd < minValueUsd) return null;
+                              receivedTokens.push({
+                                mint: "native",
+                                amount: nativeDelta / 1e9,
+                                symbol: tokenSymbol,
+                                logo: tokenLogo,
+                                decimals: 9,
+                              });
+                            } else if (nativeDelta < 0) {
+                              value_usd = (-nativeDelta / 1e9) * priceUsd;
+                              if (minValueUsd && value_usd < minValueUsd) return null;
+                              sentTokens.push({
+                                mint: "native",
+                                amount: -nativeDelta / 1e9,
+                                symbol: tokenSymbol,
+                                logo: tokenLogo,
+                                decimals: 9,
+                              });
+                            }
                           }
                         }
+
+                        if (sentTokens.length > 0 && receivedTokens.length > 0) {
+                          type = "swap";
+                          swap_details = { sent: sentTokens, received: receivedTokens };
+                          tokenSymbol = `${sentTokens[0]?.symbol || "Unknown"}/${receivedTokens[0]?.symbol || "Unknown"}`;
+                          tokenLogo = sentTokens[0]?.logo || receivedTokens[0]?.logo || tokenLogo;
+                          toAddress = "Swap";
+                          value = sentTokens[0]?.amount.toFixed(6) || "0";
+                          value_usd = sentTokens[0]?.amount * (sentTokens[0]?.price_usd || 0) || value_usd;
+                        } else if (receivedTokens.length > 0) {
+                          type = "receive";
+                          const received = receivedTokens[0];
+                          value = received.amount.toFixed(6);
+                          value_usd = received.amount * (received.price_usd || 0) || value_usd;
+                          tokenSymbol = received.symbol;
+                          tokenLogo = received.logo || tokenLogo;
+                          tokenName = received.mint === "native" ? tokenName : "Unknown Token";
+                          fromAddress =
+                            tx.meta?.postTokenBalances?.find((b) => b.mint === received.mint && b.owner !== addr)?.owner ||
+                            fromAddress;
+                          toAddress = addr;
+                        } else if (sentTokens.length > 0) {
+                          type = "send";
+                          const sent = sentTokens[0];
+                          value = sent.amount.toFixed(6);
+                          value_usd = sent.amount * (sent.price_usd || 0) || value_usd;
+                          tokenSymbol = sent.symbol;
+                          tokenLogo = sent.logo || tokenLogo;
+                          tokenName = sent.mint === "native" ? tokenName : "Unknown Token";
+                          toAddress =
+                            tx.meta?.postTokenBalances?.find((b) => b.mint === sent.mint && b.owner !== addr)?.owner ||
+                            toAddress;
+                          fromAddress = addr;
+                        } else {
+                          type = "other";
+                          value = "N/A";
+                          value_usd = 0;
+                        }
+
+                        if (!isValidTokenSymbol(tokenSymbol) && !IMPORTANT_TOKENS.some((t) => t.chain === tx.chain && t.address === "native")) {
+                          logger.info(`Filtered out invalid token symbol: ${tokenSymbol} on ${tx.chain}`, { ip });
+                          return null;
+                        }
+
+                        return {
+                          chain: tx.chain,
+                          hash: tx.raw_transaction?.transaction?.signatures?.[0] || "Unknown",
+                          from: fromAddress,
+                          to: toAddress,
+                          value,
+                          value_usd,
+                          block_time: tx.block_time ? new Date(tx.block_time / 1000).toISOString() : null,
+                          block_slot: tx.block_slot || null,
+                          token: tokenSymbol,
+                          type,
+                          swap_details,
+                          token_metadata: {
+                            symbol: tokenSymbol,
+                            logo: tokenLogo,
+                            name: tokenName,
+                          },
+                        };
                       }
+                    })
+                  );
+                  const validPage = filteredPage.filter((tx) => tx !== null);
+                  allTransactions.push(...validPage);
+                  nextOffset = response.data.next_offset;
 
-                      if (sentTokens.length > 0 && receivedTokens.length > 0) {
-                        type = "swap";
-                        swap_details = { sent: sentTokens, received: receivedTokens };
-                        tokenSymbol = `${sentTokens[0]?.symbol || "Unknown"}/${receivedTokens[0]?.symbol || "Unknown"}`;
-                        tokenLogo = sentTokens[0]?.logo || receivedTokens[0]?.logo || tokenLogo;
-                        toAddress = "Swap";
-                        value = sentTokens[0]?.amount.toFixed(6) || "0";
-                        value_usd = sentTokens[0]?.amount * (sentTokens[0]?.price_usd || 0) || value_usd;
-                      } else if (receivedTokens.length > 0) {
-                        type = "receive";
-                        const received = receivedTokens[0];
-                        value = received.amount.toFixed(6);
-                        value_usd = received.amount * (received.price_usd || 0) || value_usd;
-                        tokenSymbol = received.symbol;
-                        tokenLogo = received.logo || tokenLogo;
-                        tokenName = received.mint === "native" ? tokenName : "Unknown Token";
-                        fromAddress =
-                          tx.meta?.postTokenBalances?.find((b) => b.mint === received.mint && b.owner !== addr)?.owner ||
-                          fromAddress;
-                        toAddress = addr;
-                      } else if (sentTokens.length > 0) {
-                        type = "send";
-                        const sent = sentTokens[0];
-                        value = sent.amount.toFixed(6);
-                        value_usd = sent.amount * (sent.price_usd || 0) || value_usd;
-                        tokenSymbol = sent.symbol;
-                        tokenLogo = sent.logo || tokenLogo;
-                        tokenName = sent.mint === "native" ? tokenName : "Unknown Token";
-                        toAddress =
-                          tx.meta?.postTokenBalances?.find((b) => b.mint === sent.mint && b.owner !== addr)?.owner ||
-                          toAddress;
-                        fromAddress = addr;
-                      } else {
-                        type = "other";
-                        value = "N/A";
-                        value_usd = 0;
-                      }
+                  // Stream chunk if not infinite mode
+                  if (!isInfiniteMode && validPage.length > 0) {
+                    createJsonStreamChunk(controller, validPage);
+                  }
 
-                      if (!isValidTokenSymbol(tokenSymbol) && !IMPORTANT_TOKENS.some((t) => t.chain === tx.chain && t.address === "native")) {
-                        logger.info(`Filtered out invalid token symbol: ${tokenSymbol} on ${tx.chain}`, { ip });
-                        return null;
-                      }
-
-                      return {
-                        chain: tx.chain,
-                        hash: tx.raw_transaction?.transaction?.signatures?.[0] || "Unknown",
-                        from: fromAddress,
-                        to: toAddress,
-                        value,
-                        value_usd,
-                        block_time: tx.block_time ? new Date(tx.block_time / 1000).toISOString() : null,
-                        block_slot: tx.block_slot || null,
-                        token: tokenSymbol,
-                        type,
-                        swap_details,
-                        token_metadata: {
-                          symbol: tokenSymbol,
-                          logo: tokenLogo,
-                          name: tokenName,
-                        },
-                      };
-                    }
-                  })
-                );
-
-                const validTransactions = filteredTransactions.filter((tx) => tx !== null);
-                return validTransactions;
-              } catch (error) {
-                logger.error(`Error fetching transactions for address ${addr}: ${error.message}`, { ip });
-                if (error.response?.status === 429) {
-                  throw new Error("Dune Sim API rate limit exceeded, please try again later.");
-                } else if (error.response?.status === 404) {
-                  logger.warn(`No transactions found for address ${addr}`, { ip });
-                  return []; // Continue with empty for this address
-                } else {
-                  throw error; // Re-throw to handle in outer catch
+                  if (allTransactions.length >= totalLimit || !nextOffset) break;
+                } catch (error) {
+                  logger.error(`Error fetching transactions for address ${addr}: ${error.message}`, { ip });
+                  if (error.response?.status === 429) {
+                    throw new Error("Dune Sim API rate limit exceeded, please try again later.");
+                  } else if (error.response?.status === 404) {
+                    logger.warn(`No transactions found for address ${addr}`, { ip });
+                    return []; // Continue with empty for this address
+                  } else {
+                    throw error; // Re-throw to handle in outer catch
+                  }
                 }
+              } while (!isInfiniteMode && nextOffset);
+
+              if (isInfiniteMode) {
+                // Single page: return JSON
+                const responseData = {
+                  success: true,
+                  data: allTransactions,
+                  next_cursor: nextOffset || null,
+                };
+                controller.enqueue(new TextEncoder().encode(JSON.stringify(responseData)));
+                controller.close();
+                return responseData;
               }
+
+              return allTransactions;
             });
 
-            try {
+            if (!cursor) {  // Full fetch: stream all after collecting
               const results = await Promise.all(fetchPromises);
               const allTransactions = results.flat();
               logger.info(`Processed transactions data: ${allTransactions.length} transactions`, { ip });
               createJsonStream(controller, allTransactions);
-            } catch (error) {
-              if (error.message.includes("rate limit")) {
-                controller.enqueue(
-                  new TextEncoder().encode(JSON.stringify({ detail: error.message }))
-                );
-              } else {
-                controller.enqueue(
-                  new TextEncoder().encode(JSON.stringify({ detail: `Failed to fetch transactions: ${error.message}` }))
-                );
-              }
-              controller.close();
-            }
+            }  // Infinite mode handled above
             return;
           } else if (action === "collectibles" && address) {
             logger.info(`Processing collectibles for address: ${address}`, { ip });
@@ -1158,22 +1196,6 @@ export async function POST(request) {
         "Access-Control-Allow-Origin": process.env.NEXT_PUBLIC_APP_URL || "https://xynapseai.net",
         "Access-Control-Allow-Methods": "POST, OPTIONS",
         "Access-Control-Allow-Headers": "Content-Type, Authorization, X-Api-Key",
-      },
-    },
-  );
-}
-
-export async function OPTIONS() {
-  return NextResponse.json(
-    {},
-    {
-      status: 200,
-      headers: {
-        ...securityHeaders,
-        "Access-Control-Allow-Origin": process.env.NEXT_PUBLIC_APP_URL || "https://xynapseai.net",
-        "Access-Control-Allow-Methods": "POST, OPTIONS",
-        "Access-Control-Allow-Headers": "Content-Type, Authorization, X-Api-Key",
-        "Access-Control-Allow-Credentials": "true",
       },
     },
   );
