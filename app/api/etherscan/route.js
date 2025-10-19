@@ -8,8 +8,8 @@ import { isAddress } from 'ethers';
 import { auth } from '@/lib/auth';
 
 const limiterBottleneck = new Bottleneck({
-  maxConcurrent: 10,
-  minTime: 500,
+  maxConcurrent: 1,  // Safe for 5 req/s
+  minTime: 250,
 });
 
 const fetchWithRateLimit = limiterBottleneck.wrap(async (url, config) => {

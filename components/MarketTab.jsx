@@ -137,7 +137,7 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
     isLoadingMempool,
     mempoolError,
     fetchMempoolTransactions,
-    loadMoreDexData,
+    loadMoreDex,
     hasMoreDex,
     isLoadingMoreDex,
     setIsLoadingMoreDex,

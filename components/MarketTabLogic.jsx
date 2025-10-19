@@ -80,7 +80,7 @@ const CACHE_DURATIONS = {
 
 const MEMPOOL_POLLING_INTERVAL = 60 * 1000;
 const MAX_MEMPOOL_TXS = 200;
-const MEMPOOL_MAX_AGE = 5 * 24 * 60 * 60; // 5 days in seconds
+const MEMPOOL_MAX_AGE = 5 * 24 * 60 * 60 * 1000; // 5 days
 const MEMPOOL_POLL_LIMIT = 50; // Limit for polling
 const MEMPOOL_INIT_LIMIT = 100; // Higher limit for initial fetch
 const dexPaginationSize = 100; // Keep as is
@@ -141,7 +141,6 @@ export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initi
   const [searchQuery, setSearchQuery] = useState('');
   const [debouncedSearchQuery, setDebouncedSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState([]);
-  const [isSearching, setIsSearching] = useState(false);
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [analysisLinks, setAnalysisLinks] = useState([]);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
@@ -171,7 +170,6 @@ export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initi
   const [isLoadingNameTags, setIsLoadingNameTags] = useState(false);
   const nameTagsRef = useRef({});
   const prevTopHoldersRef = useRef([]);
-  const prevAvailableChainsRef = useRef([]);
   const [chains, setChains] = useState([]);
   const [dexData, setDexData] = useState({ pools: [], trades: [], poolTokens: {}, fullTrades: [] }); // Added fullTrades for cache
   const [isLoadingDex, setIsLoadingDex] = useState(false);
@@ -1661,62 +1659,68 @@ export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initi
                 offset, // Fixed offset
               };
 
-              const response = await fetch('/api/etherscan', {
-                method: 'POST',
-                headers: {
-                  'Content-Type': 'application/json',
-                  ...(session?.accessToken && { Authorization: `Bearer ${session.accessToken}` }),
-                },
-                body: JSON.stringify(payload),
-              });
-
-              if (!response.ok) {
-                console.warn(`Failed to fetch token tx for ${ch.value}: ${response.status}`);
-                await new Promise(r => setTimeout(r, 200)); // Delay giữa chains
-                continue;
-              }
-
-              // Parse response
-              const text = await response.text();
-              let trades = [];
               try {
-                const parsed = JSON.parse(text);
-                if (parsed.success && Array.isArray(parsed.data)) {
-                  trades = parsed.data;
+                const response = await fetch('/api/etherscan', {
+                  method: 'POST',
+                  headers: {
+                    'Content-Type': 'application/json',
+                    ...(session?.accessToken && { Authorization: `Bearer ${session.accessToken}` }),
+                  },
+                  body: JSON.stringify(payload),
+                });
+
+                if (!response.ok) {
+                  console.warn(`Failed to fetch token tx for ${ch.value}: ${response.status}`);
+                  await new Promise(r => setTimeout(r, 300)); // Increased delay to avoid rate limit
+                  continue;
                 }
-              } catch (e) {
-                console.warn(`Parse error for ${ch.value}: ${e.message}`);
-              }
 
-              // Map to trade format
-              const chainTrades = trades.map((tx) => {
-                const amount = parseFloat(tx.value) / Math.pow(10, parseInt(tx.tokenDecimal || 18));
-                const usdValue = amount * (selectedToken.current_price?.[currency] || 0);
-                const gasFee = (BigInt(tx.gasUsed || 0) * BigInt(tx.gasPrice || 0)) / BigInt(10 ** 18);
+                // Parse response
+                const text = await response.text();
+                let trades = [];
+                try {
+                  const parsed = JSON.parse(text);
+                  if (parsed.success && Array.isArray(parsed.data)) {
+                    trades = parsed.data;
+                  }
+                } catch (e) {
+                  console.warn(`Parse error for ${ch.value}: ${e.message}`);
+                }
 
-                uniqueAddresses.add(tx.from);
-                uniqueAddresses.add(tx.to);
+                // Map to trade format
+                const chainTrades = trades.map((tx) => {
+                  const amount = parseFloat(tx.value) / Math.pow(10, parseInt(tx.tokenDecimal || 18));
+                  const usdValue = amount * (selectedToken.current_price?.[currency] || 0);
+                  const gasFee = (BigInt(tx.gasUsed || 0) * BigInt(tx.gasPrice || 0)) / BigInt(10 ** 18);
 
-                return {
-                  tx_hash: tx.txhash,
-                  block_timestamp: new Date(parseInt(tx.timeStamp) * 1000).toISOString(),
-                  tx_from_address: { address: tx.from },
-                  to_token_address: { address: tx.to },
-                  from_token_amount: '0',
-                  to_token_amount: amount.toString(),
-                  volume_in_usd: usdValue,
-                  pool_name: `${ch.value.toUpperCase()} Transfer`,
-                  pool_address: null,
-                  kind: 'transfer',
-                  chain: ch.value,
-                  gas_fee: gasFee.toString(),
-                  decimals: parseInt(tx.tokenDecimal || 18),
-                  symbol: tx.tokenSymbol || selectedToken.symbol,
-                };
-              });
+                  uniqueAddresses.add(tx.from);
+                  uniqueAddresses.add(tx.to);
 
-              newTrades.push(...chainTrades);
-              await new Promise(r => setTimeout(r, 200)); // Delay để tránh rate limit
+                  return {
+                    tx_hash: tx.txhash,
+                    block_timestamp: new Date(parseInt(tx.timeStamp) * 1000).toISOString(),
+                    tx_from_address: { address: tx.from },
+                    to_token_address: { address: tx.to },
+                    from_token_amount: '0',
+                    to_token_amount: amount.toString(),
+                    volume_in_usd: usdValue,
+                    pool_name: `${ch.value.toUpperCase()} Transfer`,
+                    pool_address: null,
+                    kind: 'transfer',
+                    chain: ch.value,
+                    gas_fee: gasFee.toString(),
+                    decimals: parseInt(tx.tokenDecimal || 18),
+                    symbol: tx.tokenSymbol || selectedToken.symbol,
+                  };
+                });
+
+                newTrades.push(...chainTrades);
+                // Partial update for faster UI
+                setDexData(prev => ({
+                  ...prev,
+                  fullTrades: [...prev.fullTrades, ...chainTrades].slice(0, MAX_TOTAL_TXS),
+                }));
+              } catch (chainErr) { console.warn(`Failed chain ${ch.value}: ${chainErr}`); } await new Promise(r => setTimeout(r, 300));
             }
 
             // Fetch nametags
@@ -1752,13 +1756,13 @@ export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initi
             });
             updatedFullTrades = updatedFullTrades.slice(0, MAX_TOTAL_TXS);
 
-            // Progressive loading for initial: chain timeouts up to 25 pages (5000 / 200) with increasing delays
+            // Progressive loading for initial: chain timeouts up to 5 pages (5000 / 200) with increasing delays
             if (isInitial && !progressiveLoadRef.current) {
               progressiveLoadRef.current = setTimeout(async () => {
                 setIsLoadingMoreDex(true);
                 try {
-                  for (let p = 2; p <= 25; p++) { // Increased to 25 pages for 5000 txs
-                    await new Promise(resolve => setTimeout(resolve, p * 2000)); // Delay increases: 4s, 6s, etc.
+                  for (let p = 2; p <= 5; p++) { // Reduced to 5 pages for 1000 txs
+                    await new Promise(resolve => setTimeout(resolve, p * 3000)); // Increased delay: 6s, 9s, etc.
                     if (!hasMoreDex) break;
                     await fetchDexData(chain, tokenAddress, p);
                   }
@@ -1824,7 +1828,7 @@ export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initi
     }
     const OFFSET_PER_CALL = 200;
     const nextPage = Math.floor(dexData.fullTrades.length / OFFSET_PER_CALL) + 1;
-    if (nextPage > 25) { // Increased to 25 pages
+    if (nextPage > 5) { // Reduced to 5 pages
       setHasMoreDex(false);
       return;
     }
@@ -1849,7 +1853,6 @@ export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initi
     setIsLoadingPage(false); // Hide loading sau update
   }, [currentDexPage, getPaginatedTrades, selectedToken]);
 
-  // New: Go to specific page
   const goToDexPage = useCallback((page) => {
     if (page < 1 || page > Math.ceil((dexData.fullTrades?.length || 0) / dexPaginationSize)) return;
     setIsLoadingPage(true);
@@ -1868,6 +1871,8 @@ export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initi
   const getTotalDexPages = useCallback(() => {
     return Math.ceil((dexData.fullTrades?.length || 0) / dexPaginationSize);
   }, [dexData.fullTrades, dexPaginationSize]);
+
+
 
   // Reset rate limit tracker on tab focus (fix idle error)
   useEffect(() => {
