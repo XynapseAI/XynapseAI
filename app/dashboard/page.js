@@ -1,5 +1,5 @@
 'use client';
-import { useState, useEffect, useRef, useCallback , useMemo  } from 'react';
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useAccount, useDisconnect, useSignMessage } from 'wagmi';
 import { signIn, signOut, useSession, getProviders } from 'next-auth/react';
@@ -208,7 +208,7 @@ function UniverseBackground() {
   return (
     <group ref={groupRef}>
       <Stars radius={150} depth={60} count={1000} factor={4} saturation={0} fade speed={0.1} /> {/* Reduced count and speed */}
-      
+
       {/* Minimal moving stars */}
       <group>
         {Array.from({ length: 3 }).map((_, i) => (
@@ -602,12 +602,12 @@ export default function Dashboard() {
                       value={email}
                       onChange={(e) => setEmail(e.target.value)}
                       placeholder="Enter your email"
-                      className="w-full px-5 py-3 bg-black/60 border border-white/15 rounded-lg text-white text-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-white/30 transition-all duration-300"
+                      className="w-full px-5 py-3 bg-black/60 border border-white/15 rounded-xl text-white text-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-white/30 transition-all duration-300"
                       required
                     />
                     <button
                       type="submit"
-                      className="w-full px-5 py-3 border-2 border-white/15 bg-white/10 text-white rounded-lg text-sm font-semibold uppercase transition-all duration-300 hover:border-white/30 hover:bg-white/20 flex items-center justify-center"
+                      className="w-full px-5 py-3 border-2 border-white/15 bg-white/10 text-white rounded-xl text-sm font-semibold uppercase transition-all duration-300 hover:border-white/30 hover:bg-white/20 flex items-center justify-center"
                     >
                       <MatrixHoverEffect text="Sign in with Email" hoverColor="#FFFFFF" />
                     </button>
@@ -619,7 +619,7 @@ export default function Dashboard() {
                   {providers?.google && (
                     <button
                       onClick={handleGoogleSignIn}
-                      className="w-full px-5 py-3 bg-black/20 border border-white/25 rounded-lg text-white text-sm font-semibold uppercase flex items-center justify-center gap-3 transition-all duration-300 hover:bg-gray-800/30 hover:border-white/40"
+                      className="w-full px-5 py-3 bg-black/20 border border-white/25 rounded-xl text-white text-sm font-semibold uppercase flex items-center justify-center gap-3 transition-all duration-300 hover:bg-gray-800/30 hover:border-white/40"
                     >
                       <Image
                         src="/logos/google.webp"

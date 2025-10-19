@@ -206,6 +206,8 @@ export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initi
   const isInitialMempoolFetch = useRef(true);
   const [isLoadingPage, setIsLoadingPage] = useState(false);
   const progressiveLoadRef = useRef(null); // To manage progressive loading chain
+  const [isSearching, setIsSearching] = useState(false);
+  const prevAvailableChainsRef = useRef([]);
 
   const isTokenPage = typeof window !== 'undefined' && window.location.pathname.startsWith('/token/');
 
