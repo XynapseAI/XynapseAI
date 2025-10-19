@@ -158,10 +158,7 @@ const ClusterTab = ({ recaptchaRef, initialClusterId, activeTab: propActiveTab, 
   const [volumeHistory, setVolumeHistory] = useState([]);
   const [portfolioData, setPortfolioData] = useState([]);
   const [walletData, setWalletData] = useState([]);
-  const [evmTransactions, setEvmTransactions] = useState([]);
-  const [btcTransactions, setBtcTransactions] = useState([]);
-  const [loadedEvmCount, setLoadedEvmCount] = useState(0);
-  const [loadedBtcCount, setLoadedBtcCount] = useState(0);
+  const [transactions, setTransactions] = useState([]);
   const [isLoadingExchange, setIsLoadingExchange] = useState(false);
   const [isLoadingVolume, setIsLoadingVolume] = useState(false);
   const [isLoadingPortfolio, setIsLoadingPortfolio] = useState(false);
@@ -188,20 +185,6 @@ const ClusterTab = ({ recaptchaRef, initialClusterId, activeTab: propActiveTab, 
   const [localActiveTab, setLocalActiveTab] = useState("portfolio");
   const currentActiveTab = propActiveTab !== undefined ? propActiveTab : localActiveTab;
   const currentSetActiveTab = propSetActiveTab !== undefined ? propSetActiveTab : setLocalActiveTab;
-
-  const debouncedSetEvmTransactions = useCallback(
-    debounce((newTransactions) => {
-      setEvmTransactions(newTransactions);
-    }, 100),
-    []
-  );
-
-  const debouncedSetWalletTransactions = useCallback(
-    debounce((newTransactions) => {
-      setWalletTransactions(newTransactions);
-    }, 100),
-    []
-  );
 
   // Handle click outside to close toggle
   useEffect(() => {
@@ -423,6 +406,20 @@ const ClusterTab = ({ recaptchaRef, initialClusterId, activeTab: propActiveTab, 
     }
   };
 
+  const debouncedSetTransactions = useCallback(
+    debounce((newTransactions) => {
+      setTransactions(newTransactions);
+    }, 100),
+    []
+  );
+
+  const debouncedSetWalletTransactions = useCallback(
+    debounce((newTransactions) => {
+      setWalletTransactions(newTransactions);
+    }, 100),
+    []
+  );
+
   // Fetch volume history with local cache
   const fetchVolumeHistory = async (exchangeId) => {
     if (!btcPrice || !dogePrice || !ltcPrice) {
@@ -556,16 +553,9 @@ const ClusterTab = ({ recaptchaRef, initialClusterId, activeTab: propActiveTab, 
   // Memoized authenticated data
   const memoizedPortfolioData = useMemo(() => portfolioData, [portfolioData, status]);
   const memoizedWalletData = useMemo(() => walletData, [walletData, status]);
+  const memoizedTransactions = useMemo(() => transactions, [transactions, status]);
   const memoizedWalletBalances = useMemo(() => walletBalances, [walletBalances, status]);
   const memoizedWalletTransactions = useMemo(() => walletTransactions, [walletTransactions, status]);
-
-  // Combined transactions with sorting
-  const combinedTransactions = useMemo(() => {
-    const allTxs = [...evmTransactions, ...btcTransactions].filter((tx) => tx && (tx.hash || tx.txid));
-    return allTxs.sort((a, b) => normalizeTimestamp(b) - normalizeTimestamp(a));
-  }, [evmTransactions, btcTransactions]);
-
-  const totalLoadedCount = loadedEvmCount + loadedBtcCount;
 
   const fetchBitcoinTransactions = async (clusterId) => {
     if (status !== "authenticated") {
@@ -575,16 +565,13 @@ const ClusterTab = ({ recaptchaRef, initialClusterId, activeTab: propActiveTab, 
     }
     setIsLoadingTransactions(true);
     setTransactionsError(null);
-    setLoadedBtcCount(0);
     try {
       const mappedId = mapExchangeId(clusterId);
       const cacheKey = `mempool-transactions:${mappedId}`;
       const cachedData = getCachedData(cacheKey, 60 * 1000);
       if (cachedData) {
-        setBtcTransactions(cachedData);
-        setLoadedBtcCount(cachedData.length);
         logger.info(`Cache hit for Bitcoin transactions: ${cacheKey}`);
-        return;
+        return cachedData;
       }
 
       const response = await fetch(`/api/mempool-transactions`, {
@@ -613,24 +600,23 @@ const ClusterTab = ({ recaptchaRef, initialClusterId, activeTab: propActiveTab, 
         throw new Error("Invalid Bitcoin transaction data format");
       }
 
-      const uniqueWalletDataForBtc = uniqueWalletData
-        .filter((w) => w.chain?.toLowerCase() === "bitcoin")
-        .map((w) => {
-          let addr = (w.holder_address || w.name_tag || '').toLowerCase();
-          // For legacy Bitcoin addresses starting with '1' or '3', ensure full lowercase normalization
-          if (/^[13][a-km-zA-HJ-NP-Z1-9]{25,34}$/.test(addr)) {
-            addr = addr.toLowerCase(); // Already done, but reinforce
-          }
-          return addr;
-        });
-
       const filteredTxs = result.data.filter((tx) => {
         // Normalize Bitcoin addresses for matching (lowercase for legacy and bech32)
         const fromAddresses = tx.inputs.map((input) => input.address.toLowerCase());
         const toAddresses = tx.outputs.map((output) => output.address.toLowerCase());
+        const clusterWallets = uniqueWalletData
+          .filter((w) => w.chain?.toLowerCase() === "bitcoin")
+          .map((w) => {
+            let addr = (w.holder_address || w.name_tag || '').toLowerCase();
+            // For legacy Bitcoin addresses starting with '1' or '3', ensure full lowercase normalization
+            if (/^[13][a-km-zA-HJ-NP-Z1-9]{25,34}$/.test(addr)) {
+              addr = addr.toLowerCase(); // Already done, but reinforce
+            }
+            return addr;
+          });
         return (
-          fromAddresses.some((addr) => uniqueWalletDataForBtc.includes(addr)) ||
-          toAddresses.some((addr) => uniqueWalletDataForBtc.includes(addr))
+          fromAddresses.some((addr) => clusterWallets.includes(addr)) ||
+          toAddresses.some((addr) => clusterWallets.includes(addr))
         );
       });
 
@@ -646,30 +632,28 @@ const ClusterTab = ({ recaptchaRef, initialClusterId, activeTab: propActiveTab, 
         token_metadata: { symbol: "BTC", logo: BITCOIN_LOGO },
       }));
 
-      setBtcTransactions(formattedTxs);
-      setLoadedBtcCount(formattedTxs.length);
       setCachedData(cacheKey, formattedTxs);
       logger.log("Fetched and cached Bitcoin transactions:", { clusterId, count: formattedTxs.length });
+      return formattedTxs;
     } catch (err) {
       const errorMessage = err.message || "Unknown error fetching Bitcoin transactions";
       logger.error("Error fetching Bitcoin transactions:", { clusterId, error: errorMessage, stack: err.stack });
       setTransactionsError(errorMessage);
-      // Keep partial data if any
+      return [];
     } finally {
       setIsLoadingTransactions(false);
     }
   };
 
-  // Fetch EVM transactions with streaming and partial updates
+  // Fetch transactions with authenticated cache
   const fetchTransactions = async (input, minValueUsd = null) => {
     if (status !== "authenticated") {
       setTransactionsError("Please log in to access transaction data.");
       setIsLoadingTransactions(false);
-      return;
+      return [];
     }
     setIsLoadingTransactions(true);
     setTransactionsError(null);
-    setLoadedEvmCount(0);
     try {
       const walletAddresses = Array.isArray(input)
         ? input
@@ -684,10 +668,8 @@ const ClusterTab = ({ recaptchaRef, initialClusterId, activeTab: propActiveTab, 
       const cacheKey = `sim:transactions:auth:${walletAddresses.join(',')}:${minValueUsd || 'none'}`;
       const cachedData = getCachedData(cacheKey, 60 * 1000);
       if (cachedData) {
-        setEvmTransactions(cachedData);
-        setLoadedEvmCount(cachedData.length);
         logger.info(`Cache hit for transactions: ${cacheKey} from localStorage`);
-        return;
+        return cachedData;
       }
 
       const response = await fetch(`/api/sim`, {
@@ -759,9 +741,6 @@ const ClusterTab = ({ recaptchaRef, initialClusterId, activeTab: propActiveTab, 
                   throw new Error(parsedObj.detail);
                 }
                 transactionsData.push(parsedObj);
-                // Update state with partial data for progressive loading
-                debouncedSetEvmTransactions([...transactionsData]);
-                setLoadedEvmCount(transactionsData.length);
               } catch (parseError) {
                 logger.warn(`Failed to parse object: ${parseError.message}`, { objStr });
               }
@@ -783,8 +762,6 @@ const ClusterTab = ({ recaptchaRef, initialClusterId, activeTab: propActiveTab, 
             const parsed = JSON.parse(buffer);
             if (!parsed.detail) {
               transactionsData.push(parsed);
-              debouncedSetEvmTransactions([...transactionsData]);
-              setLoadedEvmCount(transactionsData.length);
             } else {
               throw new Error(parsed.detail);
             }
@@ -796,17 +773,17 @@ const ClusterTab = ({ recaptchaRef, initialClusterId, activeTab: propActiveTab, 
 
       setCachedData(cacheKey, transactionsData);
       logger.log("Fetched and cached transactions:", { walletAddresses, minValueUsd, count: transactionsData.length });
+      return transactionsData;
     } catch (err) {
       const errorMessage = err.message || "Unknown error fetching transactions";
       logger.error("Error fetching transactions:", { input, minValueUsd, error: errorMessage, stack: err.stack });
       setTransactionsError(errorMessage);
-      // Do not clear partial data; keep what's loaded
+      return [];
     } finally {
       setIsLoadingTransactions(false);
     }
   };
 
-  // Sequential fetch for progressive loading: BTC first (fast), then EVM (streaming)
   useEffect(() => {
     if (status === "authenticated" && walletData.length > 0) {
       const evmWallets = walletData.filter(
@@ -819,33 +796,38 @@ const ClusterTab = ({ recaptchaRef, initialClusterId, activeTab: propActiveTab, 
         try {
           setIsLoadingTransactions(true);
           setTransactionsError(null);
-          setEvmTransactions([]);
-          setBtcTransactions([]);
-          setLoadedEvmCount(0);
-          setLoadedBtcCount(0);
 
-          // Fetch BTC first (typically faster, smaller dataset)
-          if (btcWallets.length > 0) {
-            await fetchBitcoinTransactions(clusterIdFromQuery);
-          }
+          const [evmTxs, btcTxs] = await Promise.all([
+            evmWallets.length > 0 ? fetchTransactions(evmWallets, 1000000) : Promise.resolve([]),
+            btcWallets.length > 0 ? fetchBitcoinTransactions(clusterIdFromQuery) : Promise.resolve([]),
+          ]);
 
-          // Then fetch EVM (streaming updates UI progressively)
-          if (evmWallets.length > 0) {
-            await fetchTransactions(evmWallets, 1000000);
-          }
+          // Debug: Log transaction data
+          logger.log("EVM transactions:", { evmTxs: evmTxs.map(tx => ({ chain: tx.chain, chain_id: tx.chain_id, hash: tx.hash, block_time: tx.block_time })) });
+          logger.log("Bitcoin transactions:", { btcTxs: btcTxs.map(tx => ({ chain: tx.chain, txid: tx.txid, timestamp: tx.timestamp })) });
 
-          logger.log("Transactions fetch completed:", { evmCount: evmTransactions.length, btcCount: btcTransactions.length });
+          const combinedTxs = [...evmTxs, ...btcTxs]
+            .filter((tx) => tx && (tx.hash || tx.txid)) // Remove invalid transactions
+            .sort((a, b) => {
+              const timeA = normalizeTimestamp(a);
+              const timeB = normalizeTimestamp(b);
+              return timeB - timeA; // Sort descending (newer first)
+            });
+
+          debouncedSetTransactions(combinedTxs);
+          logger.log("Combined transactions:", { evmCount: evmTxs.length, btcCount: btcTxs.length, total: combinedTxs.length });
         } catch (err) {
           const errorMessage = err.message || "Failed to fetch transactions";
-          logger.error("Error fetching transactions:", { error: errorMessage, stack: err.stack });
+          logger.error("Error combining transactions:", { error: errorMessage, stack: err.stack });
           setTransactionsError(errorMessage);
+          setTransactions([]);
         } finally {
           setIsLoadingTransactions(false);
         }
       };
       fetchAllTransactions();
     }
-  }, [walletData, status, clusterIdFromQuery, debouncedSetEvmTransactions]);
+  }, [walletData, status, clusterIdFromQuery, debouncedSetTransactions]);
 
   // Fetch wallet transactions with authenticated cache
   const fetchWalletTransactions = async (walletAddress) => {
@@ -1129,6 +1111,15 @@ const ClusterTab = ({ recaptchaRef, initialClusterId, activeTab: propActiveTab, 
   }, [clusterIdFromQuery, currency]);
 
   useEffect(() => {
+    if (status === "authenticated" && walletData.length > 0) {
+      const evmWallets = walletData.filter(
+        (w) => !["bitcoin", "dogecoin", "litecoin"].includes(w.chain?.toLowerCase())
+      );
+      fetchTransactions(evmWallets, 1000000);
+    }
+  }, [walletData, status]);
+
+  useEffect(() => {
     if (status === "authenticated" && selectedWallet) {
       logger.log("Triggering fetch for selected wallet:", { selectedWallet });
       if (/^0x[a-fA-F0-9]{40}$/.test(selectedWallet)) {
@@ -1199,37 +1190,6 @@ const ClusterTab = ({ recaptchaRef, initialClusterId, activeTab: propActiveTab, 
     setWalletTransactions([]);
     setWalletBalancesError(null);
     setWalletTransactionsError(null);
-  };
-
-  const handleRetryTransactions = () => {
-    setTransactionsError(null);
-    setEvmTransactions([]);
-    setBtcTransactions([]);
-    setLoadedEvmCount(0);
-    setLoadedBtcCount(0);
-    // Re-trigger the useEffect by resetting a key or call fetchAllTransactions
-    const evmWallets = walletData.filter(
-      (w) => !["bitcoin", "dogecoin", "litecoin"].includes(w.chain?.toLowerCase())
-    );
-    const btcWallets = walletData.filter(
-      (w) => w.chain?.toLowerCase() === "bitcoin"
-    );
-    const fetchAllTransactions = async () => {
-      try {
-        setIsLoadingTransactions(true);
-        if (btcWallets.length > 0) {
-          await fetchBitcoinTransactions(clusterIdFromQuery);
-        }
-        if (evmWallets.length > 0) {
-          await fetchTransactions(evmWallets, 1000000);
-        }
-      } catch (err) {
-        setTransactionsError(err.message || "Failed to retry fetch");
-      } finally {
-        setIsLoadingTransactions(false);
-      }
-    };
-    fetchAllTransactions();
   };
 
   const uniqueWalletData = useMemo(() => {
@@ -1831,28 +1791,9 @@ const ClusterTab = ({ recaptchaRef, initialClusterId, activeTab: propActiveTab, 
       );
     };
 
-    const loadingMessage = isLoadingTransactions ? (
-      <div className="text-center py-4 text-white/60 text-[10px] sm:text-sm">
-        Loading transactions... ({totalLoadedCount} received)
-        {transactionsError && (
-          <div className="mt-2 text-red-400">
-            Partial data loaded due to error: {transactionsError}
-            <br />
-            <motion.button
-              onClick={handleRetryTransactions}
-              className="mt-1 px-2 py-1 bg-neon-blue/20 rounded text-neon-blue text-xs hover:bg-neon-blue/30"
-              whileHover={{ scale: 1.05 }}
-            >
-              Retry
-            </motion.button>
-          </div>
-        )}
-      </div>
-    ) : null;
-
     return (
       <div className="relative overflow-y-auto min-h-[calc(50vh)] sm:min-h-[calc(30vh)] max-h-[calc(50vh)] sm:max-h-[calc(50vh-5rem)] hide-scrollbar bg-gradient-to-br from-black/80 to-gray-900/80 rounded-xl">
-        {isLoadingTransactions && !transactionsError && (
+        {isLoadingTransactions && (
           <LoadingOverlay
             isLoading={isLoadingTransactions}
             isMobile={isMobile}
@@ -1860,59 +1801,36 @@ const ClusterTab = ({ recaptchaRef, initialClusterId, activeTab: propActiveTab, 
           />
         )}
         {isLoadingTransactions ? (
-          <SkeletonLoader count={10} isMobile={isMobile} />
-        ) : transactionsError && combinedTransactions.length === 0 ? (
-          <div className="text-center py-4">
-            <p className="text-[10px] sm:text-sm text-red-400 mb-2">Error: {transactionsError}</p>
-            <motion.button
-              onClick={handleRetryTransactions}
-              className="px-4 py-2 bg-neon-blue/20 rounded text-neon-blue text-xs hover:bg-neon-blue/30"
-              whileHover={{ scale: 1.05 }}
-            >
-              Retry Fetch
-            </motion.button>
-          </div>
-        ) : combinedTransactions.length > 0 ? (
-          <>
-            <div className="w-full table-fixed text-[9px] sm:text-[11px]">
-              <div className="border-b border-white/10 bg-gradient-to-br from-black/80 to-gray-900/80 flex">
-                <div className="w-[12%] sm:w-[15%] px-3 py-2 text-white font-medium text-center">Token</div>
-                <div className="w-[30%] sm:w-[25%] px-3 py-2 text-white font-medium text-center">From/To</div>
-                <div className="w-[20%] sm:w-[20%] px-3 py-2 text-white font-medium text-center">Token Value</div>
-                <div className="w-[30%] sm:w-[25%] px-3 py-2 text-white font-medium text-center">Value ({currency.toUpperCase()})</div>
-                <div className="w-[10%] sm:w-[15%] px-3 py-2 text-white font-medium text-center">Details</div>
-              </div>
-              <Virtuoso
-                className="bg-gradient-to-br from-black/80 to-gray-900/80 hide-scrollbar virtuoso-container"
-                style={{ height: 'calc(50vh - 5rem)' }}
-                data={combinedTransactions}
-                itemContent={renderTransactionRow}
-                overscan={400}
-                components={{
-                  EmptyPlaceholder: () => (
-                    <p className="text-[10px] sm:text-xs text-white/60 text-center">No transactions available.</p>
-                  ),
-                }}
-              />
+          <SkeletonLoader count={5} isMobile={isMobile} />
+        ) : transactionsError ? (
+          <p className="text-[10px] sm:text-sm text-red-400 text-center p-4 bg-red-500/10 border border-red-500/20 rounded-lg">
+            Error: {transactionsError}
+          </p>
+        ) : transactions.length > 0 ? (
+          <div className="w-full table-fixed text-[9px] sm:text-[11px]">
+            <div className="border-b border-white/10 bg-gradient-to-br from-black/80 to-gray-900/80 flex">
+              <div className="w-[12%] sm:w-[15%] px-3 py-2 text-white font-medium text-center">Token</div>
+              <div className="w-[30%] sm:w-[25%] px-3 py-2 text-white font-medium text-center">From/To</div>
+              <div className="w-[20%] sm:w-[20%] px-3 py-2 text-white font-medium text-center">Token Value</div>
+              <div className="w-[30%] sm:w-[25%] px-3 py-2 text-white font-medium text-center">Value ({currency.toUpperCase()})</div>
+              <div className="w-[10%] sm:w-[15%] px-3 py-2 text-white font-medium text-center">Details</div>
             </div>
-            {transactionsError && (
-              <div className="text-center py-2 text-red-400 text-[10px] sm:text-sm bg-red-500/10 border-t border-red-500/20 rounded-b-xl">
-                Partial data loaded ({combinedTransactions.length} transactions). Error: {transactionsError}
-                <br />
-                <motion.button
-                  onClick={handleRetryTransactions}
-                  className="mt-1 px-2 py-1 bg-red-500/20 rounded text-red-400 text-xs hover:bg-red-500/30"
-                  whileHover={{ scale: 1.05 }}
-                >
-                  Retry
-                </motion.button>
-              </div>
-            )}
-          </>
+            <Virtuoso
+              className="bg-gradient-to-br from-black/80 to-gray-900/80 hide-scrollbar virtuoso-container"
+              style={{ height: 'calc(50vh - 5rem)' }}
+              data={transactions}
+              itemContent={renderTransactionRow}
+              overscan={400}
+              components={{
+                EmptyPlaceholder: () => (
+                  <p className="text-[10px] sm:text-xs text-white/60 text-center">No transactions available.</p>
+                ),
+              }}
+            />
+          </div>
         ) : (
-          <p className="text-[10px] sm:text-xs text-white/60 text-center py-4">No large transactions available for this cluster.{loadingMessage}</p>
+          <p className="text-[10px] sm:text-xs text-white/60 text-center">No large transactions available for this cluster.</p>
         )}
-        {loadingMessage}
       </div>
     );
   };
@@ -2256,3 +2174,4 @@ const ClusterTab = ({ recaptchaRef, initialClusterId, activeTab: propActiveTab, 
 };
 
 export default React.memo(ClusterTab);
+

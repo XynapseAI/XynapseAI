@@ -1,5 +1,4 @@
 // app/api/sim/route.js
-// app/api/sim/route.js
 import { NextResponse } from "next/server";
 import axios from "axios";
 import axiosRetry from "axios-retry";
@@ -306,7 +305,7 @@ const CHAIN_ID_MAP = {
 const LIMIT_CONFIG = {
   "top-holders": 100,
   "wallet-balances": 2000,
-  transactions: 2000,
+  transactions: 500,
   collectibles: 200,
 };
 
@@ -776,21 +775,32 @@ export async function POST(request) {
               ? `chains=${SUPPORTED_SVM_CHAINS.join(",")}`
               : `chain_ids=${SUPPORTED_CHAIN_IDS}`;
 
+            // FIX: Giảm limit cho cluster (nhiều addresses) để tránh chậm
+            let clusterLimit = effectiveLimit;
+            if (targetAddresses.length > 1) {  // ClusterTab case: nhiều addresses
+              clusterLimit = Math.min(effectiveLimit, 500);  // Cap 500 cho cluster
+            }
+
             // Parallelize fetches for each address
             const fetchPromises = targetAddresses.map(async (addr) => {
               const isEVM = isAddress(addr);
               const perCallLimit = isEVM ? 100 : 1000; // EVM max 100/call, SVM max 1000/call
               let allTransactions = [];
               let nextOffset = null;
-              let remainingLimit = effectiveLimit;
+              let remainingLimit = clusterLimit;  // Sử dụng clusterLimit
+              let pageCount = 0;
+              const maxPages = isEVM ? 5 : 2;  // FIX: Cap pages/address để tránh overload (EVM: 500 tx max)
 
               // Paginate loop for this address
               do {
+                pageCount++;
+                if (pageCount > maxPages) break;  // FIX: Giới hạn pages
+
                 const currentLimit = Math.min(perCallLimit, remainingLimit);
                 const url = isEVM
                   ? `https://api.sim.dune.com/v1/evm/activity/${addr}?${chainParam}&limit=${currentLimit}&sort=desc${nextOffset ? `&offset=${nextOffset}` : ''}`
                   : `https://api.sim.dune.com/beta/svm/transactions/${addr}?${chainParam}&limit=${currentLimit}&sort=desc${nextOffset ? `&offset=${nextOffset}` : ''}`;
-                logger.info(`Calling Dune Sim API (page): ${url}`, { ip });
+                logger.info(`Calling Dune Sim API (page ${pageCount}): ${url}`, { ip });
 
                 try {
                   const response = await fetchWithRateLimit(url, {
@@ -798,14 +808,26 @@ export async function POST(request) {
                   });
 
                   logger.info(
-                    `Transactions response for address ${addr} (page): ${response.data.activity?.length || response.data.transactions?.length || 0} transactions, time: ${Date.now() - startTime}ms`,
+                    `Transactions response for address ${addr} (page ${pageCount}): ${response.data.activity?.length || response.data.transactions?.length || 0} transactions, time: ${Date.now() - startTime}ms`,
                     { ip },
                   );
 
                   const transactions = (isEVM ? response.data.activity : response.data.transactions) || [];
-                  allTransactions.push(...transactions);
+
+                  // FIX: Filter minValueUsd NGAY SAU MỖI PAGE để giảm data sớm
+                  let filteredPage = transactions;
+                  if (isEVM && minValueUsd) {
+                    filteredPage = transactions.filter(tx => {
+                      const value_usd = Number(tx.value_usd || 0);
+                      return !(minValueUsd && value_usd < minValueUsd);
+                    });
+                  }
+                  // SVM: Filter sau (complex), nên giữ nguyên
+
+                  allTransactions.push(...filteredPage);
                   nextOffset = response.data.next_offset || null;
-                  remainingLimit -= transactions.length;
+                  remainingLimit -= filteredPage.length;  // Dùng filtered length
+
                 } catch (error) {
                   logger.error(`Error fetching transactions page for address ${addr}: ${error.message}`, { ip });
                   if (error.response?.status === 429) {
@@ -817,11 +839,11 @@ export async function POST(request) {
                     throw error;
                   }
                 }
-              } while (nextOffset && remainingLimit > 0 && allTransactions.length < effectiveLimit);
+              } while (nextOffset && remainingLimit > 0 && allTransactions.length < clusterLimit && pageCount <= maxPages);
 
               // Now process the collected transactions
               const filteredTransactions = await Promise.all(
-                allTransactions.slice(0, effectiveLimit).map(async (tx) => {  // Cap at effectiveLimit
+                allTransactions.slice(0, clusterLimit).map(async (tx) => {  // Cap at clusterLimit
                   if (isEVM) {
                     const decimals = tx.asset_type === "native" ? 18 : tx.token_metadata?.decimals || 18;
                     const value_usd = Number(tx.value_usd || 0);
