@@ -146,7 +146,7 @@ const fetchWithRateLimit = limiterBottleneck.wrap(async (url, config) => {
   try {
     const response = await axios.get(url, {
       ...config,
-      timeout: 30000,
+      timeout: 45000,
       responseType: config.responseType || 'json',
     });
     return response;
@@ -771,36 +771,46 @@ export async function POST(request) {
           } else if (action === "transactions") {
             logger.info(`Processing transactions for addresses: ${addresses || address}`, { ip });
             const targetAddresses = [...new Set(addresses && addresses.length > 0 ? addresses : [address])];
+            const isCluster = targetAddresses.length > 1;
             const chainParam = targetAddresses.some((addr) => isValidSolanaAddress(addr))
               ? `chains=${SUPPORTED_SVM_CHAINS.join(",")}`
               : `chain_ids=${SUPPORTED_CHAIN_IDS}`;
 
-            // FIX: Giảm limit cho cluster (nhiều addresses) để tránh chậm
-            let clusterLimit = effectiveLimit;
-            if (targetAddresses.length > 1) {  // ClusterTab case: nhiều addresses
-              clusterLimit = Math.min(effectiveLimit, 500);  // Cap 500 cho cluster
+            // FIX: Cap total limit dựa trên single vs cluster
+            let totalLimit = effectiveLimit;  // Default 2000 từ LIMIT_CONFIG
+            if (isCluster) {
+              totalLimit = Math.min(effectiveLimit, 1000);  // Cap total 1000 tx cho cluster (tổng tất cả ví)
             }
+
+            // Phân bổ per address (min 50 để có data, tránh 0 nếu nhiều ví)
+            const perAddressLimit = isCluster
+              ? Math.max(50, Math.floor(totalLimit / targetAddresses.length))
+              : totalLimit;
 
             // Parallelize fetches for each address
             const fetchPromises = targetAddresses.map(async (addr) => {
               const isEVM = isAddress(addr);
-              const perCallLimit = isEVM ? 200 : 1000; // EVM max 200/call, SVM max 1000/call
+              const perCallLimit = isEVM
+                ? (isCluster ? 100 : 200)  // Giảm perCall cho cluster để tránh overload
+                : 1000;
               let allTransactions = [];
               let nextOffset = null;
-              let remainingLimit = clusterLimit;  // Sử dụng clusterLimit
+              let remainingLimit = perAddressLimit;  // Sử dụng perAddressLimit
               let pageCount = 0;
-              const maxPages = isEVM ? 10 : 2;  // FIX: Cap pages/address để tránh overload (EVM: 2000 tx max)
+              const maxPages = isEVM
+                ? (isCluster ? 3 : 10)  // Giảm maxPages cho cluster (max ~300 tx/address)
+                : 2;
 
               // Paginate loop for this address
               do {
                 pageCount++;
-                if (pageCount > maxPages) break;  // FIX: Giới hạn pages
+                if (pageCount > maxPages) break;
 
                 const currentLimit = Math.min(perCallLimit, remainingLimit);
                 const url = isEVM
                   ? `https://api.sim.dune.com/v1/evm/activity/${addr}?${chainParam}&limit=${currentLimit}&sort=desc${nextOffset ? `&offset=${nextOffset}` : ''}`
                   : `https://api.sim.dune.com/beta/svm/transactions/${addr}?${chainParam}&limit=${currentLimit}&sort=desc${nextOffset ? `&offset=${nextOffset}` : ''}`;
-                logger.info(`Calling Dune Sim API (page ${pageCount}): ${url}`, { ip });
+                logger.info(`Calling Dune Sim API (page ${pageCount}, addr ${addr.slice(0, 8)}...): ${url}`, { ip });
 
                 try {
                   const response = await fetchWithRateLimit(url, {
@@ -814,6 +824,7 @@ export async function POST(request) {
 
                   const transactions = (isEVM ? response.data.activity : response.data.transactions) || [];
 
+                  // Early filter minValueUsd cho EVM để giảm data
                   let filteredPage = transactions;
                   if (isEVM && minValueUsd) {
                     filteredPage = transactions.filter(tx => {
@@ -824,7 +835,7 @@ export async function POST(request) {
 
                   allTransactions.push(...filteredPage);
                   nextOffset = response.data.next_offset || null;
-                  remainingLimit -= filteredPage.length; 
+                  remainingLimit -= filteredPage.length;
 
                 } catch (error) {
                   logger.error(`Error fetching transactions page for address ${addr}: ${error.message}`, { ip });
@@ -837,11 +848,11 @@ export async function POST(request) {
                     throw error;
                   }
                 }
-              } while (nextOffset && remainingLimit > 0 && allTransactions.length < clusterLimit && pageCount <= maxPages);
+              } while (nextOffset && remainingLimit > 0 && allTransactions.length < perAddressLimit && pageCount <= maxPages);
 
-              // Now process the collected transactions
+              // Process collected transactions (giữ nguyên logic filter/processing từ new code)
               const filteredTransactions = await Promise.all(
-                allTransactions.slice(0, clusterLimit).map(async (tx) => {  // Cap at clusterLimit
+                allTransactions.slice(0, perAddressLimit).map(async (tx) => {
                   if (isEVM) {
                     const decimals = tx.asset_type === "native" ? 18 : tx.token_metadata?.decimals || 18;
                     const value_usd = Number(tx.value_usd || 0);
@@ -853,9 +864,7 @@ export async function POST(request) {
                       return null;
                     }
                     return {
-                      chain:
-                        Object.keys(CHAIN_ID_MAP).find((key) => CHAIN_ID_MAP[key] === tx.chain_id) ||
-                        tx.chain_id || "Unknown",
+                      chain: Object.keys(CHAIN_ID_MAP).find((key) => CHAIN_ID_MAP[key] === tx.chain_id) || tx.chain_id || "Unknown",
                       hash: tx.tx_hash || "Unknown",
                       from: tx.from || tx.tx_from || "Unknown",
                       to: tx.to || tx.tx_to || "None",
@@ -1027,24 +1036,27 @@ export async function POST(request) {
               );
 
               const validTransactions = filteredTransactions.filter((tx) => tx !== null);
-              logger.info(`Processed ${validTransactions.length} transactions for address ${addr} after pagination`, { ip });
+              logger.info(`Processed ${validTransactions.length} transactions for address ${addr} (limit ${perAddressLimit})`, { ip });
               return validTransactions;
             });
 
             try {
               const results = await Promise.all(fetchPromises);
-              const allTransactions = results.flat();
+              let allTransactions = results.flat();
+
+              // FIX: Cap total nếu exceed (do rounding perAddress)
+              if (isCluster && allTransactions.length > totalLimit) {
+                allTransactions = allTransactions.slice(0, totalLimit);
+                logger.info(`Capped total transactions to ${totalLimit} for cluster`, { ip });
+              }
+
               logger.info(`Processed transactions data: ${allTransactions.length} transactions total`, { ip });
               createJsonStream(controller, allTransactions);
             } catch (error) {
               if (error.message.includes("rate limit")) {
-                controller.enqueue(
-                  new TextEncoder().encode(JSON.stringify({ detail: error.message }))
-                );
+                controller.enqueue(new TextEncoder().encode(JSON.stringify({ detail: error.message })));
               } else {
-                controller.enqueue(
-                  new TextEncoder().encode(JSON.stringify({ detail: `Failed to fetch transactions: ${error.message}` }))
-                );
+                controller.enqueue(new TextEncoder().encode(JSON.stringify({ detail: `Failed to fetch transactions: ${error.message}` })));
               }
               controller.close();
             }
