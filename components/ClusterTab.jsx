@@ -1,7 +1,7 @@
-// components\ClusterTab.jsx
+// components/ClusterTab.jsx
 "use client";
 
-import React, { useState, useEffect, useMemo, useRef } from "react";
+import React, { useState, useEffect, useMemo, useRef, useTransition } from "react";
 import { useSession } from "next-auth/react";
 import { useCallback } from 'react';
 import debounce from 'lodash/debounce';
@@ -21,6 +21,8 @@ import "../styles/MarketTab.css";
 import "react-loading-skeleton/dist/skeleton.css";
 import { logger } from '../utils/clientLogger';
 import { Virtuoso } from 'react-virtuoso';
+import useSWR from 'swr';
+import { cacheData, getCachedData } from '../utils/indexedDB';
 
 // Define logos for Bitcoin, Dogecoin, and Litecoin
 const BITCOIN_LOGO = "/logos/bitcoin.webp";
@@ -104,25 +106,9 @@ const formatLargeNumber = (value, currency, decimals = 2) => {
 
 const mapExchangeId = (id) => EXCHANGE_MAPPING[id.toLowerCase()] || id.toLowerCase();
 
-const getCachedData = (key, ttl = 3600 * 1000) => {
+const setCachedData = async (key, data) => {
   try {
-    const cached = localStorage.getItem(key);
-    if (!cached) return null;
-    const { data, timestamp } = JSON.parse(cached);
-    if (Date.now() - timestamp > ttl) {
-      localStorage.removeItem(key);
-      return null;
-    }
-    return data;
-  } catch (err) {
-    logger.error(`Error reading cache for ${key}:`, { error: err.message });
-    return null;
-  }
-};
-
-const setCachedData = (key, data) => {
-  try {
-    localStorage.setItem(key, JSON.stringify({ data, timestamp: Date.now() }));
+    await cacheData(key, { data, timestamp: Date.now() });
   } catch (err) {
     logger.error(`Error writing cache for ${key}:`, { error: err.message });
   }
@@ -183,6 +169,7 @@ const ClusterTab = ({ recaptchaRef, initialClusterId, activeTab: propActiveTab, 
   const [toggledToken, setToggledToken] = useState(null);
   const portfolioRef = useRef(null);
   const [localActiveTab, setLocalActiveTab] = useState("portfolio");
+  const [isPending, startTransition] = useTransition();
   const currentActiveTab = propActiveTab !== undefined ? propActiveTab : localActiveTab;
   const currentSetActiveTab = propSetActiveTab !== undefined ? propSetActiveTab : setLocalActiveTab;
 
@@ -204,14 +191,14 @@ const ClusterTab = ({ recaptchaRef, initialClusterId, activeTab: propActiveTab, 
     return () => window.removeEventListener("resize", checkMobile);
   }, []);
 
-  // Fetch chain logos with local cache
+  // Fetch chain logos with IndexedDB cache
   useEffect(() => {
     const fetchChainLogos = async () => {
       const cacheKey = `coingecko:chains`;
-      const cachedLogos = getCachedData(cacheKey, 24 * 60 * 60 * 1000);
+      const cachedLogos = await getCachedData(cacheKey);
       if (cachedLogos) {
         setChainLogos(cachedLogos);
-        logger.info(`Cache hit for chain logos from localStorage`);
+        logger.info(`Cache hit for chain logos from IndexedDB`);
         return;
       }
 
@@ -230,7 +217,7 @@ const ClusterTab = ({ recaptchaRef, initialClusterId, activeTab: propActiveTab, 
         logos["dogecoin"] = DOGECOIN_LOGO;
         logos["litecoin"] = LITECOIN_LOGO;
         setChainLogos(logos);
-        setCachedData(cacheKey, logos);
+        await setCachedData(cacheKey, logos);
         logger.log("Fetched and cached chain logos:", { data: logos });
       } catch (err) {
         logger.error("Error fetching chain logos:", { error: err.message, stack: err.stack });
@@ -239,15 +226,17 @@ const ClusterTab = ({ recaptchaRef, initialClusterId, activeTab: propActiveTab, 
     fetchChainLogos();
   }, []);
 
-  // Fetch coin prices using CoinGecko /simple/price endpoint
+  // Fetch coin prices using CoinGecko /simple/price endpoint with IndexedDB cache
   const fetchCoinPrices = async () => {
     setIsLoadingPrices(true);
     const cacheKey = `coingecko:coin-prices:${currency}`;
-    const cachedPrices = getCachedData(cacheKey, 12 * 60 * 60 * 1000); // Cache 12 hours
+    const cachedPrices = await getCachedData(cacheKey);
     if (cachedPrices) {
-      setBtcPrice(cachedPrices.bitcoin || 0);
-      setDogePrice(cachedPrices.dogecoin || 0);
-      setLtcPrice(cachedPrices.litecoin || 0);
+      startTransition(() => {
+        setBtcPrice(cachedPrices.bitcoin || 0);
+        setDogePrice(cachedPrices.dogecoin || 0);
+        setLtcPrice(cachedPrices.litecoin || 0);
+      });
       logger.info(`Cache hit for coin prices: bitcoin, dogecoin, litecoin`);
       setIsLoadingPrices(false);
       return;
@@ -270,19 +259,23 @@ const ClusterTab = ({ recaptchaRef, initialClusterId, activeTab: propActiveTab, 
           dogecoin: result.dogecoin?.[currency] || 0,
           litecoin: result.litecoin?.[currency] || 0,
         };
-        setBtcPrice(prices.bitcoin);
-        setDogePrice(prices.dogecoin);
-        setLtcPrice(prices.litecoin);
-        setCachedData(cacheKey, prices);
+        startTransition(() => {
+          setBtcPrice(prices.bitcoin);
+          setDogePrice(prices.dogecoin);
+          setLtcPrice(prices.litecoin);
+        });
+        await setCachedData(cacheKey, prices);
         logger.info(`Fetched and cached coin prices:`, { prices });
       } else {
         throw new Error('Failed to fetch coin prices');
       }
     } catch (err) {
       logger.error(`Error fetching coin prices:`, { error: err.message, stack: err.stack });
-      setBtcPrice(0);
-      setDogePrice(0);
-      setLtcPrice(0);
+      startTransition(() => {
+        setBtcPrice(0);
+        setDogePrice(0);
+        setLtcPrice(0);
+      });
       setError('Failed to fetch coin prices');
     } finally {
       setIsLoadingPrices(false);
@@ -301,13 +294,13 @@ const ClusterTab = ({ recaptchaRef, initialClusterId, activeTab: propActiveTab, 
     }
   }, [clusterIdFromQuery, currency, btcPrice, dogePrice, ltcPrice]);
 
-  // Fetch cluster image from DB using search-clusters API
+  // Fetch cluster image from DB using search-clusters API with IndexedDB cache
   const fetchClusterImage = async (clusterId) => {
     const normalizedClusterId = clusterId.toLowerCase().replace(/[^\w\s]/g, ' ').trim();
     const words = normalizedClusterId.split(/\s+/).filter(Boolean);
     const shortQuery = words.length > 1 ? words[words.length - 1] : clusterId.toLowerCase();
     const cacheKey = `cluster:image:${clusterId.toLowerCase()}`;
-    const cachedImage = getCachedData(cacheKey, 3600 * 1000); // 1 hour cache
+    const cachedImage = await getCachedData(cacheKey);
     if (cachedImage) {
       setClusterImage(cachedImage);
       logger.info(`Cache hit for cluster image: ${clusterId}`);
@@ -323,29 +316,29 @@ const ClusterTab = ({ recaptchaRef, initialClusterId, activeTab: propActiveTab, 
       if (response.ok && result.success && result.data && result.data.length > 0) {
         const image = result.data[0].image || `/icons/${shortQuery}.webp`;
         setClusterImage(image);
-        setCachedData(cacheKey, image);
+        await setCachedData(cacheKey, image);
         logger.info(`Fetched and cached cluster image from DB: ${clusterId}`, { image, shortQuery });
       } else {
         const fallback = `/icons/${shortQuery}.webp`;
         setClusterImage(fallback);
-        setCachedData(cacheKey, fallback);
+        await setCachedData(cacheKey, fallback);
         logger.warn(`No cluster image found in DB for: ${clusterId}, using fallback`, { shortQuery });
       }
     } catch (err) {
       logger.error(`Error fetching cluster image for ${clusterId}:`, { error: err.message, stack: err.stack });
       const fallback = `/icons/${shortQuery}.webp`;
       setClusterImage(fallback);
-      setCachedData(cacheKey, fallback);
+      await setCachedData(cacheKey, fallback);
     }
   };
 
-  // Fetch exchange data with local cache
+  // Fetch exchange data with IndexedDB cache
   const fetchExchangeData = async (originalId, mappedId) => {
     const cacheKey = `coingecko:exchange-details:${mappedId}:${currency}`;
-    const cachedData = getCachedData(cacheKey, 4 * 60 * 60 * 1000);
+    const cachedData = await getCachedData(cacheKey);
     if (cachedData) {
-      setExchangeData(cachedData);
-      logger.info(`Cache hit for exchange data: ${mappedId} from localStorage`);
+      startTransition(() => setExchangeData(cachedData));
+      logger.info(`Cache hit for exchange data: ${mappedId} from IndexedDB`);
       return;
     }
 
@@ -381,8 +374,8 @@ const ClusterTab = ({ recaptchaRef, initialClusterId, activeTab: propActiveTab, 
         url: result.data.url || null,
       };
 
-      setExchangeData(exchangeData);
-      setCachedData(cacheKey, exchangeData);
+      startTransition(() => setExchangeData(exchangeData));
+      await setCachedData(cacheKey, exchangeData);
       logger.log("Fetched and cached exchange data:", { mappedId, trustScore: exchangeData.trust_score, data: exchangeData });
     } catch (err) {
       const errorMessage = err.message || "Unknown error fetching exchange data";
@@ -397,8 +390,8 @@ const ClusterTab = ({ recaptchaRef, initialClusterId, activeTab: propActiveTab, 
         twitter_handle: null,
         url: null,
       };
-      setExchangeData(fallback);
-      setCachedData(cacheKey, fallback);
+      startTransition(() => setExchangeData(fallback));
+      await setCachedData(cacheKey, fallback);
       logger.error("Error fetching exchange data:", { originalId, mappedId, error: errorMessage, stack: err.stack });
       setError(errorMessage);
     } finally {
@@ -408,31 +401,35 @@ const ClusterTab = ({ recaptchaRef, initialClusterId, activeTab: propActiveTab, 
 
   const debouncedSetTransactions = useCallback(
     debounce((newTransactions) => {
-      setTransactions(newTransactions);
+      startTransition(() => {
+        setTransactions(newTransactions);
+      });
     }, 100),
-    []
+    [startTransition]
   );
 
   const debouncedSetWalletTransactions = useCallback(
     debounce((newTransactions) => {
-      setWalletTransactions(newTransactions);
+      startTransition(() => {
+        setWalletTransactions(newTransactions);
+      });
     }, 100),
-    []
+    [startTransition]
   );
 
-  // Fetch volume history with local cache
+  // Fetch volume history with IndexedDB cache
   const fetchVolumeHistory = async (exchangeId) => {
     if (!btcPrice || !dogePrice || !ltcPrice) {
       logger.warn("Coin prices not available, skipping volume history fetch", { exchangeId });
-      setVolumeHistory([]);
+      startTransition(() => setVolumeHistory([]));
       setIsLoadingVolume(false);
       return;
     }
     const cacheKey = `coingecko:volume-chart:${exchangeId}:7:${currency}`;
-    const cachedData = getCachedData(cacheKey, 2 * 60 * 60 * 1000); // 2 hours
+    const cachedData = await getCachedData(cacheKey);
     if (cachedData) {
-      setVolumeHistory(cachedData);
-      logger.info(`Cache hit for volume history: ${exchangeId} from localStorage`);
+      startTransition(() => setVolumeHistory(cachedData));
+      logger.info(`Cache hit for volume history: ${exchangeId} from IndexedDB`);
       setIsLoadingVolume(false);
       return;
     }
@@ -453,13 +450,13 @@ const ClusterTab = ({ recaptchaRef, initialClusterId, activeTab: propActiveTab, 
         title: new Date(timestamp).toLocaleDateString(),
         volume: (Number(volume) || 0) * btcPrice,
       }));
-      setVolumeHistory(convertedData);
-      setCachedData(cacheKey, convertedData);
+      startTransition(() => setVolumeHistory(convertedData));
+      await setCachedData(cacheKey, convertedData);
       logger.log("Fetched and cached volume history:", { exchangeId, btcPrice, convertedData });
     } catch (err) {
       const errorMessage = err.message || "Unknown error fetching volume history";
       logger.error("Error fetching volume history:", { exchangeId, error: errorMessage, stack: err.stack });
-      setVolumeHistory([]);
+      startTransition(() => setVolumeHistory([]));
       setError(errorMessage);
     } finally {
       setIsLoadingVolume(false);
@@ -519,19 +516,23 @@ const ClusterTab = ({ recaptchaRef, initialClusterId, activeTab: propActiveTab, 
       // Handle partial or no data with a user-friendly message
       if (result.message) {
         setError(result.message); // Set the message as a warning, not an error
-        setPortfolioData([]);
-        setWalletData([]);
+        startTransition(() => {
+          setPortfolioData([]);
+          setWalletData([]);
+        });
         toast.info(result.message, { position: 'top-center', autoClose: 5000 });
         logger.info(`No data returned for cluster: ${clusterId}`, { message: result.message });
       } else {
-        setPortfolioData(result.portfolio || []);
-        setWalletData(
-          result.wallets.map(wallet => ({
-            ...wallet,
-            cluster_name: wallet.cluster_name || clusterId.charAt(0).toUpperCase() + clusterId.slice(1),
-            image: wallet.image || `/icons/${clusterId.toLowerCase()}.webp` || '/fallback-image.webp',
-          })) || []
-        );
+        startTransition(() => {
+          setPortfolioData(result.portfolio || []);
+          setWalletData(
+            result.wallets.map(wallet => ({
+              ...wallet,
+              cluster_name: wallet.cluster_name || clusterId.charAt(0).toUpperCase() + clusterId.slice(1),
+              image: wallet.image || `/icons/${clusterId.toLowerCase()}.webp` || '/fallback-image.webp',
+            })) || []
+          );
+        });
         logger.log('Fetched portfolio and wallet data:', {
           clusterId,
           portfolioCount: result.portfolio?.length || 0,
@@ -541,8 +542,10 @@ const ClusterTab = ({ recaptchaRef, initialClusterId, activeTab: propActiveTab, 
     } catch (err) {
       const errorMessage = err.message || 'Unknown error fetching portfolio/wallet data';
       logger.error('Error fetching portfolio/wallet data:', { clusterId, error: errorMessage, stack: err.stack });
-      setPortfolioData([]);
-      setWalletData([]);
+      startTransition(() => {
+        setPortfolioData([]);
+        setWalletData([]);
+      });
       setError(errorMessage);
     } finally {
       setIsLoadingPortfolio(false);
@@ -557,18 +560,13 @@ const ClusterTab = ({ recaptchaRef, initialClusterId, activeTab: propActiveTab, 
   const memoizedWalletBalances = useMemo(() => walletBalances, [walletBalances, status]);
   const memoizedWalletTransactions = useMemo(() => walletTransactions, [walletTransactions, status]);
 
-  const fetchBitcoinTransactions = async (clusterId) => {
-    if (status !== "authenticated") {
-      setTransactionsError("Please log in to access Bitcoin transaction data.");
-      setIsLoadingTransactions(false);
-      return;
-    }
-    setIsLoadingTransactions(true);
-    setTransactionsError(null);
-    try {
-      const mappedId = mapExchangeId(clusterId);
+  // SWR for Bitcoin transactions
+  const { data: bitcoinTxs, error: bitcoinError, isValidating: bitcoinValidating } = useSWR(
+    status === 'authenticated' && clusterIdFromQuery ? ['bitcoin-transactions', clusterIdFromQuery] : null,
+    async () => {
+      const mappedId = mapExchangeId(clusterIdFromQuery);
       const cacheKey = `mempool-transactions:${mappedId}`;
-      const cachedData = getCachedData(cacheKey, 60 * 1000);
+      const cachedData = await getCachedData(cacheKey);
       if (cachedData) {
         logger.info(`Cache hit for Bitcoin transactions: ${cacheKey}`);
         return cachedData;
@@ -632,43 +630,31 @@ const ClusterTab = ({ recaptchaRef, initialClusterId, activeTab: propActiveTab, 
         token_metadata: { symbol: "BTC", logo: BITCOIN_LOGO },
       }));
 
-      setCachedData(cacheKey, formattedTxs);
-      logger.log("Fetched and cached Bitcoin transactions:", { clusterId, count: formattedTxs.length });
+      await setCachedData(cacheKey, formattedTxs);
+      logger.log("Fetched and cached Bitcoin transactions:", { clusterId: clusterIdFromQuery, count: formattedTxs.length });
       return formattedTxs;
-    } catch (err) {
-      const errorMessage = err.message || "Unknown error fetching Bitcoin transactions";
-      logger.error("Error fetching Bitcoin transactions:", { clusterId, error: errorMessage, stack: err.stack });
-      setTransactionsError(errorMessage);
-      return [];
-    } finally {
-      setIsLoadingTransactions(false);
+    },
+    {
+      revalidateOnFocus: false,
+      revalidateOnReconnect: true,
+      refreshInterval: 5 * 60 * 1000, // 5 minutes
+      dedupingInterval: 30 * 1000,
     }
-  };
+  );
 
-  // Fetch transactions with authenticated cache
-  const fetchTransactions = async (input, minValueUsd = null) => {
-    if (status !== "authenticated") {
-      setTransactionsError("Please log in to access transaction data.");
-      setIsLoadingTransactions(false);
-      return [];
-    }
-    setIsLoadingTransactions(true);
-    setTransactionsError(null);
-    try {
-      const walletAddresses = Array.isArray(input)
-        ? input
-          .filter((w) => !["bitcoin", "dogecoin", "litecoin"].includes(w.chain?.toLowerCase()))
-          .map((w) => (typeof w === "string" ? w : w.holder_address))
-          .filter(Boolean)
-        : [input].filter(Boolean);
-      if (!walletAddresses.length) {
-        throw new Error("No valid wallet addresses provided");
-      }
+  // SWR for EVM transactions
+  const { data: evmTxs, error: evmError, isValidating: evmValidating } = useSWR(
+    status === 'authenticated' && walletData.length > 0 ? ['evm-transactions', walletData, currency] : null,
+    async () => {
+      const evmWallets = walletData.filter(
+        (w) => !["bitcoin", "dogecoin", "litecoin"].includes(w.chain?.toLowerCase())
+      ).map((w) => (typeof w === "string" ? w : w.holder_address)).filter(Boolean);
+      if (!evmWallets.length) return [];
 
-      const cacheKey = `sim:transactions:auth:${walletAddresses.join(',')}:${minValueUsd || 'none'}`;
-      const cachedData = getCachedData(cacheKey, 60 * 1000);
+      const cacheKey = `sim:transactions:auth:${evmWallets.join(',')}:1000000`;
+      const cachedData = await getCachedData(cacheKey);
       if (cachedData) {
-        logger.info(`Cache hit for transactions: ${cacheKey} from localStorage`);
+        logger.info(`Cache hit for EVM transactions: ${cacheKey}`);
         return cachedData;
       }
 
@@ -681,8 +667,8 @@ const ClusterTab = ({ recaptchaRef, initialClusterId, activeTab: propActiveTab, 
         credentials: "include",
         body: JSON.stringify({
           action: "transactions",
-          addresses: walletAddresses,
-          minValueUsd,
+          addresses: evmWallets,
+          minValueUsd: 1000000,
         }),
         signal: AbortSignal.timeout(70000),
       });
@@ -771,87 +757,57 @@ const ClusterTab = ({ recaptchaRef, initialClusterId, activeTab: propActiveTab, 
         }
       }
 
-      setCachedData(cacheKey, transactionsData);
-      logger.log("Fetched and cached transactions:", { walletAddresses, minValueUsd, count: transactionsData.length });
+      await setCachedData(cacheKey, transactionsData);
+      logger.log("Fetched and cached EVM transactions:", { evmWallets, count: transactionsData.length });
       return transactionsData;
-    } catch (err) {
-      const errorMessage = err.message || "Unknown error fetching transactions";
-      logger.error("Error fetching transactions:", { input, minValueUsd, error: errorMessage, stack: err.stack });
-      setTransactionsError(errorMessage);
-      return [];
-    } finally {
-      setIsLoadingTransactions(false);
+    },
+    {
+      revalidateOnFocus: false,
+      revalidateOnReconnect: true,
+      refreshInterval: 5 * 60 * 1000, // 5 minutes
+      dedupingInterval: 30 * 1000,
     }
-  };
+  );
+
+  // Combine EVM and Bitcoin transactions
+  useEffect(() => {
+    if (evmTxs && bitcoinTxs) {
+      const combinedTxs = [...evmTxs, ...bitcoinTxs]
+        .filter((tx) => tx && (tx.hash || tx.txid)) // Remove invalid transactions
+        .sort((a, b) => {
+          const timeA = normalizeTimestamp(a);
+          const timeB = normalizeTimestamp(b);
+          return timeB - timeA; // Sort descending (newer first)
+        });
+      debouncedSetTransactions(combinedTxs);
+    }
+  }, [evmTxs, bitcoinTxs, debouncedSetTransactions]);
 
   useEffect(() => {
-    if (status === "authenticated" && walletData.length > 0) {
-      const evmWallets = walletData.filter(
-        (w) => !["bitcoin", "dogecoin", "litecoin"].includes(w.chain?.toLowerCase())
-      );
-      const btcWallets = walletData.filter(
-        (w) => w.chain?.toLowerCase() === "bitcoin"
-      );
-      const fetchAllTransactions = async () => {
-        try {
-          setIsLoadingTransactions(true);
-          setTransactionsError(null);
-
-          const [evmTxs, btcTxs] = await Promise.all([
-            evmWallets.length > 0 ? fetchTransactions(evmWallets, 1000000) : Promise.resolve([]),
-            btcWallets.length > 0 ? fetchBitcoinTransactions(clusterIdFromQuery) : Promise.resolve([]),
-          ]);
-
-          // Debug: Log transaction data
-          logger.log("EVM transactions:", { evmTxs: evmTxs.map(tx => ({ chain: tx.chain, chain_id: tx.chain_id, hash: tx.hash, block_time: tx.block_time })) });
-          logger.log("Bitcoin transactions:", { btcTxs: btcTxs.map(tx => ({ chain: tx.chain, txid: tx.txid, timestamp: tx.timestamp })) });
-
-          const combinedTxs = [...evmTxs, ...btcTxs]
-            .filter((tx) => tx && (tx.hash || tx.txid)) // Remove invalid transactions
-            .sort((a, b) => {
-              const timeA = normalizeTimestamp(a);
-              const timeB = normalizeTimestamp(b);
-              return timeB - timeA; // Sort descending (newer first)
-            });
-
-          debouncedSetTransactions(combinedTxs);
-          logger.log("Combined transactions:", { evmCount: evmTxs.length, btcCount: btcTxs.length, total: combinedTxs.length });
-        } catch (err) {
-          const errorMessage = err.message || "Failed to fetch transactions";
-          logger.error("Error combining transactions:", { error: errorMessage, stack: err.stack });
-          setTransactionsError(errorMessage);
-          setTransactions([]);
-        } finally {
-          setIsLoadingTransactions(false);
-        }
-      };
-      fetchAllTransactions();
+    if (evmError || bitcoinError) {
+      const errorMessage = evmError?.message || bitcoinError?.message || 'Failed to load transactions';
+      setTransactionsError(errorMessage);
     }
-  }, [walletData, status, clusterIdFromQuery, debouncedSetTransactions]);
+  }, [evmError, bitcoinError]);
 
-  // Fetch wallet transactions with authenticated cache
-  const fetchWalletTransactions = async (walletAddress) => {
-    if (status !== "authenticated") {
-      setWalletTransactionsError("Please log in to access wallet transactions.");
-      setIsLoadingWalletTransactions(false);
-      return;
-    }
-    setIsLoadingWalletTransactions(true);
-    setWalletTransactionsError(null);
-    try {
-      if (!walletAddress) {
-        throw new Error("No wallet address provided");
-      }
-      if (!/^0x[a-fA-F0-9]{40}$/.test(walletAddress)) {
+  // Update loading state for transactions
+  useEffect(() => {
+    setIsLoadingTransactions(evmValidating || bitcoinValidating);
+  }, [evmValidating, bitcoinValidating]);
+
+  // Fetch wallet transactions with SWR and IndexedDB
+  const { data: walletTxData, error: walletTxError, isValidating: walletTxValidating } = useSWR(
+    status === 'authenticated' && selectedWallet ? ['wallet-transactions', selectedWallet] : null,
+    async () => {
+      if (!/^0x[a-fA-F0-9]{40}$/.test(selectedWallet)) {
         throw new Error("Transaction data only available for EVM addresses");
       }
 
-      const cacheKey = `sim:transactions:auth:${walletAddress}:1000`;
-      const cachedData = getCachedData(cacheKey, 60 * 1000);
+      const cacheKey = `sim:transactions:auth:${selectedWallet}:1000`;
+      const cachedData = await getCachedData(cacheKey);
       if (cachedData) {
-        setWalletTransactions(cachedData);
-        logger.info(`Cache hit for wallet transactions: ${cacheKey} from localStorage`);
-        return;
+        logger.info(`Cache hit for wallet transactions: ${cacheKey}`);
+        return cachedData;
       }
 
       const response = await fetch(`/api/sim`, {
@@ -863,7 +819,7 @@ const ClusterTab = ({ recaptchaRef, initialClusterId, activeTab: propActiveTab, 
         credentials: "include",
         body: JSON.stringify({
           action: "transactions",
-          addresses: [walletAddress],
+          addresses: [selectedWallet],
           limit: 1000,
         }),
       });
@@ -954,41 +910,41 @@ const ClusterTab = ({ recaptchaRef, initialClusterId, activeTab: propActiveTab, 
         }
       }
 
-      setCachedData(cacheKey, transactionsData);
-      logger.log("Fetched and cached wallet transactions:", { walletAddress, data: transactionsData });
-    } catch (err) {
-      const errorMessage = err.message || "Unknown error fetching wallet transactions";
-      logger.error("Error fetching wallet transactions:", { walletAddress, error: errorMessage, stack: err.stack });
-      setWalletTransactions([]);
-      setWalletTransactionsError(errorMessage);
-    } finally {
-      setIsLoadingWalletTransactions(false);
+      await setCachedData(cacheKey, transactionsData);
+      logger.log("Fetched and cached wallet transactions:", { selectedWallet, data: transactionsData });
+      return transactionsData;
+    },
+    {
+      revalidateOnFocus: false,
+      revalidateOnReconnect: true,
+      refreshInterval: 5 * 60 * 1000,
+      dedupingInterval: 30 * 1000,
     }
-  };
+  );
 
-  // Fetch wallet balances with authenticated cache
-  const fetchWalletBalances = async (walletAddress) => {
-    if (status !== "authenticated") {
-      setWalletBalancesError("Please log in to access wallet balances.");
-      setIsLoadingWalletBalances(false);
-      return;
+  useEffect(() => {
+    if (walletTxData) {
+      debouncedSetWalletTransactions(walletTxData);
     }
-    setIsLoadingWalletBalances(true);
-    setWalletBalancesError(null);
-    try {
-      if (!walletAddress) {
-        throw new Error("No wallet address provided");
-      }
-      if (!/^0x[a-fA-F0-9]{40}$/.test(walletAddress)) {
+    if (walletTxError) {
+      setWalletTransactionsError(walletTxError.message || 'Failed to load wallet transactions');
+    }
+    setIsLoadingWalletTransactions(walletTxValidating);
+  }, [walletTxData, walletTxError, walletTxValidating, debouncedSetWalletTransactions]);
+
+  // Fetch wallet balances with SWR and IndexedDB
+  const { data: walletBalancesData, error: walletBalancesErrorSWR, isValidating: walletBalancesValidating } = useSWR(
+    status === 'authenticated' && selectedWallet ? ['wallet-balances', selectedWallet] : null,
+    async () => {
+      if (!/^0x[a-fA-F0-9]{40}$/.test(selectedWallet)) {
         throw new Error("Balance data only available for EVM addresses");
       }
 
-      const cacheKey = `sim:balances:auth:${walletAddress}`;
-      const cachedData = getCachedData(cacheKey, 60 * 1000);
+      const cacheKey = `sim:balances:auth:${selectedWallet}`;
+      const cachedData = await getCachedData(cacheKey);
       if (cachedData) {
-        setWalletBalances(cachedData);
-        logger.info(`Cache hit for wallet balances: ${cacheKey} from localStorage`);
-        return;
+        logger.info(`Cache hit for wallet balances: ${cacheKey}`);
+        return cachedData;
       }
 
       const response = await fetch(`/api/sim`, {
@@ -1000,7 +956,7 @@ const ClusterTab = ({ recaptchaRef, initialClusterId, activeTab: propActiveTab, 
         credentials: "include",
         body: JSON.stringify({
           action: "wallet-balances",
-          address: walletAddress,
+          address: selectedWallet,
           limit: 2000,
         }),
       });
@@ -1089,18 +1045,28 @@ const ClusterTab = ({ recaptchaRef, initialClusterId, activeTab: propActiveTab, 
         }
       }
 
-      setWalletBalances(balancesData);
-      setCachedData(cacheKey, balancesData);
-      logger.log("Fetched and cached wallet balances:", { walletAddress, data: balancesData });
-    } catch (err) {
-      const errorMessage = err.message || "Unknown error fetching wallet balances";
-      logger.error("Error fetching wallet balances:", { walletAddress, error: errorMessage, stack: err.stack });
-      setWalletBalances([]);
-      setWalletBalancesError(errorMessage);
-    } finally {
-      setIsLoadingWalletBalances(false);
+      startTransition(() => setWalletBalances(balancesData));
+      await setCachedData(cacheKey, balancesData);
+      logger.log("Fetched and cached wallet balances:", { selectedWallet, data: balancesData });
+      return balancesData;
+    },
+    {
+      revalidateOnFocus: false,
+      revalidateOnReconnect: true,
+      refreshInterval: 5 * 60 * 1000,
+      dedupingInterval: 30 * 1000,
     }
-  };
+  );
+
+  useEffect(() => {
+    if (walletBalancesData) {
+      startTransition(() => setWalletBalances(walletBalancesData));
+    }
+    if (walletBalancesErrorSWR) {
+      setWalletBalancesError(walletBalancesErrorSWR.message || 'Failed to load wallet balances');
+    }
+    setIsLoadingWalletBalances(walletBalancesValidating);
+  }, [walletBalancesData, walletBalancesErrorSWR, walletBalancesValidating, startTransition]);
 
   // Trigger fetches with debouncing
   useEffect(() => {
@@ -1115,7 +1081,7 @@ const ClusterTab = ({ recaptchaRef, initialClusterId, activeTab: propActiveTab, 
       const evmWallets = walletData.filter(
         (w) => !["bitcoin", "dogecoin", "litecoin"].includes(w.chain?.toLowerCase())
       );
-      fetchTransactions(evmWallets, 1000000);
+      // SWR handles the fetch
     }
   }, [walletData, status]);
 
@@ -1123,11 +1089,12 @@ const ClusterTab = ({ recaptchaRef, initialClusterId, activeTab: propActiveTab, 
     if (status === "authenticated" && selectedWallet) {
       logger.log("Triggering fetch for selected wallet:", { selectedWallet });
       if (/^0x[a-fA-F0-9]{40}$/.test(selectedWallet)) {
-        fetchWalletBalances(selectedWallet);
-        fetchWalletTransactions(selectedWallet);
+        // SWR handles the fetch
       } else {
-        setWalletBalances([]);
-        setWalletTransactions([]);
+        startTransition(() => {
+          setWalletBalances([]);
+          setWalletTransactions([]);
+        });
         setWalletBalancesError("Balance data not available for non-EVM addresses (Bitcoin, Dogecoin, Litecoin)");
         setWalletTransactionsError("Transaction data not available for non-EVM addresses (Bitcoin, Dogecoin, Litecoin)");
       }
@@ -1138,16 +1105,18 @@ const ClusterTab = ({ recaptchaRef, initialClusterId, activeTab: propActiveTab, 
     if (result.type === "exchange" || result.type === "organization") {
       const mappedId = mapExchangeId(result.exchangeId || result.id);
       router.push(`/cluster?clusterId=${encodeURIComponent(mappedId)}`, { scroll: false });
-      setExchangeData({
-        name: result.name,
-        image: result.image || `/icons/${mappedId.toLowerCase()}.webp` || '/fallback-image.webp',
-        country: "N/A",
-        year_established: "N/A",
-        trust_score: "N/A",
-        trade_volume_24h_btc: 0,
-        centralized: true,
-        twitter_handle: null,
-        url: null,
+      startTransition(() => {
+        setExchangeData({
+          name: result.name,
+          image: result.image || `/icons/${mappedId.toLowerCase()}.webp` || '/fallback-image.webp',
+          country: "N/A",
+          year_established: "N/A",
+          trust_score: "N/A",
+          trade_volume_24h_btc: 0,
+          centralized: true,
+          twitter_handle: null,
+          url: null,
+        });
       });
     } else if (result.type === "wallet" || result.type === "nametag") {
       const address = result.address?.toLowerCase();
@@ -1186,8 +1155,10 @@ const ClusterTab = ({ recaptchaRef, initialClusterId, activeTab: propActiveTab, 
 
   const handleCloseWalletBalances = () => {
     setSelectedWallet(null);
-    setWalletBalances([]);
-    setWalletTransactions([]);
+    startTransition(() => {
+      setWalletBalances([]);
+      setWalletTransactions([]);
+    });
     setWalletBalancesError(null);
     setWalletTransactionsError(null);
   };
@@ -1575,6 +1546,48 @@ const ClusterTab = ({ recaptchaRef, initialClusterId, activeTab: propActiveTab, 
     );
   };
 
+  // Skeleton for Large Flow table
+  const SkeletonTransactionRow = ({ index }) => (
+    <motion.div
+      key={`skeleton-tx-${index}`}
+      className="flex border-t border-white/10 hover:bg-gradient-to-r hover:from-white/5 hover:to-neon-blue/5 transition-all duration-300 py-2"
+      initial={{ opacity: 0, y: 10 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.3 }}
+    >
+      <div className="w-[12%] sm:w-[15%] px-2 sm:px-3 flex flex-col items-center justify-center gap-1">
+        <div className="relative flex-shrink-0">
+          <div className="w-[16px] h-[16px] bg-white/10 rounded-full animate-pulse mx-auto" />
+          <div className="w-[10px] h-[10px] bg-white/5 rounded-full absolute top-0 right-0 animate-pulse" style={{ transform: 'translate(25%, -25%)' }} />
+        </div>
+        <div className="w-10 h-2 bg-white/10 rounded animate-pulse" />
+      </div>
+      <div className="w-[30%] sm:w-[25%] px-2 sm:px-3 flex items-center justify-center">
+        <div className="flex flex-col gap-1 min-w-0 flex-1">
+          <div className="flex items-center gap-2">
+            <div className="w-[14px] h-[14px] bg-white/10 rounded-full animate-pulse" />
+            <div className="w-16 h-2 bg-white/10 rounded animate-pulse" />
+          </div>
+          <div className="flex items-center gap-2">
+            <div className="w-[14px] h-[14px] bg-white/10 rounded-full animate-pulse" />
+            <div className="w-16 h-2 bg-white/10 rounded animate-pulse" />
+          </div>
+        </div>
+      </div>
+      <div className="w-[20%] sm:w-[20%] px-2 sm:px-3 flex flex-col items-center gap-1">
+        <div className="w-12 h-2 bg-white/10 rounded animate-pulse" />
+        <div className="w-10 h-2 bg-white/10 rounded animate-pulse" />
+      </div>
+      <div className="w-[30%] sm:w-[25%] px-2 sm:px-3 flex items-center justify-center">
+        <div className="w-12 h-2 bg-white/10 rounded animate-pulse" />
+      </div>
+      <div className="w-[10%] sm:w-[15%] px-2 sm:px-3 flex flex-col items-center gap-0.5">
+        <div className="w-[14px] h-[14px] bg-white/10 rounded-full animate-pulse" />
+        <div className="w-8 h-1.5 bg-white/5 rounded animate-pulse" />
+      </div>
+    </motion.div>
+  );
+
   const renderTransactionsContent = () => {
     if (status !== "authenticated") {
       return <LoginPrompt />;
@@ -1801,7 +1814,21 @@ const ClusterTab = ({ recaptchaRef, initialClusterId, activeTab: propActiveTab, 
           />
         )}
         {isLoadingTransactions ? (
-          <SkeletonLoader count={5} isMobile={isMobile} />
+          <div className="w-full table-fixed text-[9px] sm:text-[11px]">
+            <div className="border-b border-white/10 bg-gradient-to-br from-black/80 to-gray-900/80 flex">
+              <div className="w-[12%] sm:w-[15%] px-3 py-2 text-white font-medium text-center">Token</div>
+              <div className="w-[30%] sm:w-[25%] px-3 py-2 text-white font-medium text-center">From/To</div>
+              <div className="w-[20%] sm:w-[20%] px-3 py-2 text-white font-medium text-center">Token Value</div>
+              <div className="w-[30%] sm:w-[25%] px-3 py-2 text-white font-medium text-center">Value ({currency.toUpperCase()})</div>
+              <div className="w-[10%] sm:w-[15%] px-3 py-2 text-white font-medium text-center">Details</div>
+            </div>
+            <Virtuoso
+              className="bg-gradient-to-br from-black/80 to-gray-900/80 hide-scrollbar virtuoso-container"
+              style={{ height: 'calc(50vh - 5rem)' }}
+              totalCount={20} // Show 20 skeleton rows during loading
+              itemContent={(index) => <SkeletonTransactionRow index={index} />}
+            />
+          </div>
         ) : transactionsError ? (
           <p className="text-[10px] sm:text-sm text-red-400 text-center p-4 bg-red-500/10 border border-red-500/20 rounded-lg">
             Error: {transactionsError}
@@ -2174,4 +2201,3 @@ const ClusterTab = ({ recaptchaRef, initialClusterId, activeTab: propActiveTab, 
 };
 
 export default React.memo(ClusterTab);
-

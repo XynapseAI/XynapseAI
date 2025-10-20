@@ -2,7 +2,7 @@
 'use client';
 
 import { motion, AnimatePresence } from 'framer-motion';
-import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef, useTransition } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import axios from 'axios';
 import axiosRetry from 'axios-retry';
@@ -66,6 +66,75 @@ const copyAddress = (address, toast) => {
   });
 };
 
+// Skeleton Components for improved UX during loading
+const SkeletonTokenRow = ({ index }) => (
+  <motion.div
+    key={`skeleton-token-${index}`}
+    className="flex hover:bg-neon-blue/10 transition-all duration-300 py-2 border-t border-white/10"
+    initial={{ opacity: 0, y: 10 }}
+    animate={{ opacity: 1, y: 0 }}
+    transition={{ duration: 0.3 }}
+  >
+    <div className="w-[25%] px-2 sm:px-3 flex items-center gap-2">
+      <div className="relative flex-shrink-0">
+        <div className="w-[16px] h-[16px] bg-white/10 rounded-full animate-pulse" />
+        <div className="w-[10px] h-[10px] bg-white/5 rounded-full absolute top-0 right-0 animate-pulse" style={{ transform: 'translate(25%, -25%)' }} />
+      </div>
+      <div className="flex flex-col items-start">
+        <div className="w-12 h-2 bg-white/10 rounded animate-pulse" />
+        <div className="w-8 h-1.5 bg-white/5 rounded mt-1 animate-pulse" />
+      </div>
+    </div>
+    <div className="w-[45%] px-2 sm:px-3 flex items-center justify-center">
+      <div className="flex flex-col items-center">
+        <div className="w-10 h-2 bg-white/10 rounded animate-pulse" />
+        <div className="w-12 h-1.5 bg-white/5 rounded mt-1 animate-pulse" />
+      </div>
+    </div>
+    <div className="w-[30%] px-2 sm:px-3 flex flex-col items-center justify-center gap-1">
+      <div className="w-6 h-2 bg-white/10 rounded animate-pulse" />
+      <div className="w-full bg-white/10 rounded-full h-1.5">
+        <div className="bg-white/20 h-1.5 rounded-full w-[60%] animate-pulse" />
+      </div>
+    </div>
+  </motion.div>
+);
+
+const SkeletonTransactionRow = ({ index }) => (
+  <motion.div
+    key={`skeleton-tx-${index}`}
+    className="flex hover:bg-neon-blue/10 transition-all duration-300 py-2 border-t border-white/10"
+    initial={{ opacity: 0, y: 10 }}
+    animate={{ opacity: 1, y: 0 }}
+    transition={{ duration: 0.3 }}
+  >
+    <div className="w-[25%] px-2 sm:px-3 flex flex-col items-center gap-1">
+      <div className="relative flex-shrink-0">
+        <div className="w-[16px] h-[16px] bg-white/10 rounded-full animate-pulse mx-auto" />
+        <div className="w-[10px] h-[10px] bg-white/5 rounded-full absolute top-0 right-0 animate-pulse" style={{ transform: 'translate(25%, -25%)' }} />
+      </div>
+      <div className="w-10 h-2 bg-white/10 rounded animate-pulse" />
+    </div>
+    <div className="w-[25%] px-2 sm:px-3 flex flex-col items-center gap-1">
+      <div className="w-12 h-2 bg-white/10 rounded animate-pulse" />
+      <div className="flex items-center justify-center gap-2">
+        <div className="w-[14px] h-[14px] bg-white/10 rounded-full animate-pulse" />
+        <div className="w-16 h-2 bg-white/10 rounded animate-pulse" />
+      </div>
+    </div>
+    <div className="w-[25%] px-2 sm:px-3 flex items-center justify-center">
+      <div className="flex flex-col items-center">
+        <div className="w-10 h-2 bg-white/10 rounded animate-pulse" />
+        <div className="w-12 h-1.5 bg-white/5 rounded mt-1 animate-pulse" />
+      </div>
+    </div>
+    <div className="w-[25%] px-2 sm:px-3 flex flex-col items-center gap-0.5">
+      <div className="w-[14px] h-[14px] bg-white/10 rounded-full animate-pulse" />
+      <div className="w-8 h-1.5 bg-white/5 rounded animate-pulse" />
+    </div>
+  </motion.div>
+);
+
 export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress = null, toast }) {
   const { data: session, status } = useSession();
   const router = useRouter();
@@ -99,6 +168,7 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
   const [newWalletName, setNewWalletName] = useState('');
   const [forceFetch, setForceFetch] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
+  const [isPending, startTransition] = useTransition();
   const transactionsPerPage = 100;
 
   const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || '/api';
@@ -147,15 +217,30 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
     return filteredTransactions.slice(indexOfFirst, indexOfLast);
   }, [filteredTransactions, currentPage]);
 
-  // Debounced state update for transactions
+  // Debounced state update for transactions with useTransition for smooth updates
   const debouncedSetTransactions = useCallback(
     debounce((newTransactions) => {
-      setTransactions((prev) => {
-        const uniqueTxs = [...new Map([...prev, ...newTransactions].map((tx) => [`${tx.chain}-${tx.hash}`, tx])).values()];
-        return uniqueTxs.sort((a, b) => new Date(b.block_time || 0) - new Date(a.block_time || 0));
+      startTransition(() => {
+        setTransactions((prev) => {
+          const uniqueTxs = [...new Map([...prev, ...newTransactions].map((tx) => [`${tx.chain}-${tx.hash}`, tx])).values()];
+          return uniqueTxs.sort((a, b) => new Date(b.block_time || 0) - new Date(a.block_time || 0));
+        });
       });
     }, 500),
-    []
+    [startTransition]
+  );
+
+  // Similar for balances
+  const debouncedSetBalances = useCallback(
+    debounce((newBalances) => {
+      startTransition(() => {
+        setBalances((prev) => {
+          const uniqueBalances = [...new Map([...prev, ...newBalances].map((b) => [`${b.chain}-${b.address}`, b])).values()];
+          return uniqueBalances;
+        });
+      });
+    }, 500),
+    [startTransition]
   );
 
   // Log sorted balances to verify USDT position
@@ -250,15 +335,17 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
         logger.log('Setting selectedWallet from URL or initialAddress:', { address: wallet.address });
         setSelectedWallet(wallet);
         setActiveChainType(wallet.chainType || 'EVM');
-        setBalances([]);
-        setTransactions([]);
-        setTokenInfo({});
+        startTransition(() => {
+          setBalances([]);
+          setTransactions([]);
+          setTokenInfo({});
+        });
         setActiveChain(null);
         lastSelectedWalletRef.current = wallet.address;
         setIsInitialLoad(false);
       }
     }
-  }, [searchParams, watchlists, selectedWallet, isUserInitiatedChange, isInitialLoad, initialAddress]);
+  }, [searchParams, watchlists, selectedWallet, isUserInitiatedChange, isInitialLoad, initialAddress, startTransition]);
 
   useEffect(() => {
     const handleKeyDown = (e) => {
@@ -387,17 +474,16 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
       let data = [];
       let buffer = '';
 
-      // Update state incrementally
+      // Update state incrementally with debounced transitions
       const updateState = debounce((newData) => {
-        if (action === 'transactions') {
-          debouncedSetTransactions(newData);
-        } else if (action === 'wallet-balances') {
-          setBalances((prev) => {
-            const uniqueBalances = [...new Map([...prev, ...newData].map((b) => [`${b.chain}-${b.address}`, b])).values()];
-            return uniqueBalances;
-          });
-        }
-      }, 500);
+        startTransition(() => {
+          if (action === 'transactions') {
+            debouncedSetTransactions(newData);
+          } else if (action === 'wallet-balances') {
+            debouncedSetBalances(newData);
+          }
+        });
+      }, 300); // Reduced debounce for faster perceived load
 
       while (true) {
         const { done, value } = await reader.read();
@@ -506,14 +592,16 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
     if (balancesError || transactionsError) {
       const errorMessage = balancesError?.message || transactionsError?.message || 'Failed to load data';
       setError(errorMessage);
-      if (balancesError) setBalances([]);
-      if (transactionsError) setTransactions([]);
+      if (balancesError) startTransition(() => setBalances([]));
+      if (transactionsError) startTransition(() => setTransactions([]));
     }
-  }, [balancesError, transactionsError]);
+  }, [balancesError, transactionsError, startTransition]);
 
   useEffect(() => {
     if (balancesData) {
-      setBalances(balancesData);
+      startTransition(() => {
+        setBalances(balancesData);
+      });
       const chainsWithData = [...new Set(balancesData.map((b) => CHAIN_ID_TO_NAME[b.chain] || b.chain))];
       setChainsWithAssets(chainsWithData);
       if (activeChain === undefined && chainsWithData.length > 0) {
@@ -532,7 +620,7 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
       transactions: transactionsValidating,
       tokenInfo: false,
     });
-  }, [balancesData, transactionsData, chainsLoading, balancesValidating, transactionsValidating, debouncedSetTransactions]);
+  }, [balancesData, transactionsData, chainsLoading, balancesValidating, transactionsValidating, debouncedSetTransactions, startTransition]);
 
   const { data: tokenInfoData, error: tokenInfoError, isValidating: tokenInfoValidating } = useSWR(
     selectedWallet && balances.length > 0 ? ['tokenInfo', balances.map((b) => b.address)] : null,
@@ -543,121 +631,134 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
         .slice(0, 5);
       const tokenInfoData = {};
 
-      for (const { address, chain } of tokenAddresses) {
-        const isValidEVM = isAddress(address);
-        const isValidSVM = isValidSolanaAddress(address);
-        if (!isValidEVM && !isValidSVM) continue;
+      // Parallelize token info fetches for speed
+      await Promise.all(
+        tokenAddresses.map(async ({ address, chain }) => {
+          const isValidEVM = isAddress(address);
+          const isValidSVM = isValidSolanaAddress(address);
+          if (!isValidEVM && !isValidSVM) return;
 
-        const cacheKey = `tokenInfo-${address}-${chain}`;
-        let cachedData = null;
-        try {
-          cachedData = await getCachedData(cacheKey);
-          if (cachedData) {
-            tokenInfoData[address] = cachedData;
-            continue;
-          }
-        } catch (error) {
-          logger.warn(`IndexedDB not available, skipping cache for ${cacheKey}`, { error });
-        }
-
-        try {
-          const payload = {
-            action: 'wallet-balances',
-            address,
-            ...(isValidEVM ? { chain_ids: CHAIN_MAPPING[chain]?.chainId || '' } : { chains: SUPPORTED_SVM_CHAINS.join(',') }),
-            limit: 1,
-            metadata: 'logo',
-          };
-
-          logger.log(`Fetching token info for address: ${address}, chain: ${chain}`, { payload });
-
-          const response = await fetch(`${API_BASE_URL}/api/sim`, {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              ...(session?.accessToken && { Authorization: `Bearer ${session.accessToken}` }),
-              'x-recaptcha-token': 'no-recaptcha',
-            },
-            body: JSON.stringify(payload),
-            credentials: 'include',
-          });
-
-          if (!response.ok) {
-            const text = await response.text();
-            let errorMessage = `Failed to fetch token info for ${address} on ${chain}: ${response.status} ${response.statusText}`;
-            try {
-              const result = JSON.parse(text);
-              errorMessage = result.detail || errorMessage;
-            } catch {
-              errorMessage = `Failed to fetch token info for ${address} on ${chain}: Invalid JSON response`;
+          const cacheKey = `tokenInfo-${address}-${chain}`;
+          let cachedData = null;
+          try {
+            cachedData = await getCachedData(cacheKey);
+            if (cachedData) {
+              tokenInfoData[address] = cachedData;
+              return;
             }
-            throw new Error(errorMessage);
+          } catch (error) {
+            logger.warn(`IndexedDB not available, skipping cache for ${cacheKey}`, { error });
           }
 
-          const reader = response.body.getReader();
-          const decoder = new TextDecoder();
-          let data = [];
-          let buffer = '';
+          try {
+            const payload = {
+              action: 'wallet-balances',
+              address,
+              ...(isValidEVM ? { chain_ids: CHAIN_MAPPING[chain]?.chainId || '' } : { chains: SUPPORTED_SVM_CHAINS.join(',') }),
+              limit: 1,
+              metadata: 'logo',
+            };
 
-          while (true) {
-            const { done, value } = await reader.read();
-            if (done) break;
+            logger.log(`Fetching token info for address: ${address}, chain: ${chain}`, { payload });
 
-            buffer += decoder.decode(value, { stream: true });
-
-            try {
-              const parsed = JSON.parse(buffer);
-              if (Array.isArray(parsed)) {
-                parsed.forEach((chunk) => {
-                  if (chunk.success && Array.isArray(chunk.data)) {
-                    data = [...data, ...chunk.data];
-                  }
-                });
-                buffer = ''; // Clear buffer after successful parse
-              }
-            } catch (e) {
-              // If JSON is incomplete, continue reading next chunk
-              continue;
-            }
-          }
-
-          // Handle any remaining buffer
-          if (buffer) {
-            try {
-              const parsed = JSON.parse(buffer);
-              if (Array.isArray(parsed)) {
-                parsed.forEach((chunk) => {
-                  if (chunk.success && Array.isArray(chunk.data)) {
-                    data = [...data, ...chunk.data];
-                  }
-                });
-              }
-            } catch (e) {
-              logger.error(`Error parsing final JSON buffer for token info ${address} on ${chain}:`, { error: e.message, buffer });
-              throw new Error(`Invalid JSON response from token info API`);
-            }
-          }
-
-          logger.log(`Parsed token info for ${address} on ${chain}:`, { data });
-
-          if (data.length > 0) {
-            const tokenData = data[0];
-            const tokenInfo = [
-              {
-                chain,
-                symbol: tokenData.symbol || 'Unknown',
-                logo: tokenData.logo || '/fallback-image.webp',
-                name: tokenData.name || 'Unknown Token',
+            const response = await fetch(`${API_BASE_URL}/api/sim`, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                ...(session?.accessToken && { Authorization: `Bearer ${session.accessToken}` }),
+                'x-recaptcha-token': 'no-recaptcha',
               },
-            ];
-            tokenInfoData[address] = tokenInfo;
-            try {
-              await cacheData(cacheKey, tokenInfo);
-              logger.log(`Cached token info for ${cacheKey}`);
-            } catch (cacheError) {
-              logger.warn(`Failed to cache token info for ${cacheKey}`, { cacheError });
+              body: JSON.stringify(payload),
+              credentials: 'include',
+            });
+
+            if (!response.ok) {
+              const text = await response.text();
+              let errorMessage = `Failed to fetch token info for ${address} on ${chain}: ${response.status} ${response.statusText}`;
+              try {
+                const result = JSON.parse(text);
+                errorMessage = result.detail || errorMessage;
+              } catch {
+                errorMessage = `Failed to fetch token info for ${address} on ${chain}: Invalid JSON response`;
+              }
+              throw new Error(errorMessage);
             }
-          } else {
+
+            const reader = response.body.getReader();
+            const decoder = new TextDecoder();
+            let data = [];
+            let buffer = '';
+
+            while (true) {
+              const { done, value } = await reader.read();
+              if (done) break;
+
+              buffer += decoder.decode(value, { stream: true });
+
+              try {
+                const parsed = JSON.parse(buffer);
+                if (Array.isArray(parsed)) {
+                  parsed.forEach((chunk) => {
+                    if (chunk.success && Array.isArray(chunk.data)) {
+                      data = [...data, ...chunk.data];
+                    }
+                  });
+                  buffer = ''; // Clear buffer after successful parse
+                }
+              } catch (e) {
+                // If JSON is incomplete, continue reading next chunk
+                continue;
+              }
+            }
+
+            // Handle any remaining buffer
+            if (buffer) {
+              try {
+                const parsed = JSON.parse(buffer);
+                if (Array.isArray(parsed)) {
+                  parsed.forEach((chunk) => {
+                    if (chunk.success && Array.isArray(chunk.data)) {
+                      data = [...data, ...chunk.data];
+                    }
+                  });
+                }
+              } catch (e) {
+                logger.error(`Error parsing final JSON buffer for token info ${address} on ${chain}:`, { error: e.message, buffer });
+                throw new Error(`Invalid JSON response from token info API`);
+              }
+            }
+
+            logger.log(`Parsed token info for ${address} on ${chain}:`, { data });
+
+            if (data.length > 0) {
+              const tokenData = data[0];
+              const tokenInfo = [
+                {
+                  chain,
+                  symbol: tokenData.symbol || 'Unknown',
+                  logo: tokenData.logo || '/fallback-image.webp',
+                  name: tokenData.name || 'Unknown Token',
+                },
+              ];
+              tokenInfoData[address] = tokenInfo;
+              try {
+                await cacheData(cacheKey, tokenInfo);
+                logger.log(`Cached token info for ${cacheKey}`);
+              } catch (cacheError) {
+                logger.warn(`Failed to cache token info for ${cacheKey}`, { cacheError });
+              }
+            } else {
+              tokenInfoData[address] = [
+                {
+                  chain,
+                  symbol: 'Unknown',
+                  logo: '/fallback-image.webp',
+                  name: 'Unknown Token',
+                },
+              ];
+            }
+          } catch (err) {
+            logger.error(`Error fetching token info for ${address} on ${chain}:`, { error: err });
             tokenInfoData[address] = [
               {
                 chain,
@@ -667,18 +768,9 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
               },
             ];
           }
-        } catch (err) {
-          logger.error(`Error fetching token info for ${address} on ${chain}:`, { error: err });
-          tokenInfoData[address] = [
-            {
-              chain,
-              symbol: 'Unknown',
-              logo: '/fallback-image.webp',
-              name: 'Unknown Token',
-            },
-          ];
-        }
-      }
+        })
+      );
+
       return tokenInfoData;
     },
     {
@@ -694,9 +786,11 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
       const errorMessage = tokenInfoError.message || 'Failed to load token info';
       setError(errorMessage);
     }
-    if (tokenInfoData) setTokenInfo(tokenInfoData);
+    if (tokenInfoData) {
+      startTransition(() => setTokenInfo(tokenInfoData));
+    }
     setLoadingStates((prev) => ({ ...prev, tokenInfo: tokenInfoValidating }));
-  }, [tokenInfoData, tokenInfoError, tokenInfoValidating]);
+  }, [tokenInfoData, tokenInfoError, tokenInfoValidating, startTransition]);
 
   const { data: userTier, isLoading: userTierLoading } = useQuery({
     queryKey: ['userTier', session?.user?.id],
@@ -740,6 +834,7 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
             batches.push(evmAddresses.slice(i, i + batchSize));
           }
 
+          // Parallelize batch requests for faster name tag fetching
           const batchPromises = batches.map((batch) =>
             axios.post(
               `${API_BASE_URL}/api/nametags`,
@@ -806,13 +901,15 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
         newNameTags[addr] = { nameTag: null, image: null, timestamp: Date.now() };
       });
 
-      setNameTags((prev) => ({
-        ...prev,
-        ...newNameTags,
-      }));
+      startTransition(() => {
+        setNameTags((prev) => ({
+          ...prev,
+          ...newNameTags,
+        }));
+      });
       logger.log(`Updated nameTags for ${Object.keys(newNameTags).length} addresses`);
     },
-    [session, status, toast]
+    [session, status, toast, startTransition]
   );
 
   useEffect(() => {
@@ -846,7 +943,7 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
       if (!forceFetch) {
         const cachedData = await getCachedData(cacheKey);
         if (cachedData && cachedData.length > 0) {
-          setWatchlists(cachedData);
+          startTransition(() => setWatchlists(cachedData));
           if (cachedData.length > 0 && isInitialLoad) {
             const walletToSelect = cachedData.find((w) => w.address === (initialAddress || searchParams.get('address'))) || cachedData[0];
             setSelectedWallet(walletToSelect);
@@ -875,7 +972,7 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
             chainType: isAddress(item.wallet_address) ? 'EVM' : isValidSolanaAddress(item.wallet_address) ? 'SVM' : 'EVM',
           }));
           await cacheData(cacheKey, watchlistsData);
-          setWatchlists(watchlistsData);
+          startTransition(() => setWatchlists(watchlistsData));
           if (watchlistsData.length > 0 && isInitialLoad) {
             const walletToSelect = watchlistsData.find((w) => w.address === (initialAddress || searchParams.get('address'))) || watchlistsData[0];
             setSelectedWallet(walletToSelect);
@@ -891,7 +988,7 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
       } catch (err) {
         const errorMessage = err.response?.data?.detail || `Failed to load watchlists: ${err.message}`;
         setError(errorMessage);
-        setWatchlists([]);
+        startTransition(() => setWatchlists([]));
       } finally {
         setLoadingStates((prev) => ({ ...prev, loading: false }));
         setForceFetch(false);
@@ -899,7 +996,7 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
     }
 
     fetchWatchlists();
-  }, [session, isValidSolanaAddress, initialAddress, updateUrl, forceFetch, isInitialLoad, searchParams]);
+  }, [session, isValidSolanaAddress, initialAddress, updateUrl, forceFetch, isInitialLoad, searchParams, startTransition]);
 
   const handleAddWallet = async () => {
     if (isAtLimit) {
@@ -952,7 +1049,7 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
           name: item.name,
           chainType: isAddress(item.wallet_address) ? 'EVM' : isValidSolanaAddress(item.wallet_address) ? 'SVM' : 'EVM',
         }));
-        setWatchlists(updatedWatchlists);
+        startTransition(() => setWatchlists(updatedWatchlists));
         const cacheKey = `watchlists-${session.user.id}`;
         await cacheData(cacheKey, updatedWatchlists);
         const newWallet = updatedWatchlists.find((w) => w.address === newAddress) || updatedWatchlists[0];
@@ -1007,16 +1104,18 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
           name: item.name,
           chainType: isAddress(item.wallet_address) ? 'EVM' : isValidSolanaAddress(item.wallet_address) ? 'SVM' : 'EVM',
         }));
-        setWatchlists(updatedWatchlists);
+        startTransition(() => setWatchlists(updatedWatchlists));
         const cacheKey = `watchlists-${session.user.id}`;
         await cacheData(cacheKey, updatedWatchlists);
         if (selectedWallet?.address === walletAddress) {
           const newWallet = updatedWatchlists[0] || null;
           setSelectedWallet(newWallet);
           setActiveChainType(newWallet?.chainType || 'EVM');
-          setBalances([]);
-          setTransactions([]);
-          setTokenInfo({});
+          startTransition(() => {
+            setBalances([]);
+            setTransactions([]);
+            setTokenInfo({});
+          });
           setActiveChain(null);
           setForceFetch(true);
           updateUrl(newWallet?.address || null);
@@ -1445,9 +1544,11 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
                           setIsUserInitiatedChange(true);
                           setSelectedWallet(wallet);
                           setActiveChainType(wallet?.chainType || 'EVM');
-                          setBalances([]);
-                          setTransactions([]);
-                          setTokenInfo({});
+                          startTransition(() => {
+                            setBalances([]);
+                            setTransactions([]);
+                            setTokenInfo({});
+                          });
                           setActiveChain(null);
                           lastSelectedWalletRef.current = wallet.address;
                           updateUrl(wallet.address);
@@ -1554,9 +1655,11 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
                   setIsUserInitiatedChange(true);
                   setSelectedWallet(wallet);
                   setActiveChainType(wallet?.chainType || 'EVM');
-                  setBalances([]);
-                  setTransactions([]);
-                  setTokenInfo({});
+                  startTransition(() => {
+                    setBalances([]);
+                    setTransactions([]);
+                    setTokenInfo({});
+                  });
                   setActiveChain(null);
                   lastSelectedWalletRef.current = wallet.address;
                   updateUrl(wallet.address);
@@ -1757,6 +1860,39 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
                               Error: {error}
                             </p>
                           </div>
+                        ) : loadingStates.balances || loadingStates.tokenInfo ? (
+                          <div className="space-y-2 flex-1 flex flex-col">
+                            <div className="flex-1 bg-gradient-to-b from-black/80 to-black/90 rounded-b-xl border border-white/10 overflow-hidden shadow-inner">
+                              <div className="flex bg-gradient-to-r from-black/20 to-black/30 border-b border-white/10 px-2 py-2 text-[9px] sm:text-[10px] font-semibold text-white sticky top-0 z-10">
+                                <div className="w-[25%] px-2 flex items-center gap-1 text-left">
+                                  <svg xmlns="http://www.w3.org/2000/svg" className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                  </svg>
+                                  Token
+                                </div>
+                                <div className="w-[45%] px-2 flex items-center justify-center gap-1 text-center">
+                                  <svg xmlns="http://www.w3.org/2000/svg" className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                  </svg>
+                                  Balance
+                                </div>
+                                <div className="w-[30%] px-2 flex items-center justify-center gap-1 text-center">
+                                  <svg xmlns="http://www.w3.org/2000/svg" className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                                  </svg>
+                                  Percentage
+                                </div>
+                              </div>
+                              <div className="overflow-y-auto custom-scrollbar" style={{ height: 'calc(100% - 2.5rem)' }}>
+                                <Virtuoso
+                                  className="custom-scrollbar"
+                                  style={{ height: '100%' }}
+                                  totalCount={20} // Show 20 skeleton rows
+                                  itemContent={(index) => <SkeletonTokenRow index={index} />}
+                                />
+                              </div>
+                            </div>
+                          </div>
                         ) : filteredBalances.length > 0 ? (
                           <div className="space-y-2 flex-1 flex flex-col">
                             <div className="flex-1 bg-gradient-to-b from-black/80 to-black/90 rounded-b-xl border border-white/10 overflow-hidden shadow-inner">
@@ -1814,6 +1950,73 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
                               Error: {transactionsError.message || 'Failed to load transactions'}
                             </p>
                           </div>
+                        ) : loadingStates.transactions ? (
+                          <>
+                            <div className="flex items-center justify-center gap-2 p-2 border-b border-white/10 bg-white/5">
+                              <motion.button
+                                onClick={() => handlePageChange(Math.max(1, currentPage - 1))}
+                                disabled={currentPage === 1}
+                                whileHover={{ scale: 1.05 }}
+                                whileTap={{ scale: 0.95 }}
+                                className="p-1 text-[9px] font-medium text-white border border-white/10 bg-white/5 rounded-xl disabled:opacity-50 disabled:cursor-not-allowed hover:bg-neon-blue/20 transition-all duration-300"
+                              >
+                                <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                                </svg>
+                              </motion.button>
+                              <div className="px-3 py-1 text-[9px] font-medium text-white border border-white/10 bg-white/5 rounded-xl">
+                                {currentPage}/{totalPages}
+                              </div>
+                              <motion.button
+                                onClick={() => handlePageChange(Math.min(totalPages, currentPage + 1))}
+                                disabled={currentPage === totalPages}
+                                whileHover={{ scale: 1.05 }}
+                                whileTap={{ scale: 0.95 }}
+                                className="p-1 text-[9px] font-medium text-white border border-white/10 bg-white/5 rounded-xl disabled:opacity-50 disabled:cursor-not-allowed hover:bg-neon-blue/20 transition-all duration-300"
+                              >
+                                <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                                </svg>
+                              </motion.button>
+                            </div>
+                            <div className="flex-1 bg-gradient-to-b from-black/80 to-black/90 rounded-b-xl border border-white/10 overflow-hidden shadow-inner">
+                              <div className="flex bg-gradient-to-r from-black/20 to-black/30 border-b border-white/10 px-2 py-2 text-[9px] sm:text-[10px] font-semibold text-white sticky top-0 z-10">
+                                {/* Headers for skeleton - same as real */}
+                                <div className="w-[25%] px-2 flex items-center gap-1 text-left">
+                                  <svg xmlns="http://www.w3.org/2000/svg" className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                  </svg>
+                                  Token
+                                </div>
+                                <div className="w-[25%] px-2 flex items-center gap-1 text-center">
+                                  <svg xmlns="http://www.w3.org/2000/svg" className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                                  </svg>
+                                  Address
+                                </div>
+                                <div className="w-[25%] px-2 flex items-center gap-1 text-center">
+                                  <svg xmlns="http://www.w3.org/2000/svg" className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                  </svg>
+                                  Balance
+                                </div>
+                                <div className="w-[25%] px-2 flex items-center gap-1 text-center">
+                                  <svg xmlns="http://www.w3.org/2000/svg" className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                  </svg>
+                                  Tx / Time
+                                </div>
+                              </div>
+                              <div className="overflow-y-auto custom-scrollbar" style={{ height: 'calc(100% - 2.5rem)' }}>
+                                <Virtuoso
+                                  className="custom-scrollbar"
+                                  style={{ height: '100%' }}
+                                  totalCount={transactionsPerPage} // Show page-sized skeletons
+                                  itemContent={(index) => <SkeletonTransactionRow index={index} />}
+                                />
+                              </div>
+                            </div>
+                          </>
                         ) : filteredTransactions.length > 0 ? (
                           <>
                             <div className="flex items-center justify-center gap-2 p-2 border-b border-white/10 bg-white/5">
