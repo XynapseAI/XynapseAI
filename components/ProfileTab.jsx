@@ -528,7 +528,7 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
         if (err.response?.data?.detail === 'Invalid CSRF check.') {
           errorMessage = 'Session security issue detected. Please refresh the page.';
         } else if (err.response?.data?.detail?.includes('reCAPTCHA')) {
-          errorMessage = 'Security verification failed. Please complete the challenge and try again.';
+          errorMessage = 'Security verification failed. Please try the action again. If it persists , try another browser.';
         } else {
           errorMessage = 'Security verification failed. Please try the action again. If it persists, refresh the page.';
         }
@@ -654,7 +654,7 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
         if (detail === 'Invalid CSRF check.') {
           errorMessage = 'Session security issue detected. Please refresh the page and try again.';
         } else if (detail?.includes('reCAPTCHA')) {
-          errorMessage = 'Security verification failed. Please complete the challenge and try again.';
+          errorMessage = 'ecurity verification failed. Please try the action again. If it persists , try another browser.';
         } else {
           errorMessage = 'Security verification failed. Please try the action again. If it persists, refresh the page.';
         }

@@ -413,18 +413,18 @@ function UniverseBackground() {
       <Galaxy />
 
       {/* Glowing nebulae regions in black space */}
-      {Array.from({ length: 4 }).map((_, i) => ( // Reduced for subtlety
-        <Float key={`nebula-${i}`} speed={0.15} rotationIntensity={0.03}>
+      {Array.from({ length: 2 }).map((_, i) => ( // Reduced for subtlety, matching dashboard
+        <Float key={`nebula-${i}`} speed={0.1} rotationIntensity={0.02}>
           <Sphere
-            args={[8 + Math.random() * 6, 16, 16]}
-            position={[(Math.random() - 0.5) * 100, (Math.random() - 0.5) * 20, (Math.random() - 0.5) * 100]} // Flatter
+            args={[5 + Math.random() * 4, 12, 12]} // Smaller sizes
+            position={[(Math.random() - 0.5) * 80, (Math.random() - 0.5) * 15, (Math.random() - 0.5) * 80]} // Flatter
           >
             <meshStandardMaterial
               color={Math.random() > 0.5 ? "#4B0082" : "#8A2BE2"} // Purple/indigo for nebulae
               transparent
-              opacity={0.12 + Math.random() * 0.08}
+              opacity={0.08 + Math.random() * 0.06} // Much lower opacity
               emissive={Math.random() > 0.5 ? "#4B0082" : "#8A2BE2"}
-              emissiveIntensity={0.15 + Math.random() * 0.1}
+              emissiveIntensity={0.1 + Math.random() * 0.08} // Lower intensity
               blending={THREE.AdditiveBlending}
             />
           </Sphere>
@@ -448,14 +448,16 @@ function HeroSection() {
   const buttonsY = useTransform(scrollYProgress, [0, 0.3], [0, -25])
   const backgroundScale = useTransform(scrollYProgress, [0, 0.5], [1, 1.2])
 
-  const floatingAnimation = {
-    y: [-10, 10, -10],
-    transition: {
-      duration: 6,
-      repeat: Number.POSITIVE_INFINITY,
-      ease: "easeInOut",
-    },
-  }
+  // const floatingAnimation = {
+  //   y: [-10, 10, -10],
+  //   transition: {
+  //     duration: 6,
+  //     repeat: Number.POSITIVE_INFINITY,
+  //     ease: "easeInOut",
+  //   },
+  // }
+
+  const isMobile = /Mobi|Android/i.test(navigator.userAgent);
 
   return (
     <section ref={heroRef} className="relative min-h-screen flex items-center justify-center px-6 z-10 overflow-hidden">
@@ -506,47 +508,53 @@ function HeroSection() {
                 }}
                 className="block"
               >
-                <span
-                  className="text-white"
-                  style={{
-                    background:
-                      wordIndex === 1
-                        ? "linear-gradient(to right, #60A5FA, #22D3EE)"
-                        : "linear-gradient(to right, #FFFFFF, #DBEAFE, #CFFAFE)",
-                    WebkitBackgroundClip: "text",
-                    WebkitTextFillColor: "transparent",
-                    backgroundClip: "text",
-                  }}
-                >
-                  {word.split("").map((letter, letterIndex) => (
-                    <motion.span
-                      key={letterIndex}
-                      initial={{ opacity: 0, y: 50 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      transition={{
-                        duration: 0.5,
-                        delay: wordIndex * 0.3 + letterIndex * 0.05,
-                        ease: "easeOut",
-                      }}
-                      className="inline-block"
-                      whileHover={
-                        !/Mobi|Android/i.test(navigator.userAgent)
-                          ? { scale: 1.1, transition: { duration: 0.2 } }
-                          : undefined
-                      }
-                      style={{
-                        color: /Mobi|Android/i.test(navigator.userAgent)
-                          ? "transparent"
-                          : "#FFFFFF",
-                        WebkitTextFillColor: /Mobi|Android/i.test(navigator.userAgent)
-                          ? "transparent"
-                          : undefined,
-                      }}
-                    >
-                      {letter}
-                    </motion.span>
-                  ))}
-                </span>
+                {isMobile ? (
+                  <span
+                    className="text-white"
+                    style={{
+                      background:
+                        wordIndex === 1
+                          ? "linear-gradient(to right, #60A5FA, #22D3EE)"
+                          : "linear-gradient(to right, #FFFFFF, #DBEAFE, #CFFAFE)",
+                      WebkitBackgroundClip: "text",
+                      WebkitTextFillColor: "transparent",
+                      backgroundClip: "text",
+                    }}
+                  >
+                    {word}
+                  </span>
+                ) : (
+                  <span
+                    className="text-white"
+                    style={{
+                      background:
+                        wordIndex === 1
+                          ? "linear-gradient(to right, #60A5FA, #22D3EE)"
+                          : "linear-gradient(to right, #FFFFFF, #DBEAFE, #CFFAFE)",
+                      WebkitBackgroundClip: "text",
+                      WebkitTextFillColor: "transparent",
+                      backgroundClip: "text",
+                    }}
+                  >
+                    {word.split("").map((letter, letterIndex) => (
+                      <motion.span
+                        key={letterIndex}
+                        initial={{ opacity: 0, y: 50 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{
+                          duration: 0.5,
+                          delay: wordIndex * 0.3 + letterIndex * 0.05,
+                          ease: "easeOut",
+                        }}
+                        className="inline-block"
+                        whileHover={{ scale: 1.1, transition: { duration: 0.2 } }}
+                        style={{ color: "#FFFFFF" }}
+                      >
+                        {letter}
+                      </motion.span>
+                    ))}
+                  </span>
+                )}
               </motion.div>
             ))}
             <div className="absolute inset-0 bg-gradient-to-r from-blue-400/20 to-cyan-400/20 blur-3xl -z-10" />
@@ -559,16 +567,13 @@ function HeroSection() {
             transition={{ duration: 1, delay: 1.2 }}
             className="text-sm md:text-lg text-white/70 mb-12 max-w-4xl mx-auto leading-relaxed relative"
           >
-            <motion.span animate={floatingAnimation} className="inline-block">
+            <span className="inline-block">
               WITH AI PRECISION
-            </motion.span>
+            </span>
             <br />
-            <motion.span
-              animate={{ ...floatingAnimation, transition: { ...floatingAnimation.transition, delay: 1 } }}
-              className="inline-block"
-            >
+            <span className="inline-block">
               Access comprehensive wallet data, track large organizations, and visualize fund flows in real-time.
-            </motion.span>
+            </span>
           </motion.p>
         </motion.div>
         <motion.div

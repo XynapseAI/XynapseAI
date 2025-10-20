@@ -1,4 +1,6 @@
 // Upgraded app/api/etherscan/route.js (minor fix for V2 compatibility, no major changes)
+// Fixed: Sanitized logging to avoid exposing API key in logs
+// Fixed: Renamed 'module' variable to 'apiModule' to avoid Next.js linting rule violation
 import { NextResponse } from 'next/server';
 import axios from 'axios';
 import { z } from 'zod';
@@ -167,8 +169,10 @@ export const POST = handlerWrapper(async (request) => {
           let data = [];
 
           if (action === 'transactions' && address) {
-            apiUrl += `&module=account&action=txlist&address=${address}&startblock=0&endblock=99999999&sort=desc&apikey=${process.env.ETHERSCAN_API_KEY}`;
-            logger.info(`Calling Etherscan V2 API for transactions: ${apiUrl}`, { ip });
+            const apiModule = 'account';
+            const apiAction = 'txlist';
+            apiUrl += `&module=${apiModule}&action=${apiAction}&address=${address}&startblock=0&endblock=99999999&sort=desc&apikey=${process.env.ETHERSCAN_API_KEY}`;
+            logger.info('Calling Etherscan V2 API', { module: apiModule, action: apiAction, chain, address, ip });
             const response = await fetchWithRateLimit(apiUrl, { timeout: 15000 });
 
             if (response.data.status === '1' && Array.isArray(response.data.result)) {
@@ -191,8 +195,10 @@ export const POST = handlerWrapper(async (request) => {
             controller.enqueue(JSON.stringify({ success: true, data }));
             controller.close();
           } else if (action === 'wallet-balances' && address) {
-            apiUrl += `&module=account&action=balance&address=${address}&tag=latest&apikey=${process.env.ETHERSCAN_API_KEY}`;
-            logger.info(`Calling Etherscan V2 API for balance: ${apiUrl}`, { ip });
+            const apiModule = 'account';
+            const apiAction = 'balance';
+            apiUrl += `&module=${apiModule}&action=${apiAction}&address=${address}&tag=latest&apikey=${process.env.ETHERSCAN_API_KEY}`;
+            logger.info('Calling Etherscan V2 API', { module: apiModule, action: apiAction, chain, address, ip });
             const response = await fetchWithRateLimit(apiUrl, { timeout: 15000 });
 
             if (response.data.status === '1' && typeof response.data.result === 'string') {
@@ -217,8 +223,10 @@ export const POST = handlerWrapper(async (request) => {
             controller.enqueue(JSON.stringify({ success: true, data }));
             controller.close();
           } else if (action === 'token-supply' && tokenAddress) {
-            apiUrl += `&module=stats&action=tokensupply&contractaddress=${tokenAddress}&apikey=${process.env.ETHERSCAN_API_KEY}`;
-            logger.info(`Calling Etherscan V2 API for token supply: ${apiUrl}`, { ip });
+            const apiModule = 'stats';
+            const apiAction = 'tokensupply';
+            apiUrl += `&module=${apiModule}&action=${apiAction}&contractaddress=${tokenAddress}&apikey=${process.env.ETHERSCAN_API_KEY}`;
+            logger.info('Calling Etherscan V2 API', { module: apiModule, action: apiAction, chain, tokenAddress, ip });
             const response = await fetchWithRateLimit(apiUrl, { timeout: 15000 });
 
             if (response.data.status === '1' && typeof response.data.result === 'string') {
@@ -235,10 +243,12 @@ export const POST = handlerWrapper(async (request) => {
             controller.enqueue(JSON.stringify({ success: true, data: { tokenAddress, name: 'Unknown', symbol: 'Unknown', decimals: 0, note: 'Requires contract interaction for full details' } }));
             controller.close();
           } else if (action === 'token-transactions' && tokenAddress) {
+            const apiModule = 'account';
+            const apiAction = 'tokentx';
             const pageNum = parsedBody.page;
             const offsetNum = parsedBody.offset;
-            apiUrl += `&module=account&action=tokentx&contractaddress=${tokenAddress}&startblock=0&endblock=99999999&sort=desc&page=${pageNum}&offset=${offsetNum}&apikey=${process.env.ETHERSCAN_API_KEY}`;
-            logger.info(`Calling Etherscan V2 API for token transactions: ${apiUrl}`, { ip });
+            apiUrl += `&module=${apiModule}&action=${apiAction}&contractaddress=${tokenAddress}&startblock=0&endblock=99999999&sort=desc&page=${pageNum}&offset=${offsetNum}&apikey=${process.env.ETHERSCAN_API_KEY}`;
+            logger.info('Calling Etherscan V2 API', { module: apiModule, action: apiAction, chain, tokenAddress, page: pageNum, offset: offsetNum, ip });
             const response = await fetchWithRateLimit(apiUrl, { timeout: 15000 });
 
             if (response.data.status === '1' && Array.isArray(response.data.result)) {
