@@ -305,7 +305,7 @@ const CHAIN_ID_MAP = {
 const LIMIT_CONFIG = {
   "top-holders": 100,
   "wallet-balances": 2000,
-  transactions: 500,
+  transactions: 2000,
   collectibles: 200,
 };
 
@@ -784,12 +784,12 @@ export async function POST(request) {
             // Parallelize fetches for each address
             const fetchPromises = targetAddresses.map(async (addr) => {
               const isEVM = isAddress(addr);
-              const perCallLimit = isEVM ? 100 : 1000; // EVM max 100/call, SVM max 1000/call
+              const perCallLimit = isEVM ? 200 : 1000; // EVM max 200/call, SVM max 1000/call
               let allTransactions = [];
               let nextOffset = null;
               let remainingLimit = clusterLimit;  // Sử dụng clusterLimit
               let pageCount = 0;
-              const maxPages = isEVM ? 5 : 2;  // FIX: Cap pages/address để tránh overload (EVM: 500 tx max)
+              const maxPages = isEVM ? 10 : 2;  // FIX: Cap pages/address để tránh overload (EVM: 2000 tx max)
 
               // Paginate loop for this address
               do {
@@ -814,7 +814,6 @@ export async function POST(request) {
 
                   const transactions = (isEVM ? response.data.activity : response.data.transactions) || [];
 
-                  // FIX: Filter minValueUsd NGAY SAU MỖI PAGE để giảm data sớm
                   let filteredPage = transactions;
                   if (isEVM && minValueUsd) {
                     filteredPage = transactions.filter(tx => {
@@ -822,11 +821,10 @@ export async function POST(request) {
                       return !(minValueUsd && value_usd < minValueUsd);
                     });
                   }
-                  // SVM: Filter sau (complex), nên giữ nguyên
 
                   allTransactions.push(...filteredPage);
                   nextOffset = response.data.next_offset || null;
-                  remainingLimit -= filteredPage.length;  // Dùng filtered length
+                  remainingLimit -= filteredPage.length; 
 
                 } catch (error) {
                   logger.error(`Error fetching transactions page for address ${addr}: ${error.message}`, { ip });

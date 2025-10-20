@@ -1,26 +1,24 @@
-// Upgraded components/MarketTab.jsx
+// Upgraded components/MarketTab.jsx (Optimized for 2025: Lighter, Smoother)
 "use client"
 
-import React, { useState, useEffect, useRef, useCallback, useMemo } from "react"
+import React, { useState, useEffect, useRef, useCallback, useMemo, Suspense } from "react"
+import dynamic from "next/dynamic"
 import { useRouter } from "next/navigation"
 import Image from "next/image"
 import { useSession } from "next-auth/react"
-import { motion, AnimatePresence } from "framer-motion"
+// Removed framer-motion; use AutoAnimate + CSS
+import { useAutoAnimate } from '@formkit/auto-animate/react'
 import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, ReferenceDot } from "recharts"
 import { createPortal } from "react-dom"
 import "highlight.js/styles/github-dark.css"
 import { useMarketTabLogic } from "./MarketTabLogic"
-import WalletBalances from "./WalletBalances"
-import Modal from "./Modal"
-import LoginPrompt from './LoginPrompt';
-import UniversalSearch from "./UniversalSearch"
+import { SkeletonLoader } from "../utils/helpers" // For Suspense loading
 import "../styles/MarketTab.css"
 import { ToastContainer } from "react-toastify"
 import "react-toastify/dist/ReactToastify.css"
 import { formatDistanceToNow } from "date-fns"
 import { GECKOTERMINAL_CHAIN_MAPPING, CHAIN_ID_TO_NAME } from "../utils/constants"
 import {
-  SkeletonLoader,
   getExplorerUrls,
   formatPrice,
   truncateAddress,
@@ -34,13 +32,22 @@ import remarkGfm from 'remark-gfm';
 import ReactMarkdown from "react-markdown";
 import { Virtuoso } from 'react-virtuoso';
 
+// Dynamic imports for heavy components (Next.js 15 opt)
+const WalletBalances = dynamic(() => import("./WalletBalances"), {
+  ssr: false,
+  loading: () => <SkeletonLoader count={3} />
+});
+const Modal = dynamic(() => import("./Modal"), {
+  ssr: false,
+  loading: () => <div className="flex items-center justify-center h-64"><SkeletonLoader height={20} width={200} /></div>
+});
+const LoginPrompt = dynamic(() => import('./LoginPrompt'), { ssr: false });
+const UniversalSearch = dynamic(() => import("./UniversalSearch"), { ssr: false });
+
 const CustomTooltip = ({ active, payload, label, currency }) => {
   if (active && payload && payload.length) {
     return (
-      <div
-        className="bg-black/95 backdrop-blur-xl border border-white/20 p-3 rounded-2xl text-white text-sm font-medium shadow-2xl"
-        style={{ opacity: 1, scale: 1 }}
-      >
+      <div className="bg-black/95 backdrop-blur-xl border border-white/20 p-3 rounded-2xl text-white text-sm font-medium shadow-2xl transition-opacity duration-200">
         <p className="text-white/70 text-xs mb-1">{label}</p>
         <p className="text-white font-semibold">
           Price: <span className="text-emerald-400">{formatPrice(payload[0].value, currency, 8)}</span>
@@ -51,9 +58,17 @@ const CustomTooltip = ({ active, payload, label, currency }) => {
   return null
 }
 
+// Downsample function for large chart data (built-in JS, no dep)
+const downsampleData = (data, maxPoints = 200) => {
+  if (!data || data.length <= maxPoints) return data;
+  const step = Math.floor(data.length / maxPoints);
+  return data.filter((_, i) => i % step === 0);
+};
+
 const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initialTokenData }) => {
   const { data: session } = useSession()
   const { currency } = useCurrency();
+  const [autoAnimateRef] = useAutoAnimate() // Returns [ref, enableFn]; we use ref only
   const {
     tokens,
     loading,
@@ -142,7 +157,6 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
     isLoadingMoreDex,
     setIsLoadingMoreDex,
     setHasMoreDex,
-    // New pagination
     currentDexPage,
     setCurrentDexPage,
     getPaginatedTrades,
@@ -158,6 +172,7 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
   const dropdownRef = useRef(null)
   const chainDropdownRef = useRef(null)
   const prevTradesRef = useRef([])
+  const trendingRef = useRef(null)
   const [isChainDropdownOpen, setIsChainDropdownOpen] = useState(false)
   const [isChartLoading, setIsChartLoading] = useState(false)
   const [activeMarketTab, setActiveMarketTab] = useState("cex")
@@ -167,11 +182,16 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
   const [highLowData, setHighLowData] = useState({ high: null, low: null, percentageChange: null })
   const [hoveredToken, setHoveredToken] = useState(null)
   const [isTrendingHovered, setIsTrendingHovered] = useState(false)
-  const trendingRef = useRef(null)
   const [tooltipPosition, setTooltipPosition] = useState({ top: 0, left: 0 })
   const [tooltipToken, setTooltipToken] = useState(null)
   const tokenRefs = useRef({})
   const lastFetchedSlugRef = useRef(null)
+
+  // AutoAnimate refs for lists
+  const holdersListRef = useRef(null)
+  const tradesListRef = useRef(null)
+  const tickersListRef = useRef(null)
+  const trendingListRef = useRef(null)
 
   // Map exchange IDs to match ClusterTab's EXCHANGE_MAPPING
   const EXCHANGE_MAPPING = {
@@ -282,7 +302,7 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
 
     return createPortal(
       <div
-        className="fixed z-50 bg-black/40 backdrop-blur-sm border border-white/30 p-4 rounded-2xl text-white shadow-2xl transition-all duration-200"  // Bỏ motion, dùng CSS
+        className="fixed z-50 bg-black/40 backdrop-blur-sm border border-white/30 p-4 rounded-2xl text-white shadow-2xl transition-all duration-200"
         style={{
           top: `${position.top}px`,
           left: `${position.left}px`,
@@ -658,23 +678,14 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
     return () => observer.disconnect();
   }, []);
 
-  // Sort trades by timestamp descending (newest first)
+  // Memoized chart data (downsample for perf)
+  const chartData = useMemo(() => downsampleData(priceHistory), [priceHistory])
+
+  // Memoized sortedTrades (enhance perf)
   const sortedTrades = useMemo(() => {
     if (!dexData.trades || dexData.trades.length === 0) return [];
     return [...dexData.trades].sort((a, b) => new Date(b.block_timestamp) - new Date(a.block_timestamp));
   }, [dexData.trades]);
-
-  const rowVariants = {
-    hidden: { opacity: 0, y: 10 },
-    visible: {
-      opacity: 1,
-      y: 0,
-      transition: {
-        duration: 0.2,
-        ease: [0.25, 0.46, 0.45, 0.94],
-      },
-    },
-  };
 
   // New: Handle next/prev page
   const handleNextPage = useCallback(() => {
@@ -690,44 +701,45 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
     }
   }, [currentDexPage, goToDexPage]);
 
+  // Tab indicator style (CSS-based, no layoutId)
+  const tabIndicatorStyle = useMemo(() => {
+    const width = '33.333%';
+    let left = '0%';
+    if (activeMarketTab === 'cex') left = '33.333%';
+    else if (activeMarketTab === 'dex') left = '66.666%';
+    return { left, width, transition: 'left 0.3s ease-in-out' };
+  }, [activeMarketTab]);
+
   return (
-    <motion.section
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.6, ease: "easeOut" }}
-      className={`font-saira w-full max-w-9xl mx-auto mt-4 p-2 sm:p-4 h-[calc(100vh)] bg-gradient-to-br from-black/80 to-gray-900/80 backdrop-blur-xs ${isMobile ? 'pb-8 overflow-y-auto' : ''}`}
+    <section
+      ref={trendingListRef} // AutoAnimate for trending
+      className={`font-saira w-full max-w-9xl mx-auto mt-4 p-2 sm:p-4 h-[calc(100vh)] bg-gradient-to-br from-black/80 to-gray-900/80 backdrop-blur-xs ${isMobile ? 'pb-8 overflow-y-auto' : ''} animate-fadeIn`} // CSS initial fade
       aria-label="Cryptocurrency Market Data"
     >
       <div className="w-full mb-1 mt-2 sm:mt-1">
         <div className="flex flex-col gap-2">
           <div className="flex flex-row items-center justify-between gap-2 sm:gap-3">
             <div className="flex items-center gap-2 flex-shrink-0 bg-gradient-to-r from-white/10 to-white/5 backdrop-blur-sm">
-              <motion.div
-                className=" p-1.5"
-                whileHover={{ scale: 1.02 }}
-                transition={{ duration: 0.2 }}
-              >
+              <div className="p-1.5 group hover:scale-102 transition-transform duration-200"> {/* CSS hover */}
                 <h2 className="text-[8px] sm:text-[10px] font-bold text-white uppercase tracking-wider">Crypto</h2>
-              </motion.div>
+              </div>
             </div>
 
             {/* Controls */}
             <div className="flex flex-row items-center gap-4 flex-1 justify-end">
               {/* Chain Selector */}
               <div className="relative" ref={chainDropdownRef}>
-                <motion.button
+                <button
                   onClick={() => setIsChainDropdownOpen(!isChainDropdownOpen)}
-                  className={`bg-black/40 backdrop-blur-sm text-white px-1.5 sm:px-2 py-1 sm:py-1 text-[8px] sm:text-[10px] flex items-center gap-1 sm:gap-2 border-2 border-white/20 hover:bg-white/10 transition-all duration-300 rounded-lg min-w-[120px] ${selectedToken?.id && ["bitcoin", "ethereum"].includes(selectedToken.id.toLowerCase())
+                  className={`bg-black/40 backdrop-blur-sm text-white px-1.5 sm:px-2 py-1 sm:py-1 text-[8px] sm:text-[10px] flex items-center gap-1 sm:gap-2 border-2 border-white/20 hover:bg-white/10 transition-all duration-300 rounded-lg min-w-[120px] group hover:scale-102 active:scale-98 ${selectedToken?.id && ["bitcoin", "ethereum"].includes(selectedToken.id.toLowerCase())
                     ? "opacity-50 cursor-not-allowed"
                     : ""
-                    }`}
+                    }`} // CSS scale
                   disabled={
                     !selectedToken ||
                     (selectedToken.id && ["bitcoin", "ethereum"].includes(selectedToken.id.toLowerCase()))
                   }
                   aria-label={`Select blockchain network for ${selectedToken?.name || 'token'}`}
-                  whileHover={{ scale: 1.02 }}
-                  whileTap={{ scale: 0.98 }}
                 >
                   {selectedChain ? (
                     <>
@@ -750,20 +762,13 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                   ) : (
                     <div className="w-3 sm:w-4 h-3 sm:h-4 bg-white/20 rounded-full animate-pulse"></div>
                   )}
-                  <motion.span
-                    className="text-[8px] sm:text-[10px] ml-auto"
-                    animate={{ rotate: isChainDropdownOpen ? 180 : 0 }}
-                    transition={{ duration: 0.2 }}
-                  >
+                  <span className={`text-[8px] sm:text-[10px] ml-auto transition-transform duration-200 ${isChainDropdownOpen ? 'rotate-180' : ''}`}>
                     {isChainDropdownOpen ? "▲" : "▼"}
-                  </motion.span>
-                </motion.button>
+                  </span>
+                </button>
                 {isChainDropdownOpen && (
-                  <motion.div
-                    className="bg-black/80 backdrop-blur-xl shadow-xl absolute z-50 mt-2 w-32 sm:w-48 max-h-48 sm:max-h-64 overflow-y-auto border border-white/20 rounded-lg shadow-2xl"
-                    initial={{ opacity: 0, y: -10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ duration: 0.2 }}
+                  <div
+                    className="bg-black/80 backdrop-blur-xl shadow-xl absolute z-50 mt-2 w-32 sm:w-48 max-h-48 sm:max-h-64 overflow-y-auto border border-white/20 rounded-lg shadow-2xl animate-slideDown" // CSS anim
                   >
                     {getAvailableChains().length === 0 ? (
                       <div className="px-3 py-2 text-white/60 text-[8px] sm:text-[10px]">No supported chains available</div>
@@ -771,10 +776,10 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                       getAvailableChains()
                         .filter((chain) => process.env.NODE_ENV === "development" || !chain.testnet)
                         .map((chain) => (
-                          <motion.button
+                          <button
                             key={chain.value}
                             onClick={() => handleChainSelect(chain.value)}
-                            className="flex items-center w-full text-left px-3 py-2 hover:bg-white/10 text-white text-[8px] sm:text-[10px] font-medium transition-all duration-300 first:rounded-t-lg last:rounded-b-lg"
+                            className="flex items-center w-full text-left px-3 py-2 hover:bg-white/10 text-white text-[8px] sm:text-[10px] font-medium transition-all duration-300 first:rounded-t-lg last:rounded-b-lg group hover:translate-x-1" // CSS translate
                             whileHover={{ x: 4 }}
                           >
                             <img
@@ -790,10 +795,10 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                               }}
                             />
                             {chain.label}
-                          </motion.button>
+                          </button>
                         ))
                     )}
-                  </motion.div>
+                  </div>
                 )}
               </div>
 
@@ -811,7 +816,7 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
           {/* Trending Tokens Ticker */}
           <section
             className="relative w-full rounded-lg trending-container overflow-hidden"
-            ref={trendingRef}
+            ref={autoAnimateRef}
             aria-label="Trending Cryptocurrencies"
           >
             {isLoadingTrending && !trendingTokens?.length ? (
@@ -821,31 +826,20 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
             ) : trendingError ? (
               <div className="text-center p-2">
                 <p className="text-red-500 text-[10px] mb-2">{trendingError}</p>
-                <motion.button
+                <button
                   onClick={() => fetchTrendingTokens()}
-                  className="px-4 py-1 text-white text-[10px] border border-white/20 rounded-xl hover:bg-white/10 transition-all duration-300"
-                  whileHover={{ scale: 1.05 }}
-                  whileTap={{ scale: 0.95 }}
+                  className="px-4 py-1 text-white text-[10px] border border-white/20 rounded-xl hover:bg-white/10 transition-all duration-300 group hover:scale-105 active:scale-95"
                 >
                   Retry
-                </motion.button>
+                </button>
               </div>
             ) : trendingTokens.length === 0 ? (
               <div className="text-white/60 text-[10px] text-center p-2">No trending data</div>
             ) : (
               <div className="overflow-hidden h-8 flex items-center">
-                <motion.div
-                  className="flex items-center whitespace-nowrap"
-                  animate={isTrendingHovered ? { x: 0 } : { x: ["0%", "-50%"] }}
-                  transition={{
-                    x: {
-                      repeat: Infinity,
-                      repeatType: "loop",
-                      duration: trendingTokens.length * 4, // Tăng duration để làm chậm
-                      ease: "linear",
-                    },
-                  }}
-                  style={{ display: "inline-flex", width: "max-content" }}
+                <div
+                  className="flex items-center whitespace-nowrap transition-transform duration-[20s] ease-linear" // CSS marquee anim, slower for smooth
+                  style={{ display: "inline-flex", width: "max-content", animationPlayState: isTrendingHovered ? 'paused' : 'running' }}
                   onMouseEnter={() => setIsTrendingHovered(true)}
                   onMouseLeave={() => {
                     setIsTrendingHovered(false);
@@ -858,10 +852,10 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                   }}
                 >
                   {[...trendingTokens, ...trendingTokens].map((token, index) => (
-                    <motion.div
+                    <div
                       key={`${token.id}-${index}`}
                       ref={(el) => (tokenRefs.current[`${token.id}-${index}`] = el)}
-                      className="relative mx-2 sm:mx-2.5 flex items-center gap-1 px-1.5 py-0.5 cursor-pointer transition-all duration-300"
+                      className="relative mx-2 sm:mx-2.5 flex items-center gap-1 px-1.5 py-0.5 cursor-pointer transition-all duration-300 group hover:scale-105 hover:-translate-y-0.5"
                       onClick={() => handleTokenSelect(token)}
                       onMouseEnter={() => {
                         setHoveredToken(`${token.id}-${index}`);
@@ -881,8 +875,6 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                         setHoveredToken(null);
                         setTooltipToken(null);
                       }}
-                      whileHover={{ scale: 1.05, y: -1 }}  // Giảm y để nhẹ
-                      whileTap={{ scale: 0.95 }}
                     >
                       <Image
                         src={token.thumb || token.image?.thumb || "/fallback-image.webp"}
@@ -899,9 +891,9 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                         {token.price_change_percentage_24h >= 0 ? "+" : ""}
                         {token.price_change_percentage_24h.toFixed(2)}%
                       </span>
-                    </motion.div>
+                    </div>
                   ))}
-                </motion.div>
+                </div>
               </div>
             )}
             <TrendingTooltip token={tooltipToken} position={tooltipPosition} />
@@ -910,13 +902,11 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
       </div>
 
       {error && (
-        <motion.div
-          className="text-[10px] sm:text-xs text-red-500 text-center p-2 sm:p-4 bg-red-500/10 border border-red-500/20 rounded-lg mb-2"
-          initial={{ opacity: 0, y: -10 }}
-          animate={{ opacity: 1, y: 0 }}
+        <div
+          className="text-[10px] sm:text-xs text-red-500 text-center p-2 sm:p-4 bg-red-500/10 border border-red-500/20 rounded-lg mb-2 animate-slideDown"
         >
           An error occurred while loading data. Please try again later.
-        </motion.div>
+        </div>
       )}
 
       {!loading && !error && tokens.length > 0 && (
@@ -926,11 +916,8 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
           {/* Left Column - Token Info & Chart */}
           <div className="flex flex-col gap-4 max-h-full min-h-[800px] sm:max-h-full overflow-y-auto hide-scrollbar">
             {/* Token Information Panel */}
-            <motion.div
-              className="border border-white/10 p-4 sm:p-4 rounded-xl min-h-[280px] sm:min-h-[310px] sm:max-h-[310px] overflow-y-auto custom-scrollbar bg-black/80 backdrop-blur-xl relative"
-              initial={{ opacity: 0, x: -20 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ duration: 0.5, delay: 0.1 }}
+            <div
+              className="border border-white/10 p-4 sm:p-4 rounded-xl min-h-[280px] sm:min-h-[310px] sm:max-h-[310px] overflow-y-auto custom-scrollbar bg-black/80 backdrop-blur-xl relative animate-slideInLeft" // CSS anim
             >
               <LoadingOverlay
                 isLoading={
@@ -945,12 +932,10 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
               ) : selectedToken || localCache.current[`token-metadata-${selectedToken?.id}`]?.data ? (
                 <div className="relative">
                   <div className="absolute top-1 right-1 w-32 sm:w-40" ref={dropdownRef}>
-                    <motion.button
+                    <button
                       onClick={() => setIsDropdownOpen(!isDropdownOpen)}
-                      className="text-white px-2 sm:px-2 py-1 sm:py-1 text-[10px] sm:text-xs flex items-center w-full border-2 border-white/20 bg-white/5 hover:bg-white/10 transition-all duration-300 rounded-xl"
+                      className="text-white px-2 sm:px-2 py-1 sm:py-1 text-[10px] sm:text-xs flex items-center w-full border-2 border-white/20 bg-white/5 hover:bg-white/10 transition-all duration-300 rounded-xl group hover:scale-102 active:scale-98" // CSS
                       aria-label="Select token"
-                      whileHover={{ scale: 1.02 }}
-                      whileTap={{ scale: 0.98 }}
                     >
                       {selectedToken || localCache.current[`token-metadata-${selectedToken?.id}`]?.data ? (
                         <>
@@ -971,20 +956,13 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                       ) : (
                         "Select Token"
                       )}
-                      <motion.span
-                        className="ml-auto text-[10px] sm:text-xs"
-                        animate={{ rotate: isDropdownOpen ? 180 : 0 }}
-                        transition={{ duration: 0.2 }}
-                      >
+                      <span className={`ml-auto text-[10px] sm:text-xs transition-transform duration-200 ${isDropdownOpen ? 'rotate-180' : ''}`}>
                         {isDropdownOpen ? "▲" : "▼"}
-                      </motion.span>
-                    </motion.button>
+                      </span>
+                    </button>
                     {isDropdownOpen && (
-                      <motion.div
-                        className="bg-black/80 backdrop-blur-xl shadow-2xl absolute mt-2 w-full max-h-40 sm:max-h-48 overflow-y-auto border border-white/20 rounded-lg shadow-2xl z-50 hide-scrollbar"
-                        initial={{ opacity: 0, y: -10 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        transition={{ duration: 0.2 }}
+                      <div
+                        className="bg-black/80 backdrop-blur-xl shadow-2xl absolute mt-2 w-full max-h-40 sm:max-h-48 overflow-y-auto border border-white/20 rounded-lg shadow-2xl z-50 hide-scrollbar animate-slideDown" // CSS
                       >
                         <input
                           type="text"
@@ -996,11 +974,10 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                         />
                         <div className="p-2">
                           {(searchQuery ? searchResults : tokens.slice(0, 30)).filter(isValidToken).map((token) => (
-                            <motion.button
+                            <button
                               key={token.id}
                               onClick={() => handleTokenSelect(token)}
-                              className="flex items-center w-full text-left px-3 py-1.5 hover:bg-white/10 text-white text-[8px] sm:text-[10px] transition-all duration-300 rounded"
-                              whileHover={{ x: 4 }}
+                              className="flex items-center w-full text-left px-3 py-1.5 hover:bg-white/10 text-white text-[8px] sm:text-[10px] transition-all duration-300 rounded group hover:translate-x-1" // CSS
                             >
                               {token.image && (
                                 <img
@@ -1014,30 +991,28 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                                 <div className="font-medium">{token.name}</div>
                                 <div className="text-[8px] sm:text-[10px] text-white/60">{token.symbol?.toUpperCase() || "Token"}</div>
                               </div>
-                            </motion.button>
+                            </button>
                           ))}
                           {(searchQuery ? searchResults : tokens.slice(0, 30)).filter(isValidToken).length === 0 && (
                             <p className="text-[8px] sm:text-[10px] text-white/60 text-center p-2">No tokens found</p>
                           )}
                         </div>
-                      </motion.div>
+                      </div>
                     )}
                   </div>
                   <div className="mb-2 sm:mb-2">
                     <div className="flex items-center gap-2">
                       {(selectedToken?.image ||
                         localCache.current[`token-metadata-${selectedToken?.id}`]?.data?.image) && (
-                          <motion.img
+                          <img
                             src={
                               selectedToken?.image ||
                               localCache.current[`token-metadata-${selectedToken?.id}`]?.data?.image
                             }
                             alt={`${selectedToken?.symbol || localCache.current[`token-metadata-${selectedToken?.id}`]?.data?.symbol} logo`}
-                            className="w-6 sm:w-7 h-6 sm:h-7"
+                            className="w-6 sm:w-7 h-6 sm:h-7 transition-transform duration-400" // CSS scale/opacity
+                            style={{ transform: 'scale(1)', opacity: 1 }} // Simulate anim
                             onError={(e) => (e.target.src = "/fallback-image.webp")}
-                            initial={{ scale: 0.8, opacity: 0 }}
-                            animate={{ scale: 1, opacity: 1 }}
-                            transition={{ duration: 0.4 }}
                           />
                         )}
                       <div>
@@ -1102,14 +1077,12 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                     <div className="flex justify-end items-end gap-2">
                       {(selectedToken?.links?.twitter_screen_name ||
                         localCache.current[`token-metadata-${selectedToken?.id}`]?.data?.links?.twitter_screen_name) && (
-                          <motion.a
+                          <a
                             href={`https://twitter.com/${selectedToken?.links?.twitter_screen_name || localCache.current[`token-metadata-${selectedToken?.id}`]?.data?.links?.twitter_screen_name}`}
                             target="_blank"
                             rel="noreferrer"
-                            className="p-1 bg-white/10 rounded-lg hover:bg-white/20 transition-all duration-300"
+                            className="p-1 bg-white/10 rounded-lg hover:bg-white/20 transition-all duration-300 group hover:scale-110 hover:-translate-y-0.5" // CSS
                             title="Twitter"
-                            whileHover={{ scale: 1.1, y: -2 }}
-                            whileTap={{ scale: 0.9 }}
                           >
                             <img
                               src="/logos/x.webp"
@@ -1117,21 +1090,19 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                               className="w-3 h-3"
                               onError={(e) => (e.target.src = "/fallback-image.webp")}
                             />
-                          </motion.a>
+                          </a>
                         )}
                       {(selectedToken?.links?.chat_url?.[0] ||
                         localCache.current[`token-metadata-${selectedToken?.id}`]?.data?.links?.chat_url?.[0]) && (
-                          <motion.a
+                          <a
                             href={
                               selectedToken?.links?.chat_url?.[0] ||
                               localCache.current[`token-metadata-${selectedToken?.id}`]?.data?.links?.chat_url?.[0]
                             }
                             target="_blank"
                             rel="noreferrer"
-                            className="p-1 bg-white/10 rounded-lg hover:bg-white/20 transition-all duration-300"
+                            className="p-1 bg-white/10 rounded-lg hover:bg-white/20 transition-all duration-300 group hover:scale-110 hover:-translate-y-0.5"
                             title="Discord"
-                            whileHover={{ scale: 1.1, y: -2 }}
-                            whileTap={{ scale: 0.9 }}
                           >
                             <img
                               src="/logos/discord.webp"
@@ -1139,21 +1110,19 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                               className="w-3 h-3"
                               onError={(e) => (e.target.src = "/fallback-image.webp")}
                             />
-                          </motion.a>
+                          </a>
                         )}
                       {(selectedToken?.links?.homepage?.[0] ||
                         localCache.current[`token-metadata-${selectedToken?.id}`]?.data?.links?.homepage?.[0]) && (
-                          <motion.a
+                          <a
                             href={
                               selectedToken?.links?.homepage?.[0] ||
                               localCache.current[`token-metadata-${selectedToken?.id}`]?.data?.links?.homepage?.[0]
                             }
                             target="_blank"
                             rel="noreferrer"
-                            className="p-1 bg-white/10 rounded-lg hover:bg-white/20 transition-all duration-300"
+                            className="p-1 bg-white/10 rounded-lg hover:bg-white/20 transition-all duration-300 group hover:scale-110 hover:-translate-y-0.5"
                             title="Website"
-                            whileHover={{ scale: 1.1, y: -2 }}
-                            whileTap={{ scale: 0.9 }}
                           >
                             <img
                               src="/logos/website.webp"
@@ -1161,21 +1130,19 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                               className="w-3 h-3"
                               onError={(e) => (e.target.src = "/fallback-image.webp")}
                             />
-                          </motion.a>
+                          </a>
                         )}
                       {(selectedToken?.links?.repos_url?.github?.[0] ||
                         localCache.current[`token-metadata-${selectedToken?.id}`]?.data?.links?.repos_url?.github?.[0]) && (
-                          <motion.a
+                          <a
                             href={
                               selectedToken?.links?.repos_url?.github?.[0] ||
                               localCache.current[`token-metadata-${selectedToken?.id}`]?.data?.links?.repos_url?.github?.[0]
                             }
                             target="_blank"
                             rel="noreferrer"
-                            className="p-1 bg-white/10 rounded-lg hover:bg-white/20 transition-all duration-300"
+                            className="p-1 bg-white/10 rounded-lg hover:bg-white/20 transition-all duration-300 group hover:scale-110 hover:-translate-y-0.5"
                             title="GitHub"
-                            whileHover={{ scale: 1.1, y: -2 }}
-                            whileTap={{ scale: 0.9 }}
                           >
                             <img
                               src="/logos/github.webp"
@@ -1183,7 +1150,7 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                               className="w-3 h-3"
                               onError={(e) => (e.target.src = "/fallback-image.webp")}
                             />
-                          </motion.a>
+                          </a>
                         )}
                     </div>
                   </div>
@@ -1354,45 +1321,38 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                   <p className="text-[10px] sm:text-xs text-white/60 text-center">Please select a token to view details.</p>
                 </div>
               )}
-            </motion.div>
+            </div>
 
             {/* Chart Panel */}
-            <motion.div
-              className="border border-white/10 p-2 sm:p-2 rounded-xl flex-1 min-h-[320px] sm:min-h-[280px] max-h-[200px] sm:max-h-[280px] bg-black/80 backdrop-blur-xl overflow-hidden relative"
-              initial={{ opacity: 0, x: -20 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ duration: 0.5, delay: 0.2 }}
+            <div
+              className="border border-white/10 p-2 sm:p-2 rounded-xl flex-1 min-h-[320px] sm:min-h-[280px] max-h-[200px] sm:max-h-[280px] bg-black/80 backdrop-blur-xl overflow-hidden relative animate-slideInLeft" // CSS
             >
               <LoadingOverlay isLoading={isChartLoading && selectedToken} isMobile={isMobile} />
               <div className="flex flex-col items-center mb-1 sm:mb-2 mt-4 sm:mt-0">
                 <div className="flex flex-col sm:flex-row justify-between items-center w-full max-w-[90%] sm:max-w-[600px] gap-2 sm:gap-3">
                   <div className="flex space-x-2 mb-2 sm:mb-0 justify-start sm:justify-center w-full sm:w-auto">
-                    <motion.button
+                    <button
                       onClick={debouncedHandleAnalysis}
-                      className={`px-2 sm:px-4 py-1 sm:py-1.5 text-[10px] sm:text-xs font-medium transition-all duration-300 border rounded-xl ${selectedToken
+                      className={`px-2 sm:px-4 py-1 sm:py-1.5 text-[10px] sm:text-xs font-medium transition-all duration-300 border rounded-xl group hover:scale-105 active:scale-95 ${selectedToken
                         ? 'text-white border-white/20 bg-white/5 hover:bg-white/10'
                         : 'text-white/40 border-white/10 cursor-not-allowed opacity-50'
                         }`}
                       disabled={!selectedToken}
                       aria-label="Analyze token"
-                      whileHover={{ scale: selectedToken ? 1.05 : 1 }}
-                      whileTap={{ scale: selectedToken ? 0.95 : 1 }}
                     >
                       Analyze
-                    </motion.button>
-                    <motion.button
+                    </button>
+                    <button
                       onClick={debouncedHandlePrediction}
-                      className={`px-2 sm:px-4 py-1 sm:py-1.5 text-[10px] sm:text-xs font-medium transition-all duration-300 border rounded-xl ${selectedToken
+                      className={`px-2 sm:px-4 py-1 sm:py-1.5 text-[10px] sm:text-xs font-medium transition-all duration-300 border rounded-xl group hover:scale-105 active:scale-95 ${selectedToken
                         ? 'text-black border-white bg-white hover:bg-white/90'
                         : 'text-white/40 border-white/10 cursor-not-allowed opacity-50'
                         }`}
                       disabled={!selectedToken}
                       aria-label="Predict token price"
-                      whileHover={{ scale: selectedToken ? 1.05 : 1 }}
-                      whileTap={{ scale: selectedToken ? 0.95 : 1 }}
                     >
                       Prediction
-                    </motion.button>
+                    </button>
                   </div>
                   <div className="flex items-center justify-center gap-2 sm:gap-4 mt-2 sm:mt-6 mb-2 sm:mb-0">
                     <div className="text-[8px] sm:text-[9px] text-white/90 text-center">
@@ -1440,10 +1400,10 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
               {isChartLoading ? (
                 <div className="h-48 sm:h-58 flex items-center justify-center">
                 </div>
-              ) : priceHistory && priceHistory.length > 0 ? (
+              ) : chartData && chartData.length > 0 ? (
                 <div className="h-48 sm:h-58">
                   <ResponsiveContainer width="100%" height="100%">
-                    <AreaChart data={priceHistory} margin={{ top: 10, right: 15, bottom: 0, left: isMobile ? 0 : 10 }}>
+                    <AreaChart data={chartData} margin={{ top: 10, right: 15, bottom: 0, left: isMobile ? 0 : 10 }}>
                       <XAxis dataKey="title" stroke="#FFFFFF" tick={false} hide={true} />
                       <YAxis
                         stroke="#FFFFFF"
@@ -1465,10 +1425,10 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                         isAnimationActive={false}
                         animationDuration={1500}
                       />
-                      {priceHistory.length > 0 && (
+                      {chartData.length > 0 && (
                         <ReferenceDot
-                          x={priceHistory[priceHistory.length - 1].title}
-                          y={priceHistory[priceHistory.length - 1].price}
+                          x={chartData[chartData.length - 1].title}
+                          y={chartData[chartData.length - 1].price}
                           r={4}
                           fill="#FFFFFF"
                           stroke="#FFFFFF"
@@ -1501,82 +1461,60 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                   <img src="/logos/CG_1.webp" alt="CG_1 Logo" className="w-12 sm:w-12 h-12 sm:h-12 object-contain ml-2" />
                 </span>
               </div>
-            </motion.div>
+            </div>
           </div>
 
           {/* Right Column - Market Data Tabs */}
-          <motion.div
-            className="flex flex-col border border-white/10 rounded-xl min-h-[600px] sm:min-h-[500px] max-h-full sm:max-h-[605px] bg-black/80 market-tab-container hide-scrollbar relative"
-            initial={{ opacity: 0, x: 20 }}
-            animate={{ opacity: 1, x: 0 }}
-            transition={{ duration: 0.5, delay: 0.3 }}
+          <div
+            className="flex flex-col border border-white/10 rounded-xl min-h-[600px] sm:min-h-[500px] max-h-full sm:max-h-[605px] bg-black/80 market-tab-container hide-scrollbar relative animate-slideInRight" // CSS
           >
             {selectedToken ? (
               <>
-                <div className="flex w-full text-[10px] sm:text-[12px] border-b border-white/10 bg-white/5" role="tablist">
-                  <motion.button
+                <div className="flex w-full text-[10px] sm:text-[12px] border-b border-white/10 bg-white/5 relative" role="tablist">
+                  <button
                     onClick={() => {
                       setActiveMarketTab("holders")
                       setShowTrades(false)
                     }}
-                    className={`flex-1 px-6 py-2 font-semibold transition-all duration-300 relative p-1 ${activeMarketTab === "holders" ? "text-white" : "text-white/60 hover:text-white hover:bg-white/5"
+                    className={`flex-1 px-6 py-2 font-semibold transition-all duration-300 relative p-1 group hover:scale-105 ${activeMarketTab === "holders" ? "text-white" : "text-white/60 hover:text-white hover:bg-white/5"
                       }`}
-                    transition={{ duration: 0.2 }}
                     role="tab"
                     aria-selected={activeMarketTab === "holders"}
                     aria-controls="holders-panel"
                     id="holders-tab"
                   >
                     TOP HOLDERS
-                    {activeMarketTab === "holders" && (
-                      <motion.div
-                        className="absolute bottom-0 left-0 right-0"
-                        layoutId="activeTab"
-                        transition={{ duration: 0.3, ease: "easeInOut" }}
-                      />
-                    )}
-                  </motion.button>
-                  <motion.button
+                  </button>
+                  <button
                     onClick={() => {
                       setActiveMarketTab("cex")
                       setShowTrades(false)
                     }}
-                    className={`flex-1 px-6 py-2 font-semibold transition-all duration-300 relative p-1 ${activeMarketTab === "cex" ? "text-white" : "text-white/60 hover:text-white hover:bg-white/5"
+                    className={`flex-1 px-6 py-2 font-semibold transition-all duration-300 relative p-1 group hover:scale-105 ${activeMarketTab === "cex" ? "text-white" : "text-white/60 hover:text-white hover:bg-white/5"
                       }`}
-                    transition={{ duration: 0.2 }}
                     role="tab"
                     aria-selected={activeMarketTab === "cex"}
                     aria-controls="cex-panel"
                     id="cex-tab"
                   >
                     CEX MARKETS
-                    {activeMarketTab === "cex" && (
-                      <motion.div
-                        className="absolute bottom-0 left-0 right-0"
-                        layoutId="activeTab"
-                        transition={{ duration: 0.3, ease: "easeInOut" }}
-                      />
-                    )}
-                  </motion.button>
-                  <motion.button
+                  </button>
+                  <button
                     onClick={handleDexTabClick}
-                    className={`flex-1 px-6 py-2 font-semibold transition-all duration-300 relative p-1 ${activeMarketTab === "dex" ? "text-white" : "text-white/60 hover:text-white hover:bg-white/5"
+                    className={`flex-1 px-6 py-2 font-semibold transition-all duration-300 relative p-1 group hover:scale-105 ${activeMarketTab === "dex" ? "text-white" : "text-white/60 hover:text-white hover:bg-white/5"
                       }`}
-                    transition={{ duration: 0.2 }}
                     role="tab"
                     aria-selected={activeMarketTab === "dex"}
                     aria-controls="dex-panel"
                     id="dex-tab"
                   >
                     ON-CHAIN
-                    {activeMarketTab === "dex" && (
-                      <motion.div
-                        className="absolute bottom-0 left-0 right-0"
-                        layoutId="activeTab"
-                        transition={{ duration: 0.3, ease: "easeInOut" }}
-                      />
-                    )}
-                  </motion.button>
+                  </button>
+                  {/* CSS underline indicator */}
+                  <div
+                    className="absolute bottom-0 h-0.5 bg-white"
+                    style={tabIndicatorStyle}
+                  />
                 </div>
 
                 {/* Tab Content */}
@@ -1588,7 +1526,7 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                     className={`flex-1 overflow-y-auto tab-content custom-scrollbar hide-scrollbar relative min-h-[500px] sm:min-h-[400px] ${activeMarketTab !== "holders" ? "hidden" : ""}`}
                   >
                     {activeMarketTab === "holders" && (
-                      <div className="flex-1 tab-content relative min-h-[500px] sm:min-h-[400px]">
+                      <div className="flex-1 tab-content relative min-h-[500px] sm:min-h-[400px]" ref={autoAnimateRef}>
                         {session ? (
                           <>
                             <LoadingOverlay isLoading={isLoadingOnChain} isMobile={isMobile} className="h-full w-full" />
@@ -1643,7 +1581,7 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                                       (holder.address.match(/^0x[a-fA-F0-9]{40}$/) || holder.address.match(/^(1|3|bc1)[a-zA-Z0-9]+$/));
 
                                     const HolderRow = React.memo(() => (
-                                      <div // Removed motion.div to prevent animation jitter
+                                      <div
                                         className="flex border-t border-white/10 bg-black/80 px-3 py-2 text-[9px] sm:text-[11px]"
                                       >
                                         <div className="flex-1 flex items-center gap-2 group relative">
@@ -1681,20 +1619,18 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                                             </span>
                                           )}
                                           {isValidAddress && (
-                                            <motion.button
+                                            <button
                                               onClick={() => {
                                                 navigator.clipboard.writeText(holder.address);
                                                 toast.success("Address copied!", { autoClose: 2000 });
                                               }}
-                                              className="absolute right-0 text-white/40 hover:text-white/80 transition-colors flex-shrink-0 opacity-0 group-hover:opacity-100 p-1 rounded-lg hover:bg-white/10"
+                                              className="absolute right-0 text-white/40 hover:text-white/80 transition-colors flex-shrink-0 opacity-0 group-hover:opacity-100 p-1 rounded-lg hover:bg-white/10 group hover:scale-110 active:scale-90" // CSS
                                               title="Copy address"
-                                              whileHover={{ scale: 1.1 }}
-                                              whileTap={{ scale: 0.9 }}
                                             >
                                               <svg xmlns="http://www.w3.org/2000/svg" className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                                                 <path strokeLinecap="round" strokeLinejoin="round" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
                                               </svg>
-                                            </motion.button>
+                                            </button>
                                           )}
                                         </div>
                                         <div className="w-28 text-right font-bold text-white text-[10px]">
@@ -1702,7 +1638,7 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                                         </div>
                                       </div>
                                     ));
-                                    return <HolderRow key={holder.address} />; // Use unique key
+                                    return <HolderRow key={`${holder.address}-${index}`} />; // Stable key
                                   }}
                                 />
                               </div>
@@ -1727,19 +1663,17 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                     className={`flex-1 overflow-x-auto overflow-y-auto tab-content custom-scrollbar hide-scrollbar relative min-h-[500px] sm:min-h-[400px] ${activeMarketTab !== "cex" ? "hidden" : ""}`}
                   >
                     {activeMarketTab === "cex" && (
-                      <div className="flex-1 overflow-x-auto overflow-y-auto tab-content custom-scrollbar hide-scrollbar relative min-h-[500px] sm:min-h-[400px]">
+                      <div className="flex-1 overflow-x-auto overflow-y-auto tab-content custom-scrollbar hide-scrollbar relative min-h-[500px] sm:min-h-[400px]" ref={autoAnimateRef}>
                         <LoadingOverlay isLoading={isLoadingTickers && !tickerData?.length} isMobile={isMobile} className="h-full w-full" />
                         {tickerError ? (
                           <div className="text-[10px] sm:text-xs text-center p-6">
                             <p className="text-white/60 mb-4">Unable to load CEX markets data. Please try again.</p>
-                            <motion.button
+                            <button
                               onClick={() => fetchTickerData(selectedToken?.id)}
-                              className="px-4 py-2 text-white text-sm border border-white/20 rounded-xl hover:bg-white/10 transition-all duration-300"
-                              whileHover={{ scale: 1.05 }}
-                              whileTap={{ scale: 0.95 }}
+                              className="px-4 py-2 text-white text-sm border border-white/20 rounded-xl hover:bg-white/10 transition-all duration-300 group hover:scale-105 active:scale-95"
                             >
                               Retry
-                            </motion.button>
+                            </button>
                           </div>
                         ) : isLoadingTickers && !tickerData?.length ? (
                           <SkeletonLoader count={5} isMobile={isMobile} />
@@ -1750,7 +1684,7 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                             data={tickerData.slice(0, 30)}
                             itemContent={(index, ticker) => {
                               const TickerRow = React.memo(() => (
-                                <div // Removed motion.div to prevent animation jitter
+                                <div
                                   className="flex border-t border-white/10 hover:bg-black/80 px-3 py-2 text-[9px] sm:text-[11px]"
                                 >
                                   <div className="flex-[2] flex items-center justify-center gap-2">
@@ -1786,7 +1720,7 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                                   </div>
                                 </div>
                               ));
-                              return <TickerRow key={ticker.market.identifier + ticker.base + ticker.target} />; // Use unique key
+                              return <TickerRow key={`${ticker.market.identifier + ticker.base + ticker.target}-${index}`} />; // Stable key
                             }}
                             components={{
                               Header: () => (
@@ -1822,29 +1756,25 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                       <>
                         <div className="p-2 text-[9px] text-white/60 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 sm:gap-0 sticky top-0 bg-black/80 z-10 border-b border-white/10">
                           <div className="flex items-center justify-start gap-1 order-1 sm:order-1 text-[8px]">
-                            <motion.button
+                            <button
                               onClick={handlePrevPage}
                               disabled={currentDexPage === 1 || isLoadingPage}
-                              className="px-1 py-0.5 text-white/60 hover:text-white disabled:opacity-30 disabled:cursor-not-allowed bg-white/5 rounded transition-all"
-                              whileHover={{ scale: 1.05 }}
-                              whileTap={{ scale: 0.95 }}
+                              className="px-1 py-0.5 text-white/60 hover:text-white disabled:opacity-30 disabled:cursor-not-allowed bg-white/5 rounded transition-all group hover:scale-105 active:scale-95"
                               title="Previous Page"
                             >
                               ‹
-                            </motion.button>
+                            </button>
                             <span className="px-2 py-0.5 bg-white/10 rounded text-white">
                               Page {currentDexPage} / {getTotalDexPages()}
                             </span>
-                            <motion.button
+                            <button
                               onClick={handleNextPage}
                               disabled={currentDexPage >= getTotalDexPages() || isLoadingPage}
-                              className="px-1 py-0.5 text-white/60 hover:text-white disabled:opacity-30 disabled:cursor-not-allowed bg-white/5 rounded transition-all"
-                              whileHover={{ scale: 1.05 }}
-                              whileTap={{ scale: 0.95 }}
+                              className="px-1 py-0.5 text-white/60 hover:text-white disabled:opacity-30 disabled:cursor-not-allowed bg-white/5 rounded transition-all group hover:scale-105 active:scale-95"
                               title="Next Page"
                             >
                               ›
-                            </motion.button>
+                            </button>
                           </div>
                           <span className="px-2 py-0.5 order-2 sm:order-2 text-right">
                             Last Updated:{" "}
@@ -1856,7 +1786,7 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                               : "N/A"}
                           </span>
                         </div>
-                        <div className="flex-1 overflow-y-auto tab-content custom-scrollbar hide-scrollbar relative min-h-[500px] sm:min-h-[400px]">
+                        <div className="flex-1 overflow-y-auto tab-content custom-scrollbar hide-scrollbar relative min-h-[500px] sm:min-h-[400px]" ref={autoAnimateRef}>
                           {session ? (
                             <>
                               <LoadingOverlay
@@ -1911,7 +1841,7 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                                           const toAddressInfo = getNameTagInfo(isBitcoin ? item.outputs?.[0]?.address : item.to_token_address?.address, chain);
 
                                           const TradeRow = React.memo(() => (
-                                            <div // Removed motion.div to prevent animation jitter
+                                            <div
                                               className="flex border-t border-white/10 bg-black/80 py-1.5 px-2 text-[9px] sm:text-[11px]"
                                             >
                                               {/* Tx/Time */}
@@ -1921,20 +1851,18 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                                                 </a>
                                                 <span className="text-[7px] sm:text-[9px] text-white/60 text-center">{formatDistanceToNow(new Date(timestamp), { addSuffix: true })}</span>
                                                 {txHash && (
-                                                  <motion.button
+                                                  <button
                                                     onClick={() => {
                                                       navigator.clipboard.writeText(txHash);
                                                       toast.success("Transaction hash copied!", { autoClose: 2000 });
                                                     }}
-                                                    className="absolute right-0 top-0 text-white/40 hover:text-white/80 opacity-0 group-hover:opacity-100 p-1 rounded-md hover:bg-white/10"
+                                                    className="absolute right-0 top-0 text-white/40 hover:text-white/80 opacity-0 group-hover:opacity-100 p-1 rounded-md hover:bg-white/10 group hover:scale-110 active:scale-90"
                                                     title="Copy transaction hash"
-                                                    whileHover={{ scale: 1.1 }}
-                                                    whileTap={{ scale: 0.9 }}
                                                   >
                                                     <svg xmlns="http://www.w3.org/2000/svg" className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                                                       <path strokeLinecap="round" strokeLinejoin="round" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
                                                     </svg>
-                                                  </motion.button>
+                                                  </button>
                                                 )}
                                               </div>
 
@@ -1956,17 +1884,15 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                                                     <span className="text-[9px] sm:text-[11px]">{isBitcoin ? `${item.inputs?.[0]?.address?.slice(0, 6)}...${item.inputs?.[0]?.address?.slice(-4)}` : `${item.tx_from_address?.address?.slice(0, 6)}...${item.tx_from_address?.address?.slice(-4)}`}</span>
                                                   )}
                                                 </a>
-                                                <motion.button
+                                                <button
                                                   onClick={() => navigator.clipboard.writeText(isBitcoin ? item.inputs?.[0]?.address : item.tx_from_address?.address) && toast.success("Address copied!", { autoClose: 2000 })}
-                                                  className="absolute right-0 text-white/40 hover:text-white/80 opacity-0 group-hover:opacity-100 p-1 rounded-md hover:bg-white/10"
+                                                  className="absolute right-0 text-white/40 hover:text-white/80 opacity-0 group-hover:opacity-100 p-1 rounded-md hover:bg-white/10 group hover:scale-110 active:scale-90"
                                                   title="Copy address"
-                                                  whileHover={{ scale: 1.1 }}
-                                                  whileTap={{ scale: 0.9 }}
                                                 >
                                                   <svg xmlns="http://www.w3.org/2000/svg" className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                                                     <path strokeLinecap="round" strokeLinejoin="round" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
                                                   </svg>
-                                                </motion.button>
+                                                </button>
                                               </div>
 
                                               {/* To Address */}
@@ -1987,17 +1913,15 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                                                     <span className="text-[10px]">{isBitcoin ? `${item.outputs?.[0]?.address?.slice(0, 6)}...${item.outputs?.[0]?.address?.slice(-4)}` : `${item.to_token_address?.address?.slice(0, 6)}...${item.to_token_address?.address?.slice(-4)}`}</span>
                                                   )}
                                                 </a>
-                                                <motion.button
+                                                <button
                                                   onClick={() => navigator.clipboard.writeText(isBitcoin ? item.outputs?.[0]?.address : item.to_token_address?.address) && toast.success("Address copied!", { autoClose: 2000 })}
-                                                  className="absolute right-0 text-white/40 hover:text-white/80 opacity-0 group-hover:opacity-100 p-1 rounded-md hover:bg-white/10"
+                                                  className="absolute right-0 text-white/40 hover:text-white/80 opacity-0 group-hover:opacity-100 p-1 rounded-md hover:bg-white/10 group hover:scale-110 active:scale-90"
                                                   title="Copy address"
-                                                  whileHover={{ scale: 1.1 }}
-                                                  whileTap={{ scale: 0.9 }}
                                                 >
                                                   <svg xmlns="http://www.w3.org/2000/svg" className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                                                     <path strokeLinecap="round" strokeLinejoin="round" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
                                                   </svg>
-                                                </motion.button>
+                                                </button>
                                               </div>
 
                                               {/* Value */}
@@ -2048,7 +1972,7 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                                               )}
                                             </div>
                                           ));
-                                          return <TradeRow key={item.tx_hash} />; // Use unique key
+                                          return <TradeRow key={`${item.tx_hash || item.txid}-${index}`} />; // Stable key
                                         }}
                                         endReached={loadMoreDexData} // Infinite scroll
                                       />
@@ -2082,144 +2006,152 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                 <SkeletonLoader count={5} isMobile={isMobile} />
               </div>
             )}
-          </motion.div>
+          </div>
         </div>
       )}
 
-      {/* Additional Components - keeping existing functionality */}
-      <WalletBalances
-        balances={walletBalances}
-        walletAddress={selectedWallet}
-        isLoading={isLoadingWalletBalances}
-        error={walletBalancesError}
-        transactions={transactions}
-        isLoadingTransactions={isLoadingTransactions}
-        transactionsError={transactionsError}
-        fetchTransactions={fetchTransactions}
-        chains={chains}
-        setSelectedWallet={setSelectedWallet}
-        setWalletBalances={setWalletBalances}
-        setTransactions={setTransactions}
-        setWalletBalancesError={setWalletBalancesError}
-        setTransactionsError={setTransactionsError}
-        setWalletAddress={setWalletAddress}
-        nameTags={nameTags}
-        onClose={() => {
-          setSelectedWallet(null)
-          setWalletBalances([])
-          setTransactions(null)
-          setWalletBalancesError(null)
-          setTransactionsError(null)
-          setWalletAddress("")
-        }}
-        isMobile={isMobile}
-        fetchOnChainData={fetchOnChainData}
-        setIsLoadingWalletBalances={setIsLoadingWalletBalances}
-      />
+      {/* Dynamic WalletBalances */}
+      <Suspense fallback={<SkeletonLoader count={2} />}>
+        <WalletBalances
+          balances={walletBalances}
+          walletAddress={selectedWallet}
+          isLoading={isLoadingWalletBalances}
+          error={walletBalancesError}
+          transactions={transactions}
+          isLoadingTransactions={isLoadingTransactions}
+          transactionsError={transactionsError}
+          fetchTransactions={fetchTransactions}
+          chains={chains}
+          setSelectedWallet={setSelectedWallet}
+          setWalletBalances={setWalletBalances}
+          setTransactions={setTransactions}
+          setWalletBalancesError={setWalletBalancesError}
+          setTransactionsError={setTransactionsError}
+          setWalletAddress={setWalletAddress}
+          nameTags={nameTags}
+          onClose={() => {
+            setSelectedWallet(null)
+            setWalletBalances([])
+            setTransactions(null)
+            setWalletBalancesError(null)
+            setTransactionsError(null)
+            setWalletAddress("")
+          }}
+          isMobile={isMobile}
+          fetchOnChainData={fetchOnChainData}
+          setIsLoadingWalletBalances={setIsLoadingWalletBalances}
+        />
+      </Suspense>
 
-      <Modal
-        isOpen={isAnalyzing || !!analysis}
-        onClose={() => {
-          setAnalysis(null);
-          setAnalysisLinks([]);
-          setIsAnalyzing(false);
-        }}
-        title="Market Analysis"
-        content={
-          <div className="prose prose-invert max-w-none text-white/90 leading-relaxed">
-            <ReactMarkdown
-              remarkPlugins={[remarkGfm]}
-              components={{
-                h1: ({ node, ...props }) => <h1 className="text-xl sm:text-2xl font-bold mt-4 mb-2" {...props} />,
-                h2: ({ node, ...props }) => <h2 className="text-lg sm:text-xl font-semibold mt-3 mb-1" {...props} />,
-                p: ({ node, ...props }) => <p className="mb-2" {...props} />,
-                table: ({ node, ...props }) => (
-                  <table className="table-auto w-full border-collapse border border-white/20 my-2" {...props} />
-                ),
-                th: ({ node, ...props }) => (
-                  <th className="border border-white/20 px-4 py-2 bg-white/5" {...props} />
-                ),
-                td: ({ node, ...props }) => (
-                  <td className="border border-white/20 px-4 py-2" {...props} />
-                ),
-                a: ({ node, href, ...props }) => (
-                  <a
-                    href={href}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="text-blue-500 hover:text-blue-400"
-                    {...props}
-                  />
-                ),
-              }}
-            >
-              {analysis || 'Analyzing data...'}
-            </ReactMarkdown>
-          </div>
-        }
-        links={analysisLinks}
-        isMobile={isMobile}
-        isLoading={isAnalyzing}
-        logs={analysisLogs}
-        actionType="analyze"
-      />
+      <Suspense fallback={null}>
+        <Modal
+          isOpen={isAnalyzing || !!analysis}
+          onClose={() => {
+            setAnalysis(null);
+            setAnalysisLinks([]);
+            setIsAnalyzing(false);
+          }}
+          title="Market Analysis"
+          content={
+            <div className="prose prose-invert max-w-none text-white/90 leading-relaxed">
+              <ReactMarkdown
+                remarkPlugins={[remarkGfm]}
+                components={{
+                  h1: ({ node, ...props }) => <h1 className="text-xl sm:text-2xl font-bold mt-4 mb-2" {...props} />,
+                  h2: ({ node, ...props }) => <h2 className="text-lg sm:text-xl font-semibold mt-3 mb-1" {...props} />,
+                  p: ({ node, ...props }) => <p className="mb-2" {...props} />,
+                  table: ({ node, ...props }) => (
+                    <table className="table-auto w-full border-collapse border border-white/20 my-2" {...props} />
+                  ),
+                  th: ({ node, ...props }) => (
+                    <th className="border border-white/20 px-4 py-2 bg-white/5" {...props} />
+                  ),
+                  td: ({ node, ...props }) => (
+                    <td className="border border-white/20 px-4 py-2" {...props} />
+                  ),
+                  a: ({ node, href, ...props }) => (
+                    <a
+                      href={href}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="text-blue-500 hover:text-blue-400"
+                      {...props}
+                    />
+                  ),
+                }}
+              >
+                {analysis || 'Analyzing data...'}
+              </ReactMarkdown>
+            </div>
+          }
+          links={analysisLinks}
+          isMobile={isMobile}
+          isLoading={isAnalyzing}
+          logs={analysisLogs}
+          actionType="analyze"
+        />
+      </Suspense>
 
       {/* Modal for Price Prediction */}
-      <Modal
-        isOpen={isPredicting || !!prediction}
-        onClose={() => {
-          setPrediction(null);
-          setIsPredicting(false);
-        }}
-        title="Price Prediction"
-        content={
-          <div className="prose prose-invert max-w-none text-white/90 leading-relaxed">
-            <ReactMarkdown
-              remarkPlugins={[remarkGfm]}
-              components={{
-                h1: ({ node, ...props }) => <h1 className="text-xl sm:text-2xl font-bold mt-4 mb-2" {...props} />,
-                h2: ({ node, ...props }) => <h2 className="text-lg sm:text-xl font-semibold mt-3 mb-1" {...props} />,
-                p: ({ node, ...props }) => <p className="mb-2" {...props} />,
-                table: ({ node, ...props }) => (
-                  <table className="table-auto w-full border-collapse border border-white/20 my-2" {...props} />
-                ),
-                th: ({ node, ...props }) => (
-                  <th className="border border-white/20 px-4 py-2 bg-white/5" {...props} />
-                ),
-                td: ({ node, ...props }) => (
-                  <td className="border border-white/20 px-4 py-2" {...props} />
-                ),
-                a: ({ node, href, ...props }) => (
-                  <a
-                    href={href}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="text-blue-500 hover:text-blue-400"
-                    {...props}
-                  />
-                ),
-              }}
-            >
-              {prediction || 'Generating prediction...'}
-            </ReactMarkdown>
-          </div>
-        }
-        isMobile={isMobile}
-        isLoading={isPredicting}
-        logs={analysisLogs}
-        actionType="predict"
-      />
+      <Suspense fallback={null}>
+        <Modal
+          isOpen={isPredicting || !!prediction}
+          onClose={() => {
+            setPrediction(null);
+            setIsPredicting(false);
+          }}
+          title="Price Prediction"
+          content={
+            <div className="prose prose-invert max-w-none text-white/90 leading-relaxed">
+              <ReactMarkdown
+                remarkPlugins={[remarkGfm]}
+                components={{
+                  h1: ({ node, ...props }) => <h1 className="text-xl sm:text-2xl font-bold mt-4 mb-2" {...props} />,
+                  h2: ({ node, ...props }) => <h2 className="text-lg sm:text-xl font-semibold mt-3 mb-1" {...props} />,
+                  p: ({ node, ...props }) => <p className="mb-2" {...props} />,
+                  table: ({ node, ...props }) => (
+                    <table className="table-auto w-full border-collapse border border-white/20 my-2" {...props} />
+                  ),
+                  th: ({ node, ...props }) => (
+                    <th className="border border-white/20 px-4 py-2 bg-white/5" {...props} />
+                  ),
+                  td: ({ node, ...props }) => (
+                    <td className="border border-white/20 px-4 py-2" {...props} />
+                  ),
+                  a: ({ node, href, ...props }) => (
+                    <a
+                      href={href}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="text-blue-500 hover:text-blue-400"
+                      {...props}
+                    />
+                  ),
+                }}
+              >
+                {prediction || 'Generating prediction...'}
+              </ReactMarkdown>
+            </div>
+          }
+          isMobile={isMobile}
+          isLoading={isPredicting}
+          logs={analysisLogs}
+          actionType="predict"
+        />
+      </Suspense>
       {/* Pool Details Modal */}
-      <Modal
-        isOpen={!!selectedPool}
-        onClose={() => setSelectedPool(null)}
-        title="Pool Details"
-        content={renderPoolModalContent()}
-        links={[
-          `https://www.geckoterminal.com/${GECKOTERMINAL_CHAIN_MAPPING[selectedChain]}/pools/${selectedPool?.address}`,
-        ]}
-        isMobile={isMobile}
-      />
+      <Suspense fallback={null}>
+        <Modal
+          isOpen={!!selectedPool}
+          onClose={() => setSelectedPool(null)}
+          title="Pool Details"
+          content={renderPoolModalContent()}
+          links={[
+            `https://www.geckoterminal.com/${GECKOTERMINAL_CHAIN_MAPPING[selectedChain]}/pools/${selectedPool?.address}`,
+          ]}
+          isMobile={isMobile}
+        />
+      </Suspense>
       {/* Toast Container */}
       <ToastContainer
         position="top-center"
@@ -2232,7 +2164,7 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
           borderRadius: "16px",
         }}
       />
-    </motion.section>
+    </section>
   )
 }
 
