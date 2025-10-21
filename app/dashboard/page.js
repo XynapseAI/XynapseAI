@@ -25,6 +25,10 @@ import { Stars, Sphere, Float, Environment } from "@react-three/drei";
 import * as THREE from "three";
 import { TermsOfServiceContent } from '../../components/TermsOfService';
 import { PrivacyPolicyContent } from '../../components/PrivacyPolicy';
+import "@farcaster/auth-kit/styles.css";
+import { AuthKitProvider, SignInButton } from "@farcaster/auth-kit";
+import { sdk } from '@farcaster/miniapp-sdk';  // Mới
+import { useMiniApp } from '@neynar/react';
 
 gsap.registerPlugin(MotionPathPlugin);
 
@@ -264,6 +268,9 @@ export default function Dashboard() {
   const [modalContent, setModalContent] = useState(null);
   const recaptchaRef = useRef(null);
   const { userData, loading, error } = useUserData(session, csrfToken, setIsAnalyzing);
+  const [farcasterModalOpen, setFarcasterModalOpen] = useState(false && !miniApp);
+  const [showFarcasterButton, setShowFarcasterButton] = useState(true);
+  const miniApp = useMiniApp();
 
   const openModal = (content) => {
     setModalContent(content);
@@ -339,6 +346,27 @@ export default function Dashboard() {
       fetchProvidersWithRetry();
     }
   }, [isMounted, providers, fetchProvidersWithRetry]);
+
+  useEffect(() => {
+    const initMiniApp = async () => {
+      if (sdk && miniApp) {  // Nếu chạy trong Farcaster
+        try {
+          await sdk.actions.ready();  // Ẩn splash, show UI
+          console.log('Mini App ready! User FID:', miniApp.user?.fid);
+          // Auto-sign-in nếu chưa session
+          if (!session && miniApp.user) {
+            handleFarcasterSuccess({
+              message: miniApp.siweMessage,
+              signature: miniApp.signature,
+            });
+          }
+        } catch (err) {
+          console.error('Mini App init error:', err);
+        }
+      }
+    };
+    initMiniApp();
+  }, [miniApp, session]);
 
   const handleConnectWallet = async () => {
     try {
@@ -469,6 +497,26 @@ export default function Dashboard() {
     }
   };
 
+  const handleFarcasterSuccess = async (result) => {
+    try {
+      const res = await signIn('farcaster', {
+        message: result.message,
+        signature: result.signature,
+      }, { redirect: false });
+      if (res?.error) {
+        toast.error(`Farcaster login failed: ${res.error}`);
+      } else {
+        await update();  // THÊM: Sync session để userData cập nhật FID
+        toast.success('Signed in with Farcaster successfully!');
+        setFarcasterModalOpen(false);
+        router.refresh();
+      }
+    } catch (err) {
+      console.error('Farcaster sign-in error:', err);
+      toast.error(`Sign-in error: ${err.message}`);
+    }
+  };
+
   const handleNavigateToToken = useCallback((slug) => {
     if (!slug) {
       toast.error('Invalid token ID.', { position: 'top-center' });
@@ -555,9 +603,11 @@ export default function Dashboard() {
                 className="w-full h-full flex items-center justify-center text-white font-saira relative"
               >
                 <div className="fixed inset-0 z-0">
-                  <Canvas camera={{ position: [0, 0, 5], fov: 75 }} dpr={[1, 1.5]} performance={{ min: 0.3 }}>
-                    <UniverseBackground />
-                  </Canvas>
+                  {!miniApp && (  // Mới: Chỉ render 3D nếu không phải Mini App (lightweight)
+                    <Canvas camera={{ position: [0, 0, 5], fov: 75 }} dpr={[1, 1.5]} performance={{ min: 0.3 }}>
+                      <UniverseBackground />
+                    </Canvas>
+                  )}
                 </div>
                 <motion.div
                   initial={{ opacity: 0, x: -20 }}
@@ -629,6 +679,20 @@ export default function Dashboard() {
                         className="w-5 h-5 object-contain"
                       />
                       <MatrixHoverEffect text="Sign in with Google" />
+                    </button>
+                  )}
+                  {providers?.farcaster && !miniApp && (  // Mới
+                    <button onClick={() => setFarcasterModalOpen(true)} // Mở modal thay vì signIn trực tiếp
+                      className="w-full px-5 py-3 bg-black/20 border border-white/25 rounded-2xl text-white text-sm font-semibold uppercase flex items-center justify-center gap-3 transition-all duration-300 hover:bg-gray-800/30 hover:border-white/40"
+                    >
+                      <Image
+                        src="/logos/farcaster-logo.webp"
+                        alt="Farcaster Logo"
+                        width={20}
+                        height={20}
+                        className="w-5 h-5 rounded-xl object-contain"
+                      />
+                      <MatrixHoverEffect text="Sign in with Farcaster" />
                     </button>
                   )}
                   {error && (
@@ -749,6 +813,48 @@ export default function Dashboard() {
               </div>
               <div className="text-xs sm:text-sm flex-1 overflow-y-auto custom-scrollbar p-6 prose prose-invert max-w-none">
                 {modalContent === 'privacy' ? <PrivacyPolicyContent /> : <TermsOfServiceContent />}
+              </div>
+            </div>
+          </div>
+        )}
+        {farcasterModalOpen && (
+          <div
+            className="fixed inset-0 bg-black/75 flex items-center justify-center z-50"
+            onClick={() => setFarcasterModalOpen(false)}
+          >
+            <div
+              className="bg-gray-900/50 backdrop-blur-lg border border-white/20 rounded-2xl w-full max-w-md h-[60vh] relative flex flex-col"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="sticky top-0 z-10 backdrop-blur-lg border-b border-white/20 p-4 flex justify-between items-center">
+                <h2 className="text-xl font-bold text-white uppercase">Sign In with Farcaster</h2>
+                <button
+                  onClick={() => setFarcasterModalOpen(false)}
+                  className="text-white text-xl font-bold hover:text-neon-blue transition-all duration-300"
+                >
+                  ✕
+                </button>
+              </div>
+              <div className="flex-1 flex flex-col items-center justify-center p-4 overflow-auto">
+                <p className="text-gray-400 text-sm mb-4 text-center">Scan the QR code with your Warpcast app to sign in.</p>
+                <AuthKitProvider
+                  config={{
+                    domain: window.location.hostname, // e.g., localhost
+                    siweUri: `${window.location.origin}/api/auth/signin/farcaster`, // Callback cho NextAuth
+                    relay: 'https://relay.farcaster.xyz', // Default relay
+                    rpcUrl: 'https://mainnet.base.org', // Base RPC
+                    version: 'v1',
+                  }}
+                >
+                  <SignInButton // Sử dụng SignInButton thay vì AuthKitButton
+                    onSuccess={handleFarcasterSuccess}
+                    onError={(error) => {
+                      console.error('AuthKit error:', error);
+                      toast.error(`Farcaster error: ${error.message}`);
+                      setFarcasterModalOpen(false);
+                    }}
+                  />
+                </AuthKitProvider>
               </div>
             </div>
           </div>

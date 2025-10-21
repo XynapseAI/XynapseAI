@@ -10,7 +10,6 @@ export const metadata = {
   description: 'Explore the ultimate AI-powered crypto market analytics platform.',
 };
 
-
 function hasCircularReference(obj, seen = new WeakSet()) {
   if (typeof obj !== 'object' || obj === null) return false;
   if (seen.has(obj)) return true;
@@ -24,7 +23,6 @@ function hasCircularReference(obj, seen = new WeakSet()) {
 }
 
 export default function RootLayout({ children }) {
-  // Kiểm tra children hoặc dữ liệu khác nếu cần
   if (hasCircularReference(children)) {
     console.error('Circular reference detected in children:', children);
     throw new Error('Circular reference in layout');
@@ -32,6 +30,9 @@ export default function RootLayout({ children }) {
 
   return (
     <html lang="en">
+      <head>
+        <meta name="fc:frame" content='{"version":"next","imageUrl":"https://farcaster.xynapseai.net/og-image.png","button":{"title":"Launch Xynapse","action":{"type":"launch_miniapp","name":"Xynapse Dashboard","url":"https://farcaster.xynapseai.net/dashboard"}}}' />
+      </head>
       <body className={`bg-black text-white`}>
         <ClientProviders>{children}</ClientProviders>
       </body>

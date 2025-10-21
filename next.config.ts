@@ -15,6 +15,7 @@ const nextConfig: NextConfig = {
       'gateway.irys.xyz',
       'cdn.dexscreener.com',
       'scontent.xx.fbcdn.net',
+      'imagedelivery.net',
     ],
     remotePatterns: [
       {
@@ -31,6 +32,11 @@ const nextConfig: NextConfig = {
         protocol: 'https',
         hostname: 'lh3.googleusercontent.com',
         pathname: '/**',
+      },
+      {
+        protocol: 'https',
+        hostname: 'imagedelivery.net',  // Thêm hostname từ Neynar PFP
+        pathname: '/**',  // Cho phép tất cả path (an toàn cho PFP)
       },
     ],
   },
