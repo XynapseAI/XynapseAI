@@ -3,7 +3,7 @@
     "version": "1",
     "name": "Xynapse Dashboard Mini App",
     "homeUrl": "https://farcaster.xynapseai.net/dashboard",
-    "iconUrl": "https://farcaster.xynapseai.net/logos/logo-landscape.webp",
+    "iconUrl": "https://farcaster.xynapseai.net/logos/logo.webp",
     "splashImageUrl": "https://farcaster.xynapseai.net/splash.png",
     "splashBackgroundColor": "#000000",
     "subtitle": "AI-Powered Crypto Analytics",

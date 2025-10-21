@@ -269,7 +269,6 @@ export default function Dashboard() {
   const recaptchaRef = useRef(null);
   const { userData, loading, error } = useUserData(session, csrfToken, setIsAnalyzing);
   const [farcasterModalOpen, setFarcasterModalOpen] = useState(false && !miniApp);
-  const [showFarcasterButton, setShowFarcasterButton] = useState(true);
   const miniApp = useMiniApp();
 
   const openModal = (content) => {
