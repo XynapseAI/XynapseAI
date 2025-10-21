@@ -516,13 +516,13 @@ export const authOptions = {
   ...(isProd && {
     cookies: {
       sessionToken: {
-        name: `__Secure-next-auth.session-token`,
+        name: `__Secure-next-auth.session-token`,  // Giữ __Secure- (cho phép subdomain)
         options: {
           httpOnly: true,
           sameSite: 'lax',
           path: '/',
           secure: true,
-          domain: cookieDomain,  // .xynapseai.net cho share subdomain
+          domain: cookieDomain,
         },
       },
       callbackUrl: {
@@ -535,13 +535,15 @@ export const authOptions = {
         },
       },
       csrfToken: {
-        name: `__Host-next-auth.csrf-token`,
+        // FIX: Bỏ __Host- prefix để cho phép domain subdomain
+        // Đổi sameSite 'strict' -> 'lax' để tương thích OAuth redirect cross-subdomain
+        name: `next-auth.csrf-token`,
         options: {
           httpOnly: false,
-          sameSite: 'lax',  // Fix: 'lax' thay 'strict' để allow POST signin
+          sameSite: 'lax',  // FIX: 'lax' thay vì 'strict'
           path: '/',
           secure: true,
-          domain: cookieDomain,
+          domain: cookieDomain,  // Giữ subdomain
         },
       },
     },
