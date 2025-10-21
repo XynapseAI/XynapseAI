@@ -30,7 +30,6 @@ const allowedOrigins = [
   'http://localhost:3000/api',
   'https://xynapseai.net',
   'https://www.xynapseai.net',
-  'https://farcaster.xynapseai.net',
   'https://xynapse-ai-xynapse-projects.vercel.app',
   'https://xynapse-ai.vercel.app',
 ].filter((v, i, a) => a.indexOf(v) === i);

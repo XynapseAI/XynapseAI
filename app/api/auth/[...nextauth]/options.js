@@ -145,6 +145,11 @@ const customAdapter = {
   },
 };
 
+const nextAuthUrl = process.env.NEXTAUTH_URL || (process.env.NODE_ENV === 'production' ? 'https://xynapseai.net' : 'http://localhost:3000');
+const isProd = process.env.NODE_ENV === 'production';
+const cookieDomain = isProd ? '.xynapseai.net' : undefined;  // Dev: undefined (default localhost), Prod: share subdomain
+const cookieSecure = isProd;
+
 // ================== Auth Options ==================
 export const authOptions = {
   adapter: customAdapter,
@@ -234,8 +239,8 @@ export const authOptions = {
           }
 
           // THAY ĐỔI: Chuyển sang Base chainId 8453 (thay vì Optimism 10)
-          if (Number(message.chainId) !== 8453) {
-            logger.error("Invalid Farcaster chainId: expected 8453 (Base)", {
+          if (Number(message.chainId) !== 10) {
+            logger.error("Invalid Farcaster chainId: expected 10 (Optimism)", {
               chainId: message.chainId,
               type: typeof message.chainId,
               parsed: Number(message.chainId)
@@ -509,6 +514,39 @@ export const authOptions = {
       return baseUrl + '/dashboard';
     },
   },
+  ...(isProd && {
+    cookies: {
+      sessionToken: {
+        name: `__Secure-next-auth.session-token`,
+        options: {
+          httpOnly: true,
+          sameSite: 'lax',
+          path: '/',
+          secure: true,
+          domain: cookieDomain,  // .xynapseai.net cho share subdomain
+        },
+      },
+      callbackUrl: {
+        name: `__Secure-next-auth.callback-url`,
+        options: {
+          sameSite: 'lax',
+          path: '/',
+          secure: true,
+          domain: cookieDomain,
+        },
+      },
+      csrfToken: {
+        name: `__Host-next-auth.csrf-token`,
+        options: {
+          httpOnly: false,
+          sameSite: 'strict',
+          path: '/',
+          secure: true,
+          domain: cookieDomain,
+        },
+      },
+    },
+  }),
   secret: process.env.AUTH_SECRET,
   session: { strategy: "jwt", maxAge: 2 * 60 * 60 }, // 2 hours
   pages: {

@@ -317,13 +317,10 @@ export default function Dashboard() {
 
     const fetchCsrfToken = async () => {
       try {
-        const response = await fetch(`${API_BASE_URL}/auth/csrf`, {
+        const response = await fetch('/api/auth/csrf', {  // Fix: relative path chuẩn NextAuth
           method: 'GET',
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${session?.accessToken || ''}`,
-          },
-          credentials: 'include',
+          credentials: 'include',  // Fix: Để read/set cookie tự động
+          // Bỏ Authorization: Bearer - NextAuth handle qua cookie
         });
         const result = await response.json();
         if (response.ok) {
@@ -334,7 +331,15 @@ export default function Dashboard() {
         }
       } catch (err) {
         console.error('Error fetching CSRF token:', err);
-        toast.error(`Failed to fetch CSRF token: ${err.message}`, { position: 'top-center' });
+        // Fallback cho dev: Generate local token tạm
+        if (process.env.NODE_ENV === 'development') {
+          const fallbackToken = crypto.randomBytes(32).toString('hex');
+          setCsrfToken(fallbackToken);
+          await update({ csrfToken: fallbackToken });
+          toast.warn('Using dev fallback CSRF token', { position: 'top-center' });
+        } else {
+          toast.error(`Failed to fetch CSRF token: ${err.message}`, { position: 'top-center' });
+        }
       }
     };
     fetchCsrfToken();
@@ -833,13 +838,13 @@ export default function Dashboard() {
                 </button>
               </div>
               <div className="flex-1 flex flex-col items-center justify-center p-4 overflow-auto">
-                <p className="text-gray-400 text-sm mb-4 text-center">Scan the QR code with your Warpcast app to sign in.</p>
+                <p className="text-gray-500 text-sm mb-4 text-center">Scan the QR code with your Warpcast app to sign in.</p>
                 <AuthKitProvider
                   config={{
                     domain: window.location.hostname, // e.g., localhost
                     siweUri: `${window.location.origin}/api/auth/signin/farcaster`, // Callback cho NextAuth
                     relay: 'https://relay.farcaster.xyz', // Default relay
-                    rpcUrl: 'https://mainnet.base.org', // Base RPC
+                    rpcUrl: 'https://mainnet.optimism.io', // Base RPC
                     version: 'v1',
                   }}
                 >
