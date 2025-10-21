@@ -838,8 +838,12 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
             ) : (
               <div className="overflow-hidden h-8 flex items-center">
                 <div
-                  className="flex items-center whitespace-nowrap transition-transform duration-[20s] ease-linear" // CSS marquee anim, slower for smooth
-                  style={{ display: "inline-flex", width: "max-content", animationPlayState: isTrendingHovered ? 'paused' : 'running' }}
+                  className="flex items-center whitespace-nowrap"
+                  style={{
+                    display: "inline-flex",
+                    width: "max-content",
+                    animation: isTrendingHovered ? 'none' : 'marquee 20s linear infinite'
+                  }}
                   onMouseEnter={() => setIsTrendingHovered(true)}
                   onMouseLeave={() => {
                     setIsTrendingHovered(false);

@@ -145,10 +145,9 @@ const customAdapter = {
   },
 };
 
-const nextAuthUrl = process.env.NEXTAUTH_URL || (process.env.NODE_ENV === 'production' ? 'https://xynapseai.net' : 'http://localhost:3000');
 const isProd = process.env.NODE_ENV === 'production';
 const cookieDomain = isProd ? '.xynapseai.net' : undefined;  // Dev: undefined (default localhost), Prod: share subdomain
-const cookieSecure = isProd;
+
 
 // ================== Auth Options ==================
 export const authOptions = {
