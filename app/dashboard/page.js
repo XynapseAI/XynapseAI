@@ -29,6 +29,7 @@ import "@farcaster/auth-kit/styles.css";
 import { AuthKitProvider, SignInButton } from "@farcaster/auth-kit";
 import { sdk } from '@farcaster/miniapp-sdk';  // Mới
 import { useMiniApp } from '@neynar/react';
+import { getCsrfToken } from 'next-auth/react';
 
 gsap.registerPlugin(MotionPathPlugin);
 
@@ -503,14 +504,22 @@ export default function Dashboard() {
 
   const handleFarcasterSuccess = async (result) => {
     try {
+      const csrf = await getCsrfToken();  // Fetch CSRF token
+      if (!csrf) throw new Error('CSRF token unavailable');
+
       const res = await signIn('farcaster', {
         message: result.message,
         signature: result.signature,
-      }, { redirect: false });
+        // Pass CSRF explicit cho Credentials POST
+        csrfToken: csrf,
+      }, {
+        redirect: false,
+        // Ensure cookies forwarded
+      });
       if (res?.error) {
         toast.error(`Farcaster login failed: ${res.error}`);
       } else {
-        await update();  // THÊM: Sync session để userData cập nhật FID
+        await update();
         toast.success('Signed in with Farcaster successfully!');
         setFarcasterModalOpen(false);
         router.refresh();

@@ -538,7 +538,7 @@ export const authOptions = {
         name: `__Host-next-auth.csrf-token`,
         options: {
           httpOnly: false,
-          sameSite: 'strict',
+          sameSite: 'lax',  // Fix: 'lax' thay 'strict' để allow POST signin
           path: '/',
           secure: true,
           domain: cookieDomain,
