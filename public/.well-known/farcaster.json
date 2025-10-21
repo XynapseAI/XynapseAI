@@ -14,12 +14,12 @@
     ],
     "primaryCategory": "finance",
     "tags": ["crypto", "analytics", "wallet", "ai"],
-    "requiredChains": ["eip155:1", "eip155:10"], 
-    "requiredCapabilities": ["wallet"]
+    "requiredChains": [], 
+    "requiredCapabilities": []
   },
   "accountAssociation": {
-    "header": "ef1b...your-signed-header...", 
-    "payload": "eyJ...your-signed-payload...",  
-    "signature": "0x...your-signature..."  
+    "header": "eyJmaWQiOjEzOTU0NzIsInR5cGUiOiJjdXN0b2R5Iiwia2V5IjoiMHg5NjYyNzg5MmMyMWEzRTQ3MTQzNzMyZUNlRENiNkJiMWM4ZjZlRjc0In0",
+    "payload": "eyJkb21haW4iOiJmYXJjYXN0ZXIueHluYXBzZWFpLm5ldCJ9",
+    "signature": "PdJj8jAPH+ahNxNs3t2vDPM06dP8RbKj++8feeOqdcQ093a2so7CY9sctPbsw7b8FBG5tKAfvJu8fVRm/xfMzBw="
   }
 }
