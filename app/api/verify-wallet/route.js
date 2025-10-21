@@ -51,6 +51,7 @@ const allowedOrigins = [
   'http://localhost:3000',
   'https://xynapseai.net',
   'https://www.xynapseai.net',
+  'https://farcaster.xynapseai.net',
 ];
 
 export async function POST(request) {

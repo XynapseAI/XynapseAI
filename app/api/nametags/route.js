@@ -15,9 +15,11 @@ const allowedOrigins = [
   process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000',
   'https://xynapseai.net',
   'https://www.xynapseai.net',
+  'https://farcaster.xynapseai.net',
   process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : undefined,
   'https://postgres-production-e852c.up.railway.app',
   'https://xynapseai-production.up.railway.app',
+  'https://farcaster.xynapseai.net',
 ].filter(Boolean).filter((v, i, a) => a.indexOf(v) === i);
 
 // Generate CSRF token

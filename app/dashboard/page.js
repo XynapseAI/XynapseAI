@@ -268,7 +268,7 @@ export default function Dashboard() {
   const [modalContent, setModalContent] = useState(null);
   const recaptchaRef = useRef(null);
   const { userData, loading, error } = useUserData(session, csrfToken, setIsAnalyzing);
-  const [farcasterModalOpen, setFarcasterModalOpen] = useState(false && !miniApp);
+  const [farcasterModalOpen, setFarcasterModalOpen] = useState(false);
   const miniApp = useMiniApp();
 
   const openModal = (content) => {
@@ -599,7 +599,7 @@ export default function Dashboard() {
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.8, ease: 'easeOut' }}
-                className="w-full h-full flex items-center justify-center text-white font-saira relative"
+                className="w-full h-full p-4 md:p-0 flex items-center justify-center text-white font-saira relative"
               >
                 <div className="fixed inset-0 z-0">
                   {!miniApp && (  // Mới: Chỉ render 3D nếu không phải Mini App (lightweight)
@@ -608,7 +608,7 @@ export default function Dashboard() {
                     </Canvas>
                   )}
                 </div>
-                <motion.div
+                {/* <motion.div
                   initial={{ opacity: 0, x: -20 }}
                   animate={{ opacity: 1, x: 0 }}
                   transition={{ duration: 0.5, delay: 0.2 }}
@@ -622,18 +622,18 @@ export default function Dashboard() {
                     className="h-18 sm:h-22 w-auto object-contain"
                     priority
                   />
-                </motion.div>
+                </motion.div> */}
                 <motion.div
                   initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ duration: 0.5, ease: 'easeOut' }}
-                  className="relative z-20 bg-black/60 backdrop-blur-xs p-8 md:p-12 border border-white/15 rounded-lg max-w-md w-full mx-4 flex flex-col items-center shadow-2xl shadow-black/50"
+                  className="relative z-20 bg-black/60 backdrop-blur-xs p-6 md:p-10 border border-white/15 rounded-lg max-w-sm w-full mx-4 flex flex-col items-center shadow-2xl shadow-black/50"
                 >
                   <motion.h1
                     initial={{ opacity: 0, y: -10 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ duration: 0.5, delay: 0.2 }}
-                    className="text-2xl md:text-3xl font-bold text-white uppercase mb-4 text-center tracking-wide"
+                    className="text-xl md:text-3xl font-bold text-white uppercase mb-3 text-center tracking-wide"
                   >
                     Sign In
                   </motion.h1>
@@ -641,34 +641,34 @@ export default function Dashboard() {
                     initial={{ opacity: 0, y: -10 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ duration: 0.5, delay: 0.3 }}
-                    className="text-xs md:text-sm text-gray-500 mb-8 text-center leading-relaxed"
+                    className="text-[11px] md:text-xs text-gray-500 mb-6 text-center leading-relaxed"
                   >
                     Access your dashboard with secure authentication.
                   </motion.p>
-                  <form onSubmit={handleEmailSignIn} className="w-full space-y-6">
+                  <form onSubmit={handleEmailSignIn} className="w-full space-y-4">
                     <input
                       type="email"
                       value={email}
                       onChange={(e) => setEmail(e.target.value)}
                       placeholder="Enter your email"
-                      className="w-full px-5 py-3 bg-black/60 border border-white/15 rounded-2xl text-white text-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-white/30 transition-all duration-300"
+                      className="w-full px-4 py-2.5 bg-black/60 border border-white/15 rounded-2xl text-white text-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-white/30 transition-all duration-300"
                       required
                     />
                     <button
                       type="submit"
-                      className="w-full px-5 py-3 border-2 border-white/15 bg-white/10 text-white rounded-2xl text-sm font-semibold uppercase transition-all duration-300 hover:border-white/30 hover:bg-white/20 flex items-center justify-center"
+                      className="w-full px-4 py-2.5 border-2 border-white/15 bg-white/10 text-white rounded-2xl text-sm font-semibold transition-all duration-300 hover:border-white/30 hover:bg-white/20 flex items-center justify-center"
                     >
                       <MatrixHoverEffect text="Sign in with Email" hoverColor="#FFFFFF" />
                     </button>
                   </form>
-                  <div className="flex items-center justify-center my-6 w-full">
+                  <div className="flex items-center justify-center my-4 w-full">
                     <span className="text-gray-500 text-xs uppercase px-4">OR</span>
                     <div className="flex-1 h-px bg-white/10"></div>
                   </div>
                   {providers?.google && (
                     <button
                       onClick={handleGoogleSignIn}
-                      className="w-full px-5 py-3 bg-black/20 border border-white/25 rounded-2xl text-white text-sm font-semibold uppercase flex items-center justify-center gap-3 transition-all duration-300 hover:bg-gray-800/30 hover:border-white/40"
+                      className="w-full px-4 py-2.5 bg-black/20 border border-white/25 rounded-2xl text-white text-sm font-semibold flex items-center justify-center gap-3 transition-all duration-300 hover:bg-gray-800/30 hover:border-white/40"
                     >
                       <Image
                         src="/logos/google.webp"
@@ -680,26 +680,24 @@ export default function Dashboard() {
                       <MatrixHoverEffect text="Sign in with Google" />
                     </button>
                   )}
-                  {providers?.farcaster && !miniApp && (  // Mới
-                    <button onClick={() => setFarcasterModalOpen(true)} // Mở modal thay vì signIn trực tiếp
-                      className="w-full px-5 py-3 bg-black/20 border border-white/25 rounded-2xl text-white text-sm font-semibold uppercase flex items-center justify-center gap-3 transition-all duration-300 hover:bg-gray-800/30 hover:border-white/40"
-                    >
-                      <Image
-                        src="/logos/farcaster-logo.webp"
-                        alt="Farcaster Logo"
-                        width={20}
-                        height={20}
-                        className="w-5 h-5 rounded-xl object-contain"
-                      />
-                      <MatrixHoverEffect text="Sign in with Farcaster" />
-                    </button>
-                  )}
+                  <button onClick={() => setFarcasterModalOpen(true)} // Mở modal thay vì signIn trực tiếp
+                    className="w-full px-4 m-2 py-2.5 bg-black/20 border border-white/25 rounded-2xl text-white text-sm font-semibold flex items-center justify-center gap-3 transition-all duration-300 hover:bg-gray-800/30 hover:border-white/40"
+                  >
+                    <Image
+                      src="/logos/farcaster-logo.webp"
+                      alt="Farcaster Logo"
+                      width={20}
+                      height={20}
+                      className="w-6 h-6 rounded-xl object-contain"
+                    />
+                    <MatrixHoverEffect text="Sign in with Farcaster" />
+                  </button>
                   {error && (
                     <motion.div
                       initial={{ opacity: 0, y: -10 }}
                       animate={{ opacity: 1, y: 0 }}
                       transition={{ duration: 0.5, delay: 0.4 }}
-                      className="mt-6 text-red-300 text-sm bg-red-500/10 border border-red-500/20 rounded-lg p-3 text-center"
+                      className="mt-4 text-red-300 text-sm bg-red-500/10 border border-red-500/20 rounded-lg p-2 text-center"
                     >
                       Error: {error}
                     </motion.div>
@@ -708,7 +706,7 @@ export default function Dashboard() {
                     initial={{ opacity: 0, y: 10 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ duration: 0.5, delay: 0.5 }}
-                    className="mt-6 text-xs text-gray-500 text-center leading-relaxed"
+                    className="mt-4 text-[11px] text-gray-500 text-center leading-relaxed"
                   >
                     By clicking continue, you agree to our{' '}
                     <button onClick={() => openModal('terms')} className="text-white hover:underline">

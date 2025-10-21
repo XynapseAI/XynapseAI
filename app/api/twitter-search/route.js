@@ -35,6 +35,7 @@ const checkCSRF = (req) => {
     process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000',
     'http://localhost:3000',
     'https://xynapseai.net',
+    'https://farcaster.xynapseai.net',
     'https://www.xynapseai.net',
   ];
   const origin = req.headers.get('origin') || req.headers.get('referer')?.split('/').slice(0, 3).join('/');

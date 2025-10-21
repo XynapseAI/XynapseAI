@@ -34,6 +34,7 @@ const allowedOrigins = [
   'https://xynapse-ai.vercel.app',
   'https://xynapseai.net',
   'https://www.xynapseai.net',
+  'https://farcaster.xynapseai.net',
   'https://xynapse-ai-xynapse-projects.vercel.app',
 ].filter(Boolean);
 
