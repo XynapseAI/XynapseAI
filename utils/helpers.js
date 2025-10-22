@@ -11,8 +11,7 @@ export const LoadingOverlay = ({ isLoading, isMobile, className = "" }) => (
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
         transition={{ duration: 0.3 }}
-        className={`fixed inset-0 flex items-center justify-center bg-black/20 rounded-xl z-[1000] backdrop-blur-xs ${className}`}
-        style={{ WebkitBackdropFilter: 'blur(4px)' }}
+        className={`fixed inset-0 flex items-center justify-center rounded-xl z-[1000] ${className}`}
         aria-label="Loading animation"
       >
         <div className={`relative rounded-xl ${isMobile ? "w-12 h-12" : "w-16 h-16"}`}>
@@ -22,8 +21,12 @@ export const LoadingOverlay = ({ isLoading, isMobile, className = "" }) => (
             muted
             playsInline
             className="w-full h-full object-contain relative z-10"
-            src="/logo-loading.webm"
           >
+            {/* Source ưu tiên: WebM với alpha cho Chrome/Android/PC */}
+            <source src="/logo-loading.webm" type="video/webm" />
+            {/* Fallback: GIF với alpha cho iOS/Safari và các browser khác */}
+            <source src="/logo-loading.gif" type="image/gif" />
+            {/* Fallback cuối: Text nếu không hỗ trợ gì */}
             Your browser does not support the video tag.
           </video>
         </div>

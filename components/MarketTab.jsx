@@ -842,7 +842,7 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                   style={{
                     display: "inline-flex",
                     width: "max-content",
-                    animation: isTrendingHovered ? 'none' : 'marquee 20s linear infinite'
+                    animation: isTrendingHovered ? 'none' : 'marquee 40s linear infinite'
                   }}
                   onMouseEnter={() => setIsTrendingHovered(true)}
                   onMouseLeave={() => {
@@ -930,6 +930,7 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                   selectedToken // Only show if a token is selected
                 }
                 isMobile={isMobile}
+                className="h-full w-full"
               />
               {isLoadingSelectedToken && !localCache.current[`token-metadata-${selectedToken?.id}`]?.data ? (
                 <div className="h-full flex items-center justify-center">{/* Loading handled by LoadingOverlay */}</div>
@@ -1331,7 +1332,11 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
             <div
               className="border border-white/10 p-2 sm:p-2 rounded-xl flex-1 min-h-[320px] sm:min-h-[280px] max-h-[200px] sm:max-h-[280px] bg-black/80 backdrop-blur-xl overflow-hidden relative animate-slideInLeft" // CSS
             >
-              <LoadingOverlay isLoading={isChartLoading && selectedToken} isMobile={isMobile} />
+              <LoadingOverlay 
+                isLoading={isChartLoading && selectedToken} 
+                isMobile={isMobile}
+                className="h-full w-full" 
+              />
               <div className="flex flex-col items-center mb-1 sm:mb-2 mt-4 sm:mt-0">
                 <div className="flex flex-col sm:flex-row justify-between items-center w-full max-w-[90%] sm:max-w-[600px] gap-2 sm:gap-3">
                   <div className="flex space-x-2 mb-2 sm:mb-0 justify-start sm:justify-center w-full sm:w-auto">

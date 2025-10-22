@@ -26,6 +26,10 @@ async function getRedisClient() {
   return redisClient;
 }
 
+async function generateCSRFToken() {
+  return crypto.randomBytes(32).toString('hex');
+}
+
 const allowedOrigins = [
   process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000',
   'https://xynapseai.net',
@@ -221,9 +225,15 @@ export async function GET(request) {
 
   // Check CSRF trước rate limit
   if (!(await checkDoubleSubmitCSRF(request, ip, session.user.id))) {
-    logger.warn('Invalid CSRF token', { ip });
-    return NextResponse.json({ detail: 'Invalid CSRF check.' }, { status: 403, headers: corsHeaders });
-  }
+  const newCsrfToken = await generateCSRFToken();  // Thêm function generateCSRFToken từ /api/user nếu chưa có
+  const client = await getRedisClient();
+  await client.setEx(`csrf:${session.user.id}`, 15 * 60, newCsrfToken);
+  logger.warn('Invalid CSRF token, new token issued', { ip });
+  return NextResponse.json({ detail: 'Invalid CSRF check. Please refresh.' }, { 
+    status: 403, 
+    headers: { ...corsHeaders, ...securityHeaders(newCsrfToken) }  // Dùng securityHeaders mới
+  });
+}
 
   // Bây giờ mới check rate limit (chỉ count valid request)
   try {

@@ -38,26 +38,6 @@ const BlinkingDots = () => (
   </div>
 );
 
-// Action Loading Overlay for central screen loading during check-in and verify
-const ActionLoadingOverlay = ({ isLoading }) => (
-  <AnimatePresence>
-    {isLoading && (
-      <motion.div
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        exit={{ opacity: 0 }}
-        transition={{ duration: 0.2 }}
-        className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50"
-      >
-        <div className="bg-gradient-to-br from-black/90 to-gray-900/90 backdrop-blur-xl border border-white/20 rounded-xl p-6 flex flex-col items-center gap-3 max-w-sm mx-4">
-          <Spinner className="h-8 w-8" color="text-blue-400" />
-          <span className="text-white text-sm font-medium text-center">Verifying your action...</span>
-        </div>
-      </motion.div>
-    )}
-  </AnimatePresence>
-)
-
 // Daily Check-in Bar Component - Updated to disable if not twitterConnected
 const DailyCheckinBar = ({ last7Days, streak, onCheckin, isLoading, userData, twitterConnected }) => {
   const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
@@ -86,8 +66,9 @@ const DailyCheckinBar = ({ last7Days, streak, onCheckin, isLoading, userData, tw
   };
 
   return (
-    <div className="w-full bg-gradient-to-br from-black/80 to-gray-900/80 border border-white/15 rounded-xl p-3 mb-2 shadow-lg shadow-black/20">
-      <div className="flex justify-between items-center mb-3">
+    <div className="relative w-full bg-gradient-to-br from-black/80 to-gray-900/80 border border-white/15 rounded-xl p-3 mb-2 shadow-lg shadow-black/20">
+      <LoadingOverlay isLoading={isLoading} isMobile={false} className="absolute inset-0 z-10 rounded-xl" />
+      <div className="relative z-20 flex justify-between items-center mb-3">
         <div className="flex items-center gap-1">
           <Calendar className="w-4 h-4 text-blue-400" />
           <h3 className="text-white font-bold text-[12px]">Daily Check-in</h3>
@@ -105,7 +86,7 @@ const DailyCheckinBar = ({ last7Days, streak, onCheckin, isLoading, userData, tw
           )}
         </div>
       </div>
-      <div className="flex justify-around items-center">
+      <div className="relative z-20 flex justify-around items-center">
         {last7Days.map((checked, index) => {
           const dayIndex = getDayIndex(index);
           return (
@@ -149,7 +130,7 @@ const DailyCheckinBar = ({ last7Days, streak, onCheckin, isLoading, userData, tw
         })}
       </div>
       {streak >= 7 && (
-        <div className="flex items-center justify-center mt-3 gap-1">
+        <div className="relative z-20 flex items-center justify-center mt-3 gap-1">
           <Flame className="w-4 h-4 text-orange-500 animate-pulse" />
           <span className="text-orange-400 font-bold text-sm">Streak: {streak} days - Double Points Active!</span>
         </div>
@@ -1131,7 +1112,6 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
       transition={{ duration: 0.6, ease: 'easeOut' }}
       className="font-saira w-full max-w-9xl mx-auto p-2 sm:p-4 bg-gradient-to-br from-black to-gray-900 flex flex-col h-[calc(100vh-3rem)] overflow-y-auto hide-scrollbar relative shadow-2xl"
     >
-      <ActionLoadingOverlay isLoading={overallLoading} />
       <ToastContainer
         position="top-center"
         autoClose={5000}
@@ -1155,7 +1135,7 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
               <LoadingOverlay
                 isLoading={userLoading}
                 isMobile={isMobile}
-                className="absolute inset-0 z-10 flex items-center justify-center bg-black/50 rounded-xl"
+                className="absolute inset-0 z-10 flex items-center justify-center bg-gradient-to-br from-black to-gray-900 rounded-xl"
               />
               {userError && (
                 <motion.div

@@ -252,6 +252,9 @@ async function hashApiKey(apiKey) {
 }
 
 function securityHeaders(csrfToken = null) {
+  const isProd = process.env.NODE_ENV === 'production';
+  const cookieDomain = isProd ? '.xynapseai.net' : undefined;  // Share subdomain (farcaster.xynapseai.net)
+
   const nonce = crypto.randomBytes(16).toString('base64');
   const csp = [
     "default-src 'self'",
@@ -277,10 +280,11 @@ function securityHeaders(csrfToken = null) {
   if (csrfToken) {
     headers['Set-Cookie'] = cookie.serialize('csrf_token', csrfToken, {
       httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'strict',
+      secure: true,
+      sameSite: isProd ? 'none' : 'lax',
       maxAge: 15 * 60,
       path: '/',
+      domain: cookieDomain,
     });
   }
   return headers;

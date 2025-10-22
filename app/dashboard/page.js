@@ -271,6 +271,7 @@ export default function Dashboard() {
   const { userData, loading, error } = useUserData(session, csrfToken, setIsAnalyzing);
   const [farcasterModalOpen, setFarcasterModalOpen] = useState(false);
   const miniApp = useMiniApp();
+  const [isMiniApp, setIsMiniApp] = useState(false);
 
   const openModal = (content) => {
     setModalContent(content);
@@ -351,6 +352,13 @@ export default function Dashboard() {
       fetchProvidersWithRetry();
     }
   }, [isMounted, providers, fetchProvidersWithRetry]);
+
+  useEffect(() => {
+    // Detect Mini App: subdomain + Neynar hook
+    const hostname = typeof window !== 'undefined' ? window.location.hostname : '';
+    const miniAppDetected = hostname.includes('farcaster.') || !!miniApp?.user;
+    setIsMiniApp(miniAppDetected);
+  }, [miniApp]);
 
   useEffect(() => {
     const initMiniApp = async () => {
@@ -679,18 +687,12 @@ export default function Dashboard() {
                     <span className="text-gray-500 text-xs uppercase px-4">OR</span>
                     <div className="flex-1 h-px bg-white/10"></div>
                   </div>
-                  {providers?.google && (
+                  {providers?.google && !isMiniApp && (
                     <button
                       onClick={handleGoogleSignIn}
                       className="w-full px-4 py-2.5 bg-black/20 border border-white/25 rounded-2xl text-white text-sm font-semibold flex items-center justify-center gap-3 transition-all duration-300 hover:bg-gray-800/30 hover:border-white/40"
                     >
-                      <Image
-                        src="/logos/google.webp"
-                        alt="Google Logo"
-                        width={20}
-                        height={20}
-                        className="w-5 h-5 object-contain"
-                      />
+                      <Image src="/logos/google.webp" alt="Google Logo" width={20} height={20} className="w-5 h-5 object-contain" />
                       <MatrixHoverEffect text="Sign in with Google" />
                     </button>
                   )}
