@@ -518,7 +518,7 @@ export const authOptions = {
       sessionToken: {
         name: 'next-auth.session-token',
         options: {
-          httpOnly: true,
+          httpOnly: false,  // FIX: false cho Mini App compatibility
           sameSite: 'lax',
           path: '/',
           secure: true,
@@ -528,7 +528,7 @@ export const authOptions = {
       callbackUrl: {
         name: 'next-auth.callback-url',
         options: {
-          httpOnly: false,  // Default NextAuth: client-side đọc cho redirect nếu cần
+          httpOnly: false,
           sameSite: 'lax',
           path: '/',
           secure: true,
@@ -538,7 +538,7 @@ export const authOptions = {
       csrfToken: {
         name: 'next-auth.csrf-token',
         options: {
-          httpOnly: true,  // Bảo mật: client KHÔNG cần đọc cookie (dùng /api/auth/csrf để lấy token)
+          httpOnly: false,  // FIX: false để webview persist cookie
           sameSite: 'lax',
           path: '/',
           secure: true,
