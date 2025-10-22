@@ -519,7 +519,7 @@ export const authOptions = {
         name: 'next-auth.session-token',
         options: {
           httpOnly: false,  // FIX: false cho Mini App compatibility
-          sameSite: 'lax',
+          sameSite: 'none',  // CHANGED: 'none' to allow cross-site (iframe) requests
           path: '/',
           secure: true,
           domain: cookieDomain,
@@ -529,7 +529,7 @@ export const authOptions = {
         name: 'next-auth.callback-url',
         options: {
           httpOnly: false,
-          sameSite: 'lax',
+          sameSite: 'none',  // CHANGED: 'none'
           path: '/',
           secure: true,
           domain: cookieDomain,
@@ -539,7 +539,7 @@ export const authOptions = {
         name: 'next-auth.csrf-token',
         options: {
           httpOnly: false,  // FIX: false để webview persist cookie
-          sameSite: 'lax',
+          sameSite: 'none',  // CHANGED: 'none'
           path: '/',
           secure: true,
           domain: cookieDomain,
