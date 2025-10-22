@@ -2,8 +2,6 @@
 import { WebSocket, WebSocketServer } from 'ws'; // Import both WebSocket and WebSocketServer
 import { createClient } from 'redis';
 import { logger } from '../utils/serverLogger.js';
-import { promisify } from 'util'; // Để dùng zlib async
-import zlib from 'zlib';
 
 const MEMPOOL_WS_URL = 'wss://mempool.space/api/v1/ws';
 const CACHE_TTL = 6 * 24 * 60 * 60; // 6 days (5 days + 1 day margin)
@@ -14,15 +12,10 @@ const MIN_USD_THRESHOLD = 1000000;
 const BTC_PRICE_CACHE_TTL = 10 * 60 * 1000; // 10 minutes
 const BTC_PRICE_RETRY_ATTEMPTS = 3;
 const BTC_PRICE_RETRY_DELAY = 3000;
-const MAX_CACHE_SIZE = 2000; // Tăng lên để lưu nhiều data hơn, nhưng struct mới tối ưu
+const MAX_CACHE_SIZE = 1000; // Giữ ở mức trung bình để tránh cache quá lớn, nhưng đủ cho 5 ngày với pagination
 const MAX_AGE_SECONDS = 5 * 24 * 60 * 60; // 5 days
 const MAX_PROCESSED_TX_CACHE_SIZE = 200;
 const MAX_NEW_TX_PER_BATCH = 20;
-const CLEAN_INTERVAL = 5 * 60 * 1000; // 5 min để clean old tx
-const ZSET_KEY = 'mempool-tx-ids'; // Sorted Set cho txids
-
-const gzip = promisify(zlib.gzip);
-const gunzip = promisify(zlib.gunzip);
 
 let redisClient;
 async function getRedisClient() {
@@ -64,64 +57,14 @@ async function getRedisClient() {
   return redisClient;
 }
 
-async function storeInRedis(transactions) {
+async function storeInRedis(key, data) {
   try {
     const client = await getRedisClient();
-    const multi = client.multi();
-    for (const tx of transactions) {
-      const txKey = `tx:${tx.txid}`;
-      const compressedInputs = await gzip(Buffer.from(JSON.stringify(tx.inputs)));
-      const compressedOutputs = await gzip(Buffer.from(JSON.stringify(tx.outputs)));
-      const compressedStatus = await gzip(Buffer.from(JSON.stringify(tx.status)));
-
-      multi.hSet(txKey, {
-        value_usd: tx.value_usd.toString(),
-        value_btc: tx.value_btc.toString(),
-        timestamp: tx.timestamp.toString(),
-        inputs: compressedInputs.toString('base64'), // Lưu base64 để an toàn
-        outputs: compressedOutputs.toString('base64'),
-        fee: tx.fee.toString(),
-        size: tx.size.toString(),
-        status: compressedStatus.toString('base64'),
-      });
-      multi.expire(txKey, CACHE_TTL); // TTL cho từng tx
-      multi.zAdd(ZSET_KEY, { score: tx.timestamp, value: tx.txid }); // Score ascending timestamp
-    }
-    await multi.exec();
-    logger.info(`Stored ${transactions.length} new transactions in Redis`);
+    const serializedData = JSON.stringify(data);
+    await client.setEx(key, CACHE_TTL, serializedData);
+    logger.info(`Stored data in Redis: ${key}`, { transactionCount: data.data.length });
   } catch (error) {
-    logger.error('Failed to store in Redis:', { error: error.message });
-  }
-}
-
-async function cleanOldTransactions() {
-  try {
-    const client = await getRedisClient();
-    const now = Math.floor(Date.now() / 1000);
-    const minScore = now - MAX_AGE_SECONDS;
-
-    // Xóa old txids từ sorted set
-    const removedTxids = await client.zRangeByScore(ZSET_KEY, '-inf', minScore - 1);
-    if (removedTxids.length > 0) {
-      const multi = client.multi();
-      multi.zRemRangeByScore(ZSET_KEY, '-inf', minScore - 1);
-      for (const txid of removedTxids) {
-        multi.del(`tx:${txid}`);
-      }
-      await multi.exec();
-      logger.info(`Cleaned ${removedTxids.length} old transactions`);
-    }
-
-    // Trim nếu vượt size (dự phòng)
-    const size = await client.zCard(ZSET_KEY);
-    if (size > MAX_CACHE_SIZE) {
-      const trimMulti = client.multi();
-      trimMulti.zRemRangeByRank(ZSET_KEY, 0, size - MAX_CACHE_SIZE - 1); // Xóa oldest
-      await trimMulti.exec();
-      logger.info(`Trimmed cache to ${MAX_CACHE_SIZE} transactions`);
-    }
-  } catch (error) {
-    logger.error('Failed to clean old transactions:', { error: error.message });
+    logger.error('Failed to store in Redis:', { key, error: error.message });
   }
 }
 
@@ -164,7 +107,6 @@ function startWebSocketServer(httpServer) {
   let ws;
   let reconnectAttempts = 0;
   let pingInterval = null;
-  let cleanInterval = null;
   const mempoolTxCache = new Set();
 
   const wss = new WebSocketServer({ server: httpServer }); // Use WebSocketServer for server
@@ -186,10 +128,6 @@ function startWebSocketServer(httpServer) {
           logger.debug('Sent WebSocket ping');
         }
       }, PING_INTERVAL);
-      if (!cleanInterval) {
-        cleanInterval = setInterval(cleanOldTransactions, CLEAN_INTERVAL);
-        logger.info('Started periodic clean job');
-      }
     });
 
     ws.on('pong', () => {
@@ -227,14 +165,15 @@ function startWebSocketServer(httpServer) {
           return;
         }
 
+        const transactions = [];
         const { default: axios } = await import('axios');
-        const txPromises = newTxs.map(async (txid) => {
+        for (const txid of newTxs) {
           try {
             const response = await axios.get(`https://mempool.space/api/tx/${txid}`, { timeout: 5000 });
             const tx = response.data;
             if (!tx.vout || !Array.isArray(tx.vout)) {
               logger.warn(`Invalid transaction data for txid ${txid}`);
-              return null;
+              continue;
             }
             const totalValueSatoshi = tx.vout.reduce((sum, output) => sum + (output.value || 0), 0);
             const totalValueUSD = (totalValueSatoshi / 1e8) * btcPrice;
@@ -245,7 +184,8 @@ function startWebSocketServer(httpServer) {
                 const iterator = mempoolTxCache.values();
                 mempoolTxCache.delete(iterator.next().value);
               }
-              return {
+              // Tối ưu: Chỉ lưu address cho inputs/outputs, bỏ nameTag/image null để giảm size JSON
+              transactions.push({
                 txid: tx.txid,
                 value_usd: totalValueUSD,
                 value_btc: totalValueSatoshi / 1e8,
@@ -259,18 +199,33 @@ function startWebSocketServer(httpServer) {
                 fee: tx.fee || 0,
                 size: tx.size || 0,
                 status: tx.status || {},
-              };
+              });
             }
           } catch (txError) {
             logger.error(`Failed to fetch tx ${txid}:`, { error: txError.message });
           }
-          return null;
-        });
-
-        const transactions = (await Promise.all(txPromises)).filter(Boolean);
+        }
 
         if (transactions.length > 0) {
-          await storeInRedis(transactions);
+          const cacheKey = 'mempool-transactions';
+          let allTxs = [];
+          try {
+            const client = await getRedisClient();
+            const existing = await client.get(cacheKey);
+            if (existing) {
+              allTxs = JSON.parse(existing).data;
+            }
+          } catch (redisError) {
+            logger.error('Failed to fetch existing transactions from Redis:', { error: redisError.message });
+          }
+
+          const now = Math.floor(Date.now() / 1000);
+          allTxs = [...transactions, ...allTxs]
+            .filter((tx) => tx.timestamp >= now - MAX_AGE_SECONDS)
+            .sort((a, b) => b.timestamp - a.timestamp)
+            .slice(0, MAX_CACHE_SIZE);
+          await storeInRedis(cacheKey, { success: true, data: allTxs });
+          logger.info(`Processed and stored ${transactions.length} new transactions`);
         }
       } catch (error) {
         logger.error('WebSocket message processing error:', { error: error.message });
@@ -279,13 +234,13 @@ function startWebSocketServer(httpServer) {
 
     ws.on('error', (error) => {
       logger.error('Mempool WebSocket error:', { error: error.message });
-      if (pingInterval) clearInterval(pingInterval);
+      clearInterval(pingInterval);
       reconnect();
     });
 
     ws.on('close', () => {
       logger.info('Mempool WebSocket closed');
-      if (pingInterval) clearInterval(pingInterval);
+      clearInterval(pingInterval);
       reconnect();
     });
   };
@@ -306,7 +261,6 @@ function startWebSocketServer(httpServer) {
   return () => {
     if (ws) ws.close();
     if (pingInterval) clearInterval(pingInterval);
-    if (cleanInterval) clearInterval(cleanInterval);
     wss.close();
     logger.info('WebSocket server closed');
   };
