@@ -15,20 +15,25 @@ export const LoadingOverlay = ({ isLoading, isMobile, className = "" }) => (
         aria-label="Loading animation"
       >
         <div className={`relative rounded-xl ${isMobile ? "w-12 h-12" : "w-16 h-16"}`}>
-          <video
-            autoPlay
-            loop
-            muted
-            playsInline
-            className="w-full h-full object-contain relative z-10"
-          >
-            {/* Source ưu tiên: WebM với alpha cho Chrome/Android/PC */}
-            <source src="/logo-loading.webm" type="video/webm" />
-            {/* Fallback: GIF với alpha cho iOS/Safari và các browser khác */}
-            <source src="/logo-loading.gif" type="image/gif" />
-            {/* Fallback cuối: Text nếu không hỗ trợ gì */}
-            Your browser does not support the video tag.
-          </video>
+          {isMobile ? (
+            <img
+              src="/logo-loading.gif"
+              alt="Loading animation"
+              className="w-full h-full object-contain relative z-10 animate-spin" 
+              loop
+            />
+          ) : (
+            <video
+              autoPlay
+              loop
+              muted
+              playsInline
+              className="w-full h-full object-contain relative z-10"
+            >
+              <source src="/logo-loading.webm" type="video/webm" />
+              Your browser does not support the video tag.
+            </video>
+          )}
         </div>
       </motion.div>
     )}
