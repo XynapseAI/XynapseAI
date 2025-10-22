@@ -516,7 +516,7 @@ export const authOptions = {
   ...(isProd && {
     cookies: {
       sessionToken: {
-        name: `__Secure-next-auth.session-token`,  // Giữ __Secure- (cho phép subdomain)
+        name: 'next-auth.session-token',
         options: {
           httpOnly: true,
           sameSite: 'lax',
@@ -526,8 +526,9 @@ export const authOptions = {
         },
       },
       callbackUrl: {
-        name: `__Secure-next-auth.callback-url`,
+        name: 'next-auth.callback-url',
         options: {
+          httpOnly: false,  // Default NextAuth: client-side đọc cho redirect nếu cần
           sameSite: 'lax',
           path: '/',
           secure: true,
@@ -535,15 +536,13 @@ export const authOptions = {
         },
       },
       csrfToken: {
-        // FIX: Bỏ __Host- prefix để cho phép domain subdomain
-        // Đổi sameSite 'strict' -> 'lax' để tương thích OAuth redirect cross-subdomain
-        name: `next-auth.csrf-token`,
+        name: 'next-auth.csrf-token',
         options: {
-          httpOnly: false,
-          sameSite: 'lax',  // FIX: 'lax' thay vì 'strict'
+          httpOnly: true,  // Bảo mật: client KHÔNG cần đọc cookie (dùng /api/auth/csrf để lấy token)
+          sameSite: 'lax',
           path: '/',
           secure: true,
-          domain: cookieDomain,  // Giữ subdomain
+          domain: cookieDomain,
         },
       },
     },
