@@ -19,7 +19,7 @@ export const LoadingOverlay = ({ isLoading, isMobile, className = "" }) => (
             <img
               src="/logo-loading.gif"
               alt="Loading animation"
-              className="w-full h-full object-contain relative z-10 animate-spin" 
+              className="w-full h-full object-contain relative z-10" 
               loop
             />
           ) : (

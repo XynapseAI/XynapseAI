@@ -25,11 +25,6 @@ import { Stars, Sphere, Float, Environment } from "@react-three/drei";
 import * as THREE from "three";
 import { TermsOfServiceContent } from '../../components/TermsOfService';
 import { PrivacyPolicyContent } from '../../components/PrivacyPolicy';
-import "@farcaster/auth-kit/styles.css";
-import { AuthKitProvider, SignInButton } from "@farcaster/auth-kit";
-import { sdk } from '@farcaster/miniapp-sdk';  // Mới
-import { useMiniApp } from '@neynar/react';
-import { getCsrfToken } from 'next-auth/react';
 
 gsap.registerPlugin(MotionPathPlugin);
 
@@ -269,9 +264,6 @@ export default function Dashboard() {
   const [modalContent, setModalContent] = useState(null);
   const recaptchaRef = useRef(null);
   const { userData, loading, error } = useUserData(session, csrfToken, setIsAnalyzing);
-  const [farcasterModalOpen, setFarcasterModalOpen] = useState(false);
-  const miniApp = useMiniApp();
-  const [isMiniApp, setIsMiniApp] = useState(false);
 
   const openModal = (content) => {
     setModalContent(content);
@@ -319,10 +311,13 @@ export default function Dashboard() {
 
     const fetchCsrfToken = async () => {
       try {
-        const response = await fetch('/api/auth/csrf', {  // Fix: relative path chuẩn NextAuth
+        const response = await fetch(`${API_BASE_URL}/auth/csrf`, {
           method: 'GET',
-          credentials: 'include',  // Fix: Để read/set cookie tự động
-          // Bỏ Authorization: Bearer - NextAuth handle qua cookie
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${session?.accessToken || ''}`,
+          },
+          credentials: 'include',
         });
         const result = await response.json();
         if (response.ok) {
@@ -333,15 +328,7 @@ export default function Dashboard() {
         }
       } catch (err) {
         console.error('Error fetching CSRF token:', err);
-        // Fallback cho dev: Generate local token tạm
-        if (process.env.NODE_ENV === 'development') {
-          const fallbackToken = crypto.randomBytes(32).toString('hex');
-          setCsrfToken(fallbackToken);
-          await update({ csrfToken: fallbackToken });
-          toast.warn('Using dev fallback CSRF token', { position: 'top-center' });
-        } else {
-          toast.error(`Failed to fetch CSRF token: ${err.message}`, { position: 'top-center' });
-        }
+        toast.error(`Failed to fetch CSRF token: ${err.message}`, { position: 'top-center' });
       }
     };
     fetchCsrfToken();
@@ -352,34 +339,6 @@ export default function Dashboard() {
       fetchProvidersWithRetry();
     }
   }, [isMounted, providers, fetchProvidersWithRetry]);
-
-  useEffect(() => {
-    // Detect Mini App: subdomain + Neynar hook
-    const hostname = typeof window !== 'undefined' ? window.location.hostname : '';
-    const miniAppDetected = hostname.includes('farcaster.') || !!miniApp?.user;
-    setIsMiniApp(miniAppDetected);
-  }, [miniApp]);
-
-  useEffect(() => {
-    const initMiniApp = async () => {
-      if (sdk && miniApp) {  // Nếu chạy trong Farcaster
-        try {
-          await sdk.actions.ready();  // Ẩn splash, show UI
-          console.log('Mini App ready! User FID:', miniApp.user?.fid);
-          // Auto-sign-in nếu chưa session
-          if (!session && miniApp.user) {
-            handleFarcasterSuccess({
-              message: miniApp.siweMessage,
-              signature: miniApp.signature,
-            });
-          }
-        } catch (err) {
-          console.error('Mini App init error:', err);
-        }
-      }
-    };
-    initMiniApp();
-  }, [miniApp, session]);
 
   const handleConnectWallet = async () => {
     try {
@@ -510,34 +469,6 @@ export default function Dashboard() {
     }
   };
 
-  const handleFarcasterSuccess = async (result) => {
-    try {
-      const csrf = await getCsrfToken();  // Fetch CSRF token
-      if (!csrf) throw new Error('CSRF token unavailable');
-
-      const res = await signIn('farcaster', {
-        message: result.message,
-        signature: result.signature,
-        // Pass CSRF explicit cho Credentials POST
-        csrfToken: csrf,
-      }, {
-        redirect: false,
-        // Ensure cookies forwarded
-      });
-      if (res?.error) {
-        toast.error(`Farcaster login failed: ${res.error}`);
-      } else {
-        await update();
-        toast.success('Signed in with Farcaster successfully!');
-        setFarcasterModalOpen(false);
-        router.refresh();
-      }
-    } catch (err) {
-      console.error('Farcaster sign-in error:', err);
-      toast.error(`Sign-in error: ${err.message}`);
-    }
-  };
-
   const handleNavigateToToken = useCallback((slug) => {
     if (!slug) {
       toast.error('Invalid token ID.', { position: 'top-center' });
@@ -621,16 +552,14 @@ export default function Dashboard() {
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.8, ease: 'easeOut' }}
-                className="w-full h-full p-4 md:p-0 flex items-center justify-center text-white font-saira relative"
+                className="w-full h-full flex items-center justify-center text-white font-saira relative"
               >
                 <div className="fixed inset-0 z-0">
-                  {!miniApp && (  // Mới: Chỉ render 3D nếu không phải Mini App (lightweight)
-                    <Canvas camera={{ position: [0, 0, 5], fov: 75 }} dpr={[1, 1.5]} performance={{ min: 0.3 }}>
-                      <UniverseBackground />
-                    </Canvas>
-                  )}
+                  <Canvas camera={{ position: [0, 0, 5], fov: 75 }} dpr={[1, 1.5]} performance={{ min: 0.3 }}>
+                    <UniverseBackground />
+                  </Canvas>
                 </div>
-                {/* <motion.div
+                <motion.div
                   initial={{ opacity: 0, x: -20 }}
                   animate={{ opacity: 1, x: 0 }}
                   transition={{ duration: 0.5, delay: 0.2 }}
@@ -644,18 +573,18 @@ export default function Dashboard() {
                     className="h-18 sm:h-22 w-auto object-contain"
                     priority
                   />
-                </motion.div> */}
+                </motion.div>
                 <motion.div
                   initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ duration: 0.5, ease: 'easeOut' }}
-                  className="relative z-20 bg-black/60 backdrop-blur-xs p-6 md:p-10 border border-white/15 rounded-lg max-w-sm w-full mx-4 flex flex-col items-center shadow-2xl shadow-black/50"
+                  className="relative z-20 bg-black/60 backdrop-blur-xs p-8 md:p-12 border border-white/15 rounded-lg max-w-md w-full mx-4 flex flex-col items-center shadow-2xl shadow-black/50"
                 >
                   <motion.h1
                     initial={{ opacity: 0, y: -10 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ duration: 0.5, delay: 0.2 }}
-                    className="text-xl md:text-3xl font-bold text-white uppercase mb-3 text-center tracking-wide"
+                    className="text-2xl md:text-3xl font-bold text-white uppercase mb-4 text-center tracking-wide"
                   >
                     Sign In
                   </motion.h1>
@@ -663,57 +592,51 @@ export default function Dashboard() {
                     initial={{ opacity: 0, y: -10 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ duration: 0.5, delay: 0.3 }}
-                    className="text-[11px] md:text-xs text-gray-500 mb-6 text-center leading-relaxed"
+                    className="text-xs md:text-sm text-gray-500 mb-8 text-center leading-relaxed"
                   >
                     Access your dashboard with secure authentication.
                   </motion.p>
-                  <form onSubmit={handleEmailSignIn} className="w-full space-y-4">
+                  <form onSubmit={handleEmailSignIn} className="w-full space-y-6">
                     <input
                       type="email"
                       value={email}
                       onChange={(e) => setEmail(e.target.value)}
                       placeholder="Enter your email"
-                      className="w-full px-4 py-2.5 bg-black/60 border border-white/15 rounded-2xl text-white text-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-white/30 transition-all duration-300"
+                      className="w-full px-5 py-3 bg-black/60 border border-white/15 rounded-2xl text-white text-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-white/30 transition-all duration-300"
                       required
                     />
                     <button
                       type="submit"
-                      className="w-full px-4 py-2.5 border-2 border-white/15 bg-white/10 text-white rounded-2xl text-sm font-semibold transition-all duration-300 hover:border-white/30 hover:bg-white/20 flex items-center justify-center"
+                      className="w-full px-5 py-3 border-2 border-white/15 bg-white/10 text-white rounded-2xl text-sm font-semibold uppercase transition-all duration-300 hover:border-white/30 hover:bg-white/20 flex items-center justify-center"
                     >
                       <MatrixHoverEffect text="Sign in with Email" hoverColor="#FFFFFF" />
                     </button>
                   </form>
-                  <div className="flex items-center justify-center my-4 w-full">
+                  <div className="flex items-center justify-center my-6 w-full">
                     <span className="text-gray-500 text-xs uppercase px-4">OR</span>
                     <div className="flex-1 h-px bg-white/10"></div>
                   </div>
-                  {providers?.google && !isMiniApp && (
+                  {providers?.google && (
                     <button
                       onClick={handleGoogleSignIn}
-                      className="w-full px-4 py-2.5 bg-black/20 border border-white/25 rounded-2xl text-white text-sm font-semibold flex items-center justify-center gap-3 transition-all duration-300 hover:bg-gray-800/30 hover:border-white/40"
+                      className="w-full px-5 py-3 bg-black/20 border border-white/25 rounded-2xl text-white text-sm font-semibold uppercase flex items-center justify-center gap-3 transition-all duration-300 hover:bg-gray-800/30 hover:border-white/40"
                     >
-                      <Image src="/logos/google.webp" alt="Google Logo" width={20} height={20} className="w-5 h-5 object-contain" />
+                      <Image
+                        src="/logos/google.webp"
+                        alt="Google Logo"
+                        width={20}
+                        height={20}
+                        className="w-5 h-5 object-contain"
+                      />
                       <MatrixHoverEffect text="Sign in with Google" />
                     </button>
                   )}
-                  <button onClick={() => setFarcasterModalOpen(true)} // Mở modal thay vì signIn trực tiếp
-                    className="w-full px-4 m-2 py-2.5 bg-black/20 border border-white/25 rounded-2xl text-white text-sm font-semibold flex items-center justify-center gap-3 transition-all duration-300 hover:bg-gray-800/30 hover:border-white/40"
-                  >
-                    <Image
-                      src="/logos/farcaster-logo.webp"
-                      alt="Farcaster Logo"
-                      width={20}
-                      height={20}
-                      className="w-6 h-6 rounded-xl object-contain"
-                    />
-                    <MatrixHoverEffect text="Sign in with Farcaster" />
-                  </button>
                   {error && (
                     <motion.div
                       initial={{ opacity: 0, y: -10 }}
                       animate={{ opacity: 1, y: 0 }}
                       transition={{ duration: 0.5, delay: 0.4 }}
-                      className="mt-4 text-red-300 text-sm bg-red-500/10 border border-red-500/20 rounded-lg p-2 text-center"
+                      className="mt-6 text-red-300 text-sm bg-red-500/10 border border-red-500/20 rounded-lg p-3 text-center"
                     >
                       Error: {error}
                     </motion.div>
@@ -722,7 +645,7 @@ export default function Dashboard() {
                     initial={{ opacity: 0, y: 10 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ duration: 0.5, delay: 0.5 }}
-                    className="mt-4 text-[11px] text-gray-500 text-center leading-relaxed"
+                    className="mt-6 text-xs text-gray-500 text-center leading-relaxed"
                   >
                     By clicking continue, you agree to our{' '}
                     <button onClick={() => openModal('terms')} className="text-white hover:underline">
@@ -826,48 +749,6 @@ export default function Dashboard() {
               </div>
               <div className="text-xs sm:text-sm flex-1 overflow-y-auto custom-scrollbar p-6 prose prose-invert max-w-none">
                 {modalContent === 'privacy' ? <PrivacyPolicyContent /> : <TermsOfServiceContent />}
-              </div>
-            </div>
-          </div>
-        )}
-        {farcasterModalOpen && (
-          <div
-            className="fixed inset-0 bg-black/75 flex items-center justify-center z-50"
-            onClick={() => setFarcasterModalOpen(false)}
-          >
-            <div
-              className="bg-gray-900/50 backdrop-blur-lg border border-white/20 rounded-2xl w-full max-w-md h-[60vh] relative flex flex-col"
-              onClick={(e) => e.stopPropagation()}
-            >
-              <div className="sticky top-0 z-10 backdrop-blur-lg border-b border-white/20 p-4 flex justify-between items-center">
-                <h2 className="text-xl font-bold text-white uppercase">Sign In with Farcaster</h2>
-                <button
-                  onClick={() => setFarcasterModalOpen(false)}
-                  className="text-white text-xl font-bold hover:text-neon-blue transition-all duration-300"
-                >
-                  ✕
-                </button>
-              </div>
-              <div className="flex-1 flex flex-col items-center justify-center p-4 overflow-auto">
-                <p className="text-gray-500 text-sm mb-4 text-center">Scan the QR code with your Warpcast app to sign in.</p>
-                <AuthKitProvider
-                  config={{
-                    domain: window.location.hostname, // e.g., localhost
-                    siweUri: `${window.location.origin}/api/auth/signin/farcaster`, // Callback cho NextAuth
-                    relay: 'https://relay.farcaster.xyz', // Default relay
-                    rpcUrl: 'https://mainnet.optimism.io', // Base RPC
-                    version: 'v1',
-                  }}
-                >
-                  <SignInButton // Sử dụng SignInButton thay vì AuthKitButton
-                    onSuccess={handleFarcasterSuccess}
-                    onError={(error) => {
-                      console.error('AuthKit error:', error);
-                      toast.error(`Farcaster error: ${error.message}`);
-                      setFarcasterModalOpen(false);
-                    }}
-                  />
-                </AuthKitProvider>
               </div>
             </div>
           </div>

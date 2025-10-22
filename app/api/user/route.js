@@ -118,7 +118,6 @@ async function isAllowedOrigin(origin, referer, pathname, ip) {
     process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000',
     'https://xynapseai.net',
     'https://www.xynapseai.net',
-    "https://farcaster.xynapseai.net",
     'https://xynapse-ai-xynapse-projects.vercel.app',
     'https://xynapse-ai.vercel.app',
   ].filter(Boolean);
@@ -252,9 +251,6 @@ async function hashApiKey(apiKey) {
 }
 
 function securityHeaders(csrfToken = null) {
-  const isProd = process.env.NODE_ENV === 'production';
-  const cookieDomain = isProd ? '.xynapseai.net' : undefined;  // Share subdomain (farcaster.xynapseai.net)
-
   const nonce = crypto.randomBytes(16).toString('base64');
   const csp = [
     "default-src 'self'",
@@ -280,11 +276,10 @@ function securityHeaders(csrfToken = null) {
   if (csrfToken) {
     headers['Set-Cookie'] = cookie.serialize('csrf_token', csrfToken, {
       httpOnly: true,
-      secure: true,
-      sameSite: isProd ? 'none' : 'lax',
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'strict',
       maxAge: 15 * 60,
       path: '/',
-      domain: cookieDomain,
     });
   }
   return headers;

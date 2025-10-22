@@ -132,7 +132,6 @@ const allowedOrigins = [
   process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000",
   "https://xynapseai.net",
   "https://www.xynapseai.net",
-  "https://farcaster.xynapseai.net",
   "https://xynapse-ai-xynapse-projects.vercel.app",
 ].filter((v, i, a) => a.indexOf(v) === i);
 
@@ -238,15 +237,11 @@ const rateLimitedHandler = (handler) =>
       const res = await handler(req, ...args);
       const newHeaders = new Headers(res.headers || {});
       Object.entries(securityHeaders).forEach(([k, v]) => newHeaders.set(k, v));
-
-      // Fix: Explicit cho auth paths - allow credentials & origins
-      if (pathname.startsWith('/api/auth/')) {
-        newHeaders.set('Access-Control-Allow-Credentials', 'true');
-        if (origin && allowedOrigins.includes(origin)) {
-          newHeaders.set('Access-Control-Allow-Origin', origin);  // Specific origin
-          newHeaders.set('Access-Control-Allow-Methods', 'GET,POST,OPTIONS');
-          newHeaders.set('Access-Control-Allow-Headers', 'Content-Type,Authorization,X-CSRF-Token,X-Recaptcha-Token,Cookie');
-        }
+      if (origin && origin !== "null" && allowedOrigins.includes(origin)) {
+        newHeaders.set("Access-Control-Allow-Origin", origin);
+        newHeaders.set("Access-Control-Allow-Methods", "GET,POST,OPTIONS");
+        newHeaders.set("Access-Control-Allow-Headers", "Content-Type,Authorization,X-CSRF-Token,X-Recaptcha-Token");
+        newHeaders.set("Access-Control-Allow-Credentials", "true");
       }
       return new NextResponse(res.body, { status: res.status || 200, headers: newHeaders });
     } catch (err) {

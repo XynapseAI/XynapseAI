@@ -1,20 +1,16 @@
-// app/api/auth/[...nextauth]/options.js
 import { randomBytes } from "crypto";
 import GoogleProvider from "@auth/core/providers/google";
 import EmailProvider from "@auth/core/providers/email";
-import CredentialsProvider from "@auth/core/providers/credentials";
-import { SiweMessage } from "siwe";
 import { createTransport } from "nodemailer";
 import { v4 as uuidv4 } from "uuid";
 import { query } from "@/utils/postgres";
 import { logger } from "@/utils/serverLogger";
 import crypto from 'crypto';
 import util from 'util';
-import { NeynarAPIClient, Configuration } from "@neynar/nodejs-sdk";  // THAY ĐỔI: Import Configuration cho v2
 
 const scrypt = util.promisify(crypto.scrypt);
 
-// Hàm hashApiKey (giữ nguyên)
+// Hàm hashApiKey
 async function hashApiKey(apiKey) {
   const salt = crypto.randomBytes(16).toString('hex');
   const derived = await scrypt(apiKey, salt, 64);
@@ -24,7 +20,7 @@ async function hashApiKey(apiKey) {
   };
 }
 
-// ================== Email Transporter (giữ nguyên) ==================
+// ================== Email Transporter ==================
 const transporter = createTransport({
   host: process.env.EMAIL_SERVER_HOST,
   port: process.env.EMAIL_SERVER_PORT,
@@ -34,7 +30,7 @@ const transporter = createTransport({
   },
 });
 
-// ================== Custom Adapter (giữ nguyên) ==================
+// ================== Custom Adapter ==================
 const customAdapter = {
   async getUserByEmail(email) {
     logger.info("Fetching user by email", { email });
@@ -108,7 +104,7 @@ const customAdapter = {
        WHERE id=$1 RETURNING *`,
       [
         data.id, data.email || null, data.google_id || null, data.google_name || null,
-        data.email_verified !== undefined ? data.email_verified : null, data.profile_picture || null,
+        data.email_verified !== undefined ? data.email_verified : null, data.profile_picture || null, 
         data.connected !== undefined ? data.connected : true,
         data.last_connected || new Date(), new Date(),
       ]
@@ -144,10 +140,6 @@ const customAdapter = {
     return rows[0] || null;
   },
 };
-
-const isProd = process.env.NODE_ENV === 'production';
-const cookieDomain = isProd ? '.xynapseai.net' : undefined;  // Dev: undefined (default localhost), Prod: share subdomain
-
 
 // ================== Auth Options ==================
 export const authOptions = {
@@ -203,142 +195,11 @@ export const authOptions = {
         });
       },
     }),
-    CredentialsProvider({
-      id: 'farcaster',
-      name: 'Sign in with Farcaster',
-      credentials: {
-        message: { label: "SIWE Message", type: "text" },
-        signature: { label: "Signature", type: "text" },
-      },
-      async authorize(credentials) {
-        try {
-          if (!credentials.message || !credentials.signature) {
-            logger.error("Missing Farcaster credentials");
-            return null;
-          }
-
-          const message = new SiweMessage(credentials.message);
-          const fields = message.prepareMessage();
-
-          if (fields !== credentials.message) {
-            logger.error("Invalid Farcaster message fields");
-            return null;
-          }
-
-          const valid = await message.verify({ signature: credentials.signature });
-          if (!valid) {
-            logger.error("Invalid Farcaster signature");
-            return null;
-          }
-
-          // FIXED: Validate FIP-11 fields (robust chainId comparison)
-          if (message.statement !== 'Farcaster Auth') {
-            logger.error("Invalid Farcaster statement: expected 'Farcaster Auth'", { statement: message.statement });
-            return null;
-          }
-
-          // THAY ĐỔI: Chuyển sang Base chainId 8453 (thay vì Optimism 10)
-          if (Number(message.chainId) !== 10) {
-            logger.error("Invalid Farcaster chainId: expected 10 (Optimism)", {
-              chainId: message.chainId,
-              type: typeof message.chainId,
-              parsed: Number(message.chainId)
-            });
-            return null;
-          }
-
-          const resources = message.resources;
-          if (!resources || !Array.isArray(resources) || resources.length === 0) {
-            logger.error("No resources in Farcaster message");
-            return null;
-          }
-
-          // FIXED: Match both spec (fids/) and impl (fid/) formats
-          const fidResource = resources.find(r =>
-            typeof r === 'string' &&
-            (r.startsWith('farcaster://fids/') || r.startsWith('farcaster://fid/'))
-          );
-          if (!fidResource) {
-            logger.error("No FID resource in Farcaster message", { resources });
-            return null;
-          }
-
-          // FIXED: Regex for both (?:fids|fid)
-          const fidMatch = fidResource.match(/farcaster:\/\/(?:fids|fid)\/(\d+)/);
-          if (!fidMatch) {
-            logger.error("Invalid FID resource format", { fidResource });
-            return null;
-          }
-          const fid = fidMatch[1];
-
-          // THAY ĐỔI: Neynar v2 - Khởi tạo config và client
-          const config = new Configuration({
-            apiKey: process.env.NEYNAR_API_KEY,
-            baseOptions: {
-              headers: {
-                "x-neynar-experimental": true,
-              },
-            },
-          });
-          const client = new NeynarAPIClient(config);
-
-          // THAY ĐỔI: fetchBulkUsers thay vì fetchUser (v2 API)
-          let userInfo = { pfp_url: null, display_name: null, username: null };  // FIX: Init với pfp_url
-          try {
-            const res = await client.fetchBulkUsers({ fids: [parseInt(fid)] });  // Array FID, parseInt cho số
-            const fetchedUser = res.users[0];  // Lấy user đầu tiên
-            if (fetchedUser) {
-              userInfo = {
-                pfp_url: fetchedUser.pfp_url || null,  // FIX: Dùng pfp_url trực tiếp (không phải pfp.url)
-                display_name: fetchedUser.display_name || null,
-                username: fetchedUser.username || null,
-              };
-              logger.info("Neynar user fetched successfully", { fid, pfp_url: userInfo.pfp_url ? 'present' : 'missing' });  // THÊM: Log để debug
-            } else {
-              logger.warn("No user found in Neynar response", { fid });
-            }
-          } catch (neynarErr) {
-            logger.warn("Neynar fetch failed (proceeding without profile info)", { fid, error: neynarErr.message });
-          }
-
-          const fakeEmail = `${fid}@farcaster.local`;
-
-          const existingUser = await customAdapter.getUserByAccount({ provider: "farcaster", providerAccountId: fid });
-
-          if (existingUser) {
-            return existingUser;
-          }
-
-          // Tạo user mới
-          const newUser = await customAdapter.createUser({
-            id: fid,
-            email: fakeEmail,
-            profile_picture: userInfo.pfp_url || null,  // FIX: Dùng pfp_url thay pfp?.url
-            google_name: userInfo.display_name || userInfo.username || null,
-            email_verified: true,
-          });
-
-          // Link account
-          await query(
-            `INSERT INTO accounts (userId, type, provider, providerAccountId)
-             VALUES ($1, $2, $3, $4)
-             ON CONFLICT (provider, providerAccountId) DO NOTHING`,
-            [newUser.id, 'credentials', 'farcaster', fid]
-          );
-
-          logger.info("Farcaster user created/authorized", { fid });
-          return newUser;
-        } catch (err) {
-          logger.error("Farcaster authorize error", { error: err.message });
-          return null;
-        }
-      },
-    }),
   ],
   callbacks: {
     async signIn({ user, account, profile }) {
       try {
-        logger.info("Sign-in attempt", { provider: account.provider, providerId: account.providerId || account.id, email: user.email });  // THÊM: Log account.id cho debug
+        logger.info("Sign-in attempt", { provider: account.provider, email: user.email });
         let email = user.email || "";
         let googleId = null, googleName = null, profilePic = "", verified = false, userId = null;
 
@@ -348,7 +209,6 @@ export const authOptions = {
         }
 
         if (account.provider === "google") {
-          // ... (giữ nguyên phần Google)
           email = profile.email || user.email || "";
           if (!email) {
             logger.error("Google sign-in failed: No email in profile", { providerAccountId: profile.sub });
@@ -402,15 +262,7 @@ export const authOptions = {
 
           logger.info("Sign-in successful", { userId, email });
           return true;
-        }
-        // FIX: Đổi account.providerId -> account.provider (Auth.js v5 set provider = id cho credentials)
-        else if (account.provider === "farcaster") {
-          const fid = user.id; // FID from authorize
-          logger.info("Farcaster sign-in successful (DB handled in authorize)", { fid });
-          return true; // No redundant updates needed
-        }
-        else if (account.provider === "email") {
-          // ... (giữ nguyên phần Email)
+        } else if (account.provider === "email") {
           email = user.email || account.user?.email || "";
           if (!email) {
             logger.error("Email sign-in failed: No email provided", { token: account.token });
@@ -465,14 +317,13 @@ export const authOptions = {
           }
         }
 
-        logger.error("Sign-in failed: Unsupported provider", { provider: account.provider, providerId: account.providerId || account.id });  // FIX: Log account.id thêm
+        logger.error("Sign-in failed: Unsupported provider", { provider: account.provider });
         return false;
       } catch (err) {
         logger.error("signIn error", { error: err.message, stack: err.stack });
         return false;
       }
     },
-    // ... (giữ nguyên jwt, session, redirect)
     async jwt({ token, account, profile }) {
       logger.info("JWT callback", { tokenId: token.id, email: token.email });
       if (account) {
@@ -513,40 +364,6 @@ export const authOptions = {
       return baseUrl + '/dashboard';
     },
   },
-  ...(isProd && {
-    cookies: {
-      sessionToken: {
-        name: 'next-auth.session-token',
-        options: {
-          httpOnly: false,  // FIX: false cho Mini App compatibility
-          sameSite: 'none',  // CHANGED: 'none' to allow cross-site (iframe) requests
-          path: '/',
-          secure: true,
-          domain: cookieDomain,
-        },
-      },
-      callbackUrl: {
-        name: 'next-auth.callback-url',
-        options: {
-          httpOnly: false,
-          sameSite: 'none',  // CHANGED: 'none'
-          path: '/',
-          secure: true,
-          domain: cookieDomain,
-        },
-      },
-      csrfToken: {
-        name: 'next-auth.csrf-token',
-        options: {
-          httpOnly: false,  // FIX: false để webview persist cookie
-          sameSite: 'none',  // CHANGED: 'none'
-          path: '/',
-          secure: true,
-          domain: cookieDomain,
-        },
-      },
-    },
-  }),
   secret: process.env.AUTH_SECRET,
   session: { strategy: "jwt", maxAge: 2 * 60 * 60 }, // 2 hours
   pages: {
