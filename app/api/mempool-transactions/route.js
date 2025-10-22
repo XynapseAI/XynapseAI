@@ -3,6 +3,12 @@ import { NextResponse } from 'next/server';
 import { createClient } from 'redis';
 import { logger } from '../../../utils/serverLogger';
 import { auth } from '@/lib/auth';
+import { promisify } from 'util';
+import zlib from 'zlib';
+
+const gunzip = promisify(zlib.gunzip);
+
+const ZSET_KEY = 'mempool-tx-ids'; // Sorted Set cho txids
 
 // Redis Client
 let redisClient;
@@ -41,12 +47,11 @@ function securityHeaders(origin) {
 }
 
 // Allowed Origins (unchanged)
-async function isAllowedOrigin(origin, referer, pathname, ip) {
+async function isAllowedOrigin(origin, referer, ip) {
   const configured = [
     process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000',
     'https://xynapseai.net',
     'https://www.xynapseai.net',
-    'https://farcaster.xynapseai.net',
     'https://xynapse-ai-xynapse-projects.vercel.app',
     'https://xynapse-ai.vercel.app',
   ].filter(Boolean);
@@ -151,7 +156,8 @@ async function checkRateLimit(ip) {
 export async function OPTIONS(request) {
   const origin = request.headers.get('origin');
   const referer = request.headers.get('referer');
-  if (!isAllowedOrigin(origin, referer)) {
+  const ip = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown';
+  if (!await isAllowedOrigin(origin, referer, ip)) {
     logger.warn('CORS origin not allowed for OPTIONS', { origin, referer });
     return NextResponse.json({ success: false, detail: 'Not allowed by CORS' }, { status: 403, headers: securityHeaders(origin) });
   }
@@ -169,7 +175,7 @@ export async function GET(request) {
   logger.info(`Request to /api/mempool-transactions from IP ${ip}`, { origin, timestamp: new Date().toISOString() });
 
   // Check CORS
-  if (!isAllowedOrigin(origin, referer)) {
+  if (!await isAllowedOrigin(origin, referer, ip)) {
     await trackViolation(ip, 'CORS blocked', 'warn');
     return NextResponse.json({ success: false, detail: 'Not allowed by CORS' }, { status: 403, headers: securityHeaders(origin) });
   }
@@ -214,49 +220,81 @@ export async function GET(request) {
     const offset = (page - 1) * limit;
     logger.info(`Using params: maxAgeSeconds=${maxAgeSeconds}, limit=${limit}, page=${page} for request`);
 
-    const cacheKey = 'mempool-transactions';
-    const redisClient = await getRedisClient();
-    const cachedData = await redisClient.get(cacheKey);
+    const now = Math.floor(Date.now() / 1000);
+    const minTimestamp = now - maxAgeSeconds;
 
-    if (cachedData) {
-      let parsed = JSON.parse(cachedData);
-      const now = Math.floor(Date.now() / 1000);
-      // Filter theo maxAge động
-      let filteredData = parsed.data
-        .filter((tx) => tx.timestamp >= now - maxAgeSeconds)
-        .sort((a, b) => b.timestamp - a.timestamp);
-      // Pagination
-      const totalCount = filteredData.length;
-      const paginatedData = filteredData.slice(offset, offset + limit);
-      const responseData = {
-        success: true,
-        data: paginatedData,
-        pagination: {
-          page,
-          limit,
-          totalCount,
-          totalPages: Math.ceil(totalCount / limit),
+    const redisClient = await getRedisClient();
+
+    // Lấy total count sau filter
+    const totalCount = await redisClient.zCount(ZSET_KEY, minTimestamp, '+inf');
+
+    // Lấy txids paginated (rev để sort desc timestamp)
+    const txids = await redisClient.zRangeByScore(ZSET_KEY, minTimestamp, '+inf', { REV: true, LIMIT: { offset, count: limit } });
+
+    if (txids.length === 0) {
+      return NextResponse.json(
+        {
+          success: true,
+          data: [],
+          pagination: {
+            page,
+            limit,
+            totalCount: 0,
+            totalPages: 0,
+          },
         },
-      };
-      logger.info(`Cache hit for mempool transactions: ${cacheKey}`, { transactionCount: paginatedData.length, maxAgeSeconds, page, totalCount });
-      return NextResponse.json(responseData, { headers });
+        { headers }
+      );
     }
 
-    // If no cache, return empty response (WebSocket server should populate Redis)
-    logger.warn('No cached mempool transactions found');
-    return NextResponse.json(
-      {
-        success: true,
-        data: [],
-        pagination: {
-          page: 1,
-          limit: 50,
-          totalCount: 0,
-          totalPages: 0,
-        },
+    // Multi get hashes
+    const multi = redisClient.multi();
+    for (const txid of txids) {
+      multi.hGetAll(`tx:${txid}`);
+    }
+    const rawResults = await multi.exec();
+
+    // Decompress và build data
+    const data = [];
+    for (let i = 0; i < rawResults.length; i++) {
+      const [err, raw] = rawResults[i];
+      if (err || !raw) {
+        logger.warn(`Failed to fetch hash for txid ${txids[i]}: ${err?.message || 'No data'}`);
+        continue;
+      }
+      try {
+        const decompressedInputs = await gunzip(Buffer.from(raw.inputs, 'base64'));
+        const decompressedOutputs = await gunzip(Buffer.from(raw.outputs, 'base64'));
+        const decompressedStatus = await gunzip(Buffer.from(raw.status, 'base64'));
+
+        data.push({
+          txid: txids[i], // Lấy txid từ txids array
+          value_usd: parseFloat(raw.value_usd),
+          value_btc: parseFloat(raw.value_btc),
+          timestamp: parseInt(raw.timestamp),
+          inputs: JSON.parse(decompressedInputs.toString()),
+          outputs: JSON.parse(decompressedOutputs.toString()),
+          fee: parseInt(raw.fee),
+          size: parseInt(raw.size),
+          status: JSON.parse(decompressedStatus.toString()),
+        });
+      } catch (decompError) {
+        logger.error(`Decompression error for txid ${txids[i]}:`, { error: decompError.message });
+      }
+    }
+
+    const responseData = {
+      success: true,
+      data,
+      pagination: {
+        page,
+        limit,
+        totalCount,
+        totalPages: Math.ceil(totalCount / limit),
       },
-      { status: 200, headers }
-    );
+    };
+    logger.info(`Fetched ${data.length} transactions`, { totalCount, page });
+    return NextResponse.json(responseData, { headers });
   } catch (error) {
     logger.error('Mempool API error:', { error: error.message, stack: error.stack });
     await trackViolation(ip, `Mempool API error: ${error.message}`, 'severe');
