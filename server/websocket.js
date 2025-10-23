@@ -4,7 +4,7 @@ import { createClient } from 'redis';
 import { logger } from '../utils/serverLogger.js';
 
 const MEMPOOL_WS_URL = 'wss://mempool.space/api/v1/ws';
-const CACHE_TTL = 6 * 24 * 60 * 60; // 6 days (5 days + 1 day margin)
+const CACHE_TTL = 6 * 24 * 60 * 60; // 6 days (5 days + 1 day margin) - not directly used now, but kept for compatibility
 const PING_INTERVAL = 60000; // 60 seconds
 const MAX_RECONNECT_ATTEMPTS = 10;
 const BASE_RECONNECT_DELAY = 5000;
@@ -18,10 +18,10 @@ const MAX_PROCESSED_TX_CACHE_SIZE = 200;
 const MAX_NEW_TX_PER_BATCH = 20;
 
 let redisClient;
+
 async function getRedisClient() {
   if (!redisClient) {
     const redisUrl = process.env.REDIS_URL;
-
     if (!redisUrl && process.env.NODE_ENV === 'production') {
       const errorMessage = 'FATAL: REDIS_URL is not defined in production.';
       logger.error(errorMessage);
@@ -57,17 +57,6 @@ async function getRedisClient() {
   return redisClient;
 }
 
-async function storeInRedis(key, data) {
-  try {
-    const client = await getRedisClient();
-    const serializedData = JSON.stringify(data);
-    await client.setEx(key, CACHE_TTL, serializedData);
-    logger.info(`Stored data in Redis: ${key}`, { transactionCount: data.data.length });
-  } catch (error) {
-    logger.error('Failed to store in Redis:', { key, error: error.message });
-  }
-}
-
 let btcPriceCache = {
   price: 0,
   lastFetched: 0,
@@ -101,6 +90,31 @@ async function fetchBtcPrice() {
   }
   logger.error('All BTC price fetch attempts failed');
   return btcPriceCache.price || 0;
+}
+
+async function storeTransactionInRedis(tx) {
+  try {
+    const client = await getRedisClient();
+    const key = 'mempool-txs';
+    const now = Math.floor(Date.now() / 1000);
+
+    // Trim old transactions by age first
+    await client.zRemRangeByScore(key, 0, now - MAX_AGE_SECONDS);
+
+    // Add the new transaction (score = timestamp for sorting, higher = newer)
+    await client.zAdd(key, { score: tx.timestamp, value: JSON.stringify(tx) });
+
+    // Cap the size by removing oldest if exceeded
+    const size = await client.zCard(key);
+    if (size > MAX_CACHE_SIZE) {
+      const toRemove = size - MAX_CACHE_SIZE;
+      await client.zRemRangeByRank(key, 0, toRemove - 1);
+    }
+
+    logger.debug(`Stored transaction in Redis: ${key}`, { txid: tx.txid });
+  } catch (error) {
+    logger.error('Failed to store transaction in Redis:', { txid: tx.txid, error: error.message });
+  }
 }
 
 function startWebSocketServer(httpServer) {
@@ -165,7 +179,6 @@ function startWebSocketServer(httpServer) {
           return;
         }
 
-        const transactions = [];
         const { default: axios } = await import('axios');
         for (const txid of newTxs) {
           try {
@@ -185,7 +198,7 @@ function startWebSocketServer(httpServer) {
                 mempoolTxCache.delete(iterator.next().value);
               }
               // Tối ưu: Chỉ lưu address cho inputs/outputs, bỏ nameTag/image null để giảm size JSON
-              transactions.push({
+              const processedTx = {
                 txid: tx.txid,
                 value_usd: totalValueUSD,
                 value_btc: totalValueSatoshi / 1e8,
@@ -199,33 +212,13 @@ function startWebSocketServer(httpServer) {
                 fee: tx.fee || 0,
                 size: tx.size || 0,
                 status: tx.status || {},
-              });
+              };
+              await storeTransactionInRedis(processedTx);
+              logger.debug(`Processed and stored new transaction: ${txid}`);
             }
           } catch (txError) {
             logger.error(`Failed to fetch tx ${txid}:`, { error: txError.message });
           }
-        }
-
-        if (transactions.length > 0) {
-          const cacheKey = 'mempool-transactions';
-          let allTxs = [];
-          try {
-            const client = await getRedisClient();
-            const existing = await client.get(cacheKey);
-            if (existing) {
-              allTxs = JSON.parse(existing).data;
-            }
-          } catch (redisError) {
-            logger.error('Failed to fetch existing transactions from Redis:', { error: redisError.message });
-          }
-
-          const now = Math.floor(Date.now() / 1000);
-          allTxs = [...transactions, ...allTxs]
-            .filter((tx) => tx.timestamp >= now - MAX_AGE_SECONDS)
-            .sort((a, b) => b.timestamp - a.timestamp)
-            .slice(0, MAX_CACHE_SIZE);
-          await storeInRedis(cacheKey, { success: true, data: allTxs });
-          logger.info(`Processed and stored ${transactions.length} new transactions`);
         }
       } catch (error) {
         logger.error('WebSocket message processing error:', { error: error.message });

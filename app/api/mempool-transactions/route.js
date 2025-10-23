@@ -6,6 +6,7 @@ import { auth } from '@/lib/auth';
 
 // Redis Client
 let redisClient;
+
 async function getRedisClient() {
   if (!redisClient) {
     redisClient = createClient({
@@ -60,7 +61,6 @@ async function isAllowedOrigin(origin, referer, pathname, ip) {
       await trackViolation(ip, 'Missing origin and referer in production');
       return false; 
     }
-
     if (origin && origin !== 'null') {
       if (!origin.startsWith('https://')) {
         await trackViolation(ip, 'Non-HTTPS origin in production');
@@ -214,49 +214,43 @@ export async function GET(request) {
     const offset = (page - 1) * limit;
     logger.info(`Using params: maxAgeSeconds=${maxAgeSeconds}, limit=${limit}, page=${page} for request`);
 
-    const cacheKey = 'mempool-transactions';
-    const redisClient = await getRedisClient();
-    const cachedData = await redisClient.get(cacheKey);
+    const key = 'mempool-txs';
+    const client = await getRedisClient();
+    const now = Math.floor(Date.now() / 1000);
+    const minScore = now - maxAgeSeconds;
 
-    if (cachedData) {
-      let parsed = JSON.parse(cachedData);
-      const now = Math.floor(Date.now() / 1000);
-      // Filter theo maxAge động
-      let filteredData = parsed.data
-        .filter((tx) => tx.timestamp >= now - maxAgeSeconds)
-        .sort((a, b) => b.timestamp - a.timestamp);
-      // Pagination
-      const totalCount = filteredData.length;
-      const paginatedData = filteredData.slice(offset, offset + limit);
-      const responseData = {
-        success: true,
-        data: paginatedData,
-        pagination: {
-          page,
-          limit,
-          totalCount,
-          totalPages: Math.ceil(totalCount / limit),
-        },
-      };
-      logger.info(`Cache hit for mempool transactions: ${cacheKey}`, { transactionCount: paginatedData.length, maxAgeSeconds, page, totalCount });
-      return NextResponse.json(responseData, { headers });
+    // Get total count within age range
+    const totalCount = await client.zCount(key, minScore, now);
+    const totalPages = Math.ceil(totalCount / limit);
+
+    let data = [];
+    if (totalCount > 0) {
+      // Fetch paginated data in reverse chronological order (newest first)
+      const members = await client.zRevRangeByScore(
+        key,
+        now,
+        minScore,
+        {
+          LIMIT: { offset, count: limit },
+        }
+      );
+      data = members.map((member) => JSON.parse(member));
     }
 
-    // If no cache, return empty response (WebSocket server should populate Redis)
-    logger.warn('No cached mempool transactions found');
-    return NextResponse.json(
-      {
-        success: true,
-        data: [],
-        pagination: {
-          page: 1,
-          limit: 50,
-          totalCount: 0,
-          totalPages: 0,
-        },
+    const responseData = {
+      success: true,
+      data,
+      pagination: {
+        page,
+        limit,
+        totalCount,
+        totalPages,
       },
-      { status: 200, headers }
-    );
+    };
+
+    logger.info(`Cache hit for mempool transactions: ${key}`, { transactionCount: data.length, maxAgeSeconds, page, totalCount });
+    return NextResponse.json(responseData, { headers });
+
   } catch (error) {
     logger.error('Mempool API error:', { error: error.message, stack: error.stack });
     await trackViolation(ip, `Mempool API error: ${error.message}`, 'severe');
