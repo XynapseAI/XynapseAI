@@ -151,7 +151,7 @@ async function checkRateLimit(ip) {
 export async function OPTIONS(request) {
   const origin = request.headers.get('origin');
   const referer = request.headers.get('referer');
-  if (!isAllowedOrigin(origin, referer)) {
+  if (!await isAllowedOrigin(origin, referer)) {
     logger.warn('CORS origin not allowed for OPTIONS', { origin, referer });
     return NextResponse.json({ success: false, detail: 'Not allowed by CORS' }, { status: 403, headers: securityHeaders(origin) });
   }
@@ -169,7 +169,7 @@ export async function GET(request) {
   logger.info(`Request to /api/mempool-transactions from IP ${ip}`, { origin, timestamp: new Date().toISOString() });
 
   // Check CORS
-  if (!isAllowedOrigin(origin, referer)) {
+  if (!await isAllowedOrigin(origin, referer)) {
     await trackViolation(ip, 'CORS blocked', 'warn');
     return NextResponse.json({ success: false, detail: 'Not allowed by CORS' }, { status: 403, headers: securityHeaders(origin) });
   }
@@ -214,43 +214,34 @@ export async function GET(request) {
     const offset = (page - 1) * limit;
     logger.info(`Using params: maxAgeSeconds=${maxAgeSeconds}, limit=${limit}, page=${page} for request`);
 
-    const key = 'mempool-txs';
-    const client = await getRedisClient();
+    const cacheTimesKey = 'mempool-tx:times';
+    const cacheDataPrefix = 'mempool-tx:data:';
+    const redisClient = await getRedisClient();
     const now = Math.floor(Date.now() / 1000);
     const minScore = now - maxAgeSeconds;
-
-    // Get total count within age range
-    const totalCount = await client.zCount(key, minScore, now);
-    const totalPages = Math.ceil(totalCount / limit);
-
-    let data = [];
-    if (totalCount > 0) {
-      // Fetch paginated data in reverse chronological order (newest first)
-      const members = await client.zRevRangeByScore(
-        key,
-        now,
-        minScore,
-        {
-          LIMIT: { offset, count: limit },
-        }
-      );
-      data = members.map((member) => JSON.parse(member));
+    const totalCount = await redisClient.zCount(cacheTimesKey, minScore, '+inf');
+    const txids = await redisClient.zRevRangeByScore(cacheTimesKey, '+inf', minScore, 'BYLEX', offset, limit);
+    let paginatedData = [];
+    if (txids.length > 0) {
+      const pipeline = redisClient.multi();
+      for (const txid of txids) {
+        pipeline.get(`${cacheDataPrefix}${txid}`);
+      }
+      const results = await pipeline.exec();
+      paginatedData = results.filter(result => result !== null).map(result => JSON.parse(result));
     }
-
     const responseData = {
       success: true,
-      data,
+      data: paginatedData,
       pagination: {
         page,
         limit,
         totalCount,
-        totalPages,
+        totalPages: Math.ceil(totalCount / limit),
       },
     };
-
-    logger.info(`Cache hit for mempool transactions: ${key}`, { transactionCount: data.length, maxAgeSeconds, page, totalCount });
+    logger.info(`Fetched mempool transactions: ${txids.length}, totalCount: ${totalCount}, page: ${page}`);
     return NextResponse.json(responseData, { headers });
-
   } catch (error) {
     logger.error('Mempool API error:', { error: error.message, stack: error.stack });
     await trackViolation(ip, `Mempool API error: ${error.message}`, 'severe');

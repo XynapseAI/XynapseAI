@@ -119,7 +119,6 @@ const SUPPORTED_EVM_CHAINS = [
   { value: 'scroll', coingeckoId: 'scroll', label: 'Scroll', chainId: 534352, testnet: false },
   { value: 'mantle', coingeckoId: 'mantle', label: 'Mantle', chainId: 5000, testnet: false },
   { value: 'linea', coingeckoId: 'linea', label: 'Linea', chainId: 59144, testnet: false },
-
 ];
 
 export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initialTokenData }) => {
@@ -652,6 +651,7 @@ export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initi
 
     setIsLoadingMempool(true);
     setMempoolError(null);
+
     try {
       // Fetch BTC price from CoinGecko
       const btcPriceResponse = await axios.get('https://api.coingecko.com/api/v3/simple/price?ids=bitcoin&vs_currencies=usd', { timeout: 10000 });
@@ -698,8 +698,7 @@ export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initi
       const rawNewTxs = allRawTxs
         .filter((tx) => {
           const isNew = !mempoolTxCache.current.has(tx.txid);
-          const valueUSD = (tx.value_btc * btcPrice) || 0;
-          return isNew && valueUSD >= 1000000; // Only take transactions >= 1M USD
+          return isNew;
         });
 
       // Collect unique addresses from new transactions
@@ -746,7 +745,7 @@ export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initi
           });
           return {
             txid: tx.txid,
-            value_usd: tx.value_btc * btcPrice,
+            value_usd: tx.value_usd,
             value_btc: tx.value_btc,
             timestamp: tx.timestamp || Math.floor(Date.now() / 1000),
             inputs,
@@ -775,7 +774,6 @@ export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initi
       setIsLoadingMempool(false);
     }
   }, [selectedToken, session, fetchNameTagsForAddresses, nameTagsRef]);
-
 
   useEffect(() => {
     if (selectedToken?.id !== 'bitcoin' || document.visibilityState !== 'visible') {
@@ -3096,7 +3094,7 @@ Predict **${selectedToken.symbol}/USD** price movement (1-3 days) in Markdown fo
     tickerCache,
     nameTags,
     isLoadingNameTags,
-    fetchNameTag,
+    fetchNameTag: () => { }, // Placeholder
     fetchNameTagsForAddresses,
     setSearchQuery,
     setIsDropdownOpen,

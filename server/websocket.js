@@ -4,7 +4,7 @@ import { createClient } from 'redis';
 import { logger } from '../utils/serverLogger.js';
 
 const MEMPOOL_WS_URL = 'wss://mempool.space/api/v1/ws';
-const CACHE_TTL = 6 * 24 * 60 * 60; // 6 days (5 days + 1 day margin) - not directly used now, but kept for compatibility
+const CACHE_TTL = 6 * 24 * 60 * 60; // 6 days (5 days + 1 day margin)
 const PING_INTERVAL = 60000; // 60 seconds
 const MAX_RECONNECT_ATTEMPTS = 10;
 const BASE_RECONNECT_DELAY = 5000;
@@ -92,31 +92,6 @@ async function fetchBtcPrice() {
   return btcPriceCache.price || 0;
 }
 
-async function storeTransactionInRedis(tx) {
-  try {
-    const client = await getRedisClient();
-    const key = 'mempool-txs';
-    const now = Math.floor(Date.now() / 1000);
-
-    // Trim old transactions by age first
-    await client.zRemRangeByScore(key, 0, now - MAX_AGE_SECONDS);
-
-    // Add the new transaction (score = timestamp for sorting, higher = newer)
-    await client.zAdd(key, { score: tx.timestamp, value: JSON.stringify(tx) });
-
-    // Cap the size by removing oldest if exceeded
-    const size = await client.zCard(key);
-    if (size > MAX_CACHE_SIZE) {
-      const toRemove = size - MAX_CACHE_SIZE;
-      await client.zRemRangeByRank(key, 0, toRemove - 1);
-    }
-
-    logger.debug(`Stored transaction in Redis: ${key}`, { txid: tx.txid });
-  } catch (error) {
-    logger.error('Failed to store transaction in Redis:', { txid: tx.txid, error: error.message });
-  }
-}
-
 function startWebSocketServer(httpServer) {
   let ws;
   let reconnectAttempts = 0;
@@ -179,6 +154,7 @@ function startWebSocketServer(httpServer) {
           return;
         }
 
+        const transactions = [];
         const { default: axios } = await import('axios');
         for (const txid of newTxs) {
           try {
@@ -198,7 +174,7 @@ function startWebSocketServer(httpServer) {
                 mempoolTxCache.delete(iterator.next().value);
               }
               // Tối ưu: Chỉ lưu address cho inputs/outputs, bỏ nameTag/image null để giảm size JSON
-              const processedTx = {
+              transactions.push({
                 txid: tx.txid,
                 value_usd: totalValueUSD,
                 value_btc: totalValueSatoshi / 1e8,
@@ -212,13 +188,55 @@ function startWebSocketServer(httpServer) {
                 fee: tx.fee || 0,
                 size: tx.size || 0,
                 status: tx.status || {},
-              };
-              await storeTransactionInRedis(processedTx);
-              logger.debug(`Processed and stored new transaction: ${txid}`);
+              });
             }
           } catch (txError) {
             logger.error(`Failed to fetch tx ${txid}:`, { error: txError.message });
           }
+        }
+
+        if (transactions.length > 0) {
+          const cacheTimesKey = 'mempool-tx:times';
+          const cacheDataPrefix = 'mempool-tx:data:';
+          const client = await getRedisClient();
+          const now = Math.floor(Date.now() / 1000);
+          const pipeline = client.multi();
+          for (const tx of transactions) {
+            const txKey = `${cacheDataPrefix}${tx.txid}`;
+            pipeline.setNX(txKey, JSON.stringify(tx));
+            pipeline.expire(txKey, CACHE_TTL);
+            pipeline.zAdd(cacheTimesKey, { score: tx.timestamp, value: tx.txid }, { NX: true });
+          }
+          await pipeline.exec();
+
+          // Cleanup old transactions
+          const minScore = now - MAX_AGE_SECONDS;
+          const oldTxids = await client.zRangeByScore(cacheTimesKey, '-inf', minScore);
+          if (oldTxids.length > 0) {
+            const delPipeline = client.multi();
+            for (const txid of oldTxids) {
+              delPipeline.del(`${cacheDataPrefix}${txid}`);
+            }
+            delPipeline.zRem(cacheTimesKey, oldTxids);
+            await delPipeline.exec();
+          }
+
+          // Enforce max cache size
+          const total = await client.zCard(cacheTimesKey);
+          if (total > MAX_CACHE_SIZE) {
+            const toRemove = total - MAX_CACHE_SIZE;
+            const oldestTxids = await client.zRange(cacheTimesKey, 0, toRemove - 1);
+            if (oldestTxids.length > 0) {
+              const delPipeline = client.multi();
+              for (const txid of oldestTxids) {
+                delPipeline.del(`${cacheDataPrefix}${txid}`);
+              }
+              delPipeline.zRem(cacheTimesKey, oldestTxids);
+              await delPipeline.exec();
+            }
+          }
+
+          logger.info(`Processed and stored ${transactions.length} new transactions`);
         }
       } catch (error) {
         logger.error('WebSocket message processing error:', { error: error.message });
