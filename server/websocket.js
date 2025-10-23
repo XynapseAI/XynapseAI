@@ -2,6 +2,7 @@
 import { WebSocket, WebSocketServer } from 'ws'; // Import both WebSocket and WebSocketServer
 import { createClient } from 'redis';
 import { logger } from '../utils/serverLogger.js';
+import pLimit from 'p-limit';
 
 const MEMPOOL_WS_URL = 'wss://mempool.space/api/v1/ws';
 const CACHE_TTL = 6 * 24 * 60 * 60; // 6 days (5 days + 1 day margin)
@@ -16,12 +17,14 @@ const MAX_CACHE_SIZE = 1000; // Giữ ở mức trung bình để tránh cache q
 const MAX_AGE_SECONDS = 5 * 24 * 60 * 60; // 5 days
 const MAX_PROCESSED_TX_CACHE_SIZE = 200;
 const MAX_NEW_TX_PER_BATCH = 20;
+const FETCH_CONCURRENCY = 5; // Concurrent tx fetches
+const CLEANUP_INTERVAL = 10 * 60 * 1000; // 10 minutes
 
 let redisClient;
-
 async function getRedisClient() {
   if (!redisClient) {
     const redisUrl = process.env.REDIS_URL;
+
     if (!redisUrl && process.env.NODE_ENV === 'production') {
       const errorMessage = 'FATAL: REDIS_URL is not defined in production.';
       logger.error(errorMessage);
@@ -92,17 +95,28 @@ async function fetchBtcPrice() {
   return btcPriceCache.price || 0;
 }
 
+async function cleanupOldTransactions(client, now) {
+  const minTs = now - MAX_AGE_SECONDS;
+  const cleanupMinScore = -minTs + 1; // Scores > this are old
+  const removed = await client.zRemRangeByScore('mempool-txids', cleanupMinScore, '+inf');
+  if (removed > 0) {
+    logger.info(`Cleaned up ${removed} old transactions from sorted set`);
+  }
+}
+
 function startWebSocketServer(httpServer) {
   let ws;
   let reconnectAttempts = 0;
   let pingInterval = null;
+  let cleanupInterval = null;
   const mempoolTxCache = new Set();
+  const limit = pLimit(FETCH_CONCURRENCY);
 
-  const wss = new WebSocketServer({ server: httpServer }); // Use WebSocketServer for server
+  const wss = new WebSocketServer({ server: httpServer });
   logger.info('WebSocket server initialized on HTTP server');
 
   const connect = () => {
-    ws = new WebSocket(MEMPOOL_WS_URL, { // Use WebSocket for client
+    ws = new WebSocket(MEMPOOL_WS_URL, {
       headers: { 'User-Agent': 'xynapse-bot/1.0' },
       perMessageDeflate: false,
     });
@@ -117,6 +131,17 @@ function startWebSocketServer(httpServer) {
           logger.debug('Sent WebSocket ping');
         }
       }, PING_INTERVAL);
+
+      // Setup cleanup interval
+      cleanupInterval = setInterval(async () => {
+        try {
+          const client = await getRedisClient();
+          const now = Math.floor(Date.now() / 1000);
+          await cleanupOldTransactions(client, now);
+        } catch (err) {
+          logger.error('Cleanup interval error:', { error: err.message });
+        }
+      }, CLEANUP_INTERVAL);
     });
 
     ws.on('pong', () => {
@@ -154,15 +179,14 @@ function startWebSocketServer(httpServer) {
           return;
         }
 
-        const transactions = [];
         const { default: axios } = await import('axios');
-        for (const txid of newTxs) {
+        const txPromises = newTxs.map(txid => limit(async () => {
           try {
             const response = await axios.get(`https://mempool.space/api/tx/${txid}`, { timeout: 5000 });
             const tx = response.data;
             if (!tx.vout || !Array.isArray(tx.vout)) {
               logger.warn(`Invalid transaction data for txid ${txid}`);
-              continue;
+              return null;
             }
             const totalValueSatoshi = tx.vout.reduce((sum, output) => sum + (output.value || 0), 0);
             const totalValueUSD = (totalValueSatoshi / 1e8) * btcPrice;
@@ -173,8 +197,7 @@ function startWebSocketServer(httpServer) {
                 const iterator = mempoolTxCache.values();
                 mempoolTxCache.delete(iterator.next().value);
               }
-              // Tối ưu: Chỉ lưu address cho inputs/outputs, bỏ nameTag/image null để giảm size JSON
-              transactions.push({
+              return {
                 txid: tx.txid,
                 value_usd: totalValueUSD,
                 value_btc: totalValueSatoshi / 1e8,
@@ -188,53 +211,38 @@ function startWebSocketServer(httpServer) {
                 fee: tx.fee || 0,
                 size: tx.size || 0,
                 status: tx.status || {},
-              });
+              };
             }
+            return null;
           } catch (txError) {
             logger.error(`Failed to fetch tx ${txid}:`, { error: txError.message });
+            return null;
           }
-        }
+        }));
+
+        const transactions = (await Promise.all(txPromises)).filter(Boolean);
 
         if (transactions.length > 0) {
-          const cacheTimesKey = 'mempool-tx:times';
-          const cacheDataPrefix = 'mempool-tx:data:';
           const client = await getRedisClient();
+          const multi = client.multi();
+
+          transactions.forEach(tx => {
+            const txKey = `mempool-tx:${tx.txid}`;
+            multi.setEx(txKey, CACHE_TTL, JSON.stringify(tx));
+            multi.zAdd('mempool-txids', { score: -tx.timestamp, value: tx.txid }, { NX: true });
+          });
+
+          await multi.exec();
+
+          // Trim to max size (remove oldest)
+          const size = await client.zCard('mempool-txids');
+          if (size > MAX_CACHE_SIZE) {
+            await client.zRemRangeByRank('mempool-txids', MAX_CACHE_SIZE, -1);
+          }
+
+          // Cleanup old
           const now = Math.floor(Date.now() / 1000);
-          const pipeline = client.multi();
-          for (const tx of transactions) {
-            const txKey = `${cacheDataPrefix}${tx.txid}`;
-            pipeline.setNX(txKey, JSON.stringify(tx));
-            pipeline.expire(txKey, CACHE_TTL);
-            pipeline.zAdd(cacheTimesKey, { score: tx.timestamp, value: tx.txid }, { NX: true });
-          }
-          await pipeline.exec();
-
-          // Cleanup old transactions
-          const minScore = now - MAX_AGE_SECONDS;
-          const oldTxids = await client.zRangeByScore(cacheTimesKey, '-inf', minScore);
-          if (oldTxids.length > 0) {
-            const delPipeline = client.multi();
-            for (const txid of oldTxids) {
-              delPipeline.del(`${cacheDataPrefix}${txid}`);
-            }
-            delPipeline.zRem(cacheTimesKey, oldTxids);
-            await delPipeline.exec();
-          }
-
-          // Enforce max cache size
-          const total = await client.zCard(cacheTimesKey);
-          if (total > MAX_CACHE_SIZE) {
-            const toRemove = total - MAX_CACHE_SIZE;
-            const oldestTxids = await client.zRange(cacheTimesKey, 0, toRemove - 1);
-            if (oldestTxids.length > 0) {
-              const delPipeline = client.multi();
-              for (const txid of oldestTxids) {
-                delPipeline.del(`${cacheDataPrefix}${txid}`);
-              }
-              delPipeline.zRem(cacheTimesKey, oldestTxids);
-              await delPipeline.exec();
-            }
-          }
+          await cleanupOldTransactions(client, now);
 
           logger.info(`Processed and stored ${transactions.length} new transactions`);
         }
@@ -246,12 +254,14 @@ function startWebSocketServer(httpServer) {
     ws.on('error', (error) => {
       logger.error('Mempool WebSocket error:', { error: error.message });
       clearInterval(pingInterval);
+      clearInterval(cleanupInterval);
       reconnect();
     });
 
     ws.on('close', () => {
       logger.info('Mempool WebSocket closed');
       clearInterval(pingInterval);
+      clearInterval(cleanupInterval);
       reconnect();
     });
   };
@@ -272,6 +282,7 @@ function startWebSocketServer(httpServer) {
   return () => {
     if (ws) ws.close();
     if (pingInterval) clearInterval(pingInterval);
+    if (cleanupInterval) clearInterval(cleanupInterval);
     wss.close();
     logger.info('WebSocket server closed');
   };
