@@ -35,18 +35,15 @@ const verifyWithRateLimit = limiter.wrap(async (token, action, ip) => {
 
 export async function verifyRecaptcha(token, action, ip) {
   if (!token || typeof token !== 'string' || token.length < 10) {
-    throw new Error('Invalid reCAPTCHA token');
+    return { success: false, error: 'Invalid reCAPTCHA token' };
   }
   if (!action || typeof action !== 'string') {
-    throw new Error('Invalid reCAPTCHA action');
+    return { success: false, error: 'Invalid reCAPTCHA action' };
   }
 
   try {
-    const { success, score, action: recaptchaAction, 'error-codes': errorCodes, hostname } = await verifyWithRateLimit(
-      token,
-      action,
-      ip
-    );
+    const responseData = await verifyWithRateLimit(token, action, ip);
+    const { success, score, action: recaptchaAction, 'error-codes': errorCodes, hostname } = responseData;
     logger.info(
       `reCAPTCHA verification: success=${success}, score=${score}, action=${recaptchaAction}, hostname=${hostname}, error-codes=${
         errorCodes?.join(', ') || 'none'
@@ -60,19 +57,30 @@ export async function verifyRecaptcha(token, action, ip) {
         : errorCodes?.includes('invalid-input-secret')
         ? 'Invalid reCAPTCHA secret key'
         : `reCAPTCHA verification failed: ${errorCodes?.join(', ') || 'Unknown error'}`;
-      throw new Error(errorMessage);
+      return { success: false, error: errorMessage };
     }
 
-    const minScore = parseFloat(process.env.RECAPTCHA_MIN_SCORE || '0.5');
-    if (score < minScore) {
-      throw new Error(`reCAPTCHA score too low: ${score} < ${minScore}`);
-    }
+    const isV3 = score !== undefined;
+    let verified = true;
+    let needsFallback = false;
+    if (isV3) {
+      const minScore = parseFloat(process.env.RECAPTCHA_MIN_SCORE || '0.9');
+      if (score < minScore) {
+        verified = false;
+        needsFallback = true;
+      }
+    } // v2: success true, no score check
 
     if (recaptchaAction && recaptchaAction.toLowerCase() !== action.toLowerCase()) {
-      throw new Error(`reCAPTCHA action mismatch: expected ${action}, got ${recaptchaAction}`);
+      return { success: false, error: `reCAPTCHA action mismatch: expected ${action}, got ${recaptchaAction}` };
     }
 
-    return { success: true, score };
+    return { 
+      success: verified, 
+      needsFallback, 
+      score: isV3 ? score : 1.0,
+      error: verified ? null : 'reCAPTCHA verification failed' 
+    };
   } catch (error) {
     logger.error(`reCAPTCHA verification failed: ${error.message}`, {
       tokenLength: token?.length,
@@ -80,6 +88,6 @@ export async function verifyRecaptcha(token, action, ip) {
       ip,
       error: error.response?.data,
     });
-    throw new Error(`reCAPTCHA verification failed: ${error.message}`);
+    return { success: false, error: `reCAPTCHA verification failed: ${error.message}` };
   }
 }

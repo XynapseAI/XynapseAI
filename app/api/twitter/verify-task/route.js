@@ -229,18 +229,19 @@ async function checkRateLimit(ip) {
 async function verifyRecaptchaWithRetry(token, action, ip, retries = 2) {
   token = sanitizeInput(token, 2048);
   for (let i = 0; i < retries; i++) {
-    try {
-      const response = await verifyRecaptcha(token, action, ip);
-      if (!response.success || (response.score !== undefined && response.score < 0.3)) {
-        throw new Error('reCAPTCHA verification failed');
-      }
-      logger.info('reCAPTCHA OK', { ip, score: response.score });
+    const response = await verifyRecaptcha(token, action, ip);
+    if (response.success) {
       return response;
-    } catch (error) {
-      logger.warn(`reCAPTCHA verification attempt ${i + 1} failed: ${error.message}`, { action, ip });
-      if (i === retries - 1) throw error;
-      await new Promise((resolve) => setTimeout(resolve, 1000));
     }
+    if (response.needsFallback) {
+      return response; // Không retry cho fallback, trả về để frontend xử lý v2
+    }
+    // Fail khác, retry
+    logger.warn(`reCAPTCHA attempt ${i + 1} failed: ${response.error}`, { action, ip });
+    if (i === retries - 1) {
+      throw new Error(response.error || 'reCAPTCHA verification failed');
+    }
+    await new Promise((resolve) => setTimeout(resolve, 1000));
   }
 }
 
@@ -396,7 +397,15 @@ export async function POST(request) {
   if (process.env.NODE_ENV !== 'development') {
     try {
       logger.info('Attempting reCAPTCHA verification', { token: recaptchaToken.substring(0, 8) + '...', action: 'verify_task', ip });
-      await verifyRecaptchaWithRetry(recaptchaToken, 'verify_task', ip);
+      const recaptchaResponse = await verifyRecaptchaWithRetry(recaptchaToken, 'verify_task', ip);
+if (!recaptchaResponse.success) {
+  if (recaptchaResponse.needsFallback) {
+    return NextResponse.json({ detail: 'low_score_fallback' }, { status: 403, headers: corsHeaders });
+  } else {
+    await trackViolation(ip, `reCAPTCHA verification failed: ${recaptchaResponse.error}`);
+    return NextResponse.json({ detail: `reCAPTCHA verification failed: ${recaptchaResponse.error}` }, { status: 403, headers: corsHeaders });
+  }
+}
     } catch (error) {
       await trackViolation(ip, `reCAPTCHA verification failed: ${error.message}`);
       logger.error(`reCAPTCHA verification failed: ${error.message}`, { ip });
