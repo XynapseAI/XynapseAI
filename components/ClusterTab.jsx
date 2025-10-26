@@ -1435,47 +1435,7 @@ const ClusterTab = ({ recaptchaRef, initialClusterId, activeTab: propActiveTab, 
       </div>
     );
   };
-  // Skeleton for Large Flow table
-  const SkeletonTransactionRow = ({ index }) => (
-    <motion.div
-      key={`skeleton-tx-${index}`}
-      className="flex border-t border-white/10 hover:bg-gradient-to-r hover:from-white/5 hover:to-neon-blue/5 transition-all duration-300 py-2"
-      initial={{ opacity: 0, y: 10 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.3 }}
-    >
-      <div className="w-[12%] sm:w-[15%] px-2 sm:px-3 flex flex-col items-center justify-center gap-1">
-        <div className="relative flex-shrink-0">
-          <div className="w-[16px] h-[16px] bg-white/10 rounded-full animate-pulse mx-auto" />
-          <div className="w-[10px] h-[10px] bg-white/5 rounded-full absolute top-0 right-0 animate-pulse" style={{ transform: 'translate(25%, -25%)' }} />
-        </div>
-        <div className="w-10 h-2 bg-white/10 rounded animate-pulse" />
-      </div>
-      <div className="w-[30%] sm:w-[25%] px-2 sm:px-3 flex items-center justify-center">
-        <div className="flex flex-col gap-1 min-w-0 flex-1">
-          <div className="flex items-center gap-2">
-            <div className="w-[14px] h-[14px] bg-white/10 rounded-full animate-pulse" />
-            <div className="w-16 h-2 bg-white/10 rounded animate-pulse" />
-          </div>
-          <div className="flex items-center gap-2">
-            <div className="w-[14px] h-[14px] bg-white/10 rounded-full animate-pulse" />
-            <div className="w-16 h-2 bg-white/10 rounded animate-pulse" />
-          </div>
-        </div>
-      </div>
-      <div className="w-[20%] sm:w-[20%] px-2 sm:px-3 flex flex-col items-center gap-1">
-        <div className="w-12 h-2 bg-white/10 rounded animate-pulse" />
-        <div className="w-10 h-2 bg-white/10 rounded animate-pulse" />
-      </div>
-      <div className="w-[30%] sm:w-[25%] px-2 sm:px-3 flex items-center justify-center">
-        <div className="w-12 h-2 bg-white/10 rounded animate-pulse" />
-      </div>
-      <div className="w-[10%] sm:w-[15%] px-2 sm:px-3 flex flex-col items-center gap-0.5">
-        <div className="w-[14px] h-[14px] bg-white/10 rounded-full animate-pulse" />
-        <div className="w-8 h-1.5 bg-white/5 rounded animate-pulse" />
-      </div>
-    </motion.div>
-  );
+  
   const renderTransactionsContent = () => {
     if (status !== "authenticated") {
       return <LoginPrompt />;
@@ -1510,13 +1470,20 @@ const ClusterTab = ({ recaptchaRef, initialClusterId, activeTab: propActiveTab, 
       const isInternal = hasFromCluster && hasToCluster;
       const directionColor = isInternal ? 'text-white' : isOutgoing ? 'text-red-400' : isIncoming ? 'text-green-400' : 'text-gray-400';
       // FIX: Custom flow icon - half cylinder on left (rounded rect), reduced height, arrow at end
-      const pathLine = (
-        <div className={`w-0.5 h-4 rounded opacity-60 flex-shrink-0`} style={{ backgroundColor: 'currentColor' }} />
-      );
-      // Vertical down arrow icon (smaller size)
-      const arrowIcon = (
-        <svg className="h-2 w-2" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-          <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+      const transferIcon = (
+        <svg
+          className={`w-4 h-4 ${directionColor} flex-shrink-0`}
+          fill="none"
+          stroke="currentColor"
+          viewBox="0 0 24 24"
+          xmlns="http://www.w3.org/2000/svg"
+        >
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            strokeWidth="2"
+            d="M8 7h12m0 0l-4-4m4 4l-4 4m-4 4H4m0 0l4 4m-4-4l4-4"
+          />
         </svg>
       );
       if (!isBitcoin && tx.type === 'swap' && tx.swap_details) {
@@ -1583,8 +1550,7 @@ const ClusterTab = ({ recaptchaRef, initialClusterId, activeTab: propActiveTab, 
           <div className="w-[30%] sm:w-[25%] px-2 sm:px-3 text-white/80 text-[8px] sm:text-[10px] text-center overflow-hidden text-ellipsis flex items-center justify-center">
             <div className="flex items-center gap-1 min-w-0 flex-1">
               <div className={`flex flex-col items-center gap-0.5 ${directionColor}`}>
-                {pathLine}
-                <div className="-mt-0.5">{arrowIcon}</div>
+                <div className="-mt-0.5">{transferIcon}</div>
               </div>
               {/* Wallets stack on right */}
               <div className="flex flex-col gap-1 min-w-0 flex-1">
@@ -1700,12 +1666,9 @@ const ClusterTab = ({ recaptchaRef, initialClusterId, activeTab: propActiveTab, 
               <div className="w-[30%] sm:w-[25%] px-3 py-2 text-white font-medium text-center">Value ({currency.toUpperCase()})</div>
               <div className="w-[10%] sm:w-[15%] px-3 py-2 text-white font-medium text-center">Details</div>
             </div>
-            <Virtuoso
-              className="bg-gradient-to-br from-black/80 to-gray-900/80 hide-scrollbar virtuoso-container"
-              style={{ height: 'calc(50vh - 5rem)' }}
-              totalCount={20} // Show 20 skeleton rows during loading
-              itemContent={(index) => <SkeletonTransactionRow index={index} />}
-            />
+            <div className="flex items-center justify-center py-8 text-white/60 text-center">
+              <p className="text-[10px] sm:text-sm">Loading transactions...</p>
+            </div>
           </div>
         ) : transactionsError ? (
           <p className="text-[10px] sm:text-sm text-red-400 text-center p-4 bg-red-500/10 border border-red-500/20 rounded-lg">
