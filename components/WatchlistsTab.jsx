@@ -1,6 +1,5 @@
 // components/WatchlistsTab.jsx
 'use client';
-
 import { motion, AnimatePresence } from 'framer-motion';
 import { useState, useEffect, useCallback, useMemo, useRef, useTransition } from 'react';
 import { useQuery } from '@tanstack/react-query';
@@ -20,13 +19,11 @@ import { LoadingOverlay, truncateAddress, formatPrice, isValidToken, getExplorer
 import { logger } from '../utils/clientLogger';
 import { debounce } from 'lodash';
 import { Virtuoso } from 'react-virtuoso';
-
 axiosRetry(axios, {
   retries: 3,
   retryDelay: (retryCount) => retryCount * 1000,
   retryCondition: (error) => error.code === 'ECONNABORTED' || error.response?.status >= 500,
 });
-
 // Utility constants
 const NATIVE_TOKEN_INFO = {
   ethereum: { name: 'Ethereum', symbol: 'ETH', logo: '/ethereum-logo.webp' },
@@ -35,7 +32,6 @@ const NATIVE_TOKEN_INFO = {
   solana: { name: 'Solana', symbol: 'SOL', logo: '/solana-logo.webp' },
   eclipse: { name: 'Eclipse', symbol: 'ETH', logo: '/eclipse-logo.webp' },
 };
-
 const Tooltip = ({ children, text }) => {
   const [isVisible, setIsVisible] = useState(false);
   return (
@@ -57,7 +53,6 @@ const Tooltip = ({ children, text }) => {
     </div>
   );
 };
-
 const copyAddress = (address, toast) => {
   navigator.clipboard.writeText(address).then(() => {
     toast.success('Address copied to clipboard!', { position: 'top-center', autoClose: 3000 });
@@ -65,7 +60,6 @@ const copyAddress = (address, toast) => {
     toast.error('Failed to copy address.', { position: 'top-center', autoClose: 3000 });
   });
 };
-
 // Skeleton Components for improved UX during loading
 const SkeletonTokenRow = ({ index }) => (
   <motion.div
@@ -99,7 +93,6 @@ const SkeletonTokenRow = ({ index }) => (
     </div>
   </motion.div>
 );
-
 const SkeletonTransactionRow = ({ index }) => (
   <motion.div
     key={`skeleton-tx-${index}`}
@@ -134,7 +127,6 @@ const SkeletonTransactionRow = ({ index }) => (
     </div>
   </motion.div>
 );
-
 export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress = null, toast }) {
   const { data: session, status } = useSession();
   const router = useRouter();
@@ -170,13 +162,10 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
   const [currentPage, setCurrentPage] = useState(1);
   const [isPending, startTransition] = useTransition();
   const transactionsPerPage = 100;
-
   const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || '/api';
   const EVM_LOGOS = ['ethereum', 'base', 'bnb'];
   const SVM_LOGOS = ['solana', 'eclipse'];
-
   const stableWatchlists = useMemo(() => watchlists, [watchlists]);
-
   const filteredBalances = useMemo(() => {
     const validBalances = balances
       .filter((b) => {
@@ -190,33 +179,27 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
       return valueB - valueA; // Descending order
     });
   }, [balances, activeChain]);
-
   // Calculate total value USD
   const totalValue = useMemo(() => {
     return filteredBalances.reduce((sum, balance) => sum + (Number(balance.value_usd) || 0), 0);
   }, [filteredBalances]);
-
   const totalValueUSD = useMemo(() => {
     return totalValue.toLocaleString('en-US', { maximumFractionDigits: 2 });
   }, [totalValue]);
-
   const filteredTransactions = useMemo(() => {
     return transactions.filter((tx) => {
       if (activeChain === null) return true;
       return tx.chain === activeChain;
     });
   }, [transactions, activeChain]);
-
   const totalPages = useMemo(() => {
     return Math.ceil(filteredTransactions.length / transactionsPerPage);
   }, [filteredTransactions.length]);
-
   const currentTransactions = useMemo(() => {
     const indexOfLast = currentPage * transactionsPerPage;
     const indexOfFirst = indexOfLast - transactionsPerPage;
     return filteredTransactions.slice(indexOfFirst, indexOfLast);
   }, [filteredTransactions, currentPage]);
-
   // Debounced state update for transactions with useTransition for smooth updates
   const debouncedSetTransactions = useCallback(
     debounce((newTransactions) => {
@@ -229,7 +212,6 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
     }, 500),
     [startTransition]
   );
-
   // Similar for balances
   const debouncedSetBalances = useCallback(
     debounce((newBalances) => {
@@ -242,7 +224,6 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
     }, 500),
     [startTransition]
   );
-
   // Log sorted balances to verify USDT position
   useEffect(() => {
     if (!selectedWallet || !balances) return;
@@ -273,7 +254,6 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
       ),
     });
   }, [selectedWallet, balances, activeChain]);
-
   const updateUrl = useCallback(
     debounce((address) => {
       if (!address) {
@@ -292,7 +272,6 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
     }, 300),
     [router, searchParams]
   );
-
   const handleTabClick = useCallback((tab) => {
     logger.log('Tab clicked:', { tab });
     setActiveTab(tab);
@@ -300,7 +279,6 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
       setCurrentPage(1);
     }
   }, []);
-
   useEffect(() => {
     const addressFromUrl = searchParams.get('address');
     logger.log('useEffect triggered - searchParams:', {
@@ -308,18 +286,15 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
       activeTab,
       selectedWallet,
     });
-
     if (isUserInitiatedChange) {
       logger.log('Skipping selectedWallet update due to user-initiated change');
       setIsUserInitiatedChange(false);
       return;
     }
-
     if (addressFromUrl && addressFromUrl === lastSelectedWalletRef.current) {
       logger.log('Skipping selectedWallet update: URL matches last selected wallet');
       return;
     }
-
     if (watchlists.length > 0 && isInitialLoad) {
       let wallet = null;
       if (addressFromUrl) {
@@ -346,7 +321,6 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
       }
     }
   }, [searchParams, watchlists, selectedWallet, isUserInitiatedChange, isInitialLoad, initialAddress, startTransition]);
-
   useEffect(() => {
     const handleKeyDown = (e) => {
       if (e.key === 'Escape' && showAddModal) {
@@ -359,21 +333,18 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [showAddModal]);
-
   useEffect(() => {
     const handleResize = () => setIsMobile(window.innerWidth <= 640);
     window.addEventListener('resize', handleResize);
     handleResize();
     return () => window.removeEventListener('resize', handleResize);
   }, []);
-
   const isValidSolanaAddress = useCallback(
     (address) => {
       return address && address.length >= 32 && address.length <= 44 && /^[1-9A-HJ-NP-Za-km-z]+$/.test(address);
     },
     []
   );
-
   const { data: supportedChains, isLoading: chainsLoading } = useQuery({
     queryKey: ['supportedChains'],
     queryFn: async () => {
@@ -396,7 +367,6 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
       );
     },
   });
-
   useEffect(() => {
     if (supportedChains) {
       const mappedChains = SUPPORTED_CHAINS.map((simChain) => {
@@ -414,17 +384,14 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
       setChains(mappedChains);
     }
   }, [supportedChains]);
-
   const fetchDataQuery = async (action, address, chainType) => {
     const isValidEVM = isAddress(address);
     const isValidSVM = isValidSolanaAddress(address);
     if (!isValidEVM && !isValidSVM) {
       throw new Error(`Invalid address format for ${address}`);
     }
-
     const cacheKey = `${action}-${address}-${chainType}`;
     let cachedData = null;
-
     try {
       cachedData = await getCachedData(cacheKey);
       if (cachedData) {
@@ -434,18 +401,15 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
     } catch (error) {
       logger.warn(`IndexedDB not available, skipping cache for ${cacheKey}`, { error });
     }
-
     const payload = {
       action,
       address,
       ...(isValidEVM ? { chain_ids: '1,137,10,42161,8453' } : { chains: SUPPORTED_SVM_CHAINS.join(',') }),
-      limit: action === 'transactions' ? 2000 : 1000,
+      limit: action === 'transactions' ? 10000 : 1000,
     };
-
     try {
       const apiUrl = `${API_BASE_URL}/api/sim`;
       logger.log(`Fetching ${action} for address: ${address}, chainType: ${chainType}`, { payload });
-
       const response = await fetch(apiUrl, {
         method: 'POST',
         headers: {
@@ -456,7 +420,6 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
         body: JSON.stringify(payload),
         credentials: 'include',
       });
-
       if (!response.ok) {
         const text = await response.text();
         let errorMessage = `Failed to fetch ${action} data: ${response.status} ${response.statusText}`;
@@ -468,12 +431,10 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
         }
         throw new Error(errorMessage);
       }
-
       const reader = response.body.getReader();
       const decoder = new TextDecoder();
       let data = [];
       let buffer = '';
-
       // Update state incrementally with debounced transitions
       const updateState = debounce((newData) => {
         startTransition(() => {
@@ -484,13 +445,10 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
           }
         });
       }, 300); // Reduced debounce for faster perceived load
-
       while (true) {
         const { done, value } = await reader.read();
         if (done) break;
-
         buffer += decoder.decode(value, { stream: true });
-
         try {
           const trimmedBuffer = buffer.trim();
           if (trimmedBuffer.startsWith('[') && trimmedBuffer.endsWith(']')) {
@@ -521,7 +479,6 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
           continue;
         }
       }
-
       // Handle any remaining buffer
       if (buffer) {
         try {
@@ -539,9 +496,7 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
           throw new Error(`Invalid JSON response from ${action} API`);
         }
       }
-
       logger.log(`Parsed ${action} data:`, { address, dataLength: data.length });
-
       if (data.length > 0) {
         try {
           await cacheData(cacheKey, data);
@@ -550,7 +505,6 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
           logger.warn(`Failed to cache data for ${cacheKey}`, { cacheError });
         }
       }
-
       return data;
     } catch (error) {
       const errorMessage =
@@ -565,7 +519,6 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
       throw new Error(errorMessage);
     }
   };
-
   const { data: balancesData, error: balancesError, isValidating: balancesValidating } = useSWR(
     selectedWallet ? ['wallet-balances', selectedWallet.address, activeChainType] : null,
     () => fetchDataQuery('wallet-balances', selectedWallet.address, activeChainType),
@@ -576,7 +529,6 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
       dedupingInterval: 30 * 1000,
     }
   );
-
   const { data: transactionsData, error: transactionsError, isValidating: transactionsValidating } = useSWR(
     selectedWallet && activeTab === 'ACTIVITY' ? ['transactions', selectedWallet.address, activeChainType] : null,
     () => fetchDataQuery('transactions', selectedWallet.address, activeChainType),
@@ -587,7 +539,6 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
       dedupingInterval: 30 * 1000,
     }
   );
-
   useEffect(() => {
     if (balancesError || transactionsError) {
       const errorMessage = balancesError?.message || transactionsError?.message || 'Failed to load data';
@@ -596,7 +547,6 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
       if (transactionsError) startTransition(() => setTransactions([]));
     }
   }, [balancesError, transactionsError, startTransition]);
-
   useEffect(() => {
     if (balancesData) {
       startTransition(() => {
@@ -621,7 +571,6 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
       tokenInfo: false,
     });
   }, [balancesData, transactionsData, chainsLoading, balancesValidating, transactionsValidating, debouncedSetTransactions, startTransition]);
-
   const { data: tokenInfoData, error: tokenInfoError, isValidating: tokenInfoValidating } = useSWR(
     selectedWallet && balances.length > 0 ? ['tokenInfo', balances.map((b) => b.address)] : null,
     async () => {
@@ -630,14 +579,12 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
         .map((b) => ({ address: b.address, chain: b.chain }))
         .slice(0, 5);
       const tokenInfoData = {};
-
       // Parallelize token info fetches for speed
       await Promise.all(
         tokenAddresses.map(async ({ address, chain }) => {
           const isValidEVM = isAddress(address);
           const isValidSVM = isValidSolanaAddress(address);
           if (!isValidEVM && !isValidSVM) return;
-
           const cacheKey = `tokenInfo-${address}-${chain}`;
           let cachedData = null;
           try {
@@ -649,7 +596,6 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
           } catch (error) {
             logger.warn(`IndexedDB not available, skipping cache for ${cacheKey}`, { error });
           }
-
           try {
             const payload = {
               action: 'wallet-balances',
@@ -658,9 +604,7 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
               limit: 1,
               metadata: 'logo',
             };
-
             logger.log(`Fetching token info for address: ${address}, chain: ${chain}`, { payload });
-
             const response = await fetch(`${API_BASE_URL}/api/sim`, {
               method: 'POST',
               headers: {
@@ -671,7 +615,6 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
               body: JSON.stringify(payload),
               credentials: 'include',
             });
-
             if (!response.ok) {
               const text = await response.text();
               let errorMessage = `Failed to fetch token info for ${address} on ${chain}: ${response.status} ${response.statusText}`;
@@ -683,18 +626,14 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
               }
               throw new Error(errorMessage);
             }
-
             const reader = response.body.getReader();
             const decoder = new TextDecoder();
             let data = [];
             let buffer = '';
-
             while (true) {
               const { done, value } = await reader.read();
               if (done) break;
-
               buffer += decoder.decode(value, { stream: true });
-
               try {
                 const parsed = JSON.parse(buffer);
                 if (Array.isArray(parsed)) {
@@ -710,7 +649,6 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
                 continue;
               }
             }
-
             // Handle any remaining buffer
             if (buffer) {
               try {
@@ -727,9 +665,7 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
                 throw new Error(`Invalid JSON response from token info API`);
               }
             }
-
             logger.log(`Parsed token info for ${address} on ${chain}:`, { data });
-
             if (data.length > 0) {
               const tokenData = data[0];
               const tokenInfo = [
@@ -770,7 +706,6 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
           }
         })
       );
-
       return tokenInfoData;
     },
     {
@@ -780,7 +715,6 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
       dedupingInterval: 30 * 1000,
     }
   );
-
   useEffect(() => {
     if (tokenInfoError) {
       const errorMessage = tokenInfoError.message || 'Failed to load token info';
@@ -791,7 +725,6 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
     }
     setLoadingStates((prev) => ({ ...prev, tokenInfo: tokenInfoValidating }));
   }, [tokenInfoData, tokenInfoError, tokenInfoValidating, startTransition]);
-
   const { data: userTier, isLoading: userTierLoading } = useQuery({
     queryKey: ['userTier', session?.user?.id],
     queryFn: async () => {
@@ -807,24 +740,19 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
     enabled: status === 'authenticated' && !!session?.user?.id,
     staleTime: 5 * 60 * 1000,
   });
-
   const maxWalletsLimit = useMemo(() => {
     return userTier?.isPremium ? 20 : 5;
   }, [userTier]);
-
   const isAtLimit = useMemo(() => {
     return watchlists.length >= maxWalletsLimit;
   }, [watchlists.length, maxWalletsLimit]);
-
   const fetchNameTagsForAddresses = useCallback(
     async (addresses) => {
       if (!addresses || addresses.length === 0) {
         logger.log('No addresses provided for fetchNameTagsForAddresses');
         return;
       }
-
       const newNameTags = {};
-
       const evmAddresses = addresses.filter((addr) => isAddress(addr));
       if (evmAddresses.length > 0 && status === 'authenticated') {
         try {
@@ -833,7 +761,6 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
           for (let i = 0; i < evmAddresses.length; i += batchSize) {
             batches.push(evmAddresses.slice(i, i + batchSize));
           }
-
           // Parallelize batch requests for faster name tag fetching
           const batchPromises = batches.map((batch) =>
             axios.post(
@@ -848,7 +775,6 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
               }
             )
           );
-
           const responses = await Promise.allSettled(batchPromises);
           responses.forEach((result, index) => {
             if (result.status === 'fulfilled' && result.value.data.success) {
@@ -873,7 +799,6 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
             data: error.response?.data,
             message: error.message,
           });
-
           const errorMessage =
             error.response?.status === 401
               ? 'Unauthorized: Please log in again.'
@@ -882,7 +807,6 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
                 : error.response?.status === 400
                   ? 'Invalid addresses provided.'
                   : error.response?.data?.detail || `Failed to fetch Name Tags: ${error.message}`;
-
           evmAddresses.forEach((address) => {
             const normalizedAddress = address.toLowerCase();
             newNameTags[normalizedAddress] = { nameTag: null, image: null, timestamp: Date.now() };
@@ -895,12 +819,10 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
           newNameTags[normalizedAddress] = { nameTag: null, image: null, timestamp: Date.now() };
         });
       }
-
       const svmAddresses = addresses.filter((addr) => !isAddress(addr));
       svmAddresses.forEach((addr) => {
         newNameTags[addr] = { nameTag: null, image: null, timestamp: Date.now() };
       });
-
       startTransition(() => {
         setNameTags((prev) => ({
           ...prev,
@@ -911,25 +833,20 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
     },
     [session, status, toast, startTransition]
   );
-
   useEffect(() => {
     if (!session?.user?.id || !watchlists.length) return;
-
     async function fetchNametags() {
       const addresses = watchlists.map((w) => w.address);
       await fetchNameTagsForAddresses(addresses);
     }
-
     fetchNametags();
   }, [watchlists, session, fetchNameTagsForAddresses]);
-
   useEffect(() => {
     if (activeTab === 'ACTIVITY' && transactions.length > 0) {
       const uniqueAddresses = [...new Set(transactions.flatMap((tx) => [tx.from, tx.to]))].filter(Boolean);
       fetchNameTagsForAddresses(uniqueAddresses);
     }
   }, [transactions, activeTab, fetchNameTagsForAddresses]);
-
   useEffect(() => {
     if (!session?.user?.id) {
       setWatchlists([]);
@@ -937,7 +854,6 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
       setIsInitialLoad(true);
       return;
     }
-
     async function fetchWatchlists() {
       const cacheKey = `watchlists-${session.user.id}`;
       if (!forceFetch) {
@@ -955,7 +871,6 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
           return;
         }
       }
-
       setLoadingStates((prev) => ({ ...prev, loading: true }));
       try {
         const response = await axios.get(`${API_BASE_URL}/api/watchlists`, {
@@ -994,10 +909,8 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
         setForceFetch(false);
       }
     }
-
     fetchWatchlists();
   }, [session, isValidSolanaAddress, initialAddress, updateUrl, forceFetch, isInitialLoad, searchParams, startTransition]);
-
   const handleAddWallet = async () => {
     if (isAtLimit) {
       toast.error(
@@ -1008,7 +921,6 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
       );
       return;
     }
-
     if (!newAddress) {
       setError('Please enter a wallet address.');
       toast.error('Please enter a wallet address.', { position: 'top-center', autoClose: 5000 });
@@ -1083,7 +995,6 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
       setLoadingStates((prev) => ({ ...prev, loading: false }));
     }
   };
-
   const handleRemoveWallet = async (walletAddress) => {
     setLoadingStates((prev) => ({ ...prev, loading: true }));
     try {
@@ -1134,24 +1045,20 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
       setLoadingStates((prev) => ({ ...prev, loading: false }));
     }
   };
-
   const getPlatformImage = (chainValue) => {
     const chainName = CHAIN_ID_TO_NAME[chainValue] || chainValue || 'ethereum';
     const chain = chains.find((c) => c.value === chainName);
     return chain?.image || (chainName === 'eclipse' ? '/eclipse-logo.webp' : '/fallback-image.webp');
   };
-
   const getChainLogos = (chainType) => {
     return chainType === 'EVM' ? EVM_LOGOS : SVM_LOGOS;
   };
-
   const renderTokenRow = (index, token) => {
     const tokenInfoData = tokenInfo[token.address] || [];
     const tokenDetails = tokenInfoData.find((t) => t.chain === token.chain) || {};
     let logoUrl = '/icons/default.webp';
     let tokenName = token.name || token.symbol || tokenDetails.name || tokenDetails.symbol || 'Unknown';
     let tokenSymbol = token.symbol || tokenDetails.symbol || 'Unknown';
-
     if (token.address === 'native' && NATIVE_TOKEN_INFO[token.chain]) {
       logoUrl = NATIVE_TOKEN_INFO[token.chain].logo;
       tokenName = NATIVE_TOKEN_INFO[token.chain].name;
@@ -1163,17 +1070,14 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
     } else {
       return null;
     }
-
     const formatBalance = (amount) => {
       if (amount == null || isNaN(amount)) return 'N/A';
       const num = Number(amount);
       if (num < 0.0001) return num.toFixed(6);
       return num.toLocaleString('en-US', { maximumFractionDigits: 4 });
     };
-
     const value = Number(token.value_usd) || 0;
     const percentage = totalValue > 0 ? (value / totalValue) * 100 : 0;
-
     return (
       <motion.div
         key={`${token.chain}-${token.address}-${index}`}
@@ -1234,7 +1138,6 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
       </motion.div>
     );
   };
-
   const renderTransactionRow = (index, tx) => {
     const transactionKey = tx.hash || `tx-${index}`;
     const { txUrl, addressUrl } = getExplorerUrls(tx.chain, transactionKey, tx.from || tx.address);
@@ -1247,10 +1150,8 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
     let tokenSymbol = tx.token || 'Unknown';
     const addressToShow = tx.type === 'receive' ? tx.from : tx.to;
     const { text: displayAddress, image: addressImage } = truncateAddress(addressToShow, nameTags);
-
     let displayValue = Number(tx.value).toLocaleString("en-US", { maximumFractionDigits: 1 });
     let typeDisplay = tx.type ? tx.type.charAt(0).toUpperCase() + tx.type.slice(1) : "Other";
-
     if (tx.type === 'swap' && tx.swap_details && !isSVM) {
       const sent = tx.swap_details.sent[0];
       const received = tx.swap_details.received[0];
@@ -1274,12 +1175,10 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
     } else if (isSVM) {
       displayValue = tx.value ? `${Number(tx.value).toLocaleString("en-US", { maximumFractionDigits: 1 })} ${tokenSymbol}` : 'N/A';
     }
-
     // Truncate hash for SVM
     const truncatedHash = isSVM
       ? `${tx.hash.slice(0, 6)}...${tx.hash.slice(-4)}`
       : tx.hash;
-
     return (
       <motion.div
         key={`${tx.chain}-${transactionKey}-${index}`}
@@ -1419,11 +1318,9 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
       </motion.div>
     );
   };
-
   const handlePageChange = (page) => {
     setCurrentPage(page);
   };
-
   if (status !== 'authenticated') {
     return (
       <motion.div
@@ -1447,7 +1344,6 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
       </motion.div>
     );
   }
-
   return (
     <motion.div
       initial={{ opacity: 0, y: 20 }}
@@ -1456,7 +1352,6 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
       className="font-saira w-full max-w-9xl bg-gradient-to-br from-black/80 to-gray-900/80 backdrop-blur-xs mx-auto mt-2 p-2 sm:p-3 flex flex-row h-[calc(100vh-3rem)] rounded-xl overflow-hidden"
     >
       <ToastContainer position="top-center" autoClose={5000} theme="dark" />
-
       {/* Toggle Button for Mobile */}
       {!showWatchlistSidebar && (
         <motion.button
@@ -1475,7 +1370,6 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
           </svg>
         </motion.button>
       )}
-
       {/* Left Sidebar: Watchlist (Mobile) */}
       <AnimatePresence>
         {showWatchlistSidebar && isMobile && (
@@ -1600,7 +1494,6 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
           </motion.div>
         )}
       </AnimatePresence>
-
       {/* Left Sidebar: Watchlist (Desktop) */}
       <div className="hidden sm:block w-[20%] h-[96%] border border-white/10 rounded-xl p-3 sm:p-4 mt-3 overflow-y-auto custom-scrollbar bg-white/5 relative">
         <LoadingOverlay className="absolute inset-0 z-50" isLoading={loadingStates.loading} isMobile={isMobile} />
@@ -1706,7 +1599,6 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
           })
         )}
       </div>
-
       {/* Right Section: Wallet Info (20%) + Tabs (80%) */}
       <div className="w-full sm:w-[80%] p-2 sm:p-3 flex flex-col">
         {selectedWallet ? (
@@ -1815,7 +1707,6 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
                 ))}
               </div>
             </div>
-
             {/* Tabs: Portfolio & Activity (80% height) */}
             <div className="h-[84%] flex flex-col">
               <div className="flex w-full border border-white/10 mt-3 bg-white/5 rounded-t-xl">
@@ -1840,7 +1731,6 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
                   </motion.button>
                 ))}
               </div>
-
               <div className="flex-1 border border-white/10 bg-white/5 rounded-b-xl relative">
                 <AnimatePresence mode="wait">
                   <motion.div
@@ -2146,7 +2036,6 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
           </div>
         )}
       </div>
-
       {/* Add Wallet Modal */}
       <AnimatePresence>
         {showAddModal && (
@@ -2239,7 +2128,6 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
     </motion.div>
   );
 }
-
 // Custom CSS to hide scrollbar
 <style jsx global>{`
   .no-scrollbar::-webkit-scrollbar {
@@ -2249,12 +2137,10 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
     -ms-overflow-style: none;
     scrollbar-width: none;
   }
-
   .virtuoso-container {
   scrollbar-width: none; /* Firefox */
   -ms-overflow-style: none; /* IE and Edge */
 }
-
 .virtuoso-container::-webkit-scrollbar {
   display: none; /* Chrome, Safari, Edge */
 }

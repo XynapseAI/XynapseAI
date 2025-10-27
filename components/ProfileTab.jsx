@@ -19,6 +19,7 @@ import LoginPrompt from './LoginPrompt';
 import ReCAPTCHA from 'react-google-recaptcha'; // Added for v2 fallback
 import { logger } from '../utils/clientLogger';
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:3000/api';
+
 // Enhanced Spinner component - Accepts className and color props for flexibility
 const Spinner = ({ className = "h-4 w-4", color = "text-blue-400" }) => (
   <svg className={`animate-spin ${className} ${color}`} xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
@@ -26,14 +27,17 @@ const Spinner = ({ className = "h-4 w-4", color = "text-blue-400" }) => (
     <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
   </svg>
 );
+
 // Blinking Dots component for loading states
 const BlinkingDots = () => (
   <div className="flex items-center gap-0.5">
-    <span className="w-1 h-1 bg-white/70 rounded-full animate-bounce"></span>
-    <span className="w-1 h-1 bg-white/70 rounded-full animate-bounce" style={{ animationDelay: '0.1s' }}></span>
-    <span className="w-1 h-1 bg-white/70 rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></span>
+    <span className="w-1 h-1 bg-blue-400 rounded-full animate-bounce"></span>
+    <span className="w-1 h-1 bg-blue-400 rounded-full animate-bounce" style={{ animationDelay: '0.1s' }}></span>
+    <span className="w-1 h-1 bg-blue-400 rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></span>
   </div>
 );
+
+// Daily Check-in Bar Component - Updated to disable if not twitterConnected
 // Daily Check-in Bar Component - Updated to disable if not twitterConnected
 const DailyCheckinBar = ({ last7Days, streak, onCheckin, isLoading, userData, twitterConnected }) => {
   const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
@@ -59,7 +63,7 @@ const DailyCheckinBar = ({ last7Days, streak, onCheckin, isLoading, userData, tw
   };
   return (
     <div className="relative w-full bg-gradient-to-br from-black/80 to-gray-900/80 border border-white/15 rounded-xl p-3 mb-2 shadow-lg shadow-black/20">
-      <LoadingOverlay isLoading={isLoading} isMobile={false} className="absolute inset-0 z-10 rounded-xl" />
+      {/* Removed: <LoadingOverlay isLoading={isLoading} isMobile={false} className="absolute inset-0 z-10 rounded-xl" /> */}
       <div className="relative z-20 flex justify-between items-center mb-3">
         <div className="flex items-center gap-1">
           <Calendar className="w-4 h-4 text-blue-400" />
@@ -762,6 +766,7 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
     });
   }, [verifyTaskMutation]);
   // Render Tasks Section - Removed small connect prompt (now handled in tab content)
+  // Render Tasks Section - Removed small connect prompt (now handled in tab content)
   const renderTasksSection = useCallback(
     () => (
       <div className="relative bg-gradient-to-br from-black/90 to-gray-900/90 rounded-b-xl overflow-y-auto min-h-[calc(45vh-1rem)] sm:min-h-[calc(45vh-1rem)] max-h-[calc(50vh)] sm:max-h-[calc(45vh-4rem)] hide-scrollbar border border-white/15 shadow-2xl shadow-black/30">
@@ -770,11 +775,7 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
           isMobile={isMobile}
           className="absolute inset-0 z-10 h-full"
         />
-        <LoadingOverlay
-          isLoading={immediateLoading || verifyTaskMutation.isLoading}
-          isMobile={isMobile}
-          className="absolute inset-0 z-20 h-full"
-        />
+        {/* Removed: <LoadingOverlay isLoading={immediateLoading || verifyTaskMutation.isLoading} isMobile={isMobile} className="absolute inset-0 z-20 h-full" /> */}
         {tasksError && (
           <motion.div
             initial={{ opacity: 0, y: -10 }}
@@ -956,6 +957,7 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
     ),
     [tasks, tasksLoading, taskProgressLoading, tasksError, taskProgress, verifyTaskMutation, userData, isMobile, currentPage, getPaginatedData, getTotalPages, handlePageChange, followedTasks, immediateLoading, handleVerifyTask]
   );
+
   // Render Leaderboard Section
   const renderLeaderboardSection = useCallback(
     () => (

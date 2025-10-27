@@ -306,7 +306,7 @@ const CHAIN_ID_MAP = {
 const LIMIT_CONFIG = {
   "top-holders": 100,
   "wallet-balances": 2000,
-  transactions: 2000,
+  transactions: 10000,
   collectibles: 200,
 };
 
@@ -778,7 +778,7 @@ export async function POST(request) {
               : `chain_ids=${SUPPORTED_CHAIN_IDS}`;
 
             // FIX: Cap total limit dựa trên single vs cluster
-            let totalLimit = effectiveLimit;  // Default 2000 từ LIMIT_CONFIG
+            let totalLimit = effectiveLimit;  // Default 10000 từ LIMIT_CONFIG
             if (isCluster) {
               totalLimit = Math.min(effectiveLimit, 1000);  // Cap total 1000 tx cho cluster (tổng tất cả ví)
             }
@@ -799,15 +799,15 @@ export async function POST(request) {
               concurrencyLimiter.schedule(async () => {
                 const isEVM = isAddress(addr);
                 const perCallLimit = isEVM
-                  ? (isCluster ? 100 : 200)  // Giảm perCall cho cluster để tránh overload
+                  ? (isCluster ? 100 : 500)  // Giảm perCall cho cluster để tránh overload
                   : 1000;
                 let allTransactions = [];
                 let nextOffset = null;
                 let remainingLimit = perAddressLimit;  // Sử dụng perAddressLimit
                 let pageCount = 0;
                 const maxPages = isEVM
-                  ? (isCluster ? 3 : 10)  // Giảm maxPages cho cluster (max ~300 tx/address)
-                  : 2;
+                  ? (isCluster ? 3 : 20)  // Giảm maxPages cho cluster (max ~300 tx/address)
+                  : (isCluster ? 2 : 10);
 
                 // Paginate loop for this address
                 do {
