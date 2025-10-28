@@ -310,48 +310,57 @@ async function getNametagsBatch(addresses) {
 
     try {
       const reverseNodes = addressesWithoutNametag.map((addr) => ethers.namehash(`${addr.slice(2).toLowerCase()}.addr.reverse`));
-
       const registryInterface = new ethers.Interface(REGISTRY_ABI);
       const resolverInterface = new ethers.Interface(RESOLVER_ABI);
       const multicallContract = new ethers.Contract(ENS_MULTICALL_ADDRESS, MULTICALL_ABI, provider);
 
+      // Batch size to avoid RPC limits (adjust if needed)
+      const BATCH_SIZE = 50;
+
       // Batch fetch resolvers
-      const resolverCalls = reverseNodes.map((node) => ({
-        target: ENS_REGISTRY,
-        callData: registryInterface.encodeFunctionData('resolver', [node]),
-      }));
-
-      const { returnData: resolverReturnData } = await multicallContract.aggregate(resolverCalls);
-
-      const resolvers = resolverReturnData.map((data) => {
-        try {
-          return ethers.AbiCoder.defaultAbiCoder().decode(['address'], data)[0];
-        } catch {
-          return ethers.ZeroAddress;
-        }
-      });
+      const resolvers = [];
+      for (let batchStart = 0; batchStart < reverseNodes.length; batchStart += BATCH_SIZE) {
+        const batchNodes = reverseNodes.slice(batchStart, batchStart + BATCH_SIZE);
+        const resolverCalls = batchNodes.map((node) => ({
+          target: ENS_REGISTRY,
+          callData: registryInterface.encodeFunctionData('resolver', [node]),
+        }));
+        const { returnData: resolverReturnData } = await multicallContract.aggregate.staticCall(resolverCalls);
+        const batchResolvers = resolverReturnData.map((data) => {
+          try {
+            return ethers.AbiCoder.defaultAbiCoder().decode(['address'], data)[0];
+          } catch {
+            return ethers.ZeroAddress;
+          }
+        });
+        resolvers.push(...batchResolvers);
+      }
 
       const validIndices = resolvers
         .map((resolver, index) => (resolver !== ethers.ZeroAddress ? index : -1))
         .filter((index) => index !== -1);
 
       if (validIndices.length > 0) {
-        const nameCalls = validIndices.map((index) => ({
-          target: resolvers[index],
-          callData: resolverInterface.encodeFunctionData('name', [reverseNodes[index]]),
-        }));
+        // Batch fetch names
+        const names = [];
+        for (let batchStart = 0; batchStart < validIndices.length; batchStart += BATCH_SIZE) {
+          const batchIndices = validIndices.slice(batchStart, batchStart + BATCH_SIZE);
+          const nameCalls = batchIndices.map((index) => ({
+            target: resolvers[index],
+            callData: resolverInterface.encodeFunctionData('name', [reverseNodes[index]]),
+          }));
+          const { returnData: nameReturnData } = await multicallContract.aggregate.staticCall(nameCalls);
+          const batchNames = nameReturnData.map((data) => {
+            try {
+              return ethers.AbiCoder.defaultAbiCoder().decode(['string'], data)[0];
+            } catch {
+              return '';
+            }
+          });
+          names.push(...batchNames);
+        }
 
-        const { returnData: nameReturnData } = await multicallContract.aggregate(nameCalls);
-
-        const names = nameReturnData.map((data) => {
-          try {
-            return ethers.AbiCoder.defaultAbiCoder().decode(['string'], data)[0];
-          } catch {
-            return '';
-          }
-        });
-
-        // Process valid ENS names sequentially to handle awaits
+        // Process valid ENS names
         for (let vIndex = 0; vIndex < validIndices.length; vIndex++) {
           const index = validIndices[vIndex];
           const address = addressesWithoutNametag[index];
@@ -377,7 +386,7 @@ async function getNametagsBatch(addresses) {
             await query(
               `INSERT INTO nametags (address, nametag, image, description, subcategory) 
                VALUES (LOWER($1), $2, $3, $4, $5) 
-               ON CONFLICT (LOWER(address)) 
+               ON CONFLICT (address) 
                DO UPDATE SET 
                nametag = $2, image = $3, description = $4, subcategory = $5`,
               [address.toLowerCase(), name, image, '', 'ENS']
@@ -388,7 +397,7 @@ async function getNametagsBatch(addresses) {
         }
       }
     } catch (ensError) {
-      logger.error(`Failed to fetch ENS via multicall for batch:`, ensError.message);
+      logger.error(`Failed to fetch ENS via multicall for batch: ${ensError.message} - Full error:`, ensError);
       // Optionally fallback to individual calls here if needed, but skip for now to avoid rate limits
     }
   }
@@ -503,7 +512,7 @@ async function fetchLayer3Transactions(layer2Addresses, chain, limit, page) {
     });
 
     const results = await Promise.allSettled(fetchPromises);
-    return results.flatMap((result) => 
+    return results.flatMap((result) =>
       result.status === 'fulfilled' ? result.value.flat() : []
     );
   });
