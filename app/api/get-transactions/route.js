@@ -294,49 +294,70 @@ async function getNametagsBatch(addresses) {
     const ENS_REGISTRY = '0x00000000000C2E074eC69A0dFb2997BA6C7d2e1e';
     const REGISTRY_ABI = ['function resolver(bytes32 node) view returns (address)'];
     const RESOLVER_ABI = ['function name(bytes32 node) view returns (string)'];
-    const provider = new ethers.JsonRpcProvider(process.env.ETHEREUM_RPC_URL || 'https://ethereum.publicnode.com');
+    const ENS_MULTICALL_ADDRESS = '0xcA11bde05977b3631167028862bE2a173976CA11';
+    const MULTICALL_ABI = [
+      'function aggregate((address target, bytes callData)[] calldata calls) external payable returns (uint256 blockNumber, bytes[] memory returnData)'
+    ];
+    const provider = new ethers.JsonRpcProvider(process.env.ETHEREUM_RPC_URL || 'https://eth.llamarpc.com');
 
     try {
       await provider.getNetwork();
       logger.info(`Successfully connected to Ethereum RPC`);
     } catch (error) {
-      logger.error(`Failed to connect to Ethereum RPC: ${error.message}`);
-      throw error;
+      logger.error(`Failed to connect to Ethereum RPC: ${error.message}, skipping ENS resolution`);
+      // Continue without ENS
     }
 
-    const reverseNodes = addressesWithoutNametag.map((addr) => ethers.namehash(`${addr.toLowerCase().slice(2)}.addr.reverse`));
-    const resolverCalls = reverseNodes.map((node) => ({
-      contractAddress: ENS_REGISTRY,
-      abi: REGISTRY_ABI,
-      functionName: 'resolver',
-      args: [node],
-    }));
+    try {
+      const reverseNodes = addressesWithoutNametag.map((addr) => ethers.namehash(`${addr.slice(2).toLowerCase()}.addr.reverse`));
 
-    const resolverResults = await Promise.allSettled(
-      resolverCalls.map(async (call) => {
-        const contract = new ethers.Contract(call.contractAddress, call.abi, provider);
-        return await contract[call.functionName](...call.args);
-      })
-    );
+      const registryInterface = new ethers.Interface(REGISTRY_ABI);
+      const resolverInterface = new ethers.Interface(RESOLVER_ABI);
+      const multicallContract = new ethers.Contract(ENS_MULTICALL_ADDRESS, MULTICALL_ABI, provider);
 
-    const ensPromises = [];
-    resolverResults.forEach((result, index) => {
-      if (result.status === 'fulfilled' && result.value !== ethers.ZeroAddress) {
-        const address = addressesWithoutNametag[index];
-        ensPromises.push({
-          address,
-          resolverAddr: result.value,
-        });
-      }
-    });
+      // Batch fetch resolvers
+      const resolverCalls = reverseNodes.map((node) => ({
+        target: ENS_REGISTRY,
+        callData: registryInterface.encodeFunctionData('resolver', [node]),
+      }));
 
-    const ensResults = await Promise.allSettled(
-      ensPromises.map(async ({ address, resolverAddr }) => {
+      const { returnData: resolverReturnData } = await multicallContract.aggregate(resolverCalls);
+
+      const resolvers = resolverReturnData.map((data) => {
         try {
-          const resolver = new ethers.Contract(resolverAddr, RESOLVER_ABI, provider);
-          const name = await resolver.name(ethers.namehash(`${address.toLowerCase().slice(2)}.addr.reverse`));
-          let image = '/icons/default.webp';
+          return ethers.AbiCoder.defaultAbiCoder().decode(['address'], data)[0];
+        } catch {
+          return ethers.ZeroAddress;
+        }
+      });
+
+      const validIndices = resolvers
+        .map((resolver, index) => (resolver !== ethers.ZeroAddress ? index : -1))
+        .filter((index) => index !== -1);
+
+      if (validIndices.length > 0) {
+        const nameCalls = validIndices.map((index) => ({
+          target: resolvers[index],
+          callData: resolverInterface.encodeFunctionData('name', [reverseNodes[index]]),
+        }));
+
+        const { returnData: nameReturnData } = await multicallContract.aggregate(nameCalls);
+
+        const names = nameReturnData.map((data) => {
+          try {
+            return ethers.AbiCoder.defaultAbiCoder().decode(['string'], data)[0];
+          } catch {
+            return '';
+          }
+        });
+
+        // Process valid ENS names sequentially to handle awaits
+        for (let vIndex = 0; vIndex < validIndices.length; vIndex++) {
+          const index = validIndices[vIndex];
+          const address = addressesWithoutNametag[index];
+          const name = names[vIndex];
           if (name && name !== '') {
+            let image = '/icons/default.webp';
             const shortName = name.split('.')[0].toLowerCase().replace(/[^a-z0-9]/g, '');
             try {
               const cgResponse = await fetchWithRateLimit(
@@ -351,7 +372,8 @@ async function getNametagsBatch(addresses) {
             } catch (cgError) {
               logger.error(`Failed to fetch CoinGecko image for ENS ${shortName}:`, cgError.message);
             }
-            await redisClient.setEx(`nametag_${address}`, 30 * 24 * 60 * 60, JSON.stringify({ name, image }));
+            const ensNametag = { name, image, description: '', subcategory: 'ENS' };
+            await redisClient.setEx(`nametag_${address}`, 30 * 24 * 60 * 60, JSON.stringify(ensNametag));
             await query(
               `INSERT INTO nametags (address, nametag, image, description, subcategory) 
                VALUES (LOWER($1), $2, $3, $4, $5) 
@@ -361,22 +383,14 @@ async function getNametagsBatch(addresses) {
               [address.toLowerCase(), name, image, '', 'ENS']
             );
             logger.info(`Saved ENS ${name} for address ${address} to database`);
-            return { address, name, image, description: '', subcategory: 'ENS' };
+            cachedNametags[address] = { address, ...ensNametag };
           }
-          return { address, name: 'Unknown', image: '/icons/default.webp', description: '', subcategory: 'Others' };
-        } catch (ensError) {
-          logger.error(`Failed to fetch ENS for ${address}:`, ensError.message);
-          return { address, name: 'Unknown', image: '/icons/default.webp', description: '', subcategory: 'Others' };
         }
-      })
-    );
-
-    ensResults.forEach((result) => {
-      if (result.status === 'fulfilled') {
-        const { address, name, image, description, subcategory } = result.value;
-        cachedNametags[address] = { address, name, image, description, subcategory };
       }
-    });
+    } catch (ensError) {
+      logger.error(`Failed to fetch ENS via multicall for batch:`, ensError.message);
+      // Optionally fallback to individual calls here if needed, but skip for now to avoid rate limits
+    }
   }
 
   for (const address of uniqueAddresses) {

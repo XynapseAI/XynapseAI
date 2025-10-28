@@ -1538,7 +1538,7 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                       <div className="flex-1 tab-content relative min-h-[500px] sm:min-h-[400px]" ref={autoAnimateRef}>
                         {session ? (
                           <>
-                            <LoadingOverlay isLoading={isLoadingOnChain} isMobile={isMobile} className="h-full w-full" />
+                            <LoadingOverlay isLoading={isLoadingOnChain} isMobile={isMobile} className="!absolute h-full w-full" />
                             <div className="flex justify-center items-center p-2 border-b border-white/10 bg-white/5">
                               <h4 className="text-xs font-bold text-white text-center uppercase tracking-wider flex items-center gap-2">
                                 Top 100
@@ -1673,7 +1673,7 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                   >
                     {activeMarketTab === "cex" && (
                       <div className="flex-1 overflow-x-auto overflow-y-auto tab-content custom-scrollbar hide-scrollbar relative min-h-[500px] sm:min-h-[400px]" ref={autoAnimateRef}>
-                        <LoadingOverlay isLoading={isLoadingTickers && !tickerData?.length} isMobile={isMobile} className="h-full w-full" />
+                        <LoadingOverlay isLoading={isLoadingTickers && !tickerData?.length} isMobile={isMobile} className="!absolute h-full w-full" />
                         {tickerError ? (
                           <div className="text-[10px] sm:text-xs text-center p-6">
                             <p className="text-white/60 mb-4">Unable to load CEX markets data. Please try again.</p>
@@ -1804,7 +1804,7 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                                   !(selectedToken?.id === "bitcoin" ? mempoolTransactions : dexData.trades)?.length
                                 }
                                 isMobile={isMobile}
-                                className="h-full w-full"
+                                className="!absolute h-full w-full"
                               />
                               {(() => {
                                 const isBitcoin = selectedToken?.id.toLowerCase() === 'bitcoin';
@@ -2011,7 +2011,7 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
               </>
             ) : (
               <div className="flex-1 flex items-center justify-center relative min-h-[500px] sm:min-h-[400px]">
-                <LoadingOverlay isLoading={true} isMobile={isMobile} className="h-full w-full" />
+                <LoadingOverlay isLoading={true} isMobile={isMobile} className="!absolute h-full w-full" />
                 <SkeletonLoader count={5} isMobile={isMobile} />
               </div>
             )}
