@@ -1018,18 +1018,34 @@ export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initi
             const nameTagData = nameTagsMap[chain];
 
             if (jsonData) {
-              topHolders = Object.values(jsonData).map((holder) => {
-                const address = holder.Address.toLowerCase();
-                const nameTagEntry = nameTagData?.[address]?.Labels?.[chain];
-                return {
-                  address,
-                  balance: parseFloat(holder.Balance) || 0,
-                  share: 0,
-                  nameTag: nameTagEntry?.['Name Tag'] || null,
-                  image: nameTagEntry?.image || null,
-                  source: 'JSON',
-                };
-              });
+              const isBitcoinAddressPattern = (addr) => /^1[1-9A-HJ-NP-Za-km-z]{25,34}$|^3[1-9A-HJ-NP-Za-km-z]{25,33}$|^bc1[ac-hj-np-z02-9]{39,59}$/.test(addr);
+              topHolders = Object.values(jsonData)
+                .map((holder) => {
+                  const originalAddress = holder.Address;
+                  const normalizedAddress = originalAddress.toLowerCase();
+                  const isAddressPattern = isBitcoinAddressPattern(originalAddress);
+                  // Skip only invalid addresses: those matching pattern but all lowercase
+                  if (isAddressPattern && originalAddress === normalizedAddress) {
+                    return null;
+                  }
+                  let nameTagEntry = null;
+                  // For special cases (non-address), check if holder has direct Labels for this chain
+                  if (holder.Labels && holder.Labels[chain]) {
+                    nameTagEntry = holder.Labels[chain];
+                  } else {
+                    // For normal addresses, use the separate nameTagData
+                    nameTagEntry = nameTagData?.[normalizedAddress]?.Labels?.[chain];
+                  }
+                  return {
+                    address: originalAddress, // Keep original for display (mixed-case for addresses, as-is for specials)
+                    balance: parseFloat(holder.Balance) || 0,
+                    share: 0,
+                    nameTag: nameTagEntry?.['Name Tag'] || null,
+                    image: nameTagEntry?.image || null,
+                    source: 'JSON',
+                  };
+                })
+                .filter(Boolean); // Remove skipped (null) entries
             } else {
               throw new Error(`No JSON data available for ${chain}`);
             }

@@ -6,7 +6,6 @@ import dynamic from "next/dynamic"
 import { useRouter } from "next/navigation"
 import Image from "next/image"
 import { useSession } from "next-auth/react"
-// Removed framer-motion; use AutoAnimate + CSS
 import { useAutoAnimate } from '@formkit/auto-animate/react'
 import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, ReferenceDot } from "recharts"
 import { createPortal } from "react-dom"
@@ -1479,7 +1478,7 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
           >
             {selectedToken ? (
               <>
-                <div className="flex w-full text-[10px] sm:text-[12px] border-b border-white/10 bg-white/5 relative" role="tablist">
+                <div className="flex w-full text-[10px] sm:text-[12px] border-b border-white/10 bg-white/5 rounded-t-xl relative" role="tablist">
                   <button
                     onClick={() => {
                       setActiveMarketTab("holders")
