@@ -1,3 +1,4 @@
+// components\TreemapTab.jsx
 'use client';
 import { useState, useEffect, useRef, memo, useCallback, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -55,7 +56,7 @@ const getExplorerLogo = (selectedChain) => {
   }
   return '/logos/etherscan-logo.webp';
 };
-const VirtuosoTable = ({ transactions, isMobile, selectedChain, tokenImages, nametags, filterType, rootAddress }) => {
+const VirtuosoTable = memo(({ transactions, isMobile, selectedChain, tokenImages, nametags, filterType, rootAddress }) => {
   if (!transactions || !Array.isArray(transactions)) {
     logger.warn('Invalid transactions in VirtuosoTable:', transactions);
     return (
@@ -141,7 +142,8 @@ const VirtuosoTable = ({ transactions, isMobile, selectedChain, tokenImages, nam
     const explorerLogo = getExplorerLogo(selectedChain);
     let formattedTime = 'N/A';
     if (tx.block_time) {
-      const date = new Date(typeof tx.block_time === 'number' ? tx.block_time * 1000 : tx.block_time);
+      const blockTime = typeof tx.block_time === 'number' ? tx.block_time * 1000 : tx.block_time;
+      const date = new Date(blockTime);
       if (isValidDate(date)) {
         formattedTime = formatDistanceToNow(date, { addSuffix: true });
       } else {
@@ -278,7 +280,7 @@ const VirtuosoTable = ({ transactions, isMobile, selectedChain, tokenImages, nam
       initial={{ opacity: 0, x: 20 }}
       animate={{ opacity: 1, x: 0 }}
       transition={{ duration: 0.3 }}
-      className={`bg-black/50 backdrop-blur-md border border-white/10 rounded-xl p-3 hide-scrollbar ${isMobile ? 'w-full mt-2' : 'w-96 fixed right-4 top-32'}`}
+      className={`bg-black/50 backdrop-blur-md border border-white/10 rounded-xl p-3 hide-scrollbar ${isMobile ? 'w-full mt-2 overflow-auto max-h-[50vh]' : 'w-96 fixed right-4 top-32'}`}
       style={{ height: tableHeight, minHeight: '400px' }}
     >
       <h4 className="text-white text-[10px] sm:text-[12px] font-bold uppercase tracking-wider mb-2">Transactions</h4>
@@ -341,7 +343,7 @@ const VirtuosoTable = ({ transactions, isMobile, selectedChain, tokenImages, nam
       />
     </motion.div>
   );
-};
+});
 const TrendChart = memo(({ transactions, velocity }) => {
   const getTimeInterval = useCallback((timestamps) => {
     const minTime = Math.min(...timestamps);
@@ -353,13 +355,19 @@ const TrendChart = memo(({ transactions, velocity }) => {
   }, []);
   const chartData = useMemo(() => {
     if (transactions.length === 0) return [];
-    const validTxs = transactions.filter(tx => tx.block_time && !isNaN(new Date(tx.block_time).getTime()));
+    const validTxs = transactions.filter(tx => {
+      const bt = typeof tx.block_time === 'number' ? tx.block_time * 1000 : tx.block_time;
+      return bt && !isNaN(new Date(bt).getTime());
+    });
     if (validTxs.length === 0) return [];
-    const timestamps = validTxs.map(tx => new Date(tx.block_time).getTime());
+    const timestamps = validTxs.map(tx => {
+      const bt = typeof tx.block_time === 'number' ? tx.block_time * 1000 : tx.block_time;
+      return new Date(bt).getTime();
+    });
     const interval = getTimeInterval(timestamps);
     const aggregated = {};
     validTxs.forEach(tx => {
-      const date = new Date(tx.block_time);
+      const date = new Date(typeof tx.block_time === 'number' ? tx.block_time * 1000 : tx.block_time);
       let key;
       if (interval === 'monthly') {
         key = `${date.getFullYear()}-${date.getMonth() + 1}`;
@@ -467,7 +475,7 @@ const ClusterDashboard = memo(({ entity, isMobile, tokenImages }) => {
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.3 }}
-      className={`bg-gradient-to-br from-black/60 to-black/30 backdrop-blur-lg border border-white/20 rounded-2xl p-3 shadow-neon-md hide-scrollbar max-h-[calc(100vh-8rem)] ${isMobile ? 'w-full mt-2' : 'w-80 fixed left-4 top-32'}`}
+      className={`bg-gradient-to-br from-black/60 to-black/30 backdrop-blur-lg border border-white/20 rounded-2xl p-3 shadow-neon-md hide-scrollbar max-h-[calc(100vh-8rem)] ${isMobile ? 'w-full mt-2 overflow-auto max-h-[40vh]' : 'w-80 fixed left-4 top-32'}`}
       style={{ overflowY: 'auto' }}
     >
       <h4 className="text-white text-[11px] font-bold mb-2 bg-gradient-to-r from-neon-blue/30 to-transparent rounded p-1 flex items-center gap-2">
@@ -556,6 +564,7 @@ const ClusterDashboard = memo(({ entity, isMobile, tokenImages }) => {
 });
 const CACHE_TTL = 3600000;
 const NODES_PER_PAGE = 50;
+const MAX_NODES = 1000; // Scalability limit
 export default function TreemapTab({ initialChain = 'ethereum', initialAddress = '' }) {
   const { data: session, status } = useSession();
   const router = useRouter();
@@ -575,6 +584,7 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
   const [selectedChain, setSelectedChain] = useState(initialChain);
   const [isChainDropdownOpen, setIsChainDropdownOpen] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
+  const [showMobileWarning, setShowMobileWarning] = useState(true);
   const [coingeckoChains, setCoingeckoChains] = useState([]);
   const [tokenImages, setTokenImages] = useState({});
   const [fullIncomingData, setFullIncomingData] = useState([]);
@@ -621,8 +631,14 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
         page,
         filterType
       );
-      setNodes(newNodes);
-      setEdges(newEdges);
+      // Enforce max nodes for scalability
+      const limitedNodes = newNodes.slice(0, MAX_NODES);
+      const limitedEdges = newEdges.filter(e => 
+        limitedNodes.some(n => n.data.id === e.data.source) && 
+        limitedNodes.some(n => n.data.id === e.data.target)
+      );
+      setNodes(limitedNodes);
+      setEdges(limitedEdges);
       setNametags((prev) => ({ ...prev, ...newNametags }));
       if (cyRef.current) {
         cyRef.current.destroy();
@@ -814,11 +830,15 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
         };
       }
       const wallet = walletMap.get(addrLower);
-      wallet.totalValue += Number(tx.usdValue || tx.value || 0);
+      const txValue = Number(tx.usdValue || tx.value || 0);
+      if (isNaN(txValue)) return; // Validate value
+      wallet.totalValue += txValue;
       wallet.txCount += 1;
-      wallet.latestBlockTime = wallet.latestBlockTime
-        ? new Date(tx.block_time) > new Date(wallet.latestBlockTime) ? tx.block_time : wallet.latestBlockTime
-        : tx.block_time;
+      const txTime = typeof tx.block_time === 'number' ? tx.block_time * 1000 : tx.block_time;
+      const walletTime = wallet.latestBlockTime ? (typeof wallet.latestBlockTime === 'number' ? wallet.latestBlockTime * 1000 : wallet.latestBlockTime) : null;
+      if (isValidDate(new Date(txTime)) && (!walletTime || new Date(txTime) > new Date(walletTime))) {
+        wallet.latestBlockTime = tx.block_time;
+      }
     };
     const filteredIncoming = filterType === 'all' || filterType === 'incoming'
       ? incomingData.filter((tx) => tx.address.toLowerCase() !== rootLower && tx.type === 'incoming')
@@ -1530,7 +1550,7 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
   useEffect(() => {
     const checkMobile = () => setIsMobile(window.innerWidth <= 640);
     checkMobile();
-    window.addEventListener('resize', checkMobile);
+    window.addEventListener('resize', throttle(checkMobile, 200));
     return () => window.removeEventListener('resize', checkMobile);
   }, []);
   useEffect(() => {
@@ -1582,14 +1602,21 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
       setLogMessages([]);
     }
   }, [loading]);
-
   const handleLoadMore = useCallback(() => {
+    if (nodes.length >= MAX_NODES) {
+      toast.warn('Maximum nodes limit reached. Consider subgraph views for larger graphs.', {
+        position: 'top-center',
+        autoClose: 3000,
+        theme: 'dark',
+      });
+      return;
+    }
     setPage((prev) => {
       const newPage = prev + 1;
       fetchTransactions(walletAddress, newPage);
       return newPage;
     });
-  }, [fetchTransactions, walletAddress]);
+  }, [fetchTransactions, walletAddress, nodes.length]);
   const handleSearch = useCallback(() => {
     const isBitcoin = selectedChain === 'bitcoin';
     const bitcoinRegex = /^[13][a-km-zA-HJ-NP-Z1-9]{25,34}$|^bc1[a-z0-9]{39,59}$/i;
@@ -1635,6 +1662,60 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
     const staticOnly = chains.filter(c => !cgChains.some(cg => cg.value === c.value));
     return [...cgChains, ...staticOnly];
   }, [coingeckoChains]);
+  if (isMobile && showMobileWarning) {
+    return (
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.5, ease: 'easeInOut' }}
+        className="font-jetbrains w-full max-w-9xl mx-auto mt-4 sm:mt-5 p-2 sm:p-3 h-[calc(100vh)] rounded-xl bg-white/5 flex items-center justify-center"
+      >
+        <ToastContainer
+          position="top-center"
+          autoClose={5000}
+          hideProgressBar={false}
+          closeOnClick
+          pauseOnHover
+          draggable
+          theme="dark"
+        />
+        <motion.div
+          initial={{ scale: 0.9, opacity: 0 }}
+          animate={{ scale: 1, opacity: 1 }}
+          className="bg-black/80 backdrop-blur-md border border-white/20 rounded-2xl p-6 sm:p-8 text-center max-w-md w-full mx-4"
+        >
+          <div className="mb-4">
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              className="h-12 w-12 mx-auto text-neon-blue mb-4"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
+              />
+            </svg>
+          </div>
+          <h3 className="text-white text-lg sm:text-xl font-bold mb-4">Truy cập từ thiết bị di động</h3>
+          <p className="text-white/70 mb-6 text-sm sm:text-base">
+            Tab này hoạt động tốt hơn trên trình duyệt PC. Chúng tôi khuyến nghị bạn truy cập bằng máy tính để có trải nghiệm tốt nhất.
+          </p>
+          {/* <motion.button
+            onClick={() => setShowMobileWarning(false)}
+            className="w-full bg-neon-blue/80 hover:bg-neon-blue text-white font-medium py-2 px-4 rounded-lg transition-all duration-300"
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.95 }}
+          >
+            Tiếp tục trên di động
+          </motion.button> */}
+        </motion.div>
+      </motion.div>
+    );
+  }
   return (
     <motion.div
       initial={{ opacity: 0, y: 20 }}
@@ -1946,7 +2027,7 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
         {walletInfo.address && (
           <div className="relative w-full h-[calc(100vh-10rem)] sm:h-[calc(100vh-8rem)] overflow-hidden">
             <div className="flex gap-2 mb-2 mt-2 justify-center">
-              {nodes.length >= page * NODES_PER_PAGE && (
+              {nodes.length >= page * NODES_PER_PAGE && nodes.length < MAX_NODES && (
                 <motion.button
                   onClick={handleLoadMore}
                   className="px-2 sm:px-3 py-1 text-[9px] sm:text-[10px] font-medium text-white border border-white/10 bg-neon-blue/20 backdrop-blur-md rounded-xl hover:bg-neon-blue/30 transition-all duration-300"
@@ -1955,6 +2036,15 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
                 >
                   Load More
                 </motion.button>
+              )}
+              {nodes.length >= MAX_NODES && (
+                <motion.span
+                  className="px-2 sm:px-3 py-1 text-[9px] sm:text-[10px] font-medium text-yellow-400 border border-yellow-400/30 bg-yellow-500/10 rounded-xl"
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                >
+                  Max nodes reached (1000). Use filters for subgraphs.
+                </motion.span>
               )}
             </div>
             <div ref={containerRef} className="w-full h-full" />
