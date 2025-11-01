@@ -556,6 +556,7 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
     enabled: status === 'authenticated' && !!session?.user?.id && !!csrfToken,
     staleTime: 10 * 60 * 1000,
   });
+  
   // Fetch Leaderboard - Removed Authorization header to fix 403 for Email login, increased stale time
   const { data: rankings, isLoading: leaderboardLoading, error: leaderboardError } = useQuery({
     queryKey: ['leaderboard', session?.user?.id, csrfToken],

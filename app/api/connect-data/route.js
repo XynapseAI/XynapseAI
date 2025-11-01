@@ -1,4 +1,4 @@
-// app/api/connect-data/route.js
+// app/api/connect-data/route.js (assuming this is /api/user)
 import { NextResponse } from 'next/server';
 import { PrismaClient } from '@prisma/client';
 import { auth } from '@/lib/auth';
@@ -227,7 +227,7 @@ async function setCSRFToken(ip, userId) {
 async function checkDoubleSubmitCSRF(request, ip, userId) {
   const headerToken = request.headers.get('x-csrf-token') || '';
   const cookies = parseCookies(request);
-  const cookieToken = cookies['csrf_token'] || '';
+  const cookieToken = cookies['next-auth.csrf-token'] || '';  // Fixed: correct cookie name
 
   if (process.env.NODE_ENV !== 'production') {
     logger.info('Checking CSRF tokens', {
@@ -323,10 +323,10 @@ function securityHeaders(csrfToken = null) {
     'Strict-Transport-Security': 'max-age=63072000; includeSubDomains; preload',
   };
   if (csrfToken) {
-    headers['Set-Cookie'] = cookie.serialize('csrf_token', csrfToken, {
+    headers['Set-Cookie'] = cookie.serialize('next-auth.csrf-token', csrfToken, {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
-      sameSite: 'strict',
+      sameSite: 'none',  // For Base App
       maxAge: 15 * 60,
       path: '/',
     });
@@ -353,7 +353,7 @@ export async function OPTIONS(request) {
   const referer = request.headers.get('referer');
   const pathname = new URL(request.url).pathname;
 
-  if (!(await isAllowedOrigin(origin, referer, pathname))) {
+  if (!(await isAllowedOrigin(origin, referer, pathname, ip))) {  // Added ip param
     await trackViolation(ip, 'CORS blocked');
     return NextResponse.json({ detail: 'Not allowed by CORS' }, { status: 403, headers: securityHeaders() });
   }
@@ -381,7 +381,7 @@ export async function GET(request) {
     logger.info('GET /api/connect-data requested', { ip, pathname });
   }
 
-  if (!(await isAllowedOrigin(origin, referer, pathname))) {
+  if (!(await isAllowedOrigin(origin, referer, pathname, ip))) {  // Added ip
     await trackViolation(ip, 'CORS blocked');
     return NextResponse.json({ detail: 'Not allowed by CORS' }, { status: 403, headers: securityHeaders() });
   }
@@ -556,7 +556,7 @@ export async function POST(request) {
     logger.info('POST /api/connect-data requested', { ip, pathname });
   }
 
-  if (!(await isAllowedOrigin(origin, referer, pathname))) {
+  if (!(await isAllowedOrigin(origin, referer, pathname, ip))) {  // Added ip
     await trackViolation(ip, 'CORS blocked');
     return NextResponse.json({ detail: 'Not allowed by CORS' }, { status: 403, headers: securityHeaders() });
   }

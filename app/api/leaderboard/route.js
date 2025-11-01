@@ -39,7 +39,7 @@ const allowedOrigins = [
   'https://xynapse-ai.vercel.app',
 ].filter((v, i, a) => a.indexOf(v) === i);
 
-const securityHeaders = {
+const securityHeadersBase = {
   'Content-Security-Policy': "default-src 'self'; frame-ancestors 'self' https://www.google.com https://www.recaptcha.net; frame-src https://www.google.com https://www.recaptcha.net",
   'X-Content-Type-Options': 'nosniff',
   'X-Frame-Options': 'DENY',
@@ -48,6 +48,20 @@ const securityHeaders = {
   'Referrer-Policy': 'strict-origin-when-cross-origin',
   'Permissions-Policy': 'geolocation=(), microphone=(), camera=()',
 };
+
+function securityHeaders(csrfToken = null) {
+  const headers = { ...securityHeadersBase };
+  if (csrfToken) {
+    headers['Set-Cookie'] = cookie.serialize('next-auth.csrf-token', csrfToken, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'none',  // For Base App cross-origin
+      maxAge: 15 * 60,
+      path: '/',
+    });
+  }
+  return headers;
+}
 
 function sanitizeInput(input, maxLength = 2048) {
   if (typeof input !== 'string') return '';
@@ -89,7 +103,7 @@ async function isAllowedOrigin(origin, referer, pathname) {
     }
 
     if (!origin && process.env.NODE_ENV === 'production') {
-      logger.error('Null origin blocked in production', { pathname });
+      logger.error('Null origin blocked in production', { origin });
       return false;
     }
 
@@ -132,7 +146,7 @@ function parseCookies(request) {
 async function checkDoubleSubmitCSRF(request, ip, userId) {
   const headerToken = request.headers.get('x-csrf-token') || '';
   const cookies = parseCookies(request);
-  const cookieToken = cookies['csrf_token'] || '';
+  const cookieToken = cookies['next-auth.csrf-token'] || '';  // Fixed: correct cookie name
 
   if (process.env.NODE_ENV !== 'production') {
     logger.info('Checking CSRF tokens', {
@@ -203,7 +217,7 @@ export async function GET(request) {
 
   if (!(await isAllowedOrigin(origin, referer, pathname))) {
     logger.error(`CORS error: Origin ${origin || 'null'} not allowed`);
-    return NextResponse.json({ detail: 'Not allowed by CORS' }, { status: 403, headers: securityHeaders });
+    return NextResponse.json({ detail: 'Not allowed by CORS' }, { status: 403, headers: securityHeaders() });
   }
 
   const corsHeaders = {
@@ -214,7 +228,7 @@ export async function GET(request) {
       'Access-Control-Allow-Headers': 'Content-Type, X-Recaptcha-Token, X-CSRF-Token',
       'Access-Control-Allow-Credentials': 'true',
     }),
-    ...securityHeaders,
+    ...securityHeadersBase,
   };
 
   const session = await auth();
@@ -224,16 +238,17 @@ export async function GET(request) {
   }
 
   // Check CSRF trước rate limit
+  let newCsrfToken;
   if (!(await checkDoubleSubmitCSRF(request, ip, session.user.id))) {
-  const newCsrfToken = await generateCSRFToken();  // Thêm function generateCSRFToken từ /api/user nếu chưa có
-  const client = await getRedisClient();
-  await client.setEx(`csrf:${session.user.id}`, 15 * 60, newCsrfToken);
-  logger.warn('Invalid CSRF token, new token issued', { ip });
-  return NextResponse.json({ detail: 'Invalid CSRF check. Please refresh.' }, { 
-    status: 403, 
-    headers: { ...corsHeaders, ...securityHeaders(newCsrfToken) }  // Dùng securityHeaders mới
-  });
-}
+    newCsrfToken = await generateCSRFToken();
+    const client = await getRedisClient();
+    await client.setEx(`csrf:${session.user.id}`, 15 * 60, newCsrfToken);
+    logger.warn('Invalid CSRF token, new token issued', { ip });
+    return NextResponse.json({ detail: 'Invalid CSRF check. Please refresh.' }, { 
+      status: 403, 
+      headers: { ...corsHeaders, ...securityHeaders(newCsrfToken) }  // Fixed: now securityHeaders accepts param
+    });
+  }
 
   // Bây giờ mới check rate limit (chỉ count valid request)
   try {
