@@ -1,10 +1,12 @@
+// app/api/leaderboard/route.js
+// app\api\leaderboard\route.js
 import { NextResponse } from 'next/server';
 import { auth } from '@/lib/auth';
 import { logger } from '@/utils/serverLogger';
-import { createClient } from 'redis';  // Fixed: createClient, not create
+import { createClient } from 'redis';
 import { PrismaClient } from '@prisma/client';
 import { verifyRecaptcha } from '@/utils/verifyRecaptcha';
-import cookie from 'cookie';
+import cookie from 'cookie';  // Thêm import này
 import crypto from 'crypto';
 
 const prisma = new PrismaClient();
@@ -33,6 +35,7 @@ const allowedOrigins = [
   'https://xynapseai.net',
   'https://www.xynapseai.net',
   'https://farcaster.xynapseai.net',
+  "https://base.xynapseai.net",
   'https://xynapse-ai-xynapse-projects.vercel.app',
   'https://xynapse-ai.vercel.app',
 ].filter((v, i, a) => a.indexOf(v) === i);
@@ -48,15 +51,12 @@ const securityHeadersBase = {
 };
 
 function securityHeaders(csrfToken = null) {
-  const isProd = process.env.NODE_ENV === 'production';
-  const cookieDomain = process.env.COOKIE_DOMAIN || (isProd ? '.xynapseai.net' : undefined);
   const headers = { ...securityHeadersBase };
   if (csrfToken) {
-    headers['Set-Cookie'] = cookie.serialize('next-auth.csrf-token', csrfToken, {  // Fixed: Consistent name
-      httpOnly: false,  // Allow read
-      secure: isProd,
-      sameSite: isProd ? 'none' : 'lax',
-      domain: cookieDomain,
+    headers['Set-Cookie'] = cookie.serialize('next-auth.csrf-token', csrfToken, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'none',  // For Base App cross-origin
       maxAge: 15 * 60,
       path: '/',
     });
@@ -71,10 +71,11 @@ function sanitizeInput(input, maxLength = 2048) {
 
 async function isAllowedOrigin(origin, referer, pathname) {
   logger.info('Checking origin', { origin, referer, pathname, allowedOrigins });
+
   try {
     if (origin && origin !== 'null') {
       if (process.env.NODE_ENV === 'production' && !origin.startsWith('https://')) {
-        logger.warn('Blocked origin: non-HTTPS in prod', { origin });
+        logger.warn('Blocked origin: non-HTTPS origin in production', { origin });
         return false;
       }
       if (allowedOrigins.includes(origin)) {
@@ -87,7 +88,7 @@ async function isAllowedOrigin(origin, referer, pathname) {
     if (!origin && referer) {
       const refOrigin = new URL(referer).origin;
       if (process.env.NODE_ENV === 'production' && !refOrigin.startsWith('https://')) {
-        logger.warn('Blocked referer: non-HTTPS in prod', { referer });
+        logger.warn('Blocked referer: non-HTTPS in production', { referer });
         return false;
       }
       if (allowedOrigins.includes(refOrigin)) {
@@ -98,38 +99,42 @@ async function isAllowedOrigin(origin, referer, pathname) {
     }
 
     if (!origin && !referer) {
-      logger.info('Allowing internal/SSR');
+      logger.info('Allowing internal/SSR request');
       return true;
     }
 
     if (!origin && process.env.NODE_ENV === 'production') {
-      logger.error('Null origin blocked in prod');
+      logger.error('Null origin blocked in production', { origin });
       return false;
     }
 
     if (!origin && process.env.NODE_ENV === 'development') {
-      logger.warn('Origin null, allowing dev');
+      logger.warn('Origin is null, allowing in development mode');
       return true;
     }
 
-    logger.error('Invalid origin/referer');
+    logger.error('Invalid origin or referer', { origin, referer });
     return false;
   } catch (err) {
-    logger.error('Error validating origin', { err: err?.message });
+    logger.error('Error validating origin', { err: err?.message, origin, referer, pathname });
     return false;
   }
 }
 
+// Di chuyển checkRateLimit sau CSRF để fail không count
 async function checkRateLimit(ip) {
   const redisClient = await getRedisClient();
   const key = `rate_limit:leaderboard:${ip}`;
   const requests = parseInt(await redisClient.get(key)) || 0;
   const windowMs = 15 * 60 * 1000;
   const maxRequests = process.env.NODE_ENV === 'development' ? 50 : 10;
-  if (requests >= maxRequests) throw new Error('Too many requests');
+  if (requests >= maxRequests) {
+    throw new Error('Too many requests, please try again later.');
+  }
   await redisClient.multi().incr(key).expire(key, windowMs / 1000).exec();
 }
 
+// Thêm functions cho double-submit CSRF (copy từ /api/user)
 function parseCookies(request) {
   const raw = request.headers.get('cookie') || '';
   try {
@@ -142,7 +147,7 @@ function parseCookies(request) {
 async function checkDoubleSubmitCSRF(request, ip, userId) {
   const headerToken = request.headers.get('x-csrf-token') || '';
   const cookies = parseCookies(request);
-  const cookieToken = cookies['next-auth.csrf-token'] || '';  // Consistent name
+  const cookieToken = cookies['next-auth.csrf-token'] || '';
 
   if (process.env.NODE_ENV !== 'production') {
     logger.info('Checking CSRF tokens', {
@@ -152,7 +157,9 @@ async function checkDoubleSubmitCSRF(request, ip, userId) {
   }
 
   if (process.env.NODE_ENV === 'development' && headerToken === 'dev-csrf' && cookieToken === 'dev-csrf') {
-    if (process.env.NODE_ENV !== 'production') logger.info('Dev CSRF bypass');
+    if (process.env.NODE_ENV !== 'production') {
+      logger.info('Development CSRF bypass used');
+    }
     return true;
   }
 
@@ -169,18 +176,20 @@ async function checkDoubleSubmitCSRF(request, ip, userId) {
   const client = await getRedisClient();
   const storedToken = await client.get(`csrf:${userId}`);
   if (!storedToken) {
-    if (process.env.NODE_ENV !== 'production') logger.warn('CSRF not in Redis', { key: `csrf:${userId}` });
+    if (process.env.NODE_ENV !== 'production') {
+      logger.warn('CSRF token not found in Redis', { key: `csrf:${userId}` });
+    }
     return false;
   }
 
-  // Length check
+  // FIX: Check lengths trước để tránh throw RangeError
   if (headerToken.length !== cookieToken.length || cookieToken.length !== storedToken.length) {
-    logger.warn('CSRF length mismatch', {
-      headerLen: headerToken.length,
-      cookieLen: cookieToken.length,
-      storedLen: storedToken.length,
+    logger.warn('CSRF token length mismatch', {
+      headerLength: headerToken.length,
+      cookieLength: cookieToken.length,
+      storedLength: storedToken.length,
     });
-    return false;
+    return false;  // Invalid, không throw
   }
 
   const valid = crypto.timingSafeEqual(Buffer.from(headerToken), Buffer.from(cookieToken)) &&
@@ -200,12 +209,12 @@ async function verifyRecaptchaWithRetry(token, action, ip, retries = 2) {
   for (let i = 0; i < retries; i++) {
     try {
       const { score } = await verifyRecaptcha(token, action, ip);
-      logger.info('reCAPTCHA successful', { score, action, ip });
+      logger.info('reCAPTCHA verification successful', { score, action, ip });
       return { score };
     } catch (error) {
-      logger.warn(`reCAPTCHA attempt ${i + 1} failed: ${error.message}`, { action, ip });
+      logger.warn(`reCAPTCHA verification attempt ${i + 1} failed: ${error.message}`, { action, ip });
       if (i === retries - 1) throw error;
-      await new Promise(r => setTimeout(r, 1000));
+      await new Promise((resolve) => setTimeout(resolve, 1000));
     }
   }
 }
@@ -239,18 +248,20 @@ export async function GET(request) {
     return NextResponse.json({ detail: 'Not authenticated' }, { status: 401, headers: corsHeaders });
   }
 
+  // Check CSRF trước rate limit
   let newCsrfToken;
   if (!(await checkDoubleSubmitCSRF(request, ip, session.user.id))) {
     newCsrfToken = await generateCSRFToken();
     const client = await getRedisClient();
     await client.setEx(`csrf:${session.user.id}`, 15 * 60, newCsrfToken);
-    logger.warn('Invalid CSRF, new token issued', { ip });
-    return NextResponse.json({ detail: 'Invalid CSRF. Refresh.' }, { 
+    logger.warn('Invalid CSRF token, new token issued', { ip });
+    return NextResponse.json({ detail: 'Invalid CSRF check. Please refresh.' }, { 
       status: 403, 
-      headers: { ...corsHeaders, ...securityHeaders(newCsrfToken) }
+      headers: { ...corsHeaders, ...securityHeaders(newCsrfToken) }  // Fixed: now securityHeaders accepts param
     });
   }
 
+  // Bây giờ mới check rate limit (chỉ count valid request)
   try {
     await checkRateLimit(ip);
   } catch (err) {
@@ -258,17 +269,21 @@ export async function GET(request) {
     return NextResponse.json({ detail: err.message }, { status: 429, headers: corsHeaders });
   }
 
+  // reCAPTCHA optional (chỉ check nếu gửi token)
   if (process.env.NODE_ENV !== 'development') {
     const recaptchaToken = request.headers.get('x-recaptcha-token');
     if (recaptchaToken) {
       try {
         const { score } = await verifyRecaptchaWithRetry(recaptchaToken, 'get_leaderboard', ip);
-        if (score < 0.5) return NextResponse.json({ detail: 'reCAPTCHA failed' }, { status: 403, headers: corsHeaders });
+        if (score < 0.5) {  // Threshold thấp cho read
+          return NextResponse.json({ detail: 'reCAPTCHA verification failed' }, { status: 403, headers: corsHeaders });
+        }
       } catch (error) {
-        logger.error(`reCAPTCHA failed: ${error.message}`, { ip });
-        return NextResponse.json({ detail: `reCAPTCHA failed: ${error.message}` }, { status: 403, headers: corsHeaders });
+        logger.error(`reCAPTCHA verification failed: ${error.message}`, { ip });
+        return NextResponse.json({ detail: `reCAPTCHA verification failed: ${error.message}` }, { status: 403, headers: corsHeaders });
       }
     }
+    // Không gửi token → allow (như comment: Removed reCAPTCHA for faster load)
   }
 
   try {
@@ -281,6 +296,7 @@ export async function GET(request) {
       return NextResponse.json(data, { headers: corsHeaders });
     }
 
+    // Fetch top 50 users by points (descending)
     const rankings = await prisma.users.findMany({
       orderBy: { points: 'desc' },
       take: 50,
@@ -293,6 +309,7 @@ export async function GET(request) {
       },
     });
 
+    // Format rankings
     const formattedRankings = rankings.map((user) => ({
       id: user.id,
       googleName: user.google_name || '',
@@ -304,7 +321,7 @@ export async function GET(request) {
     const data = { success: true, rankings: formattedRankings };
 
     await redisClient.setEx(cacheKey, 300, JSON.stringify(data)); 
-    logger.info('Fetched and cached leaderboard', { ip });
+    logger.info('Fetched and cached leaderboard successfully', { ip });
     return NextResponse.json(data, { headers: corsHeaders });
   } catch (error) {
     logger.error('Error fetching leaderboard', { message: error.message, stack: error.stack, ip });

@@ -1,3 +1,5 @@
+// app/api/task-progress/route.js
+// app/api/task-progress/route.js
 import { NextResponse } from 'next/server';
 import { auth } from '@/lib/auth';
 import { logger } from '@/utils/serverLogger';
@@ -51,8 +53,13 @@ async function checkRateLimit(ip) {
   const requests = parseInt(await redisClient.get(key)) || 0;
   const windowMs = 15 * 60 * 1000;
   const maxRequests = process.env.NODE_ENV === 'development' ? 100 : 50;
-  if (requests >= maxRequests) throw new Error('Too many requests');
-  await redisClient.multi().incr(key).expire(key, windowMs / 1000).exec();
+  if (requests >= maxRequests) {
+    throw new Error('Too many requests, please try again later.');
+  }
+  await redisClient.multi()
+    .incr(key)
+    .expire(key, windowMs / 1000)
+    .exec();
 }
 
 function parseCookies(request) {
@@ -67,7 +74,7 @@ function parseCookies(request) {
 async function checkDoubleSubmitCSRF(request, ip, userId) {
   const headerToken = request.headers.get('x-csrf-token') || '';
   const cookies = parseCookies(request);
-  const cookieToken = cookies['next-auth.csrf-token'] || '';  // Consistent name
+  const cookieToken = cookies['next-auth.csrf-token'] || '';
 
   if (process.env.NODE_ENV !== 'production') {
     logger.info('Checking CSRF tokens', {
@@ -77,39 +84,45 @@ async function checkDoubleSubmitCSRF(request, ip, userId) {
   }
 
   if (process.env.NODE_ENV === 'development' && headerToken === 'dev-csrf' && cookieToken === 'dev-csrf') {
-    logger.info('Dev CSRF bypass');
+    if (process.env.NODE_ENV !== 'production') {
+      logger.info('Development CSRF bypass used');
+    }
     return true;
   }
 
   if (!headerToken || !cookieToken) {
-    logger.warn('CSRF tokens missing', {
-      headerProvided: !!headerToken,
-      cookieProvided: !!cookieToken,
-    });
+    if (process.env.NODE_ENV !== 'production') {
+      logger.warn('CSRF tokens missing', {
+        headerProvided: !!headerToken,
+        cookieProvided: !!cookieToken,
+      });
+    }
     return false;
   }
 
   const client = await getRedisClient();
   const storedToken = await client.get(`csrf:${userId}`);
   if (!storedToken) {
-    logger.warn('CSRF not in Redis', { key: `csrf:${userId}` });
+    if (process.env.NODE_ENV !== 'production') {
+      logger.warn('CSRF token not found in Redis', { key: `csrf:${userId}` });
+    }
     return false;
   }
 
-  // Length check
+  // FIX: Check lengths trước để tránh throw RangeError
   if (headerToken.length !== cookieToken.length || cookieToken.length !== storedToken.length) {
-    logger.warn('CSRF length mismatch', {
-      headerLen: headerToken.length,
-      cookieLen: cookieToken.length,
-      storedLen: storedToken.length,
+    logger.warn('CSRF token length mismatch', {
+      headerLength: headerToken.length,
+      cookieLength: cookieToken.length,
+      storedLength: storedToken.length,
     });
-    return false;
+    return false;  // Invalid, không throw
   }
 
   const valid = crypto.timingSafeEqual(Buffer.from(headerToken), Buffer.from(cookieToken)) &&
                 crypto.timingSafeEqual(Buffer.from(cookieToken), Buffer.from(storedToken));
-  if (!valid) {
-    logger.warn('CSRF mismatch', {
+  if (!valid && process.env.NODE_ENV !== 'production') {
+    logger.warn('CSRF token mismatch', {
       headerToken: headerToken.slice(0, 6) + '••••',
       cookieToken: cookieToken.slice(0, 6) + '••••',
       storedToken: storedToken.slice(0, 6) + '••••',
@@ -150,15 +163,14 @@ export async function GET(request) {
     newCsrfToken = crypto.randomBytes(32).toString('hex');
     const client = await getRedisClient();
     await client.setEx(`csrf:${session.user.id}`, 15 * 60, newCsrfToken);
-    logger.warn('Invalid CSRF, new token issued', { ip });
-    return NextResponse.json({ detail: 'Invalid CSRF. Refresh.' }, { 
+    logger.warn('Invalid CSRF token, new token issued', { ip });
+    return NextResponse.json({ detail: 'Invalid CSRF check. Please refresh.' }, { 
       status: 403, 
       headers: {
-        'Set-Cookie': cookie.serialize('next-auth.csrf-token', newCsrfToken, {  // Consistent name
-          httpOnly: false,
+        'Set-Cookie': cookie.serialize('next-auth.csrf-token', newCsrfToken, {
+          httpOnly: true,
           secure: process.env.NODE_ENV === 'production',
-          sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
-          domain: process.env.COOKIE_DOMAIN || (process.env.NODE_ENV === 'production' ? '.xynapseai.net' : undefined),
+          sameSite: 'none',
           maxAge: 15 * 60,
           path: '/',
         }),
@@ -170,8 +182,8 @@ export async function GET(request) {
   try {
     parsedParams = schema.parse(params);
   } catch (err) {
-    logger.warn(`Validation error: ${err.message}`, { ip });
-    return NextResponse.json({ detail: 'Invalid input', errors: err.errors }, { status: 400 });
+    logger.warn(`Data validation error: ${err.message}`, { ip });
+    return NextResponse.json({ detail: 'Invalid input data', errors: err.errors }, { status: 400 });
   }
 
   const { uid } = parsedParams;
@@ -213,7 +225,7 @@ export async function GET(request) {
 
     const data = { success: true, progress };
     await redisClient.setEx(cacheKey, 600, JSON.stringify(data));
-    logger.info('Fetched and cached task progress', { userId: uid, ip });
+    logger.info('Fetched and cached task progress successfully', { userId: uid, ip });
     return NextResponse.json(data, {
       headers: {
         'Content-Type': 'application/json',
