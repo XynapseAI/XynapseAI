@@ -8,8 +8,23 @@ export const metadata = {
     template: '%s | Xynapse',
   },
   description: 'Explore the ultimate AI-powered crypto market analytics platform.',
+  other: {
+    'fc:miniapp': JSON.stringify({
+      version: 'next',
+      imageUrl: 'https://xynapseai.net/og.png',
+      button: {
+        title: 'Launch Xynapse',
+        action: {
+          type: 'launch_miniapp',
+          name: 'Xynapse Mini App',
+          url: 'https://base.xynapseai.net/dashboard',
+          splashImageUrl: 'https://base.xynapseai.net/splash.png',
+          splashBackgroundColor: '#000000',
+        },
+      },
+    }),
+  },
 };
-
 
 function hasCircularReference(obj, seen = new WeakSet()) {
   if (typeof obj !== 'object' || obj === null) return false;

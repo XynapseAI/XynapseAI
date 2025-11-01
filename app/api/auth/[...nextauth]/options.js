@@ -1,16 +1,20 @@
 import { randomBytes } from "crypto";
 import GoogleProvider from "@auth/core/providers/google";
 import EmailProvider from "@auth/core/providers/email";
+import CredentialsProvider from "@auth/core/providers/credentials"; // Thêm cho Base SIWE
 import { createTransport } from "nodemailer";
 import { v4 as uuidv4 } from "uuid";
 import { query } from "@/utils/postgres";
 import { logger } from "@/utils/serverLogger";
 import crypto from 'crypto';
 import util from 'util';
+import { createPublicClient, http } from 'viem'; // Giữ recoverMessageAddress nếu cần EOA
+import { base } from 'viem/chains'; // Base chain
+import { getRedisClient } from '@/utils/redis';
 
 const scrypt = util.promisify(crypto.scrypt);
 
-// Hàm hashApiKey
+// Hàm hashApiKey (giữ nguyên)
 async function hashApiKey(apiKey) {
   const salt = crypto.randomBytes(16).toString('hex');
   const derived = await scrypt(apiKey, salt, 64);
@@ -20,7 +24,138 @@ async function hashApiKey(apiKey) {
   };
 }
 
-// ================== Email Transporter ==================
+// Verify SIWE cho Base login
+const publicClient = createPublicClient({
+  chain: base,
+  transport: http('https://mainnet.base.org') // Sử dụng RPC chính thức của Base
+});
+
+// Verify SIWE cho Base login (tolerant: regex nonce + viem verifyMessage theo Base docs)
+async function verifySiwe(credentials) {
+  try {
+    const { message, signature } = credentials;
+
+    logger.info('Full SIWE input to verify:', {
+      message: typeof message === 'string' ? message.substring(0, 300) + (message.length > 300 ? '...' : '') : message,
+      signaturePreview: typeof signature === 'string' ? signature.substring(0, 50) + '...' : signature,
+      signatureLength: typeof signature === 'string' ? signature.length : 'N/A'
+    });
+
+    if (typeof message !== 'string' || typeof signature !== 'string') {
+      throw new Error('Message and signature must be strings');
+    }
+
+    // 1. Extract Nonce
+    const nonceMatch = message.match(/Nonce:\s*([a-f0-9]{32})/i);
+    if (!nonceMatch) {
+      logger.error('Nonce not found in message via regex', { messagePreview: message.substring(0, 200) });
+      throw new Error('Invalid SIWE message: missing nonce');
+    }
+    const extractedNonce = nonceMatch[1];
+    logger.info('Extracted nonce from message:', { nonce: extractedNonce });
+
+    // 2. Extract Chain ID
+    if (!message.includes('Chain ID: 8453')) {
+      throw new Error('Invalid chain: expected 8453');
+    }
+
+    // 3. Extract Domain (bỏ qua check ở dev)
+    const domainMatch = message.match(/^([a-zA-Z0-9.-]+):?\d*\s+wants you to sign in/i);
+    const extractedDomain = domainMatch ? domainMatch[1] : null;
+    logger.info('Extracted domain from message:', { domain: extractedDomain || 'N/A' });
+
+    if (process.env.NODE_ENV !== 'development') {
+      const expectedDomain = process.env.APP_DOMAIN || 'xynapseai.net';
+      if (extractedDomain !== expectedDomain) {
+        throw new Error(`Invalid domain: expected ${expectedDomain}, got ${extractedDomain}`);
+      }
+    }
+
+    // 4. Extract Address
+    const addressMatch = message.match(/Ethereum account:\s*(0x[0-9a-fA-F]{40})/i);
+    if (!addressMatch) {
+      logger.error('Address not found in message', { messagePreview: message.substring(0, 200) });
+      throw new Error('Invalid SIWE message: missing address');
+    }
+    const extractedAddress = addressMatch[1].toLowerCase();
+    logger.info('Extracted address from message:', { address: extractedAddress });
+
+    // 5. Validate Nonce từ Redis
+    const client = await getRedisClient();
+    const nonceKey = `siwe:nonce:${extractedNonce}`;
+    logger.info('Redis nonce lookup attempt:', { nonceKey });
+
+    const storedData = await client.get(nonceKey);
+    logger.info('Redis nonce lookup result:', { hasData: !!storedData });
+
+    if (!storedData) {
+      throw new Error(`Nonce not found in Redis or already used`);
+    }
+
+    let parsedStored;
+    try {
+      parsedStored = JSON.parse(storedData);
+    } catch (parseErr) {
+      logger.error('JSON parse error on stored data:', { error: parseErr.message, rawData: storedData });
+      throw new Error(`Invalid stored nonce data: ${parseErr.message}`);
+    }
+
+    const { expires } = parsedStored;
+    const now = Date.now();
+    const expiresDate = new Date(expires);
+    const nowDate = new Date(now);
+    const isExpired = nowDate > expiresDate;
+    logger.info('Nonce expiration check:', { isExpired });
+
+    if (isExpired) {
+      await client.del(nonceKey); // Cleanup expired
+      throw new Error(`Nonce expired`);
+    }
+
+    // 6. Consume Nonce
+    await client.del(nonceKey);
+    logger.info('Nonce consumed (deleted from Redis)');
+
+    logger.info('Nonce validated, proceeding to signature verify');
+
+    // 7. Verify Signature (ĐÃ XÓA BỎ LOGIC EOA THỪA)
+    // viem verifyMessage xử lý cả EOA (ecrecover) và Smart Accounts (ERC-1271)
+    let valid;
+    try {
+      valid = await publicClient.verifyMessage({
+        address: extractedAddress,
+        message,
+        signature,
+      });
+      logger.info('Viem verifyMessage result:', { valid, expectedAddress: extractedAddress });
+    } catch (viemError) {
+      // Log lỗi chi tiết nếu viem throw
+      logger.error('Viem verifyMessage detailed error:', {
+        error: viemError.message,
+        shortMessage: viemError.shortMessage,
+        cause: viemError.cause?.message || 'unknown',
+      });
+      throw new Error(`Signature verification failed: ${viemError.message}`);
+    }
+
+    if (!valid) {
+      // Lỗi này có nghĩa là viem đã chạy và trả về false
+      throw new Error('Invalid signature (Viem verifyMessage returned false)');
+    }
+
+    logger.info('SIWE verified for Base Account', { address: extractedAddress });
+    return { address: extractedAddress, message, signature };
+
+  } catch (error) {
+    logger.error('SIWE verification failed details:', {
+      error: error.message,
+      stack: error.stack ? error.stack.substring(0, 200) : 'no stack'
+    });
+    throw error;  // Re-throw để authorize return null
+  }
+}
+
+// ================== Email Transporter (giữ nguyên) ==================
 const transporter = createTransport({
   host: process.env.EMAIL_SERVER_HOST,
   port: process.env.EMAIL_SERVER_PORT,
@@ -30,12 +165,12 @@ const transporter = createTransport({
   },
 });
 
-// ================== Custom Adapter ==================
+// ================== Custom Adapter (giữ nguyên, nhưng thêm wallet_address) ==================
 const customAdapter = {
   async getUserByEmail(email) {
     logger.info("Fetching user by email", { email });
     const { rows } = await query(
-      `SELECT id,email,google_id,google_name,email_verified,profile_picture,
+      `SELECT id,email,google_id,google_name,email_verified,profile_picture,wallet_address,
               connected,last_connected,points,tweet_points,ai_points,task_points,
               is_creator,is_ai_rank,tier,is_plus,is_premium,api_key_hash,api_key_salt,created_at
        FROM users WHERE email=$1`,
@@ -53,44 +188,48 @@ const customAdapter = {
     );
     return rows[0] ? { ...rows[0], id: rows[0].id.toString() } : null;
   },
+  async getUserByWallet(address) { // Thêm cho Base
+    const { rows } = await query(
+      `SELECT * FROM users WHERE wallet_address=$1`,
+      [address]
+    );
+    return rows[0] ? { ...rows[0], id: rows[0].id.toString() } : null;
+  },
   async createUser(data) {
-    const id = data.google_id || data.id || uuidv4();
-    logger.info("Creating user", { id, email: data.email });
+    const id = data.wallet_address || data.google_id || data.id || uuidv4(); // Ưu tiên wallet_address
+    logger.info("Creating user", { id, email: data.email, wallet: data.wallet_address });
 
-    // Ensure email is not null
-    if (!data.email) {
-      logger.error("Cannot create user without email", { id });
-      throw new Error("Email is required for user creation");
+    if (!data.email && !data.wallet_address) {
+      logger.error("Cannot create user without email or wallet", { id });
+      throw new Error("Email or wallet is required");
     }
 
-    // Tạo API key và hash
     const plainApiKey = randomBytes(32).toString("hex");
     const { api_key_hash, api_key_salt } = await hashApiKey(plainApiKey);
 
     const { rows } = await query(
       `INSERT INTO users (
-        id,email,google_id,google_name,email_verified,profile_picture,
+        id,email,google_id,google_name,email_verified,profile_picture,wallet_address,
         connected,last_connected,points,tweet_points,ai_points,task_points,
         is_creator,is_ai_rank,tier,is_plus,is_premium,api_key_hash,api_key_salt,created_at
       ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20)
-      ON CONFLICT (google_id) DO UPDATE SET
-        email=EXCLUDED.email,google_name=EXCLUDED.google_name,email_verified=EXCLUDED.email_verified,
+      ON CONFLICT (wallet_address) DO UPDATE SET  -- Thêm conflict cho wallet
+        email=COALESCE(EXCLUDED.email, users.email),google_name=EXCLUDED.google_name,email_verified=EXCLUDED.email_verified,
         profile_picture=COALESCE(users.profile_picture, EXCLUDED.profile_picture),connected=EXCLUDED.connected,
         last_connected=EXCLUDED.last_connected,updated_at=CURRENT_TIMESTAMP, api_key_hash=EXCLUDED.api_key_hash, api_key_salt=EXCLUDED.api_key_salt
       RETURNING *`,
       [
-        id, data.email, data.google_id || null, data.google_name || null,
-        data.email_verified || false, data.profile_picture || null, true,
+        id, data.email || null, data.google_id || null, data.google_name || null,
+        data.email_verified || false, data.profile_picture || null, data.wallet_address || null, true,
         new Date(), 0, 0, 0, 0, false, false, "Basic", false, false,
         api_key_hash, api_key_salt, new Date(),
       ]
     );
-    logger.info("User created", { id, email: data.email, rowCount: rows.length });
+    logger.info("User created", { id, email: data.email, wallet: data.wallet_address, rowCount: rows.length });
     return { ...rows[0], id: rows[0].id.toString() };
   },
   async updateUser(data) {
-    logger.info("Updating user", { id: data.id, email: data.email });
-    // Use COALESCE to avoid setting null values for required/important fields
+    logger.info("Updating user", { id: data.id, email: data.email, wallet: data.wallet_address });
     const { rows } = await query(
       `UPDATE users SET 
         email = COALESCE($2, email),
@@ -98,14 +237,15 @@ const customAdapter = {
         google_name = COALESCE($4, google_name),
         email_verified = COALESCE($5, email_verified),
         profile_picture = COALESCE($6, profile_picture),
-        connected = $7,
-        last_connected = $8,
-        updated_at = $9
+        wallet_address = COALESCE($7, wallet_address),
+        connected = $8,
+        last_connected = $9,
+        updated_at = $10
        WHERE id=$1 RETURNING *`,
       [
         data.id, data.email || null, data.google_id || null, data.google_name || null,
-        data.email_verified !== undefined ? data.email_verified : null, data.profile_picture || null, 
-        data.connected !== undefined ? data.connected : true,
+        data.email_verified !== undefined ? data.email_verified : null, data.profile_picture || null,
+        data.wallet_address || null, data.connected !== undefined ? data.connected : true,
         data.last_connected || new Date(), new Date(),
       ]
     );
@@ -114,7 +254,6 @@ const customAdapter = {
   },
   async createVerificationToken({ identifier, expires, token }) {
     logger.info("Creating verification token", { identifier });
-    // Ensure identifier (email) is not null
     if (!identifier) {
       logger.error("Cannot create verification token without identifier");
       throw new Error("Identifier is required for verification token");
@@ -128,7 +267,6 @@ const customAdapter = {
   },
   async useVerificationToken({ identifier, token }) {
     logger.info("Using verification token", { identifier });
-    // Ensure identifier is not null
     if (!identifier) {
       logger.error("Cannot use verification token without identifier");
       return null;
@@ -168,7 +306,6 @@ export const authOptions = {
       from: process.env.EMAIL_FROM,
       sendVerificationRequest: async ({ identifier, url, provider }) => {
         logger.info("Sending email verification", { identifier, url });
-        // Ensure identifier is valid email
         if (!identifier || !identifier.includes('@')) {
           logger.error("Invalid email identifier for verification", { identifier });
           throw new Error("Invalid email address");
@@ -195,20 +332,60 @@ export const authOptions = {
         });
       },
     }),
+    // Thêm Credentials cho Base SIWE
+    CredentialsProvider({
+      name: 'base',
+      credentials: {
+        message: { label: 'Message', type: 'text' },
+        signature: { label: 'Signature', type: 'text' },
+      },
+      async authorize(credentials) {
+        try {
+          const { address } = await verifySiwe(credentials);
+          // Tìm hoặc tạo user bằng address
+          let user = await customAdapter.getUserByWallet(address);
+          if (!user) {
+            user = await customAdapter.createUser({
+              wallet_address: address,
+              // Có thể merge với email nếu có từ SIWE statement
+            });
+            // Tạo account record
+            await query(
+              `INSERT INTO accounts (userId, type, provider, providerAccountId) VALUES ($1, $2, $3, $4)`,
+              [user.id, 'credentials', 'base', address]
+            );
+          } else {
+            // Update last_connected
+            await customAdapter.updateUser({ id: user.id, last_connected: new Date() });
+          }
+          logger.info('Base Account login successful', { address: user.wallet_address });
+          return {
+            id: user.id || address, // ID là address nếu không có UUID
+            email: user.email || `${address}@base.xynapseai.net`, // Fallback email
+            name: user.google_name || `Base User ${address.slice(0, 6)}`,
+            wallet_address: address,
+          };
+        } catch (error) {
+          logger.error('Base authorize failed', { error: error.message });
+          return null;
+        }
+      },
+    }),
   ],
   callbacks: {
     async signIn({ user, account, profile }) {
       try {
-        logger.info("Sign-in attempt", { provider: account.provider, email: user.email });
+        logger.info("Sign-in attempt", { provider: account.provider, email: user.email, wallet: user.wallet_address });
         let email = user.email || "";
         let googleId = null, googleName = null, profilePic = "", verified = false, userId = null;
 
-        if (!email) {
-          logger.error("Sign-in failed: No email provided", { provider: account.provider });
+        if (!email && !user.wallet_address) {
+          logger.error("Sign-in failed: No email or wallet provided", { provider: account.provider });
           return false;
         }
 
         if (account.provider === "google") {
+          // Giữ nguyên logic Google
           email = profile.email || user.email || "";
           if (!email) {
             logger.error("Google sign-in failed: No email in profile", { providerAccountId: profile.sub });
@@ -221,12 +398,11 @@ export const authOptions = {
           userId = googleId;
 
           const existingUser = await customAdapter.getUserByEmail(email);
-          if (existingUser && !existingUser.google_id) {
+          if (existingUser && !existingUser.google_id && !existingUser.wallet_address) {
             logger.warn("Google sign-in denied: Account exists with email only", { email });
             return "This account was registered with email. Please use the old login method (by Email).";
           }
 
-          // Cho Google: Luôn INSERT/UPDATE với ON CONFLICT google_id
           const plainApiKey = randomBytes(32).toString("hex");
           const { api_key_hash, api_key_salt } = await hashApiKey(plainApiKey);
 
@@ -263,6 +439,7 @@ export const authOptions = {
           logger.info("Sign-in successful", { userId, email });
           return true;
         } else if (account.provider === "email") {
+          // Giữ nguyên logic email
           email = user.email || account.user?.email || "";
           if (!email) {
             logger.error("Email sign-in failed: No email provided", { token: account.token });
@@ -270,11 +447,9 @@ export const authOptions = {
           }
           verified = true;
 
-          // Check existing user by email
           const existingUser = await customAdapter.getUserByEmail(email);
           if (existingUser) {
             userId = existingUser.id;
-            // Update existing user
             await query(
               `UPDATE users SET 
                 last_connected = $1, connected = $2, email_verified = $3, updated_at = $4
@@ -283,7 +458,6 @@ export const authOptions = {
             );
             logger.info("Existing email user updated", { userId, email });
 
-            // Update API key nếu cần (tùy chọn, vì đã có từ trước)
             const plainApiKey = randomBytes(32).toString("hex");
             const { api_key_hash, api_key_salt } = await hashApiKey(plainApiKey);
             await query(
@@ -294,7 +468,6 @@ export const authOptions = {
             logger.info("Sign-in successful for existing user", { userId, email });
             return true;
           } else {
-            // Tạo user mới cho email
             userId = uuidv4();
             const plainApiKey = randomBytes(32).toString("hex");
             const { api_key_hash, api_key_salt } = await hashApiKey(plainApiKey);
@@ -315,6 +488,10 @@ export const authOptions = {
             logger.info("Sign-in successful", { userId, email });
             return true;
           }
+        } else if (account.provider === "credentials") { // Base login
+          // Đã handle ở authorize, chỉ confirm
+          logger.info("Base sign-in successful", { wallet: user.wallet_address });
+          return true;
         }
 
         logger.error("Sign-in failed: Unsupported provider", { provider: account.provider });
@@ -324,14 +501,15 @@ export const authOptions = {
         return false;
       }
     },
-    async jwt({ token, account, profile }) {
+    async jwt({ token, account, profile, user }) {
       logger.info("JWT callback", { tokenId: token.id, email: token.email });
-      if (account) {
-        token.id = account.provider === "google" ? account.providerAccountId : token.sub || uuidv4();
+      if (account && user) {
+        token.id = user.wallet_address || account.providerAccountId || token.sub || uuidv4();
         token.accessToken = account.access_token || randomBytes(32).toString("hex");
         token.expiresAt = Date.now() + 2 * 60 * 60 * 1000; // 2 hours
-        token.email = profile?.email || token.email || account.user?.email;
-        token.googleName = profile?.name || "";
+        token.email = user.email || token.email || account.user?.email;
+        token.googleName = user.name || profile?.name || "";
+        token.walletAddress = user.wallet_address; // Thêm wallet vào token
         token.csrfToken = token.csrfToken || randomBytes(32).toString("hex");
       }
       if (Date.now() > token.expiresAt) {
@@ -353,6 +531,7 @@ export const authOptions = {
       session.user.id = token.id;
       session.user.email = token.email;
       session.user.googleName = token.googleName;
+      session.user.walletAddress = token.walletAddress; // Thêm wallet vào session
       session.user.isPremium = token.isPremium || false;
       session.csrfToken = token.csrfToken;
       logger.info("Session created", { session: JSON.stringify(session) });

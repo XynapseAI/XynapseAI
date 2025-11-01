@@ -1857,5 +1857,17 @@
         "image": "/icons/blast.webp"
       }
     }
+  },
+  "0x3f9a8345729ea842708e080e238c92731e5699b8": {
+    "Address": "0x3f9a8345729ea842708e080e238c92731e5699b8",
+    "Labels": {
+      "uniswap": {
+        "Name Tag": "Upbit Cold Wallet",
+        "Description": "Upbit is a protocol for automated token exchange on Ethereum.",
+        "Subcategory": "Others",
+        "image": "/icons/upbit.webp"
+      }
+    }
   }
 }
+

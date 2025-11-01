@@ -7,7 +7,7 @@ import axios from 'axios';
 import { useSession, signOut } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
-import { Trophy, Award, Flame, User, Crown, Calendar, Info, Check, Coins, Shield, Users, Eye, EyeOff, RefreshCw } from 'lucide-react';
+import { Trophy, Award, Flame, User, Crown, Calendar, Info, Check, Coins, Shield, Users, Eye, EyeOff, RefreshCw, Copy, Wallet } from 'lucide-react'; // Thêm Copy, Wallet icons
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceDot } from 'recharts';
 import { ethers } from 'ethers';
 import { ToastContainer, toast } from 'react-toastify';
@@ -16,8 +16,9 @@ import { cacheData, getCachedData, clearCache, clearAllCaches } from '../utils/i
 import { LoadingOverlay } from '@/utils/helpers';
 import { debounce } from 'lodash';
 import LoginPrompt from './LoginPrompt';
-import ReCAPTCHA from 'react-google-recaptcha'; // Added for v2 fallback
+import ReCAPTCHA from 'react-google-recaptcha';
 import { logger } from '../utils/clientLogger';
+
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:3000/api';
 
 // Enhanced Spinner component - Accepts className and color props for flexibility
@@ -38,17 +39,17 @@ const BlinkingDots = () => (
 );
 
 // Daily Check-in Bar Component - Updated to disable if not twitterConnected
-// Daily Check-in Bar Component - Updated to disable if not twitterConnected
 const DailyCheckinBar = ({ last7Days, streak, onCheckin, isLoading, userData, twitterConnected }) => {
   const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
   const todayIndex = new Date().getDay();
   const [tooltipVisible, setTooltipVisible] = useState(false);
-  // Sửa: Không reverse ở backend nữa, last7Days = [oldest (7 days ago) ... today (index 6)]
-  // Đảo ngược ở frontend để left: past, right: today cho UX tốt
-  const displayLast7Days = [...last7Days].reverse(); // Bây giờ index 0 = today (left? Wait no: reverse lại để index 0=oldest left, index6=today right
-  // Wait: last7Days gốc [oldest...today], reverse() -> [today...oldest], nhưng để left past: không reverse, index0=oldest left.
-  // Để fix: giữ last7Days [oldest...today], index0 left=oldest, index6 right=today
-  const isTodayChecked = last7Days[last7Days.length - 1]; // index 6 = today
+
+  const getDayIndex = (index) => {
+    const daysBack = 6 - index;
+    return (todayIndex - daysBack + 7) % 7;
+  };
+
+  const isTodayChecked = last7Days[last7Days.length - 1];
   const handleCheckinClick = () => {
     if (!twitterConnected) {
       toast.info('Please connect your X (Twitter) account first to unlock check-in.', { position: 'top-center', autoClose: 4000 });
@@ -56,14 +57,9 @@ const DailyCheckinBar = ({ last7Days, streak, onCheckin, isLoading, userData, tw
     }
     onCheckin();
   };
-  // Sửa dayIndex cho left=oldest (index=0: 6 days back), right=today (index=6: 0 back)
-  const getDayIndex = (index) => {
-    const daysBack = 6 - index; // index 0: daysBack=6, index6: daysBack=0
-    return (todayIndex - daysBack + 7) % 7;
-  };
+
   return (
     <div className="relative w-full bg-gradient-to-br from-black/80 to-gray-900/80 border border-white/15 rounded-xl p-3 mb-2 shadow-lg shadow-black/20">
-      {/* Removed: <LoadingOverlay isLoading={isLoading} isMobile={false} className="absolute inset-0 z-10 rounded-xl" /> */}
       <div className="relative z-20 flex justify-between items-center mb-3">
         <div className="flex items-center gap-1">
           <Calendar className="w-4 h-4 text-blue-400" />
@@ -97,7 +93,6 @@ const DailyCheckinBar = ({ last7Days, streak, onCheckin, isLoading, userData, tw
                   days[dayIndex]
                 )}
               </div>
-              {/* Sửa: Button chỉ ở index cuối (today, index=6), nếu !checked */}
               {index === last7Days.length - 1 && !checked && (
                 <motion.button
                   onClick={handleCheckinClick}
@@ -134,6 +129,7 @@ const DailyCheckinBar = ({ last7Days, streak, onCheckin, isLoading, userData, tw
     </div>
   );
 };
+
 const CustomTooltip = ({ active, payload, label }) => {
   if (active && payload && payload.length) {
     return (
@@ -152,6 +148,7 @@ const CustomTooltip = ({ active, payload, label }) => {
   }
   return null;
 };
+
 export default function ProfileTab({ recaptchaRef, handleSignOut }) {
   const { data: session, status } = useSession();
   const queryClient = useQueryClient();
@@ -160,14 +157,15 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
   const [activeTab, setActiveTab] = useState('tasks');
   const [currentPage, setCurrentPage] = useState({ tasks: 1, leaderboard: 1 });
   const [isSigningOut, setIsSigningOut] = useState(false);
-  const [followedTasks, setFollowedTasks] = useState(new Set()); // Track followed tasks
+  const [followedTasks, setFollowedTasks] = useState(new Set());
   const [immediateLoading, setImmediateLoading] = useState(false);
   const [showEmail, setShowEmail] = useState(false);
-  // Added for v2 fallback
   const [showV2Modal, setShowV2Modal] = useState(false);
   const [pendingTask, setPendingTask] = useState(null);
+  const [showWallet, setShowWallet] = useState(false); // Thêm state cho wallet display
   const recaptchaV2Ref = useRef(null);
   const itemsPerPage = 10;
+
   const { data: csrfToken, isLoading: csrfLoading, error: csrfError } = useQuery({
     queryKey: ['csrfToken'],
     queryFn: async () => {
@@ -188,6 +186,7 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
       });
     },
   });
+
   useEffect(() => {
     if (process.env.NODE_ENV === 'production') {
       console.log = () => { };
@@ -195,17 +194,20 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
       console.warn = () => { };
     }
   }, []);
+
   useEffect(() => {
     const handleResize = () => setIsMobile(window.innerWidth <= 640);
     window.addEventListener('resize', handleResize);
     handleResize();
-    return () => window.removeEventListener('resize', handleResize);
+    return () => window.addEventListener('resize', handleResize);
   }, []);
+
   const onSignOut = async () => {
     setIsSigningOut(true);
     await handleSignOut();
     setIsSigningOut(false);
   };
+
   const handleFollow = (taskId) => {
     const followUrl = `https://x.com/intent/follow?screen_name=XynapseAI`;
     window.open(followUrl, '_blank');
@@ -215,6 +217,7 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
       autoClose: 6000
     });
   };
+
   let isExecuting = false;
   const debouncedExecuteRecaptcha = useCallback(
     async (action, retries = 3) => {
@@ -250,7 +253,6 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
   const verifyTaskMutation = useMutation({
     mutationFn: async ({ task, v2Token }) => {
       if (task.task_type === 'follow') {
-        // Delay for realism
         await new Promise(resolve => setTimeout(resolve, 5500));
       }
       const token = v2Token || await debouncedExecuteRecaptcha('verify_task');
@@ -271,14 +273,12 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
         position: 'top-center',
         autoClose: 5000
       });
-      // Clear IndexedDB cache
       const userCacheKey = `userData-${session.user.id}`;
       const progressCacheKey = `taskProgress-${session.user.id}`;
       await Promise.all([
         clearCache(userCacheKey),
         clearCache(progressCacheKey),
       ]);
-      // Invalidate và refetch
       await Promise.all([
         queryClient.invalidateQueries(['taskProgress', session?.user?.id, csrfToken]),
         queryClient.invalidateQueries(['userData', session?.user?.id, csrfToken]),
@@ -324,6 +324,7 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
       toast.error(errorMessage, { position: 'top-center', autoClose: 6000 });
     },
   });
+
   // v2 fallback handler
   const handleV2Change = useCallback((token) => {
     if (token && pendingTask) {
@@ -340,6 +341,7 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
       setShowV2Modal(false);
     }
   }, [pendingTask, verifyTaskMutation]);
+
   const createChargeMutation = useMutation({
     mutationFn: async () => {
       if (!session?.user?.id) throw new Error('Not authenticated');
@@ -382,6 +384,7 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
       toast.error(errorMessage, { position: 'top-center', autoClose: 6000 });
     },
   });
+
   const { data: userData, isLoading: userLoading, error: userError } = useQuery({
     queryKey: ['userData', session?.user?.id, csrfToken],
     queryFn: async () => {
@@ -394,7 +397,6 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
         }
         return cached;
       }
-      // Removed reCAPTCHA for faster initial load - only for mutations
       try {
         const response = await axios.get(`/api/user?uid=${encodeURIComponent(session.user.id)}`, {
           headers: {
@@ -410,11 +412,12 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
           twitterHandle: response.data.user.twitterHandle || null,
           profilePicture: response.data.user.profilePicture || '',
           googleName: response.data.user.googleName || '',
+          walletAddress: response.data.user.walletAddress || null, // Đảm bảo có wallet từ API
           daysActive: response.data.user.daysActive || 0,
           streak: response.data.user.streak || 0,
           last7Days: response.data.user.last7Days || [],
         };
-        await cacheData(cacheKey, user, 24 * 60 * 60 * 1000);
+        await cacheData(cacheKey, user, 24 * 60 * 1000);
         return user;
       } catch (err) {
         if (process.env.NODE_ENV !== 'production') {
@@ -424,7 +427,7 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
       }
     },
     enabled: status === 'authenticated' && !!session?.user?.id && !!csrfToken,
-    staleTime: 5 * 60 * 1000, // Increased stale time for better caching
+    staleTime: 5 * 60 * 1000,
     retry: 3,
     retryDelay: (attempt) => Math.min(1000 * 2 ** attempt, 30000),
     onError: async (err) => {
@@ -448,6 +451,7 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
       toast.error(errorMessage, { position: 'top-center', autoClose: 6000 });
     },
   });
+
   useEffect(() => {
     if (userData?.twitterHandle && !userData?.profilePicture.includes('pbs.twimg.com') && status === 'authenticated') {
       logger.warn('Twitter handle present but profile picture is not from Twitter, triggering refetch');
@@ -457,7 +461,52 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
         queryClient.refetchQueries(['userData', session?.user?.id, csrfToken]);
       });
     }
-  }, [userData, session, csrfToken, queryClient]);
+  }, [userData, session, csrfToken, queryClient, status]);
+
+  const handleCopyWallet = async () => {
+    if (userData?.walletAddress) {
+      await navigator.clipboard.writeText(userData.walletAddress);
+      toast.success('Wallet address copied!', { position: 'top-center', autoClose: 2000 });
+    }
+  };
+
+  const renderWalletSection = () => {
+    if (!userData?.walletAddress) return null;
+    return (
+      <div className="h-[22vh] rounded-xl p-3 bg-gradient-to-br from-black/80 to-gray-900/80 border border-white/20 shadow-lg shadow-black/20 relative">
+        <div className="flex justify-between items-center mb-3">
+          <div className="flex items-center gap-2">
+            <Wallet className="w-5 h-5 text-blue-400" />
+            <span className="text-white font-semibold text-sm">Wallet</span>
+          </div>
+          <span className="text-green-400 text-xs font-medium">Connected</span>
+        </div>
+        <div className="flex flex-col gap-2">
+          <p className="text-xs text-gray-400 truncate">
+            {showWallet ? userData.walletAddress : `${userData.walletAddress.slice(0, 6)}...${userData.walletAddress.slice(-4)}`}
+          </p>
+          <motion.button
+            onClick={() => setShowWallet(!showWallet)}
+            className="text-xs text-gray-400 hover:text-white transition-colors"
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.95 }}
+          >
+            {showWallet ? 'Hide' : 'Show Full'}
+          </motion.button>
+          <motion.button
+            onClick={handleCopyWallet}
+            className="flex items-center gap-1 text-xs text-blue-400 hover:text-blue-300 transition-colors mt-1"
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.95 }}
+          >
+            <Copy className="w-3 h-3" />
+            Copy Address
+          </motion.button>
+        </div>
+      </div>
+    );
+  };
+
   // Fetch Tasks - No reCAPTCHA for faster load
   const { data: tasks, isLoading: tasksLoading, error: tasksError } = useQuery({
     queryKey: ['tasks', session?.user?.id, csrfToken],
@@ -1260,6 +1309,27 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
                         )}
                       </motion.button>
                     </div>
+                    {userData?.walletAddress ? (
+                      renderWalletSection()
+                    ) : (
+                      <div className="h-[22vh] relative rounded-xl p-3 bg-gradient-to-br from-black/80 to-gray-900/80 border border-white/20 shadow-lg shadow-black/20 flex flex-col items-center justify-center">
+                        <span className="absolute top-3 left-3 m-2 text-white/80 text-xs uppercase">POINTS</span>
+                        <div className="flex flex-col items-center gap-1">
+                          <span className="text-white text-2xl sm:text-3xl font-bold">
+                            {userData?.points || 0}
+                          </span>
+                        </div>
+                        <div className="flex flex-row absolute bottom-3 right-3 text-white/70 text-[10px] flex items-center gap-1">
+                          <span>Days Active: </span>
+                          <span className="text-white font-bold">{getDaysActive()}</span>
+                          <span className={`flex ml-4 items-center gap-1 text-[10px] ${userData.streak >= 7 ? 'text-orange-400' : 'text-white/70'}`}>
+                            {userData.streak >= 7 && <Flame className="w-3 h-3 text-orange-500 animate-pulse" />}
+                            Streak:
+                            <span className="text-white font-bold">{userData.streak}</span>
+                          </span>
+                        </div>
+                      </div>
+                    )}
                     <div className="h-[22vh] relative rounded-xl p-3 bg-gradient-to-br from-black/80 to-gray-900/80 border border-white/20 shadow-lg shadow-black/20 flex flex-col items-center justify-center">
                       <span className="absolute top-3 left-3 m-2 text-white/80 text-xs uppercase">POINTS</span>
                       <div className="flex flex-col items-center gap-1">

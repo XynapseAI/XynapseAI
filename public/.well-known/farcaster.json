@@ -1,0 +1,32 @@
+{
+  "accountAssociation": {
+    "header": "eyJmaWQiOjEyMzQ1Njc4OSwidHlwZSI6ImN1c3RvdHkiLCJrZXkiOiIweGV4YW1wbGUxMjM0NTY3ODkwIn0=",
+    "payload": "eyJkb21haW4iOiJiYXNlLnh5bmFwc2VhaS5uZXQifQ==",
+    "signature": "0xexample_signature_here_long_hex_string_generated_via_base_build_tool"
+  },
+  "miniapp": {
+    "version": "1",
+    "name": "Xynapse Mini App",
+    "homeUrl": "https://base.xynapseai.net/dashboard",
+    "iconUrl": "https://base.xynapseai.net/logos/logo.png",
+    "splashImageUrl": "https://base.xynapseai.net/splash.png",
+    "splashBackgroundColor": "#000000",
+    "subtitle": "AI-Powered Crypto Analytics",
+    "description": "Track wallets, markets, and on-chain insights with Xynapse.",
+    "screenshotUrls": [
+      "https://base.xynapseai.net/screenshots/dashboard.png",
+      "https://base.xynapseai.net/screenshots/market.png"
+    ],
+    "primaryCategory": "finance",
+    "tags": ["crypto", "analytics", "wallet", "ai"],
+    "heroImageUrl": "https://base.xynapseai.net/og.png",
+    "tagline": "AI Insights on Base",
+    "ogTitle": "Xynapse Mini App",
+    "ogDescription": "AI-Powered Crypto Analytics on Base.",
+    "ogImageUrl": "https://base.xynapseai.net/og.png",
+    "noindex": false,
+    "webhookUrl": "https://base.xynapseai.net/api/webhook",
+    "requiredChains": ["base"],
+    "requiredCapabilities": ["wallet"]
+  }
+}

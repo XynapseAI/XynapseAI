@@ -1,5 +1,4 @@
 // app/api/user/route.js
-// app\api\user\route.js
 import { NextResponse } from 'next/server';
 import { PrismaClient } from '@prisma/client';
 import { auth } from '@/lib/auth';
@@ -120,6 +119,7 @@ async function isAllowedOrigin(origin, referer, pathname, ip) {
     'https://www.xynapseai.net',
     'https://xynapse-ai-xynapse-projects.vercel.app',
     'https://xynapse-ai.vercel.app',
+    'https://base.xynapseai.net', // Thêm cho Base mini app
   ].filter(Boolean);
 
   if (process.env.NODE_ENV !== 'production') {
@@ -190,13 +190,6 @@ async function checkDoubleSubmitCSRF(request, ip, userId) {
   const headerToken = request.headers.get('x-csrf-token') || '';
   const cookies = parseCookies(request);
   const cookieToken = cookies['csrf_token'] || '';
-
-  if (process.env.NODE_ENV !== 'production') {
-    logger.info('Checking CSRF tokens', {
-      headerToken: headerToken ? 'provided' : 'missing',
-      cookieToken: cookieToken ? 'provided' : 'missing',
-    });
-  }
 
   if (process.env.NODE_ENV === 'development' && headerToken === 'dev-csrf' && cookieToken === 'dev-csrf') {
     if (process.env.NODE_ENV !== 'production') {
@@ -296,6 +289,7 @@ const postSchema = z.object({
   googleId: z.string().max(100).optional(),
   googleName: z.string().max(255).optional(),
   emailVerified: z.boolean().optional(),
+  walletAddress: z.string().optional(), // Thêm cho Base
 });
 
 async function computeStreak(userId) {
@@ -421,7 +415,6 @@ export async function GET(request) {
       return NextResponse.json({ detail: 'Access denied: Invalid UID' }, { status: 403, headers: securityHeaders(newCsrfToken) });
     }
 
-    // Made reCAPTCHA optional for faster profile loads - only check if token provided, with low threshold
     const recaptchaToken = request.headers.get('x-recaptcha-token');
     if (recaptchaToken && process.env.NODE_ENV !== 'development') {
       try {
@@ -440,7 +433,9 @@ export async function GET(request) {
     }
 
     try {
-      const cacheKey = `user:${uid}`;
+      // Cache key ưu tiên wallet_address nếu có
+      const walletAddress = session.user.walletAddress;
+      const cacheKey = walletAddress ? `user:${walletAddress}` : `user:${uid}`;
       const client = await getRedisClient();
       const cached = await client.get(cacheKey);
       if (cached) {
@@ -459,6 +454,7 @@ export async function GET(request) {
             profile_picture: true,
             google_name: true,
             email_verified: true,
+            wallet_address: true, // Đảm bảo select wallet
             points: true,
             tweet_points: true,
             ai_points: true,
@@ -467,7 +463,6 @@ export async function GET(request) {
             is_ai_rank: true,
             tier: true,
             is_premium: true,
-            wallet_address: true,
             last_connected: true,
             twitter_handle: true,
             days_active: true,
@@ -485,7 +480,6 @@ export async function GET(request) {
         return NextResponse.json({ detail: 'User not found' }, { status: 404, headers: securityHeaders(newCsrfToken) });
       }
 
-      // Compute streak and last7Days
       const streak = await computeStreak(uid);
       const last7Days = await getLast7Days(uid);
 
@@ -497,6 +491,7 @@ export async function GET(request) {
           googleId: user.google_id || null,
           profilePicture: user.twitter_handles?.[0]?.profile_picture || user.profile_picture || '',
           googleName: user.google_name || '',
+          walletAddress: user.wallet_address || null, // Thêm rõ ràng
           emailVerified: user.email_verified || false,
           points: Number(user.points || 0),
           tweetPoints: Number(user.tweet_points || 0),
@@ -506,7 +501,6 @@ export async function GET(request) {
           isAiRank: user.is_ai_rank || false,
           tier: user.tier || 'Basic',
           isPremium: user.is_premium || false,
-          walletAddress: user.wallet_address || null,
           lastConnected: user.last_connected ? new Date(user.last_connected).toISOString() : null,
           twitterHandle: user.twitter_handle || null,
           daysActive: Number(user.days_active || 0),
@@ -574,7 +568,6 @@ export async function POST(request) {
       return NextResponse.json({ detail: 'Invalid CSRF token. Please try again.' }, { status: 403, headers: securityHeaders(newCsrfToken) });
     }
 
-    // Enforce reCAPTCHA for mutations (POST) - Updated logic fallback
     const recaptchaToken = request.headers.get('x-recaptcha-token');
     if (!recaptchaToken && process.env.NODE_ENV !== 'development') {
       newCsrfToken = newCsrfToken || await setCSRFToken(ip, userId);
@@ -620,7 +613,7 @@ export async function POST(request) {
       return NextResponse.json({ detail: 'Invalid input data' }, { status: 400, headers: securityHeaders(newCsrfToken) });
     }
 
-    const { id, email, profilePicture, googleId, googleName, emailVerified } = parsedBody;
+    const { id, email, profilePicture, googleId, googleName, emailVerified, walletAddress } = parsedBody;
 
     if (session.user.id !== id) {
       newCsrfToken = newCsrfToken || await setCSRFToken(ip, userId);
@@ -635,6 +628,7 @@ export async function POST(request) {
         profile_picture: profilePicture || '',
         google_name: googleName || '',
         email_verified: emailVerified || false,
+        wallet_address: walletAddress || null, // Merge wallet nếu có
         connected: true,
         last_connected: new Date(),
         points: 0,
@@ -675,7 +669,8 @@ export async function POST(request) {
 
       try {
         const client = await getRedisClient();
-        await client.del(`user:${id}`);
+        const cacheKey = updatedUser.wallet_address ? `user:${updatedUser.wallet_address}` : `user:${id}`;
+        await client.del(cacheKey); // Clear cache với key phù hợp
       } catch (err) {
         if (process.env.NODE_ENV !== 'production') {
           logger.warn('Failed to clear cache for user', { id: mask(id), err: err?.message });
@@ -692,6 +687,7 @@ export async function POST(request) {
             email: updatedUser.email,
             profile_picture: updatedUser.profile_picture,
             google_name: updatedUser.google_name,
+            wallet_address: updatedUser.wallet_address, // Thêm vào response
             email_verified: updatedUser.email_verified,
           }),
         },
