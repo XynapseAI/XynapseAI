@@ -302,6 +302,9 @@ const customAdapter = {
   },
 };
 
+const isProd = process.env.NODE_ENV === 'production';
+const cookieDomain = isProd ? '.xynapseai.net' : undefined;  // Dev: undefined (default localhost), Prod: share subdomain
+
 // ================== Auth Options ==================
 export const authOptions = {
   adapter: customAdapter,
@@ -433,16 +436,19 @@ export const authOptions = {
 
           const result = await query(
             `INSERT INTO users (
-              id, email, google_id, google_name, email_verified, profile_picture,
+              id, email, google_id, google_name, email_verified, profile_picture, wallet_address,
               connected, last_connected, points, tweet_points, ai_points, task_points,
               is_creator, is_ai_rank, tier, is_plus, is_premium, api_key_hash, api_key_salt, created_at
             ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21)
             ON CONFLICT (google_id) DO UPDATE SET
               email=EXCLUDED.email, google_name=EXCLUDED.google_name, email_verified=EXCLUDED.email_verified, 
-              profile_picture=COALESCE(users.profile_picture, EXCLUDED.profile_picture), connected=EXCLUDED.connected,
-              last_connected=EXCLUDED.last_connected, updated_at=CURRENT_TIMESTAMP, api_key_hash=EXCLUDED.api_key_hash, api_key_salt=EXCLUDED.api_key_salt`,
+              profile_picture=COALESCE(users.profile_picture, EXCLUDED.profile_picture),
+              wallet_address=COALESCE(users.wallet_address, EXCLUDED.wallet_address),
+              connected=EXCLUDED.connected,
+              last_connected=EXCLUDED.last_connected, updated_at=CURRENT_TIMESTAMP, 
+              api_key_hash=EXCLUDED.api_key_hash, api_key_salt=EXCLUDED.api_key_salt`,
             [
-              userId, email, googleId, googleName, verified, profilePic, true, new Date(),
+              userId, email, googleId, googleName, verified, profilePic, null, true, new Date(),
               0, 0, 0, 0, false, false, "Basic", false, false, api_key_hash, api_key_salt, new Date(),
             ]
           );
@@ -499,12 +505,12 @@ export const authOptions = {
 
             const result = await query(
               `INSERT INTO users (
-                id, email, google_id, google_name, email_verified, profile_picture,
+                id, email, google_id, google_name, email_verified, profile_picture, wallet_address,
                 connected, last_connected, points, tweet_points, ai_points, task_points,
                 is_creator, is_ai_rank, tier, is_plus, is_premium, api_key_hash, api_key_salt, created_at
               ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21)`,
               [
-                userId, email, null, null, verified, null, true, new Date(),
+                userId, email, null, null, verified, null, null, true, new Date(),
                 0, 0, 0, 0, false, false, "Basic", false, false, api_key_hash, api_key_salt, new Date(),
               ]
             );
@@ -568,6 +574,40 @@ export const authOptions = {
       return baseUrl + '/dashboard';
     },
   },
+  ...(isProd && {
+    cookies: {
+      sessionToken: {
+        name: 'next-auth.session-token',
+        options: {
+          httpOnly: false,  // FIX: false cho Mini App compatibility
+          sameSite: 'none',  // CHANGED: 'none' to allow cross-site (iframe) requests
+          path: '/',
+          secure: true,
+          domain: cookieDomain,
+        },
+      },
+      callbackUrl: {
+        name: 'next-auth.callback-url',
+        options: {
+          httpOnly: false,
+          sameSite: 'none',  // CHANGED: 'none'
+          path: '/',
+          secure: true,
+          domain: cookieDomain,
+        },
+      },
+      csrfToken: {
+        name: 'next-auth.csrf-token',
+        options: {
+          httpOnly: false,  // FIX: false để webview persist cookie
+          sameSite: 'none',  // CHANGED: 'none'
+          path: '/',
+          secure: true,
+          domain: cookieDomain,
+        },
+      },
+    },
+  }),
   secret: process.env.AUTH_SECRET,
   session: { strategy: "jwt", maxAge: 2 * 60 * 60 }, // 2 hours
   pages: {

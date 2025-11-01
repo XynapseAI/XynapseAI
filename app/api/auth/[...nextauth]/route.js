@@ -1,5 +1,4 @@
 // app/api/auth/[...nextauth]/route.js
-// app/api/auth/[...nextauth]/route.js
 import NextAuth from "next-auth";
 import { authOptions } from "./options";
 import Bottleneck from "bottleneck";
@@ -237,11 +236,15 @@ const rateLimitedHandler = (handler) =>
       const res = await handler(req, ...args);
       const newHeaders = new Headers(res.headers || {});
       Object.entries(securityHeaders).forEach(([k, v]) => newHeaders.set(k, v));
-      if (origin && origin !== "null" && allowedOrigins.includes(origin)) {
-        newHeaders.set("Access-Control-Allow-Origin", origin);
-        newHeaders.set("Access-Control-Allow-Methods", "GET,POST,OPTIONS");
-        newHeaders.set("Access-Control-Allow-Headers", "Content-Type,Authorization,X-CSRF-Token,X-Recaptcha-Token");
-        newHeaders.set("Access-Control-Allow-Credentials", "true");
+
+      // Fix: Explicit cho auth paths - allow credentials & origins
+      if (pathname.startsWith('/api/auth/')) {
+        newHeaders.set('Access-Control-Allow-Credentials', 'true');
+        if (origin && allowedOrigins.includes(origin)) {
+          newHeaders.set('Access-Control-Allow-Origin', origin);  // Specific origin
+          newHeaders.set('Access-Control-Allow-Methods', 'GET,POST,OPTIONS');
+          newHeaders.set('Access-Control-Allow-Headers', 'Content-Type,Authorization,X-CSRF-Token,X-Recaptcha-Token,Cookie');
+        }
       }
       return new NextResponse(res.body, { status: res.status || 200, headers: newHeaders });
     } catch (err) {

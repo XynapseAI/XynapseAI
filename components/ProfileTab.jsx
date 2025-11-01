@@ -1,4 +1,3 @@
-
 // components/ProfileTab.jsx
 'use client';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -1319,28 +1318,9 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
                         )}
                       </motion.button>
                     </div>
-                    {userData?.walletAddress ? (
-                      renderWalletSection()
-                    ) : (
-                      <div className="h-[22vh] relative rounded-xl p-3 bg-gradient-to-br from-black/80 to-gray-900/80 border border-white/20 shadow-lg shadow-black/20 flex flex-col items-center justify-center">
-                        <span className="absolute top-3 left-3 m-2 text-white/80 text-xs uppercase">POINTS</span>
-                        <div className="flex flex-col items-center gap-1">
-                          <span className="text-white text-2xl sm:text-3xl font-bold">
-                            {userData?.points || 0}
-                          </span>
-                        </div>
-                        <div className="flex flex-row absolute bottom-3 right-3 text-white/70 text-[10px] flex items-center gap-1">
-                          <span>Days Active: </span>
-                          <span className="text-white font-bold">{getDaysActive()}</span>
-                          <span className={`flex ml-4 items-center gap-1 text-[10px] ${userData.streak >= 7 ? 'text-orange-400' : 'text-white/70'}`}>
-                            {userData.streak >= 7 && <Flame className="w-3 h-3 text-orange-500 animate-pulse" />}
-                            Streak:
-                            <span className="text-white font-bold">{userData.streak}</span>
-                          </span>
-                        </div>
-                      </div>
-                    )}
-                    <div className="h-[22vh] relative rounded-xl p-3 bg-gradient-to-br from-black/80 to-gray-900/80 border border-white/20 shadow-lg shadow-black/20 flex flex-col items-center justify-center">
+                    {userData?.walletAddress ? renderWalletSection() : null}
+                    {/* Commented out points section for synchronization */}
+                    {/* <div className="h-[22vh] relative rounded-xl p-3 bg-gradient-to-br from-black/80 to-gray-900/80 border border-white/20 shadow-lg shadow-black/20 flex flex-col items-center justify-center">
                       <span className="absolute top-3 left-3 m-2 text-white/80 text-xs uppercase">POINTS</span>
                       <div className="flex flex-col items-center gap-1">
                         <span className="text-white text-2xl sm:text-3xl font-bold">
@@ -1356,15 +1336,15 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
                           <span className="text-white font-bold">{userData.streak}</span>
                         </span>
                       </div>
-                    </div>
+                    </div> */}
                   </div>
                 </div>
               )}
             </div>
           </div>
         </motion.div>
-        {/* Daily Check-in Bar - Pass twitterConnected prop */}
-        {userData && (
+        {/* Commented out Daily Check-in Bar */}
+        {/* {userData && (
           <DailyCheckinBar
             last7Days={userData.last7Days}
             streak={userData.streak}
@@ -1373,9 +1353,9 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
             userData={userData}
             twitterConnected={!!userData.twitterHandle}
           />
-        )}
-        {/* Tab Navigation - Enhanced with moving indicator */}
-        <motion.div
+        )} */}
+        {/* Commented out Tab Navigation and Content (Tasks, Leaderboard) */}
+        {/* <motion.div
           className="border border-white/15 rounded-xl bg-gradient-to-r from-black/40 to-gray-900/40 flex flex-col shadow-xl relative"
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -1412,15 +1392,14 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
               );
             })}
           </div>
-          {/* Sửa: Connect prompt - thêm min-h để cân đối với tab content, border shadow */}
           {!userData?.twitterHandle ? (
             <motion.div
-              className="flex-1 flex items-center justify-center p-6 min-h-[calc(45vh-1rem)] bg-gradient-to-br from-black/90 to-gray-900/90 rounded-b-xl border-t border-white/15 shadow-2xl shadow-black/30" // Thêm min-h, shadow
+              className="flex-1 flex items-center justify-center p-6 min-h-[calc(45vh-1rem)] bg-gradient-to-br from-black/90 to-gray-900/90 rounded-b-xl border-t border-white/15 shadow-2xl shadow-black/30"
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -10 }}
             >
-              <div className="text-center max-w-md flex flex-col items-center justify-center gap-4"> {/* Thêm gap và center */}
+              <div className="text-center max-w-md flex flex-col items-center justify-center gap-4">
                 <p className="text-[9px] sm:text-[10px] text-white/80">
                   Connect your X (Twitter) account to unlock tasks.
                 </p>
@@ -1441,7 +1420,7 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
               {activeTab === 'leaderboard' && renderLeaderboardSection()}
             </AnimatePresence>
           )}
-        </motion.div>
+        </motion.div> */}
       </div>
       {/* v2 Fallback Modal */}
       <AnimatePresence>

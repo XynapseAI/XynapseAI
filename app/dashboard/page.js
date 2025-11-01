@@ -288,6 +288,7 @@ export default function Dashboard() {
   const [modalContent, setModalContent] = useState(null);
   const [baseModalOpen, setBaseModalOpen] = useState(false);
   const [isBaseLoading, setIsBaseLoading] = useState(false); // Thêm loading cho Base modal
+  const [isInBaseApp, setIsInBaseApp] = useState(false);
   const recaptchaRef = useRef(null);
   const { userData, loading, error } = useUserData(session, csrfToken, setIsAnalyzing);
 
@@ -304,6 +305,27 @@ export default function Dashboard() {
       }
     };
     initMiniApp();
+  }, []);
+
+  // Detect Base App environment
+  useEffect(() => {
+    const checkEnvironment = async () => {
+      if (typeof sdk !== 'undefined') {
+        try {
+          const inMiniApp = await sdk.isInMiniApp();
+          if (inMiniApp) {
+            const context = await sdk.context;
+            if (context.client.clientFid === 309857) {
+              setIsInBaseApp(true);
+              console.log('Detected Base App environment');
+            }
+          }
+        } catch (err) {
+          console.error('Error checking Base App environment:', err);
+        }
+      }
+    };
+    checkEnvironment();
   }, []);
 
   // Load Base Account SDK
@@ -757,7 +779,7 @@ export default function Dashboard() {
                     transition={{ duration: 0.5, delay: 0.2 }}
                     className="text-2xl md:text-3xl font-bold text-white uppercase mb-4 text-center tracking-wide"
                   >
-                    Sign In
+                    {isInBaseApp ? 'Sign In with Base' : 'Sign In'}
                   </motion.h1>
                   <motion.p
                     initial={{ opacity: 0, y: -10 }}
@@ -765,42 +787,46 @@ export default function Dashboard() {
                     transition={{ duration: 0.5, delay: 0.3 }}
                     className="text-xs md:text-sm text-gray-500 mb-8 text-center leading-relaxed"
                   >
-                    Access your dashboard with secure authentication.
+                    {isInBaseApp ? 'Use your Base Account for seamless sign-in.' : 'Access your dashboard with secure authentication.'}
                   </motion.p>
-                  <form onSubmit={handleEmailSignIn} className="w-full space-y-6">
-                    <input
-                      type="email"
-                      value={email}
-                      onChange={(e) => setEmail(e.target.value)}
-                      placeholder="Enter your email"
-                      className="w-full px-5 py-3 bg-black/60 border border-white/15 rounded-2xl text-white text-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-white/30 transition-all duration-300"
-                      required
-                    />
-                    <button
-                      type="submit"
-                      className="w-full px-5 py-3 border-2 border-white/15 bg-white/10 text-white rounded-2xl text-sm font-semibold uppercase transition-all duration-300 hover:border-white/30 hover:bg-white/20 flex items-center justify-center"
-                    >
-                      <MatrixHoverEffect text="Sign in with Email" hoverColor="#FFFFFF" />
-                    </button>
-                  </form>
-                  <div className="flex items-center justify-center my-6 w-full">
-                    <span className="text-gray-500 text-xs uppercase px-4">OR</span>
-                    <div className="flex-1 h-px bg-white/10"></div>
-                  </div>
-                  {providers?.google && (
-                    <button
-                      onClick={handleGoogleSignIn}
-                      className="w-full px-5 py-3 bg-black/20 border border-white/25 rounded-2xl text-white text-sm font-semibold uppercase flex items-center justify-center gap-3 transition-all duration-300 hover:bg-gray-800/30 hover:border-white/40"
-                    >
-                      <Image
-                        src="/logos/google.webp"
-                        alt="Google Logo"
-                        width={20}
-                        height={20}
-                        className="w-5 h-5 object-contain"
-                      />
-                      <MatrixHoverEffect text="Sign in with Google" />
-                    </button>
+                  {!isInBaseApp && (
+                    <>
+                      <form onSubmit={handleEmailSignIn} className="w-full space-y-6">
+                        <input
+                          type="email"
+                          value={email}
+                          onChange={(e) => setEmail(e.target.value)}
+                          placeholder="Enter your email"
+                          className="w-full px-5 py-3 bg-black/60 border border-white/15 rounded-2xl text-white text-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-white/30 transition-all duration-300"
+                          required
+                        />
+                        <button
+                          type="submit"
+                          className="w-full px-5 py-3 border-2 border-white/15 bg-white/10 text-white rounded-2xl text-sm font-semibold uppercase transition-all duration-300 hover:border-white/30 hover:bg-white/20 flex items-center justify-center"
+                        >
+                          <MatrixHoverEffect text="Sign in with Email" hoverColor="#FFFFFF" />
+                        </button>
+                      </form>
+                      <div className="flex items-center justify-center my-6 w-full">
+                        <span className="text-gray-500 text-xs uppercase px-4">OR</span>
+                        <div className="flex-1 h-px bg-white/10"></div>
+                      </div>
+                      {providers?.google && (
+                        <button
+                          onClick={handleGoogleSignIn}
+                          className="w-full px-5 py-3 bg-black/20 border border-white/25 rounded-2xl text-white text-sm font-semibold uppercase flex items-center justify-center gap-3 transition-all duration-300 hover:bg-gray-800/30 hover:border-white/40"
+                        >
+                          <Image
+                            src="/logos/google.webp"
+                            alt="Google Logo"
+                            width={20}
+                            height={20}
+                            className="w-5 h-5 object-contain"
+                          />
+                          <MatrixHoverEffect text="Sign in with Google" />
+                        </button>
+                      )}
+                    </>
                   )}
                   <button
                     onClick={() => setBaseModalOpen(true)}
