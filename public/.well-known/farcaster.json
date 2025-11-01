@@ -4,6 +4,9 @@
     "payload": "eyJkb21haW4iOiJiYXNlLnh5bmFwc2VhaS5uZXQifQ",
     "signature": "aNLqD8arP5GOVpAdoxt9LhGngcmtxJQsS6DBCilIXbtu+i39Wij4lfkhXKOHY65gTe5SUx0UkVJjrFf3hE3e3hw="
   },
+  "baseBuilder": {
+    "ownerAddress": "0x9389B506855f6Db781C0af6BE8F14Da1b1114b2d"
+  },
   "miniapp": {
     "version": "1",
     "name": "Xynapse Mini App",
