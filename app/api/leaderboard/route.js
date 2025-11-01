@@ -54,9 +54,10 @@ function securityHeaders(csrfToken = null) {
   const headers = { ...securityHeadersBase };
   if (csrfToken) {
     headers['Set-Cookie'] = cookie.serialize('next-auth.csrf-token', csrfToken, {
-      httpOnly: true,
+      httpOnly: false,  // FIX: false để client đọc được
       secure: process.env.NODE_ENV === 'production',
-      sameSite: 'none',  // For Base App cross-origin
+      sameSite: 'none',  // Cho cross-origin (Base App)
+      domain: process.env.COOKIE_DOMAIN || '.xynapseai.net',  // FIX: Thêm domain
       maxAge: 15 * 60,
       path: '/',
     });
@@ -255,9 +256,9 @@ export async function GET(request) {
     const client = await getRedisClient();
     await client.setEx(`csrf:${session.user.id}`, 15 * 60, newCsrfToken);
     logger.warn('Invalid CSRF token, new token issued', { ip });
-    return NextResponse.json({ detail: 'Invalid CSRF check. Please refresh.' }, { 
-      status: 403, 
-      headers: { ...corsHeaders, ...securityHeaders(newCsrfToken) }  // Fixed: now securityHeaders accepts param
+    return NextResponse.json({ detail: 'Invalid CSRF check. Please refresh.' }, {
+      status: 403,
+      headers: { ...corsHeaders, ...securityHeaders(newCsrfToken) }  // Sử dụng securityHeaders với param
     });
   }
 

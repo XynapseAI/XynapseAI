@@ -1,5 +1,4 @@
 // app/api/task-progress/route.js
-// app/api/task-progress/route.js
 import { NextResponse } from 'next/server';
 import { auth } from '@/lib/auth';
 import { logger } from '@/utils/serverLogger';
@@ -11,7 +10,6 @@ import crypto from 'crypto';
 
 const prisma = new PrismaClient();
 let redisClient;
-
 async function getRedisClient() {
   if (!redisClient) {
     redisClient = createClient({ url: process.env.REDIS_URL || 'redis://localhost:6379' });
@@ -75,21 +73,18 @@ async function checkDoubleSubmitCSRF(request, ip, userId) {
   const headerToken = request.headers.get('x-csrf-token') || '';
   const cookies = parseCookies(request);
   const cookieToken = cookies['next-auth.csrf-token'] || '';
-
   if (process.env.NODE_ENV !== 'production') {
     logger.info('Checking CSRF tokens', {
       headerToken: headerToken ? 'provided' : 'missing',
       cookieToken: cookieToken ? 'provided' : 'missing',
     });
   }
-
   if (process.env.NODE_ENV === 'development' && headerToken === 'dev-csrf' && cookieToken === 'dev-csrf') {
     if (process.env.NODE_ENV !== 'production') {
       logger.info('Development CSRF bypass used');
     }
     return true;
   }
-
   if (!headerToken || !cookieToken) {
     if (process.env.NODE_ENV !== 'production') {
       logger.warn('CSRF tokens missing', {
@@ -99,7 +94,6 @@ async function checkDoubleSubmitCSRF(request, ip, userId) {
     }
     return false;
   }
-
   const client = await getRedisClient();
   const storedToken = await client.get(`csrf:${userId}`);
   if (!storedToken) {
@@ -108,7 +102,6 @@ async function checkDoubleSubmitCSRF(request, ip, userId) {
     }
     return false;
   }
-
   // FIX: Check lengths trước để tránh throw RangeError
   if (headerToken.length !== cookieToken.length || cookieToken.length !== storedToken.length) {
     logger.warn('CSRF token length mismatch', {
@@ -116,9 +109,8 @@ async function checkDoubleSubmitCSRF(request, ip, userId) {
       cookieLength: cookieToken.length,
       storedLength: storedToken.length,
     });
-    return false;  // Invalid, không throw
+    return false; // Invalid, không throw
   }
-
   const valid = crypto.timingSafeEqual(Buffer.from(headerToken), Buffer.from(cookieToken)) &&
                 crypto.timingSafeEqual(Buffer.from(cookieToken), Buffer.from(storedToken));
   if (!valid && process.env.NODE_ENV !== 'production') {
@@ -137,47 +129,42 @@ export async function GET(request) {
   const referer = request.headers.get('referer');
   const { searchParams } = new URL(request.url);
   const params = Object.fromEntries(searchParams);
-
   logger.info(`Request to /api/task-progress from IP ${ip}`, { params, origin, referer });
-
   if (!isAllowedOrigin(origin, referer)) {
     logger.error(`CORS error: Origin ${origin || 'null'} not allowed`);
     return NextResponse.json({ detail: 'Not allowed by CORS' }, { status: 403 });
   }
-
   try {
     await checkRateLimit(ip);
   } catch (err) {
     logger.error(`Rate limit error: ${err.message}`);
     return NextResponse.json({ detail: err.message }, { status: 429 });
   }
-
   const session = await auth();
   if (!session || !session.user?.id) {
     logger.warn('Session not authenticated', { ip });
     return NextResponse.json({ detail: 'Not authenticated' }, { status: 401 });
   }
-
   let newCsrfToken;
   if (!(await checkDoubleSubmitCSRF(request, ip, session.user.id))) {
     newCsrfToken = crypto.randomBytes(32).toString('hex');
     const client = await getRedisClient();
     await client.setEx(`csrf:${session.user.id}`, 15 * 60, newCsrfToken);
     logger.warn('Invalid CSRF token, new token issued', { ip });
-    return NextResponse.json({ detail: 'Invalid CSRF check. Please refresh.' }, { 
-      status: 403, 
+    return NextResponse.json({ detail: 'Invalid CSRF check. Please refresh.' }, {
+      status: 403,
       headers: {
         'Set-Cookie': cookie.serialize('next-auth.csrf-token', newCsrfToken, {
-          httpOnly: true,
+          httpOnly: false,  // FIX: false để client đọc được
           secure: process.env.NODE_ENV === 'production',
-          sameSite: 'none',
+          sameSite: 'none',  // Cho cross-origin (Base App)
+          domain: process.env.COOKIE_DOMAIN || '.xynapseai.net',  // FIX: Thêm domain cho subdomain
           maxAge: 15 * 60,
           path: '/',
         }),
       }
     });
   }
-
   let parsedParams;
   try {
     parsedParams = schema.parse(params);
@@ -185,13 +172,11 @@ export async function GET(request) {
     logger.warn(`Data validation error: ${err.message}`, { ip });
     return NextResponse.json({ detail: 'Invalid input data', errors: err.errors }, { status: 400 });
   }
-
   const { uid } = parsedParams;
   if (uid !== session.user.id) {
     logger.warn(`Access denied: uid=${uid}, sessionUserId=${session.user.id}`, { ip });
     return NextResponse.json({ detail: 'Access denied: Invalid UID' }, { status: 403 });
   }
-
   try {
     const cacheKey = `taskProgress:${uid}`;
     const cached = await redisClient.get(cacheKey);
@@ -207,14 +192,12 @@ export async function GET(request) {
         },
       });
     }
-
     const today = new Date();
     today.setUTCHours(0, 0, 0, 0);
     const completions = await prisma.task_completions.findMany({
       where: { user_id: uid, completed_at: { gte: today } },
       select: { task_id: true, completion_count: true, completed_at: true },
     });
-
     const progress = completions.reduce((acc, completion) => {
       acc[completion.task_id] = {
         completionCount: completion.completion_count,
@@ -222,7 +205,6 @@ export async function GET(request) {
       };
       return acc;
     }, {});
-
     const data = { success: true, progress };
     await redisClient.setEx(cacheKey, 600, JSON.stringify(data));
     logger.info('Fetched and cached task progress successfully', { userId: uid, ip });
