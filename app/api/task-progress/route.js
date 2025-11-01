@@ -74,7 +74,7 @@ function parseCookies(request) {
 async function checkDoubleSubmitCSRF(request, ip, userId) {
   const headerToken = request.headers.get('x-csrf-token') || '';
   const cookies = parseCookies(request);
-  const cookieToken = cookies['next-auth.csrf-token'] || '';  // Fixed: correct cookie name
+  const cookieToken = cookies['next-auth.csrf-token'] || '';
 
   if (process.env.NODE_ENV !== 'production') {
     logger.info('Checking CSRF tokens', {
@@ -84,28 +84,44 @@ async function checkDoubleSubmitCSRF(request, ip, userId) {
   }
 
   if (process.env.NODE_ENV === 'development' && headerToken === 'dev-csrf' && cookieToken === 'dev-csrf') {
-    logger.info('Development CSRF bypass used');
+    if (process.env.NODE_ENV !== 'production') {
+      logger.info('Development CSRF bypass used');
+    }
     return true;
   }
 
   if (!headerToken || !cookieToken) {
-    logger.warn('CSRF tokens missing', {
-      headerProvided: !!headerToken,
-      cookieProvided: !!cookieToken,
-    });
+    if (process.env.NODE_ENV !== 'production') {
+      logger.warn('CSRF tokens missing', {
+        headerProvided: !!headerToken,
+        cookieProvided: !!cookieToken,
+      });
+    }
     return false;
   }
 
   const client = await getRedisClient();
   const storedToken = await client.get(`csrf:${userId}`);
   if (!storedToken) {
-    logger.warn('CSRF token not found in Redis', { key: `csrf:${userId}` });
+    if (process.env.NODE_ENV !== 'production') {
+      logger.warn('CSRF token not found in Redis', { key: `csrf:${userId}` });
+    }
     return false;
+  }
+
+  // FIX: Check lengths trước để tránh throw RangeError
+  if (headerToken.length !== cookieToken.length || cookieToken.length !== storedToken.length) {
+    logger.warn('CSRF token length mismatch', {
+      headerLength: headerToken.length,
+      cookieLength: cookieToken.length,
+      storedLength: storedToken.length,
+    });
+    return false;  // Invalid, không throw
   }
 
   const valid = crypto.timingSafeEqual(Buffer.from(headerToken), Buffer.from(cookieToken)) &&
                 crypto.timingSafeEqual(Buffer.from(cookieToken), Buffer.from(storedToken));
-  if (!valid) {
+  if (!valid && process.env.NODE_ENV !== 'production') {
     logger.warn('CSRF token mismatch', {
       headerToken: headerToken.slice(0, 6) + '••••',
       cookieToken: cookieToken.slice(0, 6) + '••••',

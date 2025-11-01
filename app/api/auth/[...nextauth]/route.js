@@ -131,6 +131,7 @@ const allowedOrigins = [
   process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000",
   "https://xynapseai.net",
   "https://www.xynapseai.net",
+  "https://base.xynapseai.net",
   "https://xynapse-ai-xynapse-projects.vercel.app",
 ].filter((v, i, a) => a.indexOf(v) === i);
 

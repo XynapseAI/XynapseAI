@@ -35,6 +35,7 @@ const allowedOrigins = [
   'https://xynapseai.net',
   'https://www.xynapseai.net',
   'https://farcaster.xynapseai.net',
+  "https://base.xynapseai.net",
   'https://xynapse-ai-xynapse-projects.vercel.app',
   'https://xynapse-ai.vercel.app',
 ].filter((v, i, a) => a.indexOf(v) === i);
@@ -146,7 +147,7 @@ function parseCookies(request) {
 async function checkDoubleSubmitCSRF(request, ip, userId) {
   const headerToken = request.headers.get('x-csrf-token') || '';
   const cookies = parseCookies(request);
-  const cookieToken = cookies['next-auth.csrf-token'] || '';  // Fixed: correct cookie name
+  const cookieToken = cookies['next-auth.csrf-token'] || '';
 
   if (process.env.NODE_ENV !== 'production') {
     logger.info('Checking CSRF tokens', {
@@ -179,6 +180,16 @@ async function checkDoubleSubmitCSRF(request, ip, userId) {
       logger.warn('CSRF token not found in Redis', { key: `csrf:${userId}` });
     }
     return false;
+  }
+
+  // FIX: Check lengths trước để tránh throw RangeError
+  if (headerToken.length !== cookieToken.length || cookieToken.length !== storedToken.length) {
+    logger.warn('CSRF token length mismatch', {
+      headerLength: headerToken.length,
+      cookieLength: cookieToken.length,
+      storedLength: storedToken.length,
+    });
+    return false;  // Invalid, không throw
   }
 
   const valid = crypto.timingSafeEqual(Buffer.from(headerToken), Buffer.from(cookieToken)) &&

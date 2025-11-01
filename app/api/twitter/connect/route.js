@@ -35,6 +35,7 @@ const allowedOrigins = [
   'https://xynapseai.net',
   'https://www.xynapseai.net',
   'https://farcaster.xynapseai.net',
+  "https://base.xynapseai.net",
   'https://xynapse-ai-xynapse-projects.vercel.app',
   'https://xynapse-ai.vercel.app',
   'https://api.twitter.com',

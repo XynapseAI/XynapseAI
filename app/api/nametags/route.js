@@ -16,6 +16,7 @@ const allowedOrigins = [
   'https://xynapseai.net',
   'https://www.xynapseai.net',
   'https://farcaster.xynapseai.net',
+  "https://base.xynapseai.net",
   process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : undefined,
   'https://postgres-production-e852c.up.railway.app',
   'https://xynapseai-production.up.railway.app',

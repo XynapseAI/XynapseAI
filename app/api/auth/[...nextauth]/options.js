@@ -599,11 +599,11 @@ export const authOptions = {
       csrfToken: {
         name: 'next-auth.csrf-token',
         options: {
-          httpOnly: false,  // FIX: false để webview persist cookie
-          sameSite: 'none',  // CHANGED: 'none'
+          httpOnly: false,  // Giữ false cho client read
+          sameSite: 'none',  // Cho cross-site/iframe
           path: '/',
           secure: true,
-          domain: cookieDomain,
+          domain: process.env.COOKIE_DOMAIN || '.xynapseai.net',  // Env var linh hoạt
         },
       },
     },

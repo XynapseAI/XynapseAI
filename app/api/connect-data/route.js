@@ -158,6 +158,7 @@ async function isAllowedOrigin(origin, referer, pathname, ip) {
     'https://www.xynapseai.net',
     'https://xynapse-ai-xynapse-projects.vercel.app',
     'https://xynapse-ai.vercel.app',
+    "https://base.xynapseai.net",
   ].filter(Boolean);
 
   if (process.env.NODE_ENV !== 'production') {

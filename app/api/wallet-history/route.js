@@ -35,6 +35,7 @@ const allowedOrigins = [
   'https://xynapseai.net',
   'https://www.xynapseai.net',
   'https://farcaster.xynapseai.net',
+  "https://base.xynapseai.net",
 ];
 
 async function checkCSRF(request, session) {
