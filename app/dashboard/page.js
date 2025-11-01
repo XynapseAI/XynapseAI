@@ -632,50 +632,42 @@ export default function Dashboard() {
         throw new Error('Invalid SIWE message or signature from SDK');
       }
 
-      // Append REQUIRED fields if missing (fix SDK non-compliant, theo EIP-4361)
-      if (!message.includes('Version: 1')) {
-        message += `\nVersion: 1`;  // REQUIRED
-      }
-      if (!message.includes('Issued At:')) {
-        const issuedAt = new Date().toISOString();
-        message += `\nIssued At: ${issuedAt}`;  // REQUIRED
-      }
+      console.log('Raw SDK message:', message); // Debug raw
+      console.log('Raw SDK signature length:', signature.length); // Debug
 
-      // Fix domain mismatch (localhost vs localhost:3000)
-      // const expectedDomain = window.location.host;  // 'localhost:3000'
-      // const messageDomainMatch = message.match(/^([a-zA-Z0-9.-]+):?\d* wants you to sign in/);
-      // const messageDomain = messageDomainMatch ? messageDomainMatch[1] : null;
-      // if (messageDomain && messageDomain !== expectedDomain) {
-      //   console.log('Fixing SIWE domain mismatch:', { original: messageDomain, fixed: expectedDomain });
-      //   message = message.replace(new RegExp(`^${messageDomain}`), expectedDomain);
-      // }
+      // KHÔNG FIX \n\n hoặc append nữa – dùng raw để match signature
+      // Chỉ check lenient: chấp nhận single \n, thiếu Version/Issued At (log warning sau)
 
-      // Relaxed SIWE format check
+      // Relaxed SIWE format check (cho raw)
       const lines = message.split('\n');
       const lineCount = lines.length;
-      const nonceMatch = message.match(/Nonce: ([a-f0-9]{32})\n?/);
-      const domain = window.location.hostname;  // "localhost"
-      const hasPrefix = message.startsWith(`${domain} wants you to sign in with your Ethereum account:`) || message.startsWith(`${domain}:3000 wants you to sign in with your Ethereum account:`);  // Accept both
+      const nonceMatch = message.match(/Nonce:\s*([a-f0-9]{32})/i);
+      const domain = window.location.hostname;
+      const hasPrefix = message.startsWith(`${domain} wants you to sign in with your Ethereum account:`);
       const hasChainId = message.includes('Chain ID: 8453');
       const noJsonError = !message.includes('{"success":false');
       const hasVersion = message.includes('Version: 1');
       const hasIssuedAt = message.includes('Issued At:');
 
-      console.log('SIWE debug (no domain fix):', {
+      console.log('SIWE debug (raw):', {
         fullMessage: message,
         lines, lineCount, domain, hasPrefix, nonceInMessage: nonceMatch ? nonceMatch[1] : 'NO MATCH',
         nonceMatch: nonceMatch && nonceMatch[1] === nonce, hasChainId, noJsonError, hasVersion, hasIssuedAt
       });
 
-      if (!hasPrefix || !hasChainId || !noJsonError || lineCount < 5 || !nonceMatch || nonceMatch[1] !== nonce || !hasVersion || !hasIssuedAt) {
-        throw new Error('Malformed SIWE message from SDK – expected valid EIP-4361 format');
+      // Relax: Chỉ require prefix, chain, nonce; warning nếu thiếu Version/Issued At
+      if (!hasPrefix || !hasChainId || !noJsonError || lineCount < 4 || !nonceMatch || nonceMatch[1] !== nonce) {
+        throw new Error('Malformed SIWE message from SDK – missing core fields');
+      }
+      if (!hasVersion || !hasIssuedAt) {
+        console.warn('SIWE missing required fields (Version/Issued At) – proceeding but non-standard');
       }
 
-      console.log('Validated SIWE OK (original message), proceeding to signIn');
+      console.log('Validated SIWE OK (raw), proceeding to signIn');
 
-      // Sign in via NextAuth
+      // Sign in via NextAuth với raw message
       const res = await signIn('credentials', {
-        message,
+        message,  // Raw
         signature,
         redirect: false,
       });

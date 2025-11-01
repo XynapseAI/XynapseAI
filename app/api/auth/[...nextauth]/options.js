@@ -1,3 +1,4 @@
+// app/api/auth/[...nextauth]/options.js
 import { randomBytes } from "crypto";
 import GoogleProvider from "@auth/core/providers/google";
 import EmailProvider from "@auth/core/providers/email";
@@ -37,12 +38,20 @@ async function verifySiwe(credentials) {
 
     logger.info('Full SIWE input to verify:', {
       message: typeof message === 'string' ? message.substring(0, 300) + (message.length > 300 ? '...' : '') : message,
+      fullMessageLength: message.length,
       signaturePreview: typeof signature === 'string' ? signature.substring(0, 50) + '...' : signature,
       signatureLength: typeof signature === 'string' ? signature.length : 'N/A'
     });
 
     if (typeof message !== 'string' || typeof signature !== 'string') {
       throw new Error('Message and signature must be strings');
+    }
+
+    // Ensure signature is 0x-prefixed (common issue with some SDKs)
+    let sig = signature;
+    if (!sig.startsWith('0x')) {
+      sig = '0x' + sig;
+      logger.info('Added 0x prefix to signature');
     }
 
     // 1. Extract Nonce
@@ -79,6 +88,13 @@ async function verifySiwe(credentials) {
     }
     const extractedAddress = addressMatch[1].toLowerCase();
     logger.info('Extracted address from message:', { address: extractedAddress });
+
+    // Lenient check cho required fields (EIP-4361), log warning nếu thiếu
+    const hasVersion = message.includes('Version: 1');
+    const hasIssuedAt = message.includes('Issued At:');
+    if (!hasVersion || !hasIssuedAt) {
+      logger.warn('SIWE message missing required fields (Version/Issued At) – verifying anyway');
+    }
 
     // 5. Validate Nonce từ Redis
     const client = await getRedisClient();
@@ -118,16 +134,15 @@ async function verifySiwe(credentials) {
 
     logger.info('Nonce validated, proceeding to signature verify');
 
-    // 7. Verify Signature (ĐÃ XÓA BỎ LOGIC EOA THỪA)
-    // viem verifyMessage xử lý cả EOA (ecrecover) và Smart Accounts (ERC-1271)
+    // 7. Verify Signature (use viem native – handles ERC-6492 automatically for pre-deploy)
     let valid;
     try {
       valid = await publicClient.verifyMessage({
         address: extractedAddress,
         message,
-        signature,
+        signature: sig,
       });
-      logger.info('Viem verifyMessage result:', { valid, expectedAddress: extractedAddress });
+      logger.info('Viem verifyMessage result:', { valid, expectedAddress: extractedAddress, messageLength: message.length });
     } catch (viemError) {
       // Log lỗi chi tiết nếu viem throw
       logger.error('Viem verifyMessage detailed error:', {
@@ -140,6 +155,12 @@ async function verifySiwe(credentials) {
 
     if (!valid) {
       // Lỗi này có nghĩa là viem đã chạy và trả về false
+      logger.error('Viem verifyMessage returned false', {
+        messagePreview: message.substring(0, 200),
+        sigLength: sig.length,
+        hasVersion,
+        hasIssuedAt
+      });
       throw new Error('Invalid signature (Viem verifyMessage returned false)');
     }
 
@@ -151,7 +172,7 @@ async function verifySiwe(credentials) {
       error: error.message,
       stack: error.stack ? error.stack.substring(0, 200) : 'no stack'
     });
-    throw error;  // Re-throw để authorize return null
+    throw error;  // Re-throw để authorize return null
   }
 }
 
@@ -207,13 +228,15 @@ const customAdapter = {
     const plainApiKey = randomBytes(32).toString("hex");
     const { api_key_hash, api_key_salt } = await hashApiKey(plainApiKey);
 
+    logger.info('Executing user insert', { id, wallet: data.wallet_address });
+
     const { rows } = await query(
       `INSERT INTO users (
         id,email,google_id,google_name,email_verified,profile_picture,wallet_address,
         connected,last_connected,points,tweet_points,ai_points,task_points,
         is_creator,is_ai_rank,tier,is_plus,is_premium,api_key_hash,api_key_salt,created_at
-      ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20)
-      ON CONFLICT (wallet_address) DO UPDATE SET  -- Thêm conflict cho wallet
+      ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21)
+      ON CONFLICT (wallet_address) DO UPDATE SET  
         email=COALESCE(EXCLUDED.email, users.email),google_name=EXCLUDED.google_name,email_verified=EXCLUDED.email_verified,
         profile_picture=COALESCE(users.profile_picture, EXCLUDED.profile_picture),connected=EXCLUDED.connected,
         last_connected=EXCLUDED.last_connected,updated_at=CURRENT_TIMESTAMP, api_key_hash=EXCLUDED.api_key_hash, api_key_salt=EXCLUDED.api_key_salt
@@ -345,9 +368,11 @@ export const authOptions = {
           // Tìm hoặc tạo user bằng address
           let user = await customAdapter.getUserByWallet(address);
           if (!user) {
+            const fallbackEmail = `${address.toLowerCase()}@base.xynapseai.net`;
             user = await customAdapter.createUser({
               wallet_address: address,
-              // Có thể merge với email nếu có từ SIWE statement
+              email: fallbackEmail,
+              email_verified: true,  // Verified qua SIWE signature
             });
             // Tạo account record
             await query(
@@ -358,10 +383,10 @@ export const authOptions = {
             // Update last_connected
             await customAdapter.updateUser({ id: user.id, last_connected: new Date() });
           }
-          logger.info('Base Account login successful', { address: user.wallet_address });
+          logger.info('Base Account login successful', { address: user.wallet_address, email: user.email });
           return {
-            id: user.id || address, // ID là address nếu không có UUID
-            email: user.email || `${address}@base.xynapseai.net`, // Fallback email
+            id: user.id || address,
+            email: user.email,  // Bây giờ user.email đã có fallback từ DB
             name: user.google_name || `Base User ${address.slice(0, 6)}`,
             wallet_address: address,
           };
@@ -411,7 +436,7 @@ export const authOptions = {
               id, email, google_id, google_name, email_verified, profile_picture,
               connected, last_connected, points, tweet_points, ai_points, task_points,
               is_creator, is_ai_rank, tier, is_plus, is_premium, api_key_hash, api_key_salt, created_at
-            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20)
+            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21)
             ON CONFLICT (google_id) DO UPDATE SET
               email=EXCLUDED.email, google_name=EXCLUDED.google_name, email_verified=EXCLUDED.email_verified, 
               profile_picture=COALESCE(users.profile_picture, EXCLUDED.profile_picture), connected=EXCLUDED.connected,
@@ -477,7 +502,7 @@ export const authOptions = {
                 id, email, google_id, google_name, email_verified, profile_picture,
                 connected, last_connected, points, tweet_points, ai_points, task_points,
                 is_creator, is_ai_rank, tier, is_plus, is_premium, api_key_hash, api_key_salt, created_at
-              ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20)`,
+              ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21)`,
               [
                 userId, email, null, null, verified, null, true, new Date(),
                 0, 0, 0, 0, false, false, "Basic", false, false, api_key_hash, api_key_salt, new Date(),

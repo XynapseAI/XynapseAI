@@ -1,3 +1,4 @@
+
 // components/ProfileTab.jsx
 'use client';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -470,6 +471,14 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
     }
   };
 
+  const email = userData?.email || '';
+  const isBaseAccount = email.includes('@base.xynapseai.net');
+  const displayInfo = isBaseAccount ? (userData?.walletAddress || '') : email;
+  const maskedInfo = isBaseAccount
+    ? `${userData?.walletAddress?.slice(0, 6) || ''}...${userData?.walletAddress?.slice(-4) || ''}`
+    : (email ? email.replace(/./g, '*') : '********');
+  const fullInfo = displayInfo;
+
   const renderWalletSection = () => {
     if (!userData?.walletAddress) return null;
     return (
@@ -482,26 +491,27 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
           <span className="text-green-400 text-xs font-medium">Connected</span>
         </div>
         <div className="flex flex-col gap-2">
-          <p className="text-xs text-gray-400 truncate">
-            {showWallet ? userData.walletAddress : `${userData.walletAddress.slice(0, 6)}...${userData.walletAddress.slice(-4)}`}
-          </p>
-          <motion.button
-            onClick={() => setShowWallet(!showWallet)}
-            className="text-xs text-gray-400 hover:text-white transition-colors"
-            whileHover={{ scale: 1.05 }}
-            whileTap={{ scale: 0.95 }}
-          >
-            {showWallet ? 'Hide' : 'Show Full'}
-          </motion.button>
-          <motion.button
-            onClick={handleCopyWallet}
-            className="flex items-center gap-1 text-xs text-blue-400 hover:text-blue-300 transition-colors mt-1"
-            whileHover={{ scale: 1.05 }}
-            whileTap={{ scale: 0.95 }}
-          >
-            <Copy className="w-3 h-3" />
-            Copy Address
-          </motion.button>
+          <div className="flex items-center gap-1">
+            <p className="text-xs text-gray-400 truncate flex-1">
+              {showWallet ? userData.walletAddress : `${userData.walletAddress.slice(0, 6)}...${userData.walletAddress.slice(-4)}`}
+            </p>
+            <motion.button
+              onClick={handleCopyWallet}
+              className="text-gray-400 hover:text-blue-300 transition-colors p-1"
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
+            >
+              <Copy className="w-3 h-3" />
+            </motion.button>
+            <motion.button
+              onClick={() => setShowWallet(!showWallet)}
+              className="text-gray-400 hover:text-white transition-colors p-1"
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
+            >
+              {showWallet ? <EyeOff className="w-3 h-3" /> : <Eye className="w-3 h-3" />}
+            </motion.button>
+          </div>
         </div>
       </div>
     );
@@ -1235,7 +1245,7 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
                             className="w-full h-full object-cover"
                           />
                         </div>
-                        <div className={`w-[60px] absolute -bottom-2 left-1/2 transform -translate-x-1/2 bg-gradient-to-br from-black/80 to-gray-900/80 border-2 ${userData.tier === 'Premium' ? 'border-yellow-400' : 'border-gray-400'} rounded-full px-2 py-0.5`}>
+                        <div className={`w-[60px] absolute -bottom-2 left-1/2 transform -translate-x-1/2 bg-gradient-to-br from-black/80 to-gray-900/80 border-2 ${userData.tier === 'Premium' ? 'border-yellow-400' : 'border-gray-400'} rounded-full px-2 py-0.5 flex items-center justify-center`}>
                           <span className={`text-[9px] font-bold ${userData.tier === 'Premium' ? 'text-yellow-300' : 'text-white/80'}`}>
                             {userData.tier}
                           </span>
@@ -1247,7 +1257,7 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
                         </h4>
                         <div className="flex items-center gap-2 text-gray-500 w-full justify-center">
                           <span className="text-[10px] sm:text-[11px]">
-                            {showEmail ? userData.email : userData.email.replace(/./g, '*')}
+                            {showEmail ? fullInfo : maskedInfo}
                           </span>
                           <motion.button
                             onClick={() => setShowEmail(!showEmail)}
