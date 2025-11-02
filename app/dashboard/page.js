@@ -25,12 +25,16 @@ import { Stars, Sphere, Float, Environment } from "@react-three/drei";
 import * as THREE from "three";
 import { TermsOfServiceContent } from '../../components/TermsOfService';
 import { PrivacyPolicyContent } from '../../components/PrivacyPolicy';
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 import { SiweMessage } from 'siwe';
 
 gsap.registerPlugin(MotionPathPlugin);
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:3000/api';
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+const BASE_CHAIN_ID = 8453; // Base mainnet
 
+// Polyfill HMAC cho browser (dùng Web Crypto API)
 async function hmacSha256(key, data) {
   const encoder = new TextEncoder();
   const keyData = encoder.encode(key);
@@ -96,7 +100,7 @@ const useUserData = (session, csrfToken, setIsAnalyzing) => {
         ...result.user,
         profilePicture: result.user.profile_picture,
         googleName: result.user.google_name,
-        walletAddress: result.user.wallet_address,
+        walletAddress: result.user.wallet_address, // Thêm wallet từ API response
         tweetPoints: result.user.tweet_points,
         aiPoints: result.user.ai_points,
       });
@@ -121,6 +125,7 @@ const useUserData = (session, csrfToken, setIsAnalyzing) => {
       const recaptchaToken = process.env.NODE_ENV === 'development' ? 'development-token' : await recaptchaRef.current?.executeAsync();
       const jwtToken = session?.accessToken;
       const payload = { uid: session.user.id };
+      // Sử dụng polyfill HMAC thay crypto.createHmac
       const sortedPayload = JSON.stringify(payload, Object.keys(payload).sort());
       const signature = await hmacSha256(process.env.HMAC_SECRET || "default-secret", sortedPayload);
       const response = await fetch(`${API_BASE_URL}/api/analyze-tweets`, {
@@ -263,6 +268,12 @@ export default function Dashboard() {
   const { isConnected, address } = useAccount();
   const { disconnect } = useDisconnect();
   const { signMessageAsync } = useSignMessage();
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const chainId = useChainId();
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const { switchChain } = useSwitchChain();
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const { connect } = useConnect();
   const router = useRouter();
   const searchParams = useSearchParams();
   const [isMounted, setIsMounted] = useState(false);
@@ -275,7 +286,7 @@ export default function Dashboard() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [modalContent, setModalContent] = useState(null);
   const [baseModalOpen, setBaseModalOpen] = useState(false);
-  const [isBaseLoading, setIsBaseLoading] = useState(false);
+  const [isBaseLoading, setIsBaseLoading] = useState(false); // Thêm loading cho Base modal
   const [isInBaseApp, setIsInBaseApp] = useState(false);
   const recaptchaRef = useRef(null);
   const { userData, loading, error } = useUserData(session, csrfToken, setIsAnalyzing);
@@ -413,6 +424,7 @@ export default function Dashboard() {
       const signature = await signMessageAsync({ message });
       const jwtToken = session?.accessToken;
       const payload = { walletAddress: address, signature, message, uid: session.user.id };
+      // Sử dụng polyfill HMAC
       const sortedPayload = JSON.stringify(payload, Object.keys(payload).sort());
       const hmacSignature = await hmacSha256(process.env.HMAC_SECRET || "default-secret", sortedPayload);
       const response = await fetch(`${API_BASE_URL}/api/verify-wallet`, {
@@ -587,6 +599,8 @@ export default function Dashboard() {
       if (!window.createBaseAccountSDK) {
         throw new Error('Base Account SDK not loaded. Please refresh the page.');
       }
+
+      // Fetch nonce từ server
       const nonceRes = await fetch(`${API_BASE_URL}/api/nonce`, { method: 'GET' });
       if (!nonceRes.ok) throw new Error('Failed to fetch nonce');
       const { nonce } = await nonceRes.json();
@@ -641,6 +655,10 @@ export default function Dashboard() {
       console.log('Raw SDK message:', message); // Debug raw
       console.log('Raw SDK signature length:', signature.length); // Debug
 
+      // KHÔNG FIX \n\n hoặc append nữa – dùng raw để match signature
+      // Chỉ check lenient: chấp nhận single \n, thiếu Version/Issued At (log warning sau)
+
+      // Relaxed SIWE format check (cho raw)
       const lines = message.split('\n');
       const lineCount = lines.length;
       const nonceMatch = message.match(/Nonce:\s*([a-f0-9]{32})/i);
@@ -657,6 +675,7 @@ export default function Dashboard() {
         nonceMatch: nonceMatch && nonceMatch[1] === nonce, hasChainId, noJsonError, hasVersion, hasIssuedAt
       });
 
+      // Relax: Chỉ require prefix, chain, nonce; warning nếu thiếu Version/Issued At
       if (!hasPrefix || !hasChainId || !noJsonError || lineCount < 4 || !nonceMatch || nonceMatch[1] !== nonce) {
         throw new Error('Malformed SIWE message from SDK – missing core fields');
       }
@@ -666,6 +685,7 @@ export default function Dashboard() {
 
       console.log('Validated SIWE OK (raw), proceeding to signIn');
 
+      // Sign in via NextAuth với raw message
       const res = await signIn('credentials', {
         message,  // Raw
         signature,
