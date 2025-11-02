@@ -101,14 +101,13 @@ async function checkDoubleSubmitCSRF(request, ip, userId) {
     return false;
   }
 
-  // FIX: Check lengths trước để tránh throw RangeError
   if (headerToken.length !== cookieToken.length || cookieToken.length !== storedToken.length) {
     logger.warn('CSRF token length mismatch', {
       headerLength: headerToken.length,
       cookieLength: cookieToken.length,
       storedLength: storedToken.length,
     });
-    return false;  // Invalid, không throw
+    return false;  
   }
 
   const valid = crypto.timingSafeEqual(Buffer.from(headerToken), Buffer.from(cookieToken)) &&

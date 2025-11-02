@@ -174,9 +174,8 @@ async function verifyRecaptchaWithRetry(token, action, ip, retries = 2) {
       return response;
     }
     if (response.needsFallback) {
-      return response; // Không retry cho fallback, trả về để frontend xử lý v2
+      return response;
     }
-    // Fail khác, retry
     logger.warn(`reCAPTCHA attempt ${i + 1} failed: ${response.error}`, { action, ip });
     if (i === retries - 1) {
       throw new Error(response.error || 'reCAPTCHA verification failed');
@@ -324,7 +323,7 @@ export async function GET(request) {
         where: { id: sanitizedUserId },
         data: {
           twitter_handle: twitterHandle,
-          profile_picture: twitterProfilePicture || '', // Sửa: Bỏ userData undefined
+          profile_picture: twitterProfilePicture || '',
         },
       });
     });
@@ -425,7 +424,7 @@ export async function POST(request) {
 
   if (process.env.NODE_ENV !== 'development') {
     try {
-      const recaptchaResponse = await verifyRecaptchaWithRetry(recaptchaToken, 'disconnect_twitter', ip); // Sửa action
+      const recaptchaResponse = await verifyRecaptchaWithRetry(recaptchaToken, 'disconnect_twitter', ip);
       if (!recaptchaResponse.success) {
         if (recaptchaResponse.needsFallback) {
           return NextResponse.json({ detail: 'low_score_fallback' }, { status: 403, headers: corsHeaders });

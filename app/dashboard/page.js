@@ -3,7 +3,7 @@ import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useAccount, useDisconnect, useSignMessage, useChainId, useSwitchChain, useConnect } from 'wagmi';
 import { signIn, signOut, useSession, getProviders } from 'next-auth/react';
-import { sdk } from '@farcaster/miniapp-sdk'; // Mini App SDK để ready()
+import { sdk } from '@farcaster/miniapp-sdk'; 
 import Header from '../../components/Header';
 import AITab from '../../components/AITab';
 import ProfileTab from '../../components/ProfileTab';
@@ -20,22 +20,17 @@ import { gsap } from 'gsap';
 import { MotionPathPlugin } from 'gsap/MotionPathPlugin';
 import { LoadingOverlay } from '@/utils/helpers';
 import { CurrencyProvider } from '../../components/CurrencyContext';
-// Bỏ import crypto from 'crypto'; – dùng window.crypto thay thế
 import { Canvas, useFrame } from "@react-three/fiber";
 import { Stars, Sphere, Float, Environment } from "@react-three/drei";
 import * as THREE from "three";
 import { TermsOfServiceContent } from '../../components/TermsOfService';
 import { PrivacyPolicyContent } from '../../components/PrivacyPolicy';
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
 import { SiweMessage } from 'siwe';
 
 gsap.registerPlugin(MotionPathPlugin);
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:3000/api';
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-const BASE_CHAIN_ID = 8453; // Base mainnet
 
-// Polyfill HMAC cho browser (dùng Web Crypto API)
 async function hmacSha256(key, data) {
   const encoder = new TextEncoder();
   const keyData = encoder.encode(key);
@@ -101,7 +96,7 @@ const useUserData = (session, csrfToken, setIsAnalyzing) => {
         ...result.user,
         profilePicture: result.user.profile_picture,
         googleName: result.user.google_name,
-        walletAddress: result.user.wallet_address, // Thêm wallet từ API response
+        walletAddress: result.user.wallet_address,
         tweetPoints: result.user.tweet_points,
         aiPoints: result.user.ai_points,
       });
@@ -126,7 +121,6 @@ const useUserData = (session, csrfToken, setIsAnalyzing) => {
       const recaptchaToken = process.env.NODE_ENV === 'development' ? 'development-token' : await recaptchaRef.current?.executeAsync();
       const jwtToken = session?.accessToken;
       const payload = { uid: session.user.id };
-      // Sử dụng polyfill HMAC thay crypto.createHmac
       const sortedPayload = JSON.stringify(payload, Object.keys(payload).sort());
       const signature = await hmacSha256(process.env.HMAC_SECRET || "default-secret", sortedPayload);
       const response = await fetch(`${API_BASE_URL}/api/analyze-tweets`, {
@@ -269,12 +263,6 @@ export default function Dashboard() {
   const { isConnected, address } = useAccount();
   const { disconnect } = useDisconnect();
   const { signMessageAsync } = useSignMessage();
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const chainId = useChainId();
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const { switchChain } = useSwitchChain();
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const { connect } = useConnect();
   const router = useRouter();
   const searchParams = useSearchParams();
   const [isMounted, setIsMounted] = useState(false);
@@ -287,7 +275,7 @@ export default function Dashboard() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [modalContent, setModalContent] = useState(null);
   const [baseModalOpen, setBaseModalOpen] = useState(false);
-  const [isBaseLoading, setIsBaseLoading] = useState(false); // Thêm loading cho Base modal
+  const [isBaseLoading, setIsBaseLoading] = useState(false);
   const [isInBaseApp, setIsInBaseApp] = useState(false);
   const recaptchaRef = useRef(null);
   const { userData, loading, error } = useUserData(session, csrfToken, setIsAnalyzing);
@@ -425,7 +413,6 @@ export default function Dashboard() {
       const signature = await signMessageAsync({ message });
       const jwtToken = session?.accessToken;
       const payload = { walletAddress: address, signature, message, uid: session.user.id };
-      // Sử dụng polyfill HMAC
       const sortedPayload = JSON.stringify(payload, Object.keys(payload).sort());
       const hmacSignature = await hmacSha256(process.env.HMAC_SECRET || "default-secret", sortedPayload);
       const response = await fetch(`${API_BASE_URL}/api/verify-wallet`, {
@@ -600,8 +587,6 @@ export default function Dashboard() {
       if (!window.createBaseAccountSDK) {
         throw new Error('Base Account SDK not loaded. Please refresh the page.');
       }
-
-      // Fetch nonce từ server
       const nonceRes = await fetch(`${API_BASE_URL}/api/nonce`, { method: 'GET' });
       if (!nonceRes.ok) throw new Error('Failed to fetch nonce');
       const { nonce } = await nonceRes.json();
@@ -656,10 +641,6 @@ export default function Dashboard() {
       console.log('Raw SDK message:', message); // Debug raw
       console.log('Raw SDK signature length:', signature.length); // Debug
 
-      // KHÔNG FIX \n\n hoặc append nữa – dùng raw để match signature
-      // Chỉ check lenient: chấp nhận single \n, thiếu Version/Issued At (log warning sau)
-
-      // Relaxed SIWE format check (cho raw)
       const lines = message.split('\n');
       const lineCount = lines.length;
       const nonceMatch = message.match(/Nonce:\s*([a-f0-9]{32})/i);
@@ -676,7 +657,6 @@ export default function Dashboard() {
         nonceMatch: nonceMatch && nonceMatch[1] === nonce, hasChainId, noJsonError, hasVersion, hasIssuedAt
       });
 
-      // Relax: Chỉ require prefix, chain, nonce; warning nếu thiếu Version/Issued At
       if (!hasPrefix || !hasChainId || !noJsonError || lineCount < 4 || !nonceMatch || nonceMatch[1] !== nonce) {
         throw new Error('Malformed SIWE message from SDK – missing core fields');
       }
@@ -686,7 +666,6 @@ export default function Dashboard() {
 
       console.log('Validated SIWE OK (raw), proceeding to signIn');
 
-      // Sign in via NextAuth với raw message
       const res = await signIn('credentials', {
         message,  // Raw
         signature,
@@ -822,14 +801,14 @@ export default function Dashboard() {
                             height={20}
                             className="w-5 h-5 object-contain"
                           />
-                          <MatrixHoverEffect text="Sign in with Google" />
+                          <MatrixHoverEffect text="Google" />
                         </button>
                       )}
                     </>
                   )}
                   <button
                     onClick={() => setBaseModalOpen(true)}
-                    className="w-full px-5 py-3 bg-black/20 border border-white/25 rounded-2xl text-white text-sm font-semibold uppercase flex items-center justify-center gap-3 transition-all duration-300 hover:bg-gray-800/30 hover:border-white/40"
+                    className="m-2 w-full px-5 py-3 bg-black/20 border border-white/25 rounded-2xl text-white text-sm font-semibold uppercase flex items-center justify-center gap-3 transition-all duration-300 hover:bg-gray-800/30 hover:border-white/40"
                   >
                     <Image
                       src="/logos/base.webp"
@@ -838,7 +817,7 @@ export default function Dashboard() {
                       height={20}
                       className="w-5 h-5 object-contain"
                     />
-                    <MatrixHoverEffect text="Sign in with Base" />
+                    <MatrixHoverEffect text="Base App" />
                   </button>
                   {error && (
                     <motion.div
@@ -971,7 +950,7 @@ export default function Dashboard() {
               onClick={(e) => e.stopPropagation()}
             >
               <div className="sticky top-0 z-10 backdrop-blur-lg border-b border-white/20 p-4 flex justify-between items-center">
-                <h2 className="text-xl font-bold text-white uppercase">Sign In with Base</h2>
+                <h2 className="text-xl font-bold text-white uppercase">Sign In with Base App</h2>
                 <button
                   onClick={() => setBaseModalOpen(false)}
                   className="text-white text-xl font-bold hover:text-neon-blue transition-all duration-300"

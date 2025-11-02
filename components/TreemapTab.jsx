@@ -392,6 +392,7 @@ const TrendChart = memo(({ transactions, velocity }) => {
       .sort((a, b) => new Date(a.time) - new Date(b.time));
   }, [transactions, getTimeInterval]);
   if (chartData.length === 0) return null;
+
   return (
     <motion.div
       initial={{ opacity: 0, scale: 0.95 }}
@@ -633,8 +634,8 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
       );
       // Enforce max nodes for scalability
       const limitedNodes = newNodes.slice(0, MAX_NODES);
-      const limitedEdges = newEdges.filter(e => 
-        limitedNodes.some(n => n.data.id === e.data.source) && 
+      const limitedEdges = newEdges.filter(e =>
+        limitedNodes.some(n => n.data.id === e.data.source) &&
         limitedNodes.some(n => n.data.id === e.data.target)
       );
       setNodes(limitedNodes);
@@ -1696,22 +1697,22 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
                 strokeLinecap="round"
                 strokeLinejoin="round"
                 strokeWidth={2}
-                d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
+                d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"
               />
             </svg>
           </div>
-          <h3 className="text-white text-lg sm:text-xl font-bold mb-4">Truy cập từ thiết bị di động</h3>
+          <h3 className="text-white text-lg sm:text-xl font-bold mb-4">Access from mobile device</h3>
           <p className="text-white/70 mb-6 text-sm sm:text-base">
-            Tab này hoạt động tốt hơn trên trình duyệt PC. Chúng tôi khuyến nghị bạn truy cập bằng máy tính để có trải nghiệm tốt nhất.
+            This tab works better on a PC browser. We recommend accessing it on a computer for the best experience.
           </p>
           {/* <motion.button
-            onClick={() => setShowMobileWarning(false)}
-            className="w-full bg-neon-blue/80 hover:bg-neon-blue text-white font-medium py-2 px-4 rounded-lg transition-all duration-300"
-            whileHover={{ scale: 1.05 }}
-            whileTap={{ scale: 0.95 }}
-          >
-            Tiếp tục trên di động
-          </motion.button> */}
+    onClick={() => setShowMobileWarning(false)}
+    className="w-full bg-neon-blue/80 hover:bg-neon-blue text-white font-medium py-2 px-4 rounded-lg transition-all duration-300"
+    whileHover={{ scale: 1.05 }}
+    whileTap={{ scale: 0.95 }}
+  >
+    Continue on mobile
+  </motion.button> */}
         </motion.div>
       </motion.div>
     );

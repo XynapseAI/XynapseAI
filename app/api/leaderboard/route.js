@@ -120,7 +120,7 @@ async function isAllowedOrigin(origin, referer, pathname) {
   }
 }
 
-// Di chuyển checkRateLimit sau CSRF để fail không count
+// Move checkRateLimit after CSRF so that failures don't count
 async function checkRateLimit(ip) {
   const redisClient = await getRedisClient();
   const key = `rate_limit:leaderboard:${ip}`;
@@ -133,7 +133,7 @@ async function checkRateLimit(ip) {
   await redisClient.multi().incr(key).expire(key, windowMs / 1000).exec();
 }
 
-// Thêm functions cho double-submit CSRF (copy từ /api/user)
+// Add functions for double-submit CSRF (copied from /api/user)
 function parseCookies(request) {
   const raw = request.headers.get('cookie') || '';
   try {
@@ -181,14 +181,14 @@ async function checkDoubleSubmitCSRF(request, ip, userId) {
     return false;
   }
 
-  // FIX: Check lengths trước để tránh throw RangeError
+  // FIX: Check lengths first to avoid throwing RangeError
   if (headerToken.length !== cookieToken.length || cookieToken.length !== storedToken.length) {
     logger.warn('CSRF token length mismatch', {
       headerLength: headerToken.length,
       cookieLength: cookieToken.length,
       storedLength: storedToken.length,
     });
-    return false;  // Invalid, không throw
+    return false;  // Invalid, do not throw
   }
 
   const valid = crypto.timingSafeEqual(Buffer.from(headerToken), Buffer.from(cookieToken)) &&
@@ -247,7 +247,7 @@ export async function GET(request) {
     return NextResponse.json({ detail: 'Not authenticated' }, { status: 401, headers: corsHeaders });
   }
 
-  // Check CSRF trước rate limit
+  // Check CSRF before rate limit
   let newCsrfToken;
   if (!(await checkDoubleSubmitCSRF(request, ip, session.user.id))) {
     newCsrfToken = await generateCSRFToken();
@@ -260,7 +260,7 @@ export async function GET(request) {
     });
   }
 
-  // Bây giờ mới check rate limit (chỉ count valid request)
+  // Now check rate limit (only count valid requests)
   try {
     await checkRateLimit(ip);
   } catch (err) {
@@ -268,13 +268,13 @@ export async function GET(request) {
     return NextResponse.json({ detail: err.message }, { status: 429, headers: corsHeaders });
   }
 
-  // reCAPTCHA optional (chỉ check nếu gửi token)
+  // reCAPTCHA optional (only check if token is sent)
   if (process.env.NODE_ENV !== 'development') {
     const recaptchaToken = request.headers.get('x-recaptcha-token');
     if (recaptchaToken) {
       try {
         const { score } = await verifyRecaptchaWithRetry(recaptchaToken, 'get_leaderboard', ip);
-        if (score < 0.5) {  // Threshold thấp cho read
+        if (score < 0.5) {  // Low threshold for read operations
           return NextResponse.json({ detail: 'reCAPTCHA verification failed' }, { status: 403, headers: corsHeaders });
         }
       } catch (error) {
@@ -282,7 +282,7 @@ export async function GET(request) {
         return NextResponse.json({ detail: `reCAPTCHA verification failed: ${error.message}` }, { status: 403, headers: corsHeaders });
       }
     }
-    // Không gửi token → allow (như comment: Removed reCAPTCHA for faster load)
+    // No token sent → allow (as per comment: Removed reCAPTCHA for faster load)
   }
 
   try {

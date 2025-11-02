@@ -2,20 +2,19 @@
 import { randomBytes } from "crypto";
 import GoogleProvider from "@auth/core/providers/google";
 import EmailProvider from "@auth/core/providers/email";
-import CredentialsProvider from "@auth/core/providers/credentials"; // Thêm cho Base SIWE
+import CredentialsProvider from "@auth/core/providers/credentials"; 
 import { createTransport } from "nodemailer";
 import { v4 as uuidv4 } from "uuid";
 import { query } from "@/utils/postgres";
 import { logger } from "@/utils/serverLogger";
 import crypto from 'crypto';
 import util from 'util';
-import { createPublicClient, http } from 'viem'; // Giữ recoverMessageAddress nếu cần EOA
+import { createPublicClient, http } from 'viem'; 
 import { base } from 'viem/chains'; // Base chain
 import { getRedisClient } from '@/utils/redis';
 
 const scrypt = util.promisify(crypto.scrypt);
 
-// Hàm hashApiKey (giữ nguyên)
 async function hashApiKey(apiKey) {
   const salt = crypto.randomBytes(16).toString('hex');
   const derived = await scrypt(apiKey, salt, 64);
@@ -25,10 +24,9 @@ async function hashApiKey(apiKey) {
   };
 }
 
-// Verify SIWE cho Base login
 const publicClient = createPublicClient({
   chain: base,
-  transport: http('https://mainnet.base.org') // Sử dụng RPC chính thức của Base
+  transport: http('https://mainnet.base.org')
 });
 
 // Verify SIWE cho Base login (tolerant: regex nonce + viem verifyMessage theo Base docs)
@@ -68,7 +66,6 @@ async function verifySiwe(credentials) {
       throw new Error('Invalid chain: expected 8453');
     }
 
-    // 3. Extract Domain (bỏ qua check ở dev)
     const domainMatch = message.match(/^([a-zA-Z0-9.-]+):?\d*\s+wants you to sign in/i);
     const extractedDomain = domainMatch ? domainMatch[1] : null;
     logger.info('Extracted domain from message:', { domain: extractedDomain || 'N/A' });
@@ -89,14 +86,12 @@ async function verifySiwe(credentials) {
     const extractedAddress = addressMatch[1].toLowerCase();
     logger.info('Extracted address from message:', { address: extractedAddress });
 
-    // Lenient check cho required fields (EIP-4361), log warning nếu thiếu
     const hasVersion = message.includes('Version: 1');
     const hasIssuedAt = message.includes('Issued At:');
     if (!hasVersion || !hasIssuedAt) {
       logger.warn('SIWE message missing required fields (Version/Issued At) – verifying anyway');
     }
 
-    // 5. Validate Nonce từ Redis
     const client = await getRedisClient();
     const nonceKey = `siwe:nonce:${extractedNonce}`;
     logger.info('Redis nonce lookup attempt:', { nonceKey });
@@ -144,7 +139,6 @@ async function verifySiwe(credentials) {
       });
       logger.info('Viem verifyMessage result:', { valid, expectedAddress: extractedAddress, messageLength: message.length });
     } catch (viemError) {
-      // Log lỗi chi tiết nếu viem throw
       logger.error('Viem verifyMessage detailed error:', {
         error: viemError.message,
         shortMessage: viemError.shortMessage,
@@ -154,7 +148,6 @@ async function verifySiwe(credentials) {
     }
 
     if (!valid) {
-      // Lỗi này có nghĩa là viem đã chạy và trả về false
       logger.error('Viem verifyMessage returned false', {
         messagePreview: message.substring(0, 200),
         sigLength: sig.length,
@@ -172,11 +165,11 @@ async function verifySiwe(credentials) {
       error: error.message,
       stack: error.stack ? error.stack.substring(0, 200) : 'no stack'
     });
-    throw error;  // Re-throw để authorize return null
+    throw error; 
   }
 }
 
-// ================== Email Transporter (giữ nguyên) ==================
+// ================== Email Transporter ==================
 const transporter = createTransport({
   host: process.env.EMAIL_SERVER_HOST,
   port: process.env.EMAIL_SERVER_PORT,
@@ -186,7 +179,7 @@ const transporter = createTransport({
   },
 });
 
-// ================== Custom Adapter (giữ nguyên, nhưng thêm wallet_address) ==================
+// ================== Custom Adapter ==================
 const customAdapter = {
   async getUserByEmail(email) {
     logger.info("Fetching user by email", { email });
@@ -209,7 +202,7 @@ const customAdapter = {
     );
     return rows[0] ? { ...rows[0], id: rows[0].id.toString() } : null;
   },
-  async getUserByWallet(address) { // Thêm cho Base
+  async getUserByWallet(address) {
     const { rows } = await query(
       `SELECT * FROM users WHERE wallet_address=$1`,
       [address]
@@ -217,7 +210,7 @@ const customAdapter = {
     return rows[0] ? { ...rows[0], id: rows[0].id.toString() } : null;
   },
   async createUser(data) {
-    const id = data.wallet_address || data.google_id || data.id || uuidv4(); // Ưu tiên wallet_address
+    const id = data.wallet_address || data.google_id || data.id || uuidv4();
     logger.info("Creating user", { id, email: data.email, wallet: data.wallet_address });
 
     if (!data.email && !data.wallet_address) {
@@ -358,7 +351,6 @@ export const authOptions = {
         });
       },
     }),
-    // Thêm Credentials cho Base SIWE
     CredentialsProvider({
       name: 'base',
       credentials: {
@@ -368,7 +360,6 @@ export const authOptions = {
       async authorize(credentials) {
         try {
           const { address } = await verifySiwe(credentials);
-          // Tìm hoặc tạo user bằng address
           let user = await customAdapter.getUserByWallet(address);
           if (!user) {
             const fallbackEmail = `${address.toLowerCase()}@base.xynapseai.net`;
@@ -377,7 +368,6 @@ export const authOptions = {
               email: fallbackEmail,
               email_verified: true,  // Verified qua SIWE signature
             });
-            // Tạo account record
             await query(
               `INSERT INTO accounts (userId, type, provider, providerAccountId) VALUES ($1, $2, $3, $4)`,
               [user.id, 'credentials', 'base', address]
@@ -389,7 +379,7 @@ export const authOptions = {
           logger.info('Base Account login successful', { address: user.wallet_address, email: user.email });
           return {
             id: user.id || address,
-            email: user.email,  // Bây giờ user.email đã có fallback từ DB
+            email: user.email, 
             name: user.google_name || `Base User ${address.slice(0, 6)}`,
             wallet_address: address,
           };
@@ -413,7 +403,6 @@ export const authOptions = {
         }
 
         if (account.provider === "google") {
-          // Giữ nguyên logic Google
           email = profile.email || user.email || "";
           if (!email) {
             logger.error("Google sign-in failed: No email in profile", { providerAccountId: profile.sub });
@@ -470,7 +459,6 @@ export const authOptions = {
           logger.info("Sign-in successful", { userId, email });
           return true;
         } else if (account.provider === "email") {
-          // Giữ nguyên logic email
           email = user.email || account.user?.email || "";
           if (!email) {
             logger.error("Email sign-in failed: No email provided", { token: account.token });
@@ -520,7 +508,6 @@ export const authOptions = {
             return true;
           }
         } else if (account.provider === "credentials") { // Base login
-          // Đã handle ở authorize, chỉ confirm
           logger.info("Base sign-in successful", { wallet: user.wallet_address });
           return true;
         }
@@ -540,7 +527,7 @@ export const authOptions = {
         token.expiresAt = Date.now() + 2 * 60 * 60 * 1000; // 2 hours
         token.email = user.email || token.email || account.user?.email;
         token.googleName = user.name || profile?.name || "";
-        token.walletAddress = user.wallet_address; // Thêm wallet vào token
+        token.walletAddress = user.wallet_address; 
         token.csrfToken = token.csrfToken || randomBytes(32).toString("hex");
       }
       if (Date.now() > token.expiresAt) {
@@ -562,7 +549,7 @@ export const authOptions = {
       session.user.id = token.id;
       session.user.email = token.email;
       session.user.googleName = token.googleName;
-      session.user.walletAddress = token.walletAddress; // Thêm wallet vào session
+      session.user.walletAddress = token.walletAddress;
       session.user.isPremium = token.isPremium || false;
       session.csrfToken = token.csrfToken;
       logger.info("Session created", { session: JSON.stringify(session) });
@@ -579,7 +566,7 @@ export const authOptions = {
       sessionToken: {
         name: 'next-auth.session-token',
         options: {
-          httpOnly: false,  // FIX: false cho Mini App compatibility
+          httpOnly: false,  
           sameSite: 'none',  // CHANGED: 'none' to allow cross-site (iframe) requests
           path: '/',
           secure: true,
@@ -599,11 +586,11 @@ export const authOptions = {
       csrfToken: {
         name: 'next-auth.csrf-token',
         options: {
-          httpOnly: false,  // Giữ false cho client read
-          sameSite: 'none',  // Cho cross-site/iframe
+          httpOnly: false,  
+          sameSite: 'none', 
           path: '/',
           secure: true,
-          domain: process.env.COOKIE_DOMAIN || '.xynapseai.net',  // Env var linh hoạt
+          domain: process.env.COOKIE_DOMAIN || '.xynapseai.net', 
         },
       },
     },

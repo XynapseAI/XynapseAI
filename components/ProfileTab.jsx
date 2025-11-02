@@ -7,7 +7,7 @@ import axios from 'axios';
 import { useSession, signOut } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
-import { Trophy, Award, Flame, User, Crown, Calendar, Info, Check, Coins, Shield, Users, Eye, EyeOff, RefreshCw, Copy, Wallet } from 'lucide-react'; // Thêm Copy, Wallet icons
+import { Trophy, Award, Flame, User, Crown, Calendar, Info, Check, Coins, Shield, Users, Eye, EyeOff, RefreshCw, Copy, Wallet } from 'lucide-react'; // Add Copy, Wallet icons
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceDot } from 'recharts';
 import { ethers } from 'ethers';
 import { ToastContainer, toast } from 'react-toastify';
@@ -18,9 +18,7 @@ import { debounce } from 'lodash';
 import LoginPrompt from './LoginPrompt';
 import ReCAPTCHA from 'react-google-recaptcha';
 import { logger } from '../utils/clientLogger';
-
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:3000/api';
-
 // Enhanced Spinner component - Accepts className and color props for flexibility
 const Spinner = ({ className = "h-4 w-4", color = "text-blue-400" }) => (
   <svg className={`animate-spin ${className} ${color}`} xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
@@ -28,7 +26,6 @@ const Spinner = ({ className = "h-4 w-4", color = "text-blue-400" }) => (
     <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
   </svg>
 );
-
 // Blinking Dots component for loading states
 const BlinkingDots = () => (
   <div className="flex items-center gap-0.5">
@@ -37,18 +34,15 @@ const BlinkingDots = () => (
     <span className="w-1 h-1 bg-blue-400 rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></span>
   </div>
 );
-
 // Daily Check-in Bar Component - Updated to disable if not twitterConnected
 const DailyCheckinBar = ({ last7Days, streak, onCheckin, isLoading, userData, twitterConnected }) => {
   const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
   const todayIndex = new Date().getDay();
   const [tooltipVisible, setTooltipVisible] = useState(false);
-
   const getDayIndex = (index) => {
     const daysBack = 6 - index;
     return (todayIndex - daysBack + 7) % 7;
   };
-
   const isTodayChecked = last7Days[last7Days.length - 1];
   const handleCheckinClick = () => {
     if (!twitterConnected) {
@@ -57,7 +51,6 @@ const DailyCheckinBar = ({ last7Days, streak, onCheckin, isLoading, userData, tw
     }
     onCheckin();
   };
-
   return (
     <div className="relative w-full bg-gradient-to-br from-black/80 to-gray-900/80 border border-white/15 rounded-xl p-3 mb-2 shadow-lg shadow-black/20">
       <div className="relative z-20 flex justify-between items-center mb-3">
@@ -73,7 +66,7 @@ const DailyCheckinBar = ({ last7Days, streak, onCheckin, isLoading, userData, tw
           />
           {tooltipVisible && (
             <div className="absolute top-full right-0 mt-1 p-2 bg-gradient-to-br from-black/95 to-gray-900/95 border border-white/20 rounded-lg text-[10px] sm:text-[11px] text-gray-500 z-50 w-48 shadow-lg">
-              Maintain a 7-day streak to earn double points (20 pts/day) và unlock exclusive rewards! Breaking the streak resets to normal (10 pts).
+              Maintain a 7-day streak to earn double points (20 pts/day) and unlock exclusive rewards! Breaking the streak resets to normal (10 pts).
             </div>
           )}
         </div>
@@ -129,7 +122,6 @@ const DailyCheckinBar = ({ last7Days, streak, onCheckin, isLoading, userData, tw
     </div>
   );
 };
-
 const CustomTooltip = ({ active, payload, label }) => {
   if (active && payload && payload.length) {
     return (
@@ -148,7 +140,6 @@ const CustomTooltip = ({ active, payload, label }) => {
   }
   return null;
 };
-
 export default function ProfileTab({ recaptchaRef, handleSignOut }) {
   const { data: session, status } = useSession();
   const queryClient = useQueryClient();
@@ -162,10 +153,9 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
   const [showEmail, setShowEmail] = useState(false);
   const [showV2Modal, setShowV2Modal] = useState(false);
   const [pendingTask, setPendingTask] = useState(null);
-  const [showWallet, setShowWallet] = useState(false); // Thêm state cho wallet display
+  const [showWallet, setShowWallet] = useState(false); // Add state for wallet display
   const recaptchaV2Ref = useRef(null);
   const itemsPerPage = 10;
-
   const { data: csrfToken, isLoading: csrfLoading, error: csrfError } = useQuery({
     queryKey: ['csrfToken'],
     queryFn: async () => {
@@ -186,7 +176,6 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
       });
     },
   });
-
   useEffect(() => {
     if (process.env.NODE_ENV === 'production') {
       console.log = () => { };
@@ -194,20 +183,17 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
       console.warn = () => { };
     }
   }, []);
-
   useEffect(() => {
     const handleResize = () => setIsMobile(window.innerWidth <= 640);
     window.addEventListener('resize', handleResize);
     handleResize();
     return () => window.addEventListener('resize', handleResize);
   }, []);
-
   const onSignOut = async () => {
     setIsSigningOut(true);
     await handleSignOut();
     setIsSigningOut(false);
   };
-
   const handleFollow = (taskId) => {
     const followUrl = `https://x.com/intent/follow?screen_name=XynapseAI`;
     window.open(followUrl, '_blank');
@@ -217,7 +203,6 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
       autoClose: 6000
     });
   };
-
   let isExecuting = false;
   const debouncedExecuteRecaptcha = useCallback(
     async (action, retries = 3) => {
@@ -249,7 +234,6 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
     },
     [recaptchaRef]
   );
-
   const verifyTaskMutation = useMutation({
     mutationFn: async ({ task, v2Token }) => {
       if (task.task_type === 'follow') {
@@ -324,7 +308,6 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
       toast.error(errorMessage, { position: 'top-center', autoClose: 6000 });
     },
   });
-
   // v2 fallback handler
   const handleV2Change = useCallback((token) => {
     if (token && pendingTask) {
@@ -341,7 +324,6 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
       setShowV2Modal(false);
     }
   }, [pendingTask, verifyTaskMutation]);
-
   const createChargeMutation = useMutation({
     mutationFn: async () => {
       if (!session?.user?.id) throw new Error('Not authenticated');
@@ -384,7 +366,6 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
       toast.error(errorMessage, { position: 'top-center', autoClose: 6000 });
     },
   });
-
   const { data: userData, isLoading: userLoading, error: userError } = useQuery({
     queryKey: ['userData', session?.user?.id, csrfToken],
     queryFn: async () => {
@@ -412,7 +393,7 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
           twitterHandle: response.data.user.twitterHandle || null,
           profilePicture: response.data.user.profilePicture || '',
           googleName: response.data.user.googleName || '',
-          walletAddress: response.data.user.walletAddress || null, // Đảm bảo có wallet từ API
+          walletAddress: response.data.user.walletAddress || null, // Ensure wallet from API
           daysActive: response.data.user.daysActive || 0,
           streak: response.data.user.streak || 0,
           last7Days: response.data.user.last7Days || [],
@@ -451,7 +432,6 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
       toast.error(errorMessage, { position: 'top-center', autoClose: 6000 });
     },
   });
-
   useEffect(() => {
     if (userData?.twitterHandle && !userData?.profilePicture.includes('pbs.twimg.com') && status === 'authenticated') {
       logger.warn('Twitter handle present but profile picture is not from Twitter, triggering refetch');
@@ -462,14 +442,12 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
       });
     }
   }, [userData, session, csrfToken, queryClient, status]);
-
   const handleCopyWallet = async () => {
     if (userData?.walletAddress) {
       await navigator.clipboard.writeText(userData.walletAddress);
       toast.success('Wallet address copied!', { position: 'top-center', autoClose: 2000 });
     }
   };
-
   const email = userData?.email || '';
   const isBaseAccount = email.includes('@base.xynapseai.net');
   const displayInfo = isBaseAccount ? (userData?.walletAddress || '') : email;
@@ -477,7 +455,6 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
     ? `${userData?.walletAddress?.slice(0, 6) || ''}...${userData?.walletAddress?.slice(-4) || ''}`
     : (email ? email.replace(/./g, '*') : '********');
   const fullInfo = displayInfo;
-
   const renderWalletSection = () => {
     if (!userData?.walletAddress) return null;
     return (
@@ -515,7 +492,6 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
       </div>
     );
   };
-
   // Fetch Tasks - No reCAPTCHA for faster load
   const { data: tasks, isLoading: tasksLoading, error: tasksError } = useQuery({
     queryKey: ['tasks', session?.user?.id, csrfToken],
@@ -556,7 +532,7 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
     enabled: status === 'authenticated' && !!session?.user?.id && !!csrfToken,
     staleTime: 10 * 60 * 1000,
   });
-  
+
   // Fetch Leaderboard - Removed Authorization header to fix 403 for Email login, increased stale time
   const { data: rankings, isLoading: leaderboardLoading, error: leaderboardError } = useQuery({
     queryKey: ['leaderboard', session?.user?.id, csrfToken],
@@ -725,7 +701,6 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
     debounce(() => handleSignOut(), 1000, { leading: true, trailing: false }),
     [handleSignOut]
   );
-
   // Handle Daily Check-in - Updated to pass {task}
   const handleDailyCheckin = () => {
     setImmediateLoading(true);
@@ -1016,7 +991,6 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
     ),
     [tasks, tasksLoading, taskProgressLoading, tasksError, taskProgress, verifyTaskMutation, userData, isMobile, currentPage, getPaginatedData, getTotalPages, handlePageChange, followedTasks, immediateLoading, handleVerifyTask]
   );
-
   // Render Leaderboard Section
   const renderLeaderboardSection = useCallback(
     () => (

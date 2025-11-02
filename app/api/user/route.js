@@ -119,7 +119,7 @@ async function isAllowedOrigin(origin, referer, pathname, ip) {
     'https://www.xynapseai.net',
     'https://xynapse-ai-xynapse-projects.vercel.app',
     'https://xynapse-ai.vercel.app',
-    'https://base.xynapseai.net', // Thêm cho Base mini app
+    'https://base.xynapseai.net', // Add for Base mini app
   ].filter(Boolean);
 
   if (process.env.NODE_ENV !== 'production') {
@@ -289,7 +289,7 @@ const postSchema = z.object({
   googleId: z.string().max(100).optional(),
   googleName: z.string().max(255).optional(),
   emailVerified: z.boolean().optional(),
-  walletAddress: z.string().optional(), // Thêm cho Base
+  walletAddress: z.string().optional(), // Add for Base
 });
 
 async function computeStreak(userId) {
@@ -419,7 +419,7 @@ export async function GET(request) {
     if (recaptchaToken && process.env.NODE_ENV !== 'development') {
       try {
         const recaptchaResponse = await verifyRecaptcha(recaptchaToken, 'get_user', ip);
-        if (!recaptchaResponse.success || (recaptchaResponse.score !== undefined && recaptchaResponse.score < 0.9)) {
+        if (!recaptchaResponse.success || (recaptchaResponse.score !== undefined && recaptchaResponse.score < 0.4)) {
           newCsrfToken = newCsrfToken || await setCSRFToken(ip, userId);
           return NextResponse.json({ detail: 'reCAPTCHA verification failed' }, { status: 403, headers: securityHeaders(newCsrfToken) });
         }
@@ -433,7 +433,7 @@ export async function GET(request) {
     }
 
     try {
-      // Cache key ưu tiên wallet_address nếu có
+      // Cache key prioritizes wallet_address if available
       const walletAddress = session.user.walletAddress;
       const cacheKey = walletAddress ? `user:${walletAddress}` : `user:${uid}`;
       const client = await getRedisClient();
@@ -454,7 +454,7 @@ export async function GET(request) {
             profile_picture: true,
             google_name: true,
             email_verified: true,
-            wallet_address: true, // Đảm bảo select wallet
+            wallet_address: true, // Ensure select wallet
             points: true,
             tweet_points: true,
             ai_points: true,
@@ -491,7 +491,7 @@ export async function GET(request) {
           googleId: user.google_id || null,
           profilePicture: user.twitter_handles?.[0]?.profile_picture || user.profile_picture || '',
           googleName: user.google_name || '',
-          walletAddress: user.wallet_address || null, // Thêm rõ ràng
+          walletAddress: user.wallet_address || null, // Add explicitly
           emailVerified: user.email_verified || false,
           points: Number(user.points || 0),
           tweetPoints: Number(user.tweet_points || 0),
@@ -628,7 +628,7 @@ export async function POST(request) {
         profile_picture: profilePicture || '',
         google_name: googleName || '',
         email_verified: emailVerified || false,
-        wallet_address: walletAddress || null, // Merge wallet nếu có
+        wallet_address: walletAddress || null, 
         connected: true,
         last_connected: new Date(),
         points: 0,
@@ -670,7 +670,7 @@ export async function POST(request) {
       try {
         const client = await getRedisClient();
         const cacheKey = updatedUser.wallet_address ? `user:${updatedUser.wallet_address}` : `user:${id}`;
-        await client.del(cacheKey); // Clear cache với key phù hợp
+        await client.del(cacheKey); 
       } catch (err) {
         if (process.env.NODE_ENV !== 'production') {
           logger.warn('Failed to clear cache for user', { id: mask(id), err: err?.message });
@@ -687,7 +687,7 @@ export async function POST(request) {
             email: updatedUser.email,
             profile_picture: updatedUser.profile_picture,
             google_name: updatedUser.google_name,
-            wallet_address: updatedUser.wallet_address, // Thêm vào response
+            wallet_address: updatedUser.wallet_address, 
             email_verified: updatedUser.email_verified,
           }),
         },

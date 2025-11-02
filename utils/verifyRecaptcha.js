@@ -64,7 +64,7 @@ export async function verifyRecaptcha(token, action, ip) {
     let verified = true;
     let needsFallback = false;
     if (isV3) {
-      const minScore = parseFloat(process.env.RECAPTCHA_MIN_SCORE || '0.9');
+      const minScore = parseFloat(process.env.RECAPTCHA_MIN_SCORE || '0.4');
       if (score < minScore) {
         verified = false;
         needsFallback = true;
