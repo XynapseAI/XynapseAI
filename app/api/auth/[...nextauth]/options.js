@@ -1,3 +1,4 @@
+// app/api/auth/[...nextauth]/options.js
 import { randomBytes } from "crypto";
 import GoogleProvider from "@auth/core/providers/google";
 import EmailProvider from "@auth/core/providers/email";
@@ -11,7 +12,6 @@ import util from 'util';
 import { createPublicClient, http } from 'viem'; 
 import { base } from 'viem/chains'; // Base chain
 import { getRedisClient } from '@/utils/redis';
-import { SiweMessage } from 'siwe'; // NEW: Thư viện chuẩn cho SIWE
 
 const scrypt = util.promisify(crypto.scrypt);
 
@@ -29,14 +29,15 @@ const publicClient = createPublicClient({
   transport: http('https://mainnet.base.org')
 });
 
-// UPDATED: Verify SIWE sử dụng siwe library (chuẩn EIP-4361, chống injection/replay)
+// Verify SIWE cho Base login (tolerant: regex nonce + viem verifyMessage theo Base docs)
 async function verifySiwe(credentials) {
   try {
     const { message, signature } = credentials;
 
-    // Sanitize log: Không log full message/signature
-    logger.info('SIWE verification started', {
-      messageLength: message.length,
+    logger.info('Full SIWE input to verify:', {
+      message: typeof message === 'string' ? message.substring(0, 300) + (message.length > 300 ? '...' : '') : message,
+      fullMessageLength: message.length,
+      signaturePreview: typeof signature === 'string' ? signature.substring(0, 50) + '...' : signature,
       signatureLength: typeof signature === 'string' ? signature.length : 'N/A'
     });
 
@@ -44,48 +45,31 @@ async function verifySiwe(credentials) {
       throw new Error('Message and signature must be strings');
     }
 
-    // Ensure signature is 0x-prefixed
+    // Ensure signature is 0x-prefixed (common issue with some SDKs)
     let sig = signature;
     if (!sig.startsWith('0x')) {
       sig = '0x' + sig;
       logger.info('Added 0x prefix to signature');
     }
 
-    // NEW: Parse và validate bằng SiweMessage (enforce Version, Issued At, URI, etc.)
-    let siweMessage;
-    try {
-      siweMessage = new SiweMessage(message);
-      await siweMessage.validate(sig); // Validate signature ngay (bao gồm address recovery)
-    } catch (parseErr) {
-      logger.error('SIWE parse/validate failed', { error: parseErr.message });
-      throw new Error(`Invalid SIWE message: ${parseErr.message}`);
+    // 1. Extract Nonce
+    const nonceMatch = message.match(/Nonce:\s*([a-f0-9]{32})/i);
+    if (!nonceMatch) {
+      logger.error('Nonce not found in message via regex', { messagePreview: message.substring(0, 200) });
+      throw new Error('Invalid SIWE message: missing nonce');
+    }
+    const extractedNonce = nonceMatch[1];
+    logger.info('Extracted nonce from message:', { nonce: extractedNonce });
+
+    // 2. Extract Chain ID
+    if (!message.includes('Chain ID: 8453')) {
+      throw new Error('Invalid chain: expected 8453');
     }
 
-    const { address: extractedAddress, nonce: extractedNonce, chainId, uri, version, issuedAt } = siweMessage;
+    const domainMatch = message.match(/^([a-zA-Z0-9.-]+):?\d*\s+wants you to sign in/i);
+    const extractedDomain = domainMatch ? domainMatch[1] : null;
+    logger.info('Extracted domain from message:', { domain: extractedDomain || 'N/A' });
 
-    logger.info('SIWE parsed successfully', { 
-      address: extractedAddress, 
-      nonce: extractedNonce.substring(0, 8) + '...', // Sanitize
-      chainId, 
-      version 
-    });
-
-    // Enforce required fields (theo spec)
-    if (version !== '1') {
-      throw new Error('Invalid SIWE version: must be 1');
-    }
-    if (!issuedAt) {
-      throw new Error('Missing Issued At: message must be fresh');
-    }
-    if (chainId !== 8453) {
-      throw new Error('Invalid chain: expected 8453 (Base)');
-    }
-    if (!uri.startsWith('http')) {
-      throw new Error('Invalid URI in SIWE message');
-    }
-
-    // Domain check (extract từ URI)
-    const extractedDomain = new URL(uri).hostname;
     if (process.env.NODE_ENV !== 'development') {
       const expectedDomain = process.env.APP_DOMAIN || 'xynapseai.net';
       if (extractedDomain !== expectedDomain) {
@@ -93,10 +77,27 @@ async function verifySiwe(credentials) {
       }
     }
 
-    // Nonce check với Redis (giữ nguyên, nhưng atomic del sau verify)
+    // 4. Extract Address
+    const addressMatch = message.match(/Ethereum account:\s*(0x[0-9a-fA-F]{40})/i);
+    if (!addressMatch) {
+      logger.error('Address not found in message', { messagePreview: message.substring(0, 200) });
+      throw new Error('Invalid SIWE message: missing address');
+    }
+    const extractedAddress = addressMatch[1].toLowerCase();
+    logger.info('Extracted address from message:', { address: extractedAddress });
+
+    const hasVersion = message.includes('Version: 1');
+    const hasIssuedAt = message.includes('Issued At:');
+    if (!hasVersion || !hasIssuedAt) {
+      logger.warn('SIWE message missing required fields (Version/Issued At) – verifying anyway');
+    }
+
     const client = await getRedisClient();
     const nonceKey = `siwe:nonce:${extractedNonce}`;
+    logger.info('Redis nonce lookup attempt:', { nonceKey });
+
     const storedData = await client.get(nonceKey);
+    logger.info('Redis nonce lookup result:', { hasData: !!storedData });
 
     if (!storedData) {
       throw new Error(`Nonce not found in Redis or already used`);
@@ -106,43 +107,69 @@ async function verifySiwe(credentials) {
     try {
       parsedStored = JSON.parse(storedData);
     } catch (parseErr) {
-      logger.error('JSON parse error on stored data', { error: parseErr.message });
+      logger.error('JSON parse error on stored data:', { error: parseErr.message, rawData: storedData });
       throw new Error(`Invalid stored nonce data: ${parseErr.message}`);
     }
 
     const { expires } = parsedStored;
     const now = Date.now();
     const expiresDate = new Date(expires);
-    if (now > expiresDate.getTime()) {
+    const nowDate = new Date(now);
+    const isExpired = nowDate > expiresDate;
+    logger.info('Nonce expiration check:', { isExpired });
+
+    if (isExpired) {
       await client.del(nonceKey); // Cleanup expired
       throw new Error(`Nonce expired`);
     }
 
-    // Consume nonce atomic (del sau verify thành công)
+    // 6. Consume Nonce
     await client.del(nonceKey);
-    logger.info('Nonce consumed successfully');
+    logger.info('Nonce consumed (deleted from Redis)');
 
-    // viem verifyMessage (redundant nhưng giữ để double-check ERC-6492)
-    const valid = await publicClient.verifyMessage({
-      address: extractedAddress,
-      message,
-      signature: sig,
-    });
+    logger.info('Nonce validated, proceeding to signature verify');
+
+    // 7. Verify Signature (use viem native – handles ERC-6492 automatically for pre-deploy)
+    let valid;
+    try {
+      valid = await publicClient.verifyMessage({
+        address: extractedAddress,
+        message,
+        signature: sig,
+      });
+      logger.info('Viem verifyMessage result:', { valid, expectedAddress: extractedAddress, messageLength: message.length });
+    } catch (viemError) {
+      logger.error('Viem verifyMessage detailed error:', {
+        error: viemError.message,
+        shortMessage: viemError.shortMessage,
+        cause: viemError.cause?.message || 'unknown',
+      });
+      throw new Error(`Signature verification failed: ${viemError.message}`);
+    }
 
     if (!valid) {
-      throw new Error('Signature verification failed');
+      logger.error('Viem verifyMessage returned false', {
+        messagePreview: message.substring(0, 200),
+        sigLength: sig.length,
+        hasVersion,
+        hasIssuedAt
+      });
+      throw new Error('Invalid signature (Viem verifyMessage returned false)');
     }
 
     logger.info('SIWE verified for Base Account', { address: extractedAddress });
     return { address: extractedAddress, message, signature };
 
   } catch (error) {
-    logger.error('SIWE verification failed', { error: error.message });
+    logger.error('SIWE verification failed details:', {
+      error: error.message,
+      stack: error.stack ? error.stack.substring(0, 200) : 'no stack'
+    });
     throw error; 
   }
 }
 
-// ================== Email Transporter ================== (Giữ nguyên)
+// ================== Email Transporter ==================
 const transporter = createTransport({
   host: process.env.EMAIL_SERVER_HOST,
   port: process.env.EMAIL_SERVER_PORT,
@@ -152,7 +179,7 @@ const transporter = createTransport({
   },
 });
 
-// ================== Custom Adapter ================== (Updated: Fallback email = null)
+// ================== Custom Adapter ==================
 const customAdapter = {
   async getUserByEmail(email) {
     logger.info("Fetching user by email", { email });
@@ -269,9 +296,9 @@ const customAdapter = {
 };
 
 const isProd = process.env.NODE_ENV === 'production';
-const cookieDomain = isProd ? '.xynapseai.net' : undefined;
+const cookieDomain = isProd ? '.xynapseai.net' : undefined;  // Dev: undefined (default localhost), Prod: share subdomain
 
-// UPDATED: Cookies httpOnly: true (an toàn hơn, NextAuth JWT không cần JS đọc trực tiếp)
+// ================== Auth Options ==================
 export const authOptions = {
   adapter: customAdapter,
   providers: [
@@ -335,11 +362,11 @@ export const authOptions = {
           const { address } = await verifySiwe(credentials);
           let user = await customAdapter.getUserByWallet(address);
           if (!user) {
-            // UPDATED: Fallback email = null (tránh conflict/spam)
+            const fallbackEmail = `${address.toLowerCase()}@base.xynapseai.net`;
             user = await customAdapter.createUser({
               wallet_address: address,
-              // email: null,  // Implicit qua || null ở query
-              email_verified: false,  // Không verified vì không có email thật
+              email: fallbackEmail,
+              email_verified: true,  // Verified qua SIWE signature
             });
             await query(
               `INSERT INTO accounts (userId, type, provider, providerAccountId) VALUES ($1, $2, $3, $4)`,
@@ -349,10 +376,10 @@ export const authOptions = {
             // Update last_connected
             await customAdapter.updateUser({ id: user.id, last_connected: new Date() });
           }
-          logger.info('Base Account login successful', { address: user.wallet_address });
+          logger.info('Base Account login successful', { address: user.wallet_address, email: user.email });
           return {
             id: user.id || address,
-            email: user.email || null, 
+            email: user.email, 
             name: user.google_name || `Base User ${address.slice(0, 6)}`,
             wallet_address: address,
           };
@@ -488,7 +515,7 @@ export const authOptions = {
         logger.error("Sign-in failed: Unsupported provider", { provider: account.provider });
         return false;
       } catch (err) {
-        logger.error("signIn error", { error: err.message });
+        logger.error("signIn error", { error: err.message, stack: err.stack });
         return false;
       }
     },
@@ -509,12 +536,13 @@ export const authOptions = {
         token.expiresAt = Date.now() + 2 * 60 * 60 * 1000;
         token.csrfToken = randomBytes(32).toString("hex");
       }
+      logger.info("JWT token", { token: JSON.stringify(token) });
       return token;
     },
     async session({ session, token }) {
       logger.info("Session callback", { userId: token.id });
       if (!token.id) {
-        logger.error("Token missing id");
+        logger.error("Token missing id", { token: JSON.stringify(token) });
         throw new Error("Invalid token: missing id");
       }
       session.user = session.user || {};
@@ -524,6 +552,7 @@ export const authOptions = {
       session.user.walletAddress = token.walletAddress;
       session.user.isPremium = token.isPremium || false;
       session.csrfToken = token.csrfToken;
+      logger.info("Session created", { session: JSON.stringify(session) });
       return session;
     },
     async redirect({ url, baseUrl }) {
@@ -537,8 +566,8 @@ export const authOptions = {
       sessionToken: {
         name: 'next-auth.session-token',
         options: {
-          httpOnly: true,  // UPDATED: true để chống XSS
-          sameSite: 'none',  // Giữ cho cross-site
+          httpOnly: false,  
+          sameSite: 'none',  // CHANGED: 'none' to allow cross-site (iframe) requests
           path: '/',
           secure: true,
           domain: cookieDomain,
@@ -547,8 +576,8 @@ export const authOptions = {
       callbackUrl: {
         name: 'next-auth.callback-url',
         options: {
-          httpOnly: true,  // UPDATED
-          sameSite: 'none',
+          httpOnly: false,
+          sameSite: 'none',  // CHANGED: 'none'
           path: '/',
           secure: true,
           domain: cookieDomain,
@@ -557,7 +586,7 @@ export const authOptions = {
       csrfToken: {
         name: 'next-auth.csrf-token',
         options: {
-          httpOnly: true,  // UPDATED
+          httpOnly: false,  
           sameSite: 'none', 
           path: '/',
           secure: true,
