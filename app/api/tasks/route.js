@@ -1,5 +1,4 @@
 // app/api/tasks/route.js
-// app\api\tasks\route.js
 import { NextResponse } from 'next/server';
 import { auth } from '@/lib/auth';
 import { logger } from '@/utils/serverLogger';
@@ -67,7 +66,7 @@ function parseCookies(request) {
 async function checkDoubleSubmitCSRF(request, ip, userId) {
   const headerToken = request.headers.get('x-csrf-token') || '';
   const cookies = parseCookies(request);
-  const cookieToken = cookies['next-auth.csrf-token'] || '';
+  const cookieToken = cookies['csrf_token'] || '';
 
   if (process.env.NODE_ENV !== 'production') {
     logger.info('Checking CSRF tokens', {
@@ -157,7 +156,7 @@ export async function GET(request) {
     return NextResponse.json({ detail: 'Invalid CSRF check. Please refresh.' }, { 
       status: 403, 
       headers: {
-        'Set-Cookie': cookie.serialize('next-auth.csrf-token', newCsrfToken, {
+        'Set-Cookie': cookie.serialize('csrf_token', newCsrfToken, {
           httpOnly: true,
           secure: process.env.NODE_ENV === 'production',
           sameSite: 'none',

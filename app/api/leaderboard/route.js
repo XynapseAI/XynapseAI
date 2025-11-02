@@ -1,12 +1,11 @@
 // app/api/leaderboard/route.js
-// app\api\leaderboard\route.js
 import { NextResponse } from 'next/server';
 import { auth } from '@/lib/auth';
 import { logger } from '@/utils/serverLogger';
 import { createClient } from 'redis';
 import { PrismaClient } from '@prisma/client';
 import { verifyRecaptcha } from '@/utils/verifyRecaptcha';
-import cookie from 'cookie';  // Thêm import này
+import cookie from 'cookie';
 import crypto from 'crypto';
 
 const prisma = new PrismaClient();
@@ -53,10 +52,10 @@ const securityHeadersBase = {
 function securityHeaders(csrfToken = null) {
   const headers = { ...securityHeadersBase };
   if (csrfToken) {
-    headers['Set-Cookie'] = cookie.serialize('next-auth.csrf-token', csrfToken, {
+    headers['Set-Cookie'] = cookie.serialize('csrf_token', csrfToken, {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
-      sameSite: 'none',  // For Base App cross-origin
+      sameSite: 'strict',
       maxAge: 15 * 60,
       path: '/',
     });
@@ -147,7 +146,7 @@ function parseCookies(request) {
 async function checkDoubleSubmitCSRF(request, ip, userId) {
   const headerToken = request.headers.get('x-csrf-token') || '';
   const cookies = parseCookies(request);
-  const cookieToken = cookies['next-auth.csrf-token'] || '';
+  const cookieToken = cookies['csrf_token'] || '';
 
   if (process.env.NODE_ENV !== 'production') {
     logger.info('Checking CSRF tokens', {
