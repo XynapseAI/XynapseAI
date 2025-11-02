@@ -1,4 +1,3 @@
-// app/api/auth/[...nextauth]/route.js
 import NextAuth from "next-auth";
 import { authOptions } from "./options";
 import Bottleneck from "bottleneck";
@@ -8,21 +7,19 @@ import { NextResponse } from "next/server";
 import { RateLimiterRedis } from "rate-limiter-flexible";
 import { query } from "@/utils/postgres";
 
-// ================= Redis Client =================
-// (Không thay đổi)
+// ================= Redis Client ================= (Giữ nguyên)
 let redisClient;
 async function getRedisClient() {
   if (!redisClient) {
     redisClient = createClient({ url: process.env.REDIS_URL || "redis://localhost:6379" });
-    redisClient.on("error", (err) => logger.error("Redis Client Error", { error: err.message, stack: err.stack }));
+    redisClient.on("error", (err) => logger.error("Redis Client Error", { error: err.message }));
     await redisClient.connect();
     logger.info("Redis connected", { timestamp: new Date().toISOString() });
   }
   return redisClient;
 }
 
-// ================= Security Headers =================
-// (Không thay đổi)
+// ================= Security Headers ================= (Giữ nguyên)
 const securityHeaders = {
   "Content-Security-Policy": "default-src 'self'; frame-ancestors 'self';",
   "X-Content-Type-Options": "nosniff",
@@ -33,7 +30,7 @@ const securityHeaders = {
   "Permissions-Policy": "geolocation=(), microphone=(), camera=()",
 };
 
-// ================= Dynamic Rate Limit =================
+// ================= Dynamic Rate Limit ================= (Updated: Thêm /api/nonce vào exempt nếu cần, nhưng giờ sẽ handle ở nonce route)
 async function getAccountAge(userId) {
   if (!userId) return 0;
   try {
@@ -48,13 +45,15 @@ async function getAccountAge(userId) {
 }
 
 async function dynamicRateLimit(ip, session, pathname) {
+  // UPDATED: Exempt /api/nonce (sẽ rate limit riêng ở nonce route)
   if (
     pathname === "/api/auth/session" ||
     pathname === "/api/auth/providers" ||
     pathname === "/api/auth/signout" ||
     pathname === "/api/auth/csrf" ||
     pathname.startsWith("/api/auth/signin/") ||
-    pathname.startsWith("/api/auth/callback/")
+    pathname.startsWith("/api/auth/callback/") ||
+    pathname === "/api/nonce"
   ) return;
   const redisClient = await getRedisClient();
   const userId = session?.user?.id || ip;
@@ -80,7 +79,7 @@ async function dynamicRateLimit(ip, session, pathname) {
   }
 }
 
-// ================= IP Ban Logic =================
+// ================= IP Ban Logic ================= (Giữ nguyên)
 async function banIP(ip, durationSeconds = 3600) {
   const redisClient = await getRedisClient();
   await redisClient.setEx(`banned_ip:${ip}`, durationSeconds, "banned");
@@ -94,7 +93,8 @@ async function checkIPBan(ip, pathname) {
     pathname === "/api/auth/signout" ||
     pathname === "/api/auth/csrf" ||
     pathname.startsWith("/api/auth/signin/") ||
-    pathname.startsWith("/api/auth/callback/")
+    pathname.startsWith("/api/auth/callback/") ||
+    pathname === "/api/nonce"  // UPDATED: Exempt nonce
   ) return;
   const redisClient = await getRedisClient();
   const isBanned = await redisClient.get(`banned_ip:${ip}`);
@@ -111,7 +111,8 @@ async function trackViolation(ip, pathname, reason = "Unknown") {
     pathname === "/api/auth/signout" ||
     pathname === "/api/auth/csrf" ||
     pathname.startsWith("/api/auth/signin/") ||
-    pathname.startsWith("/api/auth/callback/")
+    pathname.startsWith("/api/auth/callback/") ||
+    pathname === "/api/nonce"  // UPDATED
   ) return;
   const redisClient = await getRedisClient();
   const key = `violations:${ip}`;
@@ -126,7 +127,7 @@ async function trackViolation(ip, pathname, reason = "Unknown") {
   logger.warn("Violation recorded", { ip, pathname, reason, violations: violations + 1 });
 }
 
-// ================= Allowed Origins =================
+// ================= Allowed Origins ================= (Giữ nguyên)
 const allowedOrigins = [
   process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000",
   "https://xynapseai.net",
@@ -136,7 +137,7 @@ const allowedOrigins = [
 ].filter((v, i, a) => a.indexOf(v) === i);
 
 async function isAllowedOrigin(origin, referer, pathname) {
-  logger.info("Checking origin", { origin, referer, pathname, allowedOrigins });
+  logger.info("Checking origin", { origin, referer, pathname, allowedOrigins: allowedOrigins.length }); // Sanitize log
   try {
     if (pathname.includes("/api/auth/callback/google") && referer?.startsWith("https://accounts.google.com/")) {
       logger.info("Allowing Google OAuth callback", { referer });
@@ -182,7 +183,7 @@ async function isAllowedOrigin(origin, referer, pathname) {
   }
 }
 
-// ================= Rate Limit + CORS wrapper =================
+// ================= Rate Limit + CORS wrapper ================= (Giữ nguyên, chỉ sanitize log)
 const limiter = new Bottleneck({ maxConcurrent: 5, minTime: 200 });
 
 const rateLimitedHandler = (handler) =>
@@ -196,13 +197,13 @@ const rateLimitedHandler = (handler) =>
     const origin = req.headers.get("origin");
     const referer = req.headers.get("referer");
 
-    logger.info(`Auth Request: IP=${ip}, Origin=${origin || "null"}, Referer=${referer || "null"}, Pathname=${pathname}`);
+    logger.info(`Auth Request: IP=${ip}, Origin=${origin || "null"}, Pathname=${pathname}`); // Sanitize
 
     if (pathname === "/api/auth/session" || pathname === "/api/auth/providers" || pathname === "/api/auth/signout" || pathname === "/api/auth/csrf") {
       try {
         return await handler(req, ...args);
       } catch (err) {
-        logger.error("NextAuth handler error (session/providers/signout/csrf)", { error: err.message, stack: err.stack });
+        logger.error("NextAuth handler error (session/providers/signout/csrf)", { error: err.message });
         return NextResponse.json({ detail: `Internal Server Error: ${err.message}` }, { status: 500, headers: securityHeaders });
       }
     }
@@ -238,23 +239,22 @@ const rateLimitedHandler = (handler) =>
       const newHeaders = new Headers(res.headers || {});
       Object.entries(securityHeaders).forEach(([k, v]) => newHeaders.set(k, v));
 
-      // Fix: Explicit cho auth paths - allow credentials & origins
       if (pathname.startsWith('/api/auth/')) {
         newHeaders.set('Access-Control-Allow-Credentials', 'true');
         if (origin && allowedOrigins.includes(origin)) {
-          newHeaders.set('Access-Control-Allow-Origin', origin);  // Specific origin
+          newHeaders.set('Access-Control-Allow-Origin', origin);
           newHeaders.set('Access-Control-Allow-Methods', 'GET,POST,OPTIONS');
           newHeaders.set('Access-Control-Allow-Headers', 'Content-Type,Authorization,X-CSRF-Token,X-Recaptcha-Token,Cookie');
         }
       }
       return new NextResponse(res.body, { status: res.status || 200, headers: newHeaders });
     } catch (err) {
-      logger.error(`Handler error: ${err.message}`, { stack: err.stack, ip: ip, pathname });
+      logger.error(`Handler error: ${err.message}`, { ip, pathname }); // Sanitize stack
       return NextResponse.json({ detail: `Internal Server Error: ${err.message}` }, { status: 500, headers: securityHeaders });
     }
   });
 
-// ================= NextAuth Handlers =================
+// ================= NextAuth Handlers ================= (Giữ nguyên)
 const finalAuthOptions = {
   ...authOptions,
   events: {
@@ -290,7 +290,7 @@ const {
 export const GET = rateLimitedHandler(OriginalGET);
 export const POST = rateLimitedHandler(OriginalPOST);
 
-// ================= Graceful shutdown =================
+// ================= Graceful shutdown ================= (Giữ nguyên)
 process.on("SIGTERM", async () => {
   if (redisClient?.isOpen) await redisClient.quit();
   logger.info("Redis connection closed on SIGTERM");
