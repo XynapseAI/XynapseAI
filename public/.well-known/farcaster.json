@@ -20,8 +20,8 @@
       "https://base.xynapseai.net/screenshots/dashboard.png",
       "https://base.xynapseai.net/screenshots/market.png"
     ],
-    "primaryCategory": "finance",
-    "tags": ["crypto", "analytics", "wallet", "ai"],
+    "primaryCategory": "utility",
+    "tags": ["crypto", "analytics", "onchain", "ai"],
     "heroImageUrl": "https://base.xynapseai.net/og.png",
     "tagline": "AI Insights on Base",
     "ogTitle": "Xynapse Mini App",

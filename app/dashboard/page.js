@@ -332,11 +332,10 @@ export default function Dashboard() {
   useEffect(() => {
     if (typeof window !== 'undefined' && !window.createBaseAccountSDK) {
       const script = document.createElement('script');
-      script.src = 'https://unpkg.com/@base-org/account@latest/dist/base-account.min.js'; // Cập nhật version latest
+      script.src = 'https://unpkg.com/@base-org/account@latest/dist/base-account.min.js';
       script.async = true;
       script.onload = () => {
         console.log('Base Account SDK loaded successfully');
-        toast.info('Base Account SDK ready', { position: 'top-center' });
       };
       script.onerror = () => console.error('Failed to load Base Account SDK');
       document.head.appendChild(script);
