@@ -32,19 +32,26 @@ export async function GET() {
 // Giữ DELETE (cleanup nonce on success/fail)
 export async function DELETE(request) {
   try {
-    const body = await request.json().catch(() => ({}));  // Graceful parse nếu no body
-    const { nonce } = body;
+    const body = await request.json().catch(() => null);  // Handle no/invalid body
+    const { nonce } = body || {};
     if (!nonce) {
-      logger.warn('DELETE /api/nonce: Missing nonce in body');
+      logger.warn('DELETE /api/nonce: Missing or invalid nonce body', { body });
       return NextResponse.json({ error: 'Missing nonce' }, { status: 400 });
     }
-    const client = await getRedisClient();
-    const deleted = await client.del(`siwe:nonce:${nonce}`);
-    if (deleted > 0) {
-      logger.info('Nonce deleted (SIWE cleanup)', { nonce: nonce.substring(0, 16) + '...' });
-      return NextResponse.json({ success: true });
+    if (!/^[a-f0-9]{32}$/i.test(nonce)) {
+      logger.warn('DELETE /api/nonce: Invalid nonce format');
+      return NextResponse.json({ error: 'Invalid nonce' }, { status: 400 });
     }
-    return NextResponse.json({ error: 'Nonce not found' }, { status: 404 });
+    const client = await getRedisClient();
+    const key = `siwe:nonce:${nonce}`;
+    const deleted = await client.del(key);
+    if (deleted > 0) {
+      logger.info('Nonce deleted successfully', { nonce: nonce.substring(0, 16) + '...' });
+      return NextResponse.json({ success: true });
+    } else {
+      logger.warn('Nonce not found for deletion (already used/expired?)', { nonce: nonce.substring(0, 16) + '...', key });
+      return NextResponse.json({ error: 'Nonce not found' }, { status: 404 });
+    }
   } catch (error) {
     logger.error('Nonce deletion failed', { error: error.message });
     return NextResponse.json({ error: 'Server error' }, { status: 500 });

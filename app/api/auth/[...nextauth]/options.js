@@ -2,17 +2,17 @@
 import { randomBytes } from "crypto";
 import GoogleProvider from "@auth/core/providers/google";
 import EmailProvider from "@auth/core/providers/email";
-import CredentialsProvider from "@auth/core/providers/credentials"; 
+import CredentialsProvider from "@auth/core/providers/credentials";
 import { createTransport } from "nodemailer";
 import { v4 as uuidv4 } from "uuid";
 import { query } from "@/utils/postgres";
 import { logger } from "@/utils/serverLogger";
 import crypto from 'crypto';
 import util from 'util';
-import { createPublicClient, http } from 'viem'; 
+import { createPublicClient, http } from 'viem';
 import { base } from 'viem/chains'; // Base chain
 import { getRedisClient } from '@/utils/redis';
-import { SiweMessage } from 'siwe'; // NEW: Standard SIWE parser (npm install siwe)
+import { SiweMessage } from 'siwe'; // Standard SIWE parser (npm install siwe)
 
 const scrypt = util.promisify(crypto.scrypt);
 
@@ -53,12 +53,14 @@ async function verifySiwe(credentials) {
       logger.info('Added 0x prefix to signature');
     }
 
-    // NEW: Parse with siwe library (strict EIP-4361 validation)
-    let siweMessage;
+    // Try siwe parse first
+    let siweMessage, extractedAddress, extractedNonce, extractedDomain, extractedChainId;
+    let isPartial = false;
     try {
       siweMessage = new SiweMessage(message);
-      const { address, domain, chainId, nonce, issuedAt, version, uri, resources } = siweMessage;
-      
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      const { address, domain, chainId, nonce, issuedAt, version, uri, statement, resources } = siweMessage;
+
       logger.info('Parsed SIWE fields:', {
         address: address?.toLowerCase(),
         domain,
@@ -100,24 +102,48 @@ async function verifySiwe(credentials) {
         logger.warn('SIWE message has resources – verify if expected', { resources });
       }
 
-      // Use parsed nonce
-      const extractedNonce = nonce;
-      if (!extractedNonce || extractedNonce.length !== 32 || !/^[a-f0-9]{32}$/i.test(extractedNonce)) {
-        throw new Error('Invalid nonce in SIWE message');
-      }
-      logger.info('Extracted nonce from SIWE parser:', { nonce: extractedNonce });
+      // Use parsed values
+      extractedAddress = address.toLowerCase();
+      extractedNonce = nonce;
+      extractedDomain = domain;
+      extractedChainId = chainId.toString();
 
-      const extractedAddress = address.toLowerCase();
-      logger.info('Extracted address from SIWE parser:', { address: extractedAddress });
+      logger.info('Extracted from SIWE parser:', { address: extractedAddress, nonce: extractedNonce });
 
     } catch (parseErr) {
-      logger.error('SIWE parse error (invalid format):', { error: parseErr.message, messagePreview: message.substring(0, 200) });
-      throw new Error(`Invalid SIWE message format: ${parseErr.message}`);
+      logger.warn('Siwe parse failed (possible partial from SDK), fallback regex:', { error: parseErr.message });
+      isPartial = true;
+
+      // Fallback improved regex for partial messages
+      const domainMatch = message.match(/^([a-zA-Z0-9.-]+):?\d*\s+wants you to sign in/i);
+      extractedDomain = domainMatch ? domainMatch[1] : null;
+
+      const addressMatch = message.match(/0x[a-fA-F0-9]{40}/i);
+      extractedAddress = addressMatch ? addressMatch[0].toLowerCase() : null;
+
+      const chainMatch = message.match(/Chain ID:\s*(\d+)/i);
+      extractedChainId = chainMatch ? chainMatch[1] : null;
+
+      const nonceMatch = message.match(/Nonce:\s*([a-f0-9]{32})/i);
+      extractedNonce = nonceMatch ? nonceMatch[1] : null;
+
+      // Strict: Reject if missing Version or Issued At (EIP-4361 required)
+      const hasVersion = message.includes('Version: 1');
+      const hasIssuedAt = message.includes('Issued At:');
+      if (!hasVersion || !hasIssuedAt) {
+        throw new Error('Invalid SIWE: missing Version or Issued At (required per EIP-4361)');
+      }
+
+      if (!extractedAddress || !extractedNonce || !extractedDomain || extractedChainId !== '8453') {
+        throw new Error('Fallback extract failed: missing core fields');
+      }
+
+      logger.info('Extracted from fallback regex:', { address: extractedAddress, nonce: extractedNonce });
     }
 
-    // Check nonce in Redis (unchanged, but now uses parsed nonce)
+    // Check nonce in Redis (use extractedNonce)
     const client = await getRedisClient();
-    const nonceKey = `siwe:nonce:${siweMessage.nonce}`;
+    const nonceKey = `siwe:nonce:${extractedNonce}`;
     logger.info('Redis nonce lookup attempt:', { nonceKey });
 
     const storedData = await client.get(nonceKey);
@@ -147,10 +173,11 @@ async function verifySiwe(credentials) {
       throw new Error(`Nonce expired`);
     }
 
-    // NEW: Cross-check issuedAt vs nonce creation (approx, since nonce doesn't store creation time, but expires implies fresh)
-    const nonceCreationApprox = expires - (process.env.NODE_ENV === 'development' ? 600000 : 300000); // TTL ms
-    const issuedTimeMs = new Date(siweMessage.issuedAt).getTime();
-    if (Math.abs(issuedTimeMs - nonceCreationApprox) > 5 * 60 * 1000) {  // >5min diff
+    // Cross-check issuedAt vs nonce creation (approx)
+    const ttlMs = process.env.NODE_ENV === 'development' ? 600000 : 300000;
+    const nonceCreationApprox = expires - ttlMs;
+    const issuedTimeMs = new Date(message.match(/Issued At:\s*(.+)/i)?.[1] || now).getTime();
+    if (Math.abs(issuedTimeMs - nonceCreationApprox) > 5 * 60 * 1000) {
       throw new Error('SIWE issuedAt does not match nonce freshness');
     }
 
@@ -160,15 +187,15 @@ async function verifySiwe(credentials) {
 
     logger.info('SIWE parsed & nonce validated, proceeding to signature verify');
 
-    // Verify Signature (keep viem – handles ERC-6492 automatically for pre-deploy)
+    // Verify Signature (viem – handles ERC-6492 for pre-deploy)
     let valid;
     try {
       valid = await publicClient.verifyMessage({
-        address: siweMessage.address,
+        address: extractedAddress,
         message,
         signature: sig,
       });
-      logger.info('Viem verifyMessage result:', { valid, expectedAddress: siweMessage.address, messageLength: message.length });
+      logger.info('Viem verifyMessage result:', { valid, expectedAddress: extractedAddress, messageLength: message.length });
     } catch (viemError) {
       logger.error('Viem verifyMessage detailed error:', {
         error: viemError.message,
@@ -186,15 +213,15 @@ async function verifySiwe(credentials) {
       throw new Error('Invalid signature (Viem verifyMessage returned false)');
     }
 
-    logger.info('SIWE fully verified for Base Account (parser + viem)', { address: siweMessage.address.toLowerCase() });
-    return { address: siweMessage.address.toLowerCase(), message, signature };
+    logger.info(`SIWE fully verified for Base Account (siwe${isPartial ? '+fallback' : ''})`, { address: extractedAddress });
+    return { address: extractedAddress, message, signature };
 
   } catch (error) {
     logger.error('SIWE verification failed details:', {
       error: error.message,
       stack: error.stack ? error.stack.substring(0, 200) : 'no stack'
     });
-    throw error; 
+    throw error;
   }
 }
 
@@ -408,7 +435,7 @@ export const authOptions = {
           logger.info('Base Account login successful', { address: user.wallet_address, email: user.email });
           return {
             id: user.id || address,
-            email: user.email, 
+            email: user.email,
             name: user.google_name || `Base User ${address.slice(0, 6)}`,
             wallet_address: address,
           };
@@ -556,7 +583,7 @@ export const authOptions = {
         token.expiresAt = Date.now() + 2 * 60 * 60 * 1000; // 2 hours
         token.email = user.email || token.email || account.user?.email;
         token.googleName = user.name || profile?.name || "";
-        token.walletAddress = user.wallet_address; 
+        token.walletAddress = user.wallet_address;
         token.csrfToken = token.csrfToken || randomBytes(32).toString("hex");
       }
       if (Date.now() > token.expiresAt) {
@@ -595,7 +622,7 @@ export const authOptions = {
       sessionToken: {
         name: 'next-auth.session-token',
         options: {
-          httpOnly: false,  
+          httpOnly: false,
           sameSite: 'none',  // CHANGED: 'none' to allow cross-site (iframe) requests
           path: '/',
           secure: true,
@@ -615,11 +642,11 @@ export const authOptions = {
       csrfToken: {
         name: 'next-auth.csrf-token',
         options: {
-          httpOnly: false,  
-          sameSite: 'none', 
+          httpOnly: false,
+          sameSite: 'none',
           path: '/',
           secure: true,
-          domain: process.env.COOKIE_DOMAIN || '.xynapseai.net', 
+          domain: process.env.COOKIE_DOMAIN || '.xynapseai.net',
         },
       },
     },

@@ -3,7 +3,7 @@ import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useAccount, useDisconnect, useSignMessage, useChainId, useSwitchChain, useConnect } from 'wagmi';
 import { signIn, signOut, useSession, getProviders } from 'next-auth/react';
-import { sdk } from '@farcaster/miniapp-sdk'; 
+import { sdk } from '@farcaster/miniapp-sdk';
 import Header from '../../components/Header';
 import AITab from '../../components/AITab';
 import ProfileTab from '../../components/ProfileTab';
@@ -595,14 +595,14 @@ export default function Dashboard() {
   const handleBaseSignIn = async () => {
     if (isBaseLoading) return;
     setIsBaseLoading(true);
-    let fetchedNonce = null; // For cleanup
+    let fetchedNonce = null;
 
     try {
       if (!window.createBaseAccountSDK) {
         throw new Error('Base Account SDK not loaded. Please refresh the page.');
       }
 
-      // Fetch nonce từ server
+      // Fetch nonce
       const nonceRes = await fetch(`${API_BASE_URL}/api/nonce`, { method: 'GET' });
       if (!nonceRes.ok) throw new Error('Failed to fetch nonce');
       const { nonce } = await nonceRes.json();
@@ -610,7 +610,7 @@ export default function Dashboard() {
       if (!nonce || nonce.length !== 32 || !/^[a-f0-9]{32}$/i.test(nonce)) {
         throw new Error('Invalid nonce from server');
       }
-      console.log('Fetched server nonce:', nonce); // Debug
+      console.log('Fetched server nonce:', nonce);
 
       toast.info('Connecting to Base Account...', { position: 'top-center' });
 
@@ -621,104 +621,139 @@ export default function Dashboard() {
       });
       const provider = baseSDK.getProvider();
 
-      // Request wallet_connect
-      const response = await provider.request({
-        method: 'wallet_connect',
-        params: [{
-          version: '1',
-          capabilities: {
-            signInWithEthereum: {
-              nonce,  // 32 hex chars
-              chainId: '0x2105',  // Base = 8453
-            }
-          }
-        }]
-      });
-
-      console.log('Full SDK response:', response); // Debug full
-
-      const accounts = response?.accounts;
-      if (!accounts || accounts.length === 0) {
-        throw new Error('No accounts returned from Base Account');
-      }
-
-      const account = accounts[0];
-      const siwe = account.capabilities?.signInWithEthereum;
-      if (!siwe) {
-        console.error('No SIWE capabilities in response:', account);
-        throw new Error('SDK did not return SIWE capabilities – user may have cancelled or network error');
-      }
-
-      let { message, signature } = siwe;
-      if (!message || typeof message !== 'string' || !signature || typeof signature !== 'string') {
-        console.error('Invalid SIWE from SDK:', { message, signature });
-        throw new Error('Invalid SIWE message or signature from SDK');
-      }
-
-      console.log('Raw SDK message:', message); // Debug raw
-      console.log('Raw SDK signature length:', signature.length); // Debug
-
-      // NEW: Optional client-side parse check (lightweight, using siwe lib)
+      // Try wallet_connect first (per Base docs)
+      let message, signature, address;
       try {
-        const clientSiwe = new SiweMessage(message);
-        const { address, chainId, nonce: msgNonce, version, issuedAt } = clientSiwe;
-        if (chainId !== '8453' || version !== '1' || msgNonce !== nonce) {
-          throw new Error('Client-side SIWE validation failed (chain/nonce/version mismatch)');
+        const response = await provider.request({
+          method: 'wallet_connect',
+          params: [{
+            version: '1',
+            capabilities: {
+              signInWithEthereum: {
+                nonce,
+                chainId: '0x2105',  // Base
+              }
+            }
+          }]
+        });
+
+        console.log('Full SDK response:', response);
+
+        const accounts = response?.accounts;
+        if (!accounts || accounts.length === 0) {
+          throw new Error('No accounts returned');
         }
-        if (issuedAt && new Date(issuedAt) < new Date(Date.now() - 5 * 60 * 1000)) {
-          throw new Error('SIWE message too old on client');
+
+        const account = accounts[0];
+        const siwe = account.capabilities?.signInWithEthereum;
+        if (!siwe || !siwe.message || !siwe.signature) {
+          throw new Error('Invalid SIWE from SDK');
         }
-        console.log('Client-side SIWE parse OK:', { address: address?.toLowerCase() });
-      } catch (clientParseErr) {
-        console.warn('Client-side SIWE parse warning (non-fatal):', clientParseErr.message);
-        // Proceed, server will strict validate
+
+        ({ message, signature } = siwe);
+        address = account.address;
+
+        // Check if full SIWE (basic: has Version and Issued At)
+        const hasVersion = message.includes('Version: 1');
+        const hasIssuedAt = message.includes('Issued At:');
+        if (!hasVersion || !hasIssuedAt) {
+          console.warn('Partial SIWE from SDK, falling back to manual construct');
+          throw new Error('Partial message - fallback');  // Trigger fallback
+        }
+
+        console.log('Full SIWE from SDK OK');
+      } catch (walletErr) {
+        console.warn('wallet_connect failed (origins/unsupported), fallback to manual SIWE + personal_sign:', walletErr.message);
+        // Fallback: Manual construct full SIWE + personal_sign
+        const domain = window.location.host;  // e.g., xynapseai.net
+        const uri = window.location.origin;  // https://xynapseai.net
+        const now = new Date().toISOString();  // Issued At
+
+        // Use siwe lib to generate conform message
+        const { SiweMessage } = await import('siwe');
+        const siweMessage = new SiweMessage({
+          domain,
+          address: undefined,  // Will sign and get from sig
+          uri,
+          version: '1',
+          chainId: 8453,
+          nonce,
+          issuedAt: now,
+          statement: 'Sign in to Xynapse Dashboard.',  // Optional human-readable
+        });
+        message = siweMessage.prepareMessage();  // Full ABNF string
+
+        console.log('Constructed full SIWE message:', message);
+
+        // Get accounts first
+        const accountsResp = await provider.request({
+          method: 'eth_requestAccounts',
+        });
+        address = accountsResp[0];
+
+        // Sign with personal_sign (ERC-191)
+        signature = await provider.request({
+          method: 'personal_sign',
+          params: [message, address],
+        });
+        console.log('Fallback signature length:', signature.length);
       }
 
-      console.log('Validated SIWE OK (raw + client check), proceeding to signIn');
+      if (!message || !signature || !address) {
+        throw new Error('Missing message/signature/address');
+      }
 
-      // Sign in via NextAuth với raw message
+      // Basic validation (lenient for fallback)
+      if (!message.includes('Version: 1') || !message.includes('Issued At:')) {
+        throw new Error('Invalid SIWE: missing required fields');
+      }
+      if (!message.includes(`Nonce: ${nonce}`) || !message.includes('Chain ID: 8453')) {
+        throw new Error('Invalid nonce/chain in message');
+      }
+
+      console.log('Validated SIWE OK, proceeding to signIn');
+
+      // Sign in NextAuth
       const res = await signIn('credentials', {
-        message,  // Raw
+        message,
         signature,
         redirect: false,
       });
 
       if (res?.error) {
         console.error('NextAuth res error:', res.error);
-        // Cleanup nonce on fail
-        if (fetchedNonce) {
-          await fetch(`${API_BASE_URL}/api/nonce`, {
-            method: 'DELETE',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ nonce: fetchedNonce }),
-          }).catch(err => console.warn('Nonce cleanup failed:', err));
-        }
         throw new Error(res.error);
       }
 
-      // Cleanup on success
-      if (fetchedNonce) {
-        await fetch(`${API_BASE_URL}/api/nonce`, {
-          method: 'DELETE',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ nonce: fetchedNonce }),
-        }).catch(() => { });
-      }
+      // Cleanup nonce on success
+      await fetch(`${API_BASE_URL}/api/nonce`, {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ nonce: fetchedNonce }),
+      }).catch(err => console.warn('Nonce cleanup failed:', err));
 
-      toast.success(`Signed in with Base! Address: ${account.address.slice(0, 6)}...${account.address.slice(-4)}`, { position: 'top-center' });
+      toast.success(`Signed in with Base! Address: ${address.slice(0, 6)}...${address.slice(-4)}`, { position: 'top-center' });
       setBaseModalOpen(false);
       await update();
-      router.push('/dashboard');  // Force push
+      router.push('/dashboard');
     } catch (err) {
       console.error('Base sign-in error:', err);
       toast.error(`Sign-in error: ${err.message}`, { position: 'top-center' });
-      // Ensure cleanup on error
+
+      // Cleanup on error
       if (fetchedNonce) {
-        await fetch(`${API_BASE_URL}/api/nonce`, {
-          method: 'DELETE',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ nonce: fetchedNonce }),
-        }).catch(err => console.warn('Error cleanup failed:', err));
+        try {
+          const delRes = await fetch(`${API_BASE_URL}/api/nonce`, {
+            method: 'DELETE',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ nonce: fetchedNonce }),
+          });
+          if (!delRes.ok) {
+            console.warn('Nonce cleanup on error failed:', delRes.status);
+          }
+        } catch (cleanupErr) {
+          console.warn('Cleanup fetch error:', cleanupErr);
+        }
       }
     } finally {
       setIsBaseLoading(false);
