@@ -1,4 +1,4 @@
-import type { NextConfig } from 'next';
+import type { NextConfig } from 'next'
 
 const nextConfig: NextConfig = {
   reactStrictMode: true,
@@ -65,7 +65,7 @@ const nextConfig: NextConfig = {
           { key: 'Access-Control-Allow-Credentials', value: 'true' },
         ],
       },
-    ];
+    ]
   },
   async rewrites() {
     return [
@@ -77,16 +77,7 @@ const nextConfig: NextConfig = {
         source: '/terms-of-service',
         destination: '/',
       },
-    ];
-  },
-  async redirects() {
-    return [
-      {
-        source: '/.well-known/farcaster.json',
-        destination: 'https://api.farcaster.xyz/miniapps/hosted-manifest/019a47d2-a46d-5d87-c46c-f1862b23438e',
-        permanent: false, // Ensures a 307 temporary redirect
-      },
-    ];
+    ]
   },
   webpack: (config, options) => {
     if (options.isServer) {
@@ -95,28 +86,28 @@ const nextConfig: NextConfig = {
         'node:crypto': 'crypto',
         'node:fs': 'fs',
         'node:path': 'path',
-      };
+      }
     } else {
       config.resolve.fallback = {
         ...config.resolve.fallback,
         crypto: false,
         fs: false,
         path: false,
-      };
+      }
     }
     if (!options.dev) {
       config.optimization.minimizer.push(
         new (require('terser-webpack-plugin'))({
           terserOptions: {
             compress: {
-              drop_console: true,
+              drop_console: true, 
             },
           },
         })
       );
     }
-    return config;
+    return config
   },
-};
+}
 
-export default nextConfig;
+export default nextConfig
