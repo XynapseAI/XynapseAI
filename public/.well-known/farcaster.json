@@ -10,9 +10,9 @@
   "miniapp": {
     "version": "1",
     "name": "Xynapse Mini App",
-    "homeUrl": "https://base.xynapseai.net/dashboard",
-    "iconUrl": "https://base.xynapseai.net/logos/logo.png",
-    "splashImageUrl": "https://base.xynapseai.net/splash.png",
+    "homeUrl": "https://xynapseai.net/dashboard",
+    "iconUrl": "https://xynapseai.net/logos/logo.png",
+    "splashImageUrl": "https://xynapseai.net/splash.png",
     "splashBackgroundColor": "#000000",
     "subtitle": "AI-Powered Crypto Analytics",
     "description": "Track wallets, markets, and on-chain insights with Xynapse.",
@@ -24,13 +24,13 @@
       "onchain",
       "ai"
     ],
-    "heroImageUrl": "https://base.xynapseai.net/og.png",
+    "heroImageUrl": "https://xynapseai.net/og.png",
     "tagline": "AI Insights on Base",
     "ogTitle": "Xynapse Mini App",
     "ogDescription": "AI-Powered Crypto Analytics on Base.",
-    "ogImageUrl": "https://base.xynapseai.net/og.png",
+    "ogImageUrl": "https://xynapseai.net/og.png",
     "noindex": false,
-    "webhookUrl": "https://base.xynapseai.net/api/webhook",
+    "webhookUrl": "https://xynapseai.net/api/webhook",
     "requiredChains": [
       "base"
     ],
