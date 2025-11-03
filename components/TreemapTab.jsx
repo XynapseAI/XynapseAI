@@ -1588,7 +1588,7 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
         'Fetching incoming transactions...',
         'Fetching outgoing transactions...',
         'Analyzing token transfers...',
-        'Resolving nametags...',
+        'Resolving labels...',
         'Detecting clusters...',
         'Generating graph layout...',
       ];
@@ -1972,7 +1972,7 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
                   <div className="w-2 h-2 bg-neon-blue rounded-full animate-pulse" />
                   <h3 className="text-white text-sm sm:text-base font-semibold">Analyzing</h3>
                 </div>
-                <div className="h-32 overflow-y-auto custom-scrollbar log-container relative">
+                <div className="h-22 sm:h-28 overflow-y-auto custom-scrollbar log-container relative">
                   <motion.ul
                     layout
                     className="space-y-2"
