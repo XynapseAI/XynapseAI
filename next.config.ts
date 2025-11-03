@@ -45,6 +45,7 @@ const nextConfig: NextConfig = {
       process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:3000',
       'https://xynapseai.net',
       'https://www.xynapseai.net',
+      'https://base.xynapseai.net',
       'https://xynapse-ai-xynapse-projects.vercel.app',
       'https://xynapse-ai.vercel.app',
     ].filter(Boolean);
@@ -63,6 +64,13 @@ const nextConfig: NextConfig = {
             value: 'Content-Type,Authorization,X-CSRF-Token,X-Recaptcha-Token',
           },
           { key: 'Access-Control-Allow-Credentials', value: 'true' },
+        ],
+      },
+      {
+        source: '/.well-known/farcaster.json',
+        headers: [
+          { key: 'Access-Control-Allow-Origin', value: '*' },
+          { key: 'Content-Type', value: 'application/json' },
         ],
       },
     ]
@@ -100,7 +108,7 @@ const nextConfig: NextConfig = {
         new (require('terser-webpack-plugin'))({
           terserOptions: {
             compress: {
-              drop_console: true, 
+              drop_console: true,
             },
           },
         })

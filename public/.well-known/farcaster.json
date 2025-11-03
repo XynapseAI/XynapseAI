@@ -16,10 +16,7 @@
     "splashBackgroundColor": "#000000",
     "subtitle": "AI-Powered Crypto Analytics",
     "description": "Track wallets, markets, and on-chain insights with Xynapse.",
-    "screenshotUrls": [
-      "https://base.xynapseai.net/screenshots/dashboard.png",
-      "https://base.xynapseai.net/screenshots/market.png"
-    ],
+    "screenshotUrls": [],
     "primaryCategory": "utility",
     "tags": [
       "crypto",
