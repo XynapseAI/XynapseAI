@@ -27,30 +27,24 @@ import { TermsOfServiceContent } from '../../components/TermsOfService';
 import { PrivacyPolicyContent } from '../../components/PrivacyPolicy';
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 import { SiweMessage } from 'siwe'; // NEW: Client-side parser for basic check (optional, npm install siwe)
-
 gsap.registerPlugin(MotionPathPlugin);
-
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:3000/api';
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 const BASE_CHAIN_ID = 8453; // Base mainnet
 const isDev = process.env.NODE_ENV === 'development';
-
 const safeConsole = {
   log: (...args) => isDev && console.log(...args),
   warn: (...args) => isDev && console.warn(...args),
   error: (...args) => isDev && console.error(...args),
 };
-
 const safeLog = (...args) => safeConsole.log(...args);
 const safeWarn = (...args) => safeConsole.warn(...args);
 const safeError = (...args) => safeConsole.error(...args);
-
 // Polyfill HMAC cho browser (dùng Web Crypto API)
 async function hmacSha256(key, data) {
   const encoder = new TextEncoder();
   const keyData = encoder.encode(key);
   const dataArray = encoder.encode(data);
-
   const importedKey = await window.crypto.subtle.importKey(
     'raw',
     keyData,
@@ -58,19 +52,16 @@ async function hmacSha256(key, data) {
     false,
     ['sign']
   );
-
   const signature = await window.crypto.subtle.sign('HMAC', importedKey, dataArray);
   return Array.from(new Uint8Array(signature))
     .map(b => b.toString(16).padStart(2, '0'))
     .join('');
 }
-
 const useUserData = (session, csrfToken, setIsAnalyzing) => {
   const [userData, setUserData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const recaptchaRef = useRef(null);
-
   const fetchUserData = useCallback(async () => {
     if (!session || !session?.user?.id || !csrfToken) {
       setLoading(false);
@@ -78,7 +69,6 @@ const useUserData = (session, csrfToken, setIsAnalyzing) => {
       setError(null);
       return;
     }
-
     setLoading(true);
     try {
       if (!recaptchaRef.current) {
@@ -128,7 +118,6 @@ const useUserData = (session, csrfToken, setIsAnalyzing) => {
       }
     }
   }, [session, csrfToken]);
-
   const handleAnalyzeTweets = useCallback(async () => {
     setIsAnalyzing(true);
     try {
@@ -169,17 +158,13 @@ const useUserData = (session, csrfToken, setIsAnalyzing) => {
       if (recaptchaRef.current) recaptchaRef.current.reset();
     }
   }, [session, csrfToken, setIsAnalyzing]);
-
   useEffect(() => {
     fetchUserData();
   }, [fetchUserData]);
-
   return { userData, loading, error, handleAnalyzeTweets, recaptchaRef };
 };
-
 function UniverseBackground() {
   const groupRef = useRef(null);
-
   useFrame((state) => {
     if (groupRef.current) {
       const time = state.clock.getElapsedTime();
@@ -187,13 +172,11 @@ function UniverseBackground() {
       groupRef.current.rotation.y = time * 0.001;
     }
   });
-
   const Galaxy = () => {
     const pointsRef = useRef();
     const count = 2000;
     const positions = useMemo(() => new Float32Array(count * 3), []);
     const colors = useMemo(() => new Float32Array(count * 3), []);
-
     useEffect(() => {
       for (let i = 0; i < count; i++) {
         const i3 = i * 3;
@@ -202,15 +185,12 @@ function UniverseBackground() {
         const spin = radius * 0.15;
         const branchAngle = ((i % arms) / arms) * Math.PI * 2;
         const theta = branchAngle + spin + Math.random() * 0.3;
-
         const randomX = (Math.pow(Math.random(), 3) * (Math.random() < 0.5 ? 1 : -1)) * 1.5;
         const randomY = (Math.pow(Math.random(), 3) * (Math.random() < 0.5 ? 1 : -1)) * 0.3;
         const randomZ = (Math.pow(Math.random(), 3) * (Math.random() < 0.5 ? 1 : -1)) * 1.5;
-
         positions[i3] = (Math.cos(theta) * radius) + randomX;
         positions[i3 + 1] = randomY;
         positions[i3 + 2] = (Math.sin(theta) * radius) + randomZ;
-
         const r = Math.random() * 0.3 + 0.7;
         const g = Math.random() * 0.3 + 0.7;
         const b = Math.random() * 0.5 + 0.5;
@@ -218,11 +198,9 @@ function UniverseBackground() {
         colors[i3 + 1] = g;
         colors[i3 + 2] = b;
       }
-
       pointsRef.current.geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
       pointsRef.current.geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
     }, []);
-
     return (
       <points ref={pointsRef} position={[0, 0, -20]} rotation={[Math.PI / 6, 0, 0]}>
         <bufferGeometry />
@@ -238,7 +216,6 @@ function UniverseBackground() {
       </points>
     );
   };
-
   return (
     <group ref={groupRef}>
       <Stars radius={150} depth={60} count={1000} factor={4} saturation={0} fade speed={0.1} />
@@ -273,7 +250,6 @@ function UniverseBackground() {
     </group>
   );
 }
-
 export default function Dashboard() {
   const { data: session, status, update } = useSession();
   const { isConnected, address } = useAccount();
@@ -299,10 +275,11 @@ export default function Dashboard() {
   const [baseModalOpen, setBaseModalOpen] = useState(false);
   const [isBaseLoading, setIsBaseLoading] = useState(false); // Thêm loading cho Base modal
   const [isInBaseApp, setIsInBaseApp] = useState(false);
+  const [inMiniApp, setInMiniApp] = useState(false);
+  const [miniAppReadyCalled, setMiniAppReadyCalled] = useState(false);
   const recaptchaRef = useRef(null);
   const { userData, loading, error } = useUserData(session, csrfToken, setIsAnalyzing);
   const [fetchedNonce, setFetchedNonce] = useState(null);
-
   useEffect(() => {
     const prefetchNonce = async () => {
       try {
@@ -310,7 +287,7 @@ export default function Dashboard() {
         if (res.ok) {
           const { nonce } = await res.json();
           setFetchedNonce(nonce);
-          safeLog('Prefetched nonce:', nonce?.substring(0, 8) + '...');  // Mask
+          safeLog('Prefetched nonce:', nonce?.substring(0, 8) + '...'); // Mask
         }
       } catch (err) {
         safeWarn('Nonce prefetch failed:', err.message);
@@ -318,7 +295,7 @@ export default function Dashboard() {
     };
     prefetchNonce();
   }, []);
-
+  // Cải thiện: Kiểm tra môi trường Mini App sớm nhưng KHÔNG gọi ready() ngay
   useEffect(() => {
     const initAndCheckEnvironment = async () => {
       if (typeof sdk === 'undefined') {
@@ -326,18 +303,10 @@ export default function Dashboard() {
         return;
       }
       try {
-        const inMiniApp = await sdk.isInMiniApp();
-        if (inMiniApp) {
-          await sdk.actions.ready(); 
-          safeLog('Mini App ready!');
-          
-          const context = await sdk.context;
-          if (context.client.clientFid === 309857) {
-            setIsInBaseApp(true);
-            safeLog('Detected Base App environment');
-          }
-        } else {
-          safeLog('Not in Mini App environment – skipping ready()');
+        const isInMini = await sdk.isInMiniApp();
+        setInMiniApp(isInMini);
+        if (isInMini) {
+          safeLog('Detected Mini App environment – ready() will be called after app loads');
         }
       } catch (err) {
         safeError('Mini App SDK init/check error:', err);
@@ -345,7 +314,43 @@ export default function Dashboard() {
     };
     initAndCheckEnvironment();
   }, []);
-
+  // Cải thiện: Gọi ready() chỉ sau khi app fully loaded (isMounted && providers && status !== 'loading')
+  useEffect(() => {
+    const callMiniAppReady = async () => {
+      if (!inMiniApp || miniAppReadyCalled || typeof sdk === 'undefined') {
+        return;
+      }
+      // Kiểm tra app ready: Không còn hiển thị loading overlay
+      if (isMounted && providers && status !== 'loading') {
+        try {
+          await sdk.actions.ready();
+          safeLog('Mini App ready! (Called after app fully loaded)');
+          setMiniAppReadyCalled(true);
+          // Fetch context sau ready()
+          const context = await sdk.context;
+          if (context.client.clientFid === 309857) {
+            setIsInBaseApp(true);
+            safeLog('Detected Base App environment');
+          }
+        } catch (err) {
+          safeError('Mini App SDK ready() error:', err);
+          // Fallback: Thử gọi ready() một lần nữa sau 2s nếu lỗi (có thể do timing)
+          setTimeout(async () => {
+            if (!miniAppReadyCalled) {
+              try {
+                await sdk.actions.ready();
+                safeLog('Mini App ready! (Fallback call)');
+                setMiniAppReadyCalled(true);
+              } catch (fallbackErr) {
+                safeError('Mini App SDK fallback ready() error:', fallbackErr);
+              }
+            }
+          }, 2000);
+        }
+      }
+    };
+    callMiniAppReady();
+  }, [inMiniApp, isMounted, providers, status, miniAppReadyCalled]);
   // Load Base Account SDK
   useEffect(() => {
     if (typeof window !== 'undefined' && !window.createBaseAccountSDK) {
@@ -359,19 +364,16 @@ export default function Dashboard() {
       document.head.appendChild(script);
     }
   }, []);
-
   const openModal = (content) => {
     setModalContent(content);
     setIsModalOpen(true);
     document.body.style.overflow = 'hidden';
   };
-
   const closeModal = () => {
     setIsModalOpen(false);
     setModalContent(null);
     document.body.style.overflow = 'auto';
   };
-
   const fetchProvidersWithRetry = useCallback(async (retries = 3, delay = 1000) => {
     for (let i = 0; i < retries; i++) {
       try {
@@ -392,7 +394,6 @@ export default function Dashboard() {
       }
     }
   }, []);
-
   useEffect(() => {
     setIsMounted(true);
     const tab = searchParams.get('tab');
@@ -400,10 +401,8 @@ export default function Dashboard() {
       setActiveTab(tab);
     }
   }, [searchParams, router]);
-
   useEffect(() => {
     if (status !== 'authenticated' || session?.csrfToken || csrfToken) return;
-
     const fetchCsrfToken = async () => {
       try {
         const response = await fetch(`${API_BASE_URL}/auth/csrf`, {
@@ -428,13 +427,11 @@ export default function Dashboard() {
     };
     fetchCsrfToken();
   }, [status, session, csrfToken, update]);
-
   useEffect(() => {
     if (isMounted && !providers) {
       fetchProvidersWithRetry();
     }
   }, [isMounted, providers, fetchProvidersWithRetry]);
-
   const handleConnectWallet = async () => {
     try {
       if (!session?.user || !isConnected || !address || !recaptchaRef.current) throw new Error('Prerequisites not met');
@@ -462,20 +459,18 @@ export default function Dashboard() {
       if (!response.ok) throw new Error(result.detail || 'Wallet verification failed');
       toast.success('Wallet connected successfully!', { position: 'top-center' });
     } catch (err) {
-      safeError('Error verifying wallet:', err);  // Fixed
+      safeError('Error verifying wallet:', err); // Fixed
       toast.error(`Wallet verification error: ${err.message}`, { position: 'top-center' });
     } finally {
       if (recaptchaRef.current) recaptchaRef.current.reset();
     }
   };
-
   const handleSignOut = async () => {
     if (!session || !session.user?.id) {
       toast.error('Session expired. Please sign in again.', { position: 'top-center' });
       router.push('/dashboard');
       return;
     }
-
     try {
       let currentCsrfToken = csrfToken;
       if (!currentCsrfToken) {
@@ -498,7 +493,6 @@ export default function Dashboard() {
           throw new Error('Cannot sign out: Missing CSRF token');
         }
       }
-
       try {
         await signOut({ redirect: false });
         await update();
@@ -523,7 +517,6 @@ export default function Dashboard() {
           throw signOutError;
         }
       }
-
       try {
         const token = await recaptchaRef.current?.executeAsync();
         const response = await fetch(`${API_BASE_URL}/api/clear-cache`, {
@@ -542,13 +535,11 @@ export default function Dashboard() {
       } catch (cacheErr) {
         safeWarn('Failed to clear server-side cache:', cacheErr.message);
       }
-
       localStorage.removeItem('csrfToken');
       setCsrfToken(null);
       if (isConnected) {
         disconnect();
       }
-
       toast.success('Signed out successfully!', { position: 'top-center' });
       router.refresh();
       router.push('/dashboard');
@@ -563,7 +554,6 @@ export default function Dashboard() {
       }
     }
   };
-
   const handleNavigateToToken = useCallback((slug) => {
     if (!slug) {
       toast.error('Invalid token ID.', { position: 'top-center' });
@@ -572,7 +562,6 @@ export default function Dashboard() {
     router.push(`/dashboard?tab=market&token=${slug}`, { scroll: false });
     setActiveTab('market');
   }, [router]);
-
   const handleEmailSignIn = async (e) => {
     e.preventDefault();
     try {
@@ -583,7 +572,6 @@ export default function Dashboard() {
       toast.error('Failed to sign in with email.', { position: 'top-center' });
     }
   };
-
   const handleGoogleSignIn = async () => {
     try {
       const result = await signIn('google', { callbackUrl: '/dashboard', redirect: false });
@@ -609,7 +597,6 @@ export default function Dashboard() {
       toast.error(`Failed to sign in with Google: ${err.message}`, { position: 'top-center' });
     }
   };
-
   // IMPROVED: Thêm basic client-side SIWE parse check (optional, dùng siwe lib) + cleanup nonce on error
   const handleBaseSignIn = async () => {
     if (isBaseLoading || !fetchedNonce) {
@@ -618,20 +605,16 @@ export default function Dashboard() {
     }
     setIsBaseLoading(true);
     let tempNonce = fetchedNonce;
-
     try {
       if (!window.createBaseAccountSDK) {
         throw new Error('Base Account SDK not loaded. Please refresh.');
       }
-
       toast.info('Connecting to Base Account...', { position: 'top-center' });
-
       const baseSDK = window.createBaseAccountSDK({
         appName: 'Xynapse Dashboard',
         appLogoUrl: process.env.NEXT_PUBLIC_APP_URL ? `${process.env.NEXT_PUBLIC_APP_URL}/logo.png` : 'https://base.xynapseai.net/logo.png',
       });
       const provider = baseSDK.getProvider();
-
       // Switch chain (fixed log)
       try {
         await provider.request({
@@ -642,9 +625,7 @@ export default function Dashboard() {
       } catch (switchErr) {
         safeWarn('Chain switch failed (already on Base?):', switchErr.message);
       }
-
       let message, signature, address;
-
       // Try wallet_connect
       try {
         const response = await provider.request({
@@ -659,41 +640,33 @@ export default function Dashboard() {
             }
           }]
         });
-
-        safeLog('Full SDK response received');  // Silent raw
+        safeLog('Full SDK response received'); // Silent raw
         const accounts = response?.accounts;
         if (!accounts?.length) throw new Error('No accounts from SDK');
-
         const account = accounts[0];
         const siwe = account.capabilities?.signInWithEthereum;
         if (!siwe?.message || !siwe?.signature) throw new Error('Invalid SIWE from SDK');
-
         message = siwe.message;
         signature = siwe.signature;
         address = account.address;
-
         const hasVersion = message.includes('Version: 1');
         const hasIssuedAt = message.includes('Issued At:');
         if (!hasVersion || !hasIssuedAt) {
           safeWarn('Partial SIWE from SDK, throwing to fallback');
           throw new Error('Partial message - fallback');
         }
-
         safeLog('Full SIWE from SDK OK');
       } catch (walletErr) {
         safeWarn('wallet_connect failed (origins/unsupported/partial), fallback to manual:', walletErr.message);
-
         const accountsResp = await provider.request({
           method: 'eth_requestAccounts',
         });
         if (!accountsResp?.length) throw new Error('No accounts from eth_requestAccounts');
         address = accountsResp[0];
-        safeLog('Got address for fallback:', address.substring(0, 6) + '...');  // Mask
-
+        safeLog('Got address for fallback:', address.substring(0, 6) + '...'); // Mask
         const domain = window.location.host;
         const uri = window.location.origin;
         const now = new Date().toISOString();
-
         const siweMessage = new SiweMessage({
           domain,
           address,
@@ -704,41 +677,33 @@ export default function Dashboard() {
           issuedAt: now,
           statement: 'Sign in to Xynapse Dashboard.',
         });
-
         message = siweMessage.prepareMessage();
-        safeLog('Constructed full SIWE message (fallback):', message.substring(0, 100) + '...');  // Preview
+        safeLog('Constructed full SIWE message (fallback):', message.substring(0, 100) + '...'); // Preview
         safeLog('Message lines:', message.split('\n').length);
-
         signature = await provider.request({
           method: 'personal_sign',
           params: [message, address],
         });
         safeLog('Fallback signature length:', signature?.length || 'N/A');
       }
-
       if (!message || !signature || !address) {
         throw new Error('Missing message/signature/address after fallback');
       }
-
       const hasNonce = message.includes(`Nonce: ${tempNonce}`);
       const hasChain = message.includes('Chain ID: 8453');
       if (!message.includes('Version: 1') || !message.includes('Issued At:') || !hasNonce || !hasChain) {
         throw new Error('Invalid SIWE fields after construct');
       }
-
       safeLog('Validated SIWE OK, proceeding to NextAuth signIn');
-
       const res = await signIn('credentials', {
         message,
         signature,
         redirect: false,
       });
-
       if (res?.error) {
-        safeError('NextAuth res error:', res.error);  // Keep
+        safeError('NextAuth res error:', res.error); // Keep
         throw new Error(res.error);
       }
-
       const delRes = await fetch(`${API_BASE_URL}/api/nonce`, {
         method: 'DELETE',
         headers: { 'Content-Type': 'application/json' },
@@ -749,15 +714,13 @@ export default function Dashboard() {
       } else {
         safeLog('Nonce cleaned up');
       }
-
       toast.success(`Signed in with Base! Address: ${address.substring(0, 6)}...${address.substring(-4)}`, { position: 'top-center' });
       setBaseModalOpen(false);
       await update();
       router.push('/dashboard');
     } catch (err) {
-      safeError('Base sign-in error:', err);  // Keep
+      safeError('Base sign-in error:', err); // Keep
       toast.error(`Sign-in error: ${err.message}`, { position: 'top-center' });
-
       try {
         const delRes = await fetch(`${API_BASE_URL}/api/nonce`, {
           method: 'DELETE',
@@ -772,7 +735,6 @@ export default function Dashboard() {
       setIsBaseLoading(false);
     }
   };
-
   if (!isMounted || !providers || status === 'loading') {
     return (
       <div className="h-screen w-screen flex items-center justify-center bg-black text-white">
@@ -784,10 +746,8 @@ export default function Dashboard() {
       </div>
     );
   }
-
   const requiresAuth = ['profile', 'ai', 'watchlists'].includes(activeTab);
   const showLoginForm = status === 'unauthenticated' && requiresAuth;
-
   return (
     <CurrencyProvider>
       <div className="h-screen w-screen bg-gradient-to-br from-black to-gray-900 backdrop-blur-xs text-white overflow-x-hidden flex flex-col">
