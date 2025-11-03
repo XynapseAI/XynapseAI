@@ -319,40 +319,31 @@ export default function Dashboard() {
     prefetchNonce();
   }, []);
 
-  // Init Mini App SDK
   useEffect(() => {
-    const initMiniApp = async () => {
-      if (sdk) {
-        try {
-          await sdk.actions.ready(); // Hide splash screen
+    const initAndCheckEnvironment = async () => {
+      if (typeof sdk === 'undefined') {
+        safeWarn('SDK not available');
+        return;
+      }
+      try {
+        const inMiniApp = await sdk.isInMiniApp();
+        if (inMiniApp) {
+          await sdk.actions.ready(); 
           safeLog('Mini App ready!');
-        } catch (err) {
-          safeError('Mini App init error:', err);
-        }
-      }
-    };
-    initMiniApp();
-  }, []);
-
-  // Detect Base App environment
-  useEffect(() => {
-    const checkEnvironment = async () => {
-      if (typeof sdk !== 'undefined') {
-        try {
-          const inMiniApp = await sdk.isInMiniApp();
-          if (inMiniApp) {
-            const context = await sdk.context;
-            if (context.client.clientFid === 309857) {
-              setIsInBaseApp(true);
-              safeLog('Detected Base App environment');
-            }
+          
+          const context = await sdk.context;
+          if (context.client.clientFid === 309857) {
+            setIsInBaseApp(true);
+            safeLog('Detected Base App environment');
           }
-        } catch (err) {
-          safeError('Error checking Base App environment:', err);
+        } else {
+          safeLog('Not in Mini App environment – skipping ready()');
         }
+      } catch (err) {
+        safeError('Mini App SDK init/check error:', err);
       }
     };
-    checkEnvironment();
+    initAndCheckEnvironment();
   }, []);
 
   // Load Base Account SDK
