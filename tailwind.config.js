@@ -170,7 +170,6 @@ export default {
 				'02': '0.02s',
 				'09': '0.09s'
 			},
-			// giữ lại default + custom radius
 			borderRadius: {
 				...defaultTheme.borderRadius,
 				// lg: 'var(--radius)',
