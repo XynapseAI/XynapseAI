@@ -4,7 +4,8 @@
     "version": "1",
     "iconUrl": "https://base.xynapseai.net/logos/logo.png",
     "homeUrl": "https://base.xynapseai.net/dashboard",
-    "imageUrl": "https://base.xynapseai.net/image.png",
+    "imageUrl": "https://base.xynapseai.net/og.png",
+    "buttonTitle": "Open App",
     "splashImageUrl": "https://base.xynapseai.net/splash.png",
     "splashBackgroundColor": "#000000",
     "webhookUrl": "https://base.xynapseai.net/api/webhook",
@@ -20,16 +21,18 @@
       "onchain",
       "ai"
     ],
+    "heroImageUrl": "https://base.xynapseai.net/og.png",
     "tagline": "AI Insights on Base",
     "ogTitle": "Xynapse Mini App",
-    "ogDescription": "AI-Powered Crypto Analytics on Base"
+    "ogDescription": "AI-Powered Crypto Analytics on Base",
+    "ogImageUrl": "https://base.xynapseai.net/og.png"
   },
   "accountAssociation": {
-    "header": "eyJmaWQiOjEzOTU0NzIsInR5cGUiOiJjdXN0b2R5Iiwia2V5IjoiMHg5NjYyNzg5MmMyMWEzRTQ3MTQzNzMyZUNlRENiNkJiMWM4ZjZlRjc0In0",
+    "header": "eyJmaWQiOjI0NTY0MiwidHlwZSI6ImN1c3RvZHkiLCJrZXkiOiIweDNDQzliMzhCNDMxRjI2QTQ3NDAxODZkNTkxZjNkOWE1NENBQTBCREEifQ",
     "payload": "eyJkb21haW4iOiJiYXNlLnh5bmFwc2VhaS5uZXQifQ",
-    "signature": "aNLqD8arP5GOVpAdoxt9LhGngcmtxJQsS6DBCilIXbtu+i39Wij4lfkhXKOHY65gTe5SUx0UkVJjrFf3hE3e3hw="
+    "signature": "RNb/8ijeJlmrysBKAocv8GpP38GU/kCE1tR3lFszs+JFl+4W/ZiZa0fxRO0uvCYqKxQHnuuB5agXZVAbs5JnPxw="
   },
   "baseBuilder": {
-    "ownerAddress": "0x9389B506855f6Db781C0af6BE8F14Da1b1114b2d"
+    "ownerAddress": "0x9389B506855f6Db781C0af6BE8F14Da1b1114b2d" 
   }
 }
