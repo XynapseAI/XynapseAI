@@ -33,6 +33,17 @@ gsap.registerPlugin(MotionPathPlugin);
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:3000/api';
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 const BASE_CHAIN_ID = 8453; // Base mainnet
+const isDev = process.env.NODE_ENV === 'development';
+
+const safeConsole = {
+  log: (...args) => isDev && console.log(...args),
+  warn: (...args) => isDev && console.warn(...args),
+  error: (...args) => isDev && console.error(...args),
+};
+
+const safeLog = (...args) => safeConsole.log(...args);
+const safeWarn = (...args) => safeConsole.warn(...args);
+const safeError = (...args) => safeConsole.error(...args);
 
 // Polyfill HMAC cho browser (dùng Web Crypto API)
 async function hmacSha256(key, data) {
@@ -107,7 +118,7 @@ const useUserData = (session, csrfToken, setIsAnalyzing) => {
       toast.success('User data loaded successfully!', { position: 'top-center' });
       setError(null);
     } catch (err) {
-      console.error('Error fetching user data:', err);
+      safeError('Error fetching user data:', err);
       setError(`Failed to fetch user data: ${err.message}`);
       toast.error(`Error: ${err.message}`, { position: 'top-center' });
     } finally {
@@ -148,10 +159,10 @@ const useUserData = (session, csrfToken, setIsAnalyzing) => {
         }
         throw new Error(result.detail || 'Tweet analysis failed');
       }
-      setUserData((prev) => (prev ? { ...prev, tweetPoints: result.tweet_points } : null));
+      setUserData((prev) => (prev ? { ...prev, tweet_points: result.tweet_points } : null));
       toast.success('Tweet analysis successful!', { position: 'top-center' });
     } catch (err) {
-      console.error('Error analyzing tweet:', err);
+      safeError('Error analyzing tweet:', err);
       toast.error(`Tweet analysis error: ${err.message}`, { position: 'top-center' });
     } finally {
       setIsAnalyzing(false);
@@ -290,6 +301,23 @@ export default function Dashboard() {
   const [isInBaseApp, setIsInBaseApp] = useState(false);
   const recaptchaRef = useRef(null);
   const { userData, loading, error } = useUserData(session, csrfToken, setIsAnalyzing);
+  const [fetchedNonce, setFetchedNonce] = useState(null);
+
+  useEffect(() => {
+    const prefetchNonce = async () => {
+      try {
+        const res = await fetch(`${API_BASE_URL}/api/nonce`, { method: 'GET' });
+        if (res.ok) {
+          const { nonce } = await res.json();
+          setFetchedNonce(nonce);
+          safeLog('Prefetched nonce:', nonce?.substring(0, 8) + '...');  // Mask
+        }
+      } catch (err) {
+        safeWarn('Nonce prefetch failed:', err.message);
+      }
+    };
+    prefetchNonce();
+  }, []);
 
   // Init Mini App SDK
   useEffect(() => {
@@ -297,9 +325,9 @@ export default function Dashboard() {
       if (sdk) {
         try {
           await sdk.actions.ready(); // Hide splash screen
-          console.log('Mini App ready!');
+          safeLog('Mini App ready!');
         } catch (err) {
-          console.error('Mini App init error:', err);
+          safeError('Mini App init error:', err);
         }
       }
     };
@@ -316,11 +344,11 @@ export default function Dashboard() {
             const context = await sdk.context;
             if (context.client.clientFid === 309857) {
               setIsInBaseApp(true);
-              console.log('Detected Base App environment');
+              safeLog('Detected Base App environment');
             }
           }
         } catch (err) {
-          console.error('Error checking Base App environment:', err);
+          safeError('Error checking Base App environment:', err);
         }
       }
     };
@@ -334,9 +362,9 @@ export default function Dashboard() {
       script.src = 'https://unpkg.com/@base-org/account@latest/dist/base-account.min.js';
       script.async = true;
       script.onload = () => {
-        console.log('Base Account SDK loaded successfully');
+        safeLog('Base Account SDK loaded successfully');
       };
-      script.onerror = () => console.error('Failed to load Base Account SDK');
+      script.onerror = () => safeError('Failed to load Base Account SDK');
       document.head.appendChild(script);
     }
   }, []);
@@ -360,7 +388,7 @@ export default function Dashboard() {
         setProviders(response);
         return;
       } catch (err) {
-        console.error(`Attempt ${i + 1} failed to fetch providers: ${err.message}`);
+        safeError(`Attempt ${i + 1} failed to fetch providers: ${err.message}`);
         if (err.message.includes("IP banned") || err.status === 429) {
           toast.error("Too many requests. Please try again later.", { position: 'top-center' });
           return;
@@ -403,7 +431,7 @@ export default function Dashboard() {
           throw new Error(result.detail || 'Failed to fetch CSRF token');
         }
       } catch (err) {
-        console.error('Error fetching CSRF token:', err);
+        safeError('Error fetching CSRF token:', err);
         toast.error(`Failed to fetch CSRF token: ${err.message}`, { position: 'top-center' });
       }
     };
@@ -443,7 +471,7 @@ export default function Dashboard() {
       if (!response.ok) throw new Error(result.detail || 'Wallet verification failed');
       toast.success('Wallet connected successfully!', { position: 'top-center' });
     } catch (err) {
-      console.error('Error verifying wallet:', err);
+      safeError('Error verifying wallet:', err);  // Fixed
       toast.error(`Wallet verification error: ${err.message}`, { position: 'top-center' });
     } finally {
       if (recaptchaRef.current) recaptchaRef.current.reset();
@@ -475,7 +503,7 @@ export default function Dashboard() {
           setCsrfToken(result.csrfToken);
           await update({ csrfToken: result.csrfToken });
         } catch (csrfError) {
-          console.error('Failed to fetch CSRF token:', csrfError);
+          safeError('Failed to fetch CSRF token:', csrfError);
           throw new Error('Cannot sign out: Missing CSRF token');
         }
       }
@@ -484,7 +512,7 @@ export default function Dashboard() {
         await signOut({ redirect: false });
         await update();
       } catch (signOutError) {
-        console.error('signOut fetch error:', signOutError);
+        safeError('signOut fetch error:', signOutError);
         if (signOutError.message.includes('ClientFetchError')) {
           const response = await fetch('/api/auth/signout', {
             method: 'POST',
@@ -518,10 +546,10 @@ export default function Dashboard() {
           credentials: 'include',
         });
         if (!response.ok) {
-          console.warn('Failed to clear server-side cache:', response.statusText);
+          safeWarn('Failed to clear server-side cache:', response.statusText);
         }
       } catch (cacheErr) {
-        console.warn('Failed to clear server-side cache:', cacheErr.message);
+        safeWarn('Failed to clear server-side cache:', cacheErr.message);
       }
 
       localStorage.removeItem('csrfToken');
@@ -534,7 +562,7 @@ export default function Dashboard() {
       router.refresh();
       router.push('/dashboard');
     } catch (error) {
-      console.error('Error during sign out process:', error);
+      safeError('Error during sign out process:', error);
       toast.error(`Failed to sign out: ${error.message}`, { position: 'top-center' });
       router.refresh();
       router.push('/dashboard');
@@ -560,7 +588,7 @@ export default function Dashboard() {
       await signIn('email', { email, callbackUrl: '/dashboard', redirect: false });
       toast.success('Sign-in email sent, please check your inbox!', { position: 'top-center' });
     } catch (err) {
-      console.error('Error signing in with email:', err);
+      safeError('Error signing in with email:', err);
       toast.error('Failed to sign in with email.', { position: 'top-center' });
     }
   };
@@ -580,49 +608,53 @@ export default function Dashboard() {
         throw new Error(result.error);
       }
       if (!result?.url) {
-        console.warn('No redirect URL provided by NextAuth, falling back to manual redirect');
+        safeWarn('No redirect URL provided by NextAuth, falling back to manual redirect');
         window.location.href = `${API_BASE_URL}/api/auth/signin/google`;
         return;
       }
       window.location.href = result.url;
     } catch (err) {
-      console.error('Error signing in with Google:', err);
+      safeError('Error signing in with Google:', err);
       toast.error(`Failed to sign in with Google: ${err.message}`, { position: 'top-center' });
     }
   };
 
   // IMPROVED: Thêm basic client-side SIWE parse check (optional, dùng siwe lib) + cleanup nonce on error
   const handleBaseSignIn = async () => {
-    if (isBaseLoading) return;
+    if (isBaseLoading || !fetchedNonce) {
+      toast.error('Nonce not ready. Please wait or refresh.');
+      return;
+    }
     setIsBaseLoading(true);
-    let fetchedNonce = null;
+    let tempNonce = fetchedNonce;
 
     try {
       if (!window.createBaseAccountSDK) {
-        throw new Error('Base Account SDK not loaded. Please refresh the page.');
+        throw new Error('Base Account SDK not loaded. Please refresh.');
       }
-
-      // Fetch nonce
-      const nonceRes = await fetch(`${API_BASE_URL}/api/nonce`, { method: 'GET' });
-      if (!nonceRes.ok) throw new Error('Failed to fetch nonce');
-      const { nonce } = await nonceRes.json();
-      fetchedNonce = nonce;
-      if (!nonce || nonce.length !== 32 || !/^[a-f0-9]{32}$/i.test(nonce)) {
-        throw new Error('Invalid nonce from server');
-      }
-      console.log('Fetched server nonce:', nonce);
 
       toast.info('Connecting to Base Account...', { position: 'top-center' });
 
-      // Initialize SDK
       const baseSDK = window.createBaseAccountSDK({
         appName: 'Xynapse Dashboard',
         appLogoUrl: process.env.NEXT_PUBLIC_APP_URL ? `${process.env.NEXT_PUBLIC_APP_URL}/logo.png` : 'https://base.xynapseai.net/logo.png',
       });
       const provider = baseSDK.getProvider();
 
-      // Try wallet_connect first (per Base docs)
+      // Switch chain (fixed log)
+      try {
+        await provider.request({
+          method: 'wallet_switchEthereumChain',
+          params: [{ chainId: '0x2105' }],
+        });
+        safeLog('Switched to Base chain');
+      } catch (switchErr) {
+        safeWarn('Chain switch failed (already on Base?):', switchErr.message);
+      }
+
       let message, signature, address;
+
+      // Try wallet_connect
       try {
         const response = await provider.request({
           method: 'wallet_connect',
@@ -630,90 +662,81 @@ export default function Dashboard() {
             version: '1',
             capabilities: {
               signInWithEthereum: {
-                nonce,
-                chainId: '0x2105',  // Base
+                nonce: tempNonce,
+                chainId: '0x2105',
               }
             }
           }]
         });
 
-        console.log('Full SDK response:', response);
-
+        safeLog('Full SDK response received');  // Silent raw
         const accounts = response?.accounts;
-        if (!accounts || accounts.length === 0) {
-          throw new Error('No accounts returned');
-        }
+        if (!accounts?.length) throw new Error('No accounts from SDK');
 
         const account = accounts[0];
         const siwe = account.capabilities?.signInWithEthereum;
-        if (!siwe || !siwe.message || !siwe.signature) {
-          throw new Error('Invalid SIWE from SDK');
-        }
+        if (!siwe?.message || !siwe?.signature) throw new Error('Invalid SIWE from SDK');
 
-        ({ message, signature } = siwe);
+        message = siwe.message;
+        signature = siwe.signature;
         address = account.address;
 
-        // Check if full SIWE (basic: has Version and Issued At)
         const hasVersion = message.includes('Version: 1');
         const hasIssuedAt = message.includes('Issued At:');
         if (!hasVersion || !hasIssuedAt) {
-          console.warn('Partial SIWE from SDK, falling back to manual construct');
-          throw new Error('Partial message - fallback');  // Trigger fallback
+          safeWarn('Partial SIWE from SDK, throwing to fallback');
+          throw new Error('Partial message - fallback');
         }
 
-        console.log('Full SIWE from SDK OK');
+        safeLog('Full SIWE from SDK OK');
       } catch (walletErr) {
-        console.warn('wallet_connect failed (origins/unsupported), fallback to manual SIWE + personal_sign:', walletErr.message);
-        // Fallback: Manual construct full SIWE + personal_sign
-        const domain = window.location.host;  // e.g., xynapseai.net
-        const uri = window.location.origin;  // https://xynapseai.net
-        const now = new Date().toISOString();  // Issued At
+        safeWarn('wallet_connect failed (origins/unsupported/partial), fallback to manual:', walletErr.message);
 
-        // Use siwe lib to generate conform message
-        const { SiweMessage } = await import('siwe');
-        const siweMessage = new SiweMessage({
-          domain,
-          address: undefined,  // Will sign and get from sig
-          uri,
-          version: '1',
-          chainId: 8453,
-          nonce,
-          issuedAt: now,
-          statement: 'Sign in to Xynapse Dashboard.',  // Optional human-readable
-        });
-        message = siweMessage.prepareMessage();  // Full ABNF string
-
-        console.log('Constructed full SIWE message:', message);
-
-        // Get accounts first
         const accountsResp = await provider.request({
           method: 'eth_requestAccounts',
         });
+        if (!accountsResp?.length) throw new Error('No accounts from eth_requestAccounts');
         address = accountsResp[0];
+        safeLog('Got address for fallback:', address.substring(0, 6) + '...');  // Mask
 
-        // Sign with personal_sign (ERC-191)
+        const domain = window.location.host;
+        const uri = window.location.origin;
+        const now = new Date().toISOString();
+
+        const siweMessage = new SiweMessage({
+          domain,
+          address,
+          uri,
+          version: '1',
+          chainId: 8453,
+          nonce: tempNonce,
+          issuedAt: now,
+          statement: 'Sign in to Xynapse Dashboard.',
+        });
+
+        message = siweMessage.prepareMessage();
+        safeLog('Constructed full SIWE message (fallback):', message.substring(0, 100) + '...');  // Preview
+        safeLog('Message lines:', message.split('\n').length);
+
         signature = await provider.request({
           method: 'personal_sign',
           params: [message, address],
         });
-        console.log('Fallback signature length:', signature.length);
+        safeLog('Fallback signature length:', signature?.length || 'N/A');
       }
 
       if (!message || !signature || !address) {
-        throw new Error('Missing message/signature/address');
+        throw new Error('Missing message/signature/address after fallback');
       }
 
-      // Basic validation (lenient for fallback)
-      if (!message.includes('Version: 1') || !message.includes('Issued At:')) {
-        throw new Error('Invalid SIWE: missing required fields');
-      }
-      if (!message.includes(`Nonce: ${nonce}`) || !message.includes('Chain ID: 8453')) {
-        throw new Error('Invalid nonce/chain in message');
+      const hasNonce = message.includes(`Nonce: ${tempNonce}`);
+      const hasChain = message.includes('Chain ID: 8453');
+      if (!message.includes('Version: 1') || !message.includes('Issued At:') || !hasNonce || !hasChain) {
+        throw new Error('Invalid SIWE fields after construct');
       }
 
-      console.log('Validated SIWE OK, proceeding to signIn');
+      safeLog('Validated SIWE OK, proceeding to NextAuth signIn');
 
-      // Sign in NextAuth
       const res = await signIn('credentials', {
         message,
         signature,
@@ -721,39 +744,38 @@ export default function Dashboard() {
       });
 
       if (res?.error) {
-        console.error('NextAuth res error:', res.error);
+        safeError('NextAuth res error:', res.error);  // Keep
         throw new Error(res.error);
       }
 
-      // Cleanup nonce on success
-      await fetch(`${API_BASE_URL}/api/nonce`, {
+      const delRes = await fetch(`${API_BASE_URL}/api/nonce`, {
         method: 'DELETE',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ nonce: fetchedNonce }),
-      }).catch(err => console.warn('Nonce cleanup failed:', err));
+        body: JSON.stringify({ nonce: tempNonce }),
+      });
+      if (!delRes.ok) {
+        safeWarn('Nonce cleanup on success failed:', delRes.status);
+      } else {
+        safeLog('Nonce cleaned up');
+      }
 
-      toast.success(`Signed in with Base! Address: ${address.slice(0, 6)}...${address.slice(-4)}`, { position: 'top-center' });
+      toast.success(`Signed in with Base! Address: ${address.substring(0, 6)}...${address.substring(-4)}`, { position: 'top-center' });
       setBaseModalOpen(false);
       await update();
       router.push('/dashboard');
     } catch (err) {
-      console.error('Base sign-in error:', err);
+      safeError('Base sign-in error:', err);  // Keep
       toast.error(`Sign-in error: ${err.message}`, { position: 'top-center' });
 
-      // Cleanup on error
-      if (fetchedNonce) {
-        try {
-          const delRes = await fetch(`${API_BASE_URL}/api/nonce`, {
-            method: 'DELETE',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ nonce: fetchedNonce }),
-          });
-          if (!delRes.ok) {
-            console.warn('Nonce cleanup on error failed:', delRes.status);
-          }
-        } catch (cleanupErr) {
-          console.warn('Cleanup fetch error:', cleanupErr);
-        }
+      try {
+        const delRes = await fetch(`${API_BASE_URL}/api/nonce`, {
+          method: 'DELETE',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ nonce: tempNonce }),
+        });
+        if (!delRes.ok) safeWarn('Nonce cleanup on error failed:', delRes.status);
+      } catch (cleanupErr) {
+        safeWarn('Cleanup fetch error:', cleanupErr);
       }
     } finally {
       setIsBaseLoading(false);
@@ -945,7 +967,7 @@ export default function Dashboard() {
             size="invisible"
             badge="bottomright"
             onError={() => {
-              console.error('reCAPTCHA initialization failed');
+              safeError('reCAPTCHA initialization failed');
               toast.error('Failed to initialize reCAPTCHA', { position: 'top-center' });
             }}
           />
@@ -1022,7 +1044,7 @@ export default function Dashboard() {
                 </p>
                 <button
                   onClick={handleBaseSignIn}
-                  disabled={isBaseLoading}
+                  disabled={isBaseLoading || !fetchedNonce}
                   className="w-full px-4 py-2.5 bg-blue-600 text-white rounded-2xl text-sm font-semibold transition-all duration-300 hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
                 >
                   {isBaseLoading ? (
@@ -1032,13 +1054,7 @@ export default function Dashboard() {
                     </>
                   ) : (
                     <>
-                      <Image
-                        src="/logos/base.webp"
-                        alt="Base Logo"
-                        width={16}
-                        height={16}
-                        className="w-4 h-4 object-contain"
-                      />
+                      <Image src="/logos/base.webp" alt="Base Logo" width={16} height={16} className="w-4 h-4 object-contain" />
                       Sign in with Base
                     </>
                   )}
