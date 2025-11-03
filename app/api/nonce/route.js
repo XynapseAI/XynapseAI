@@ -6,18 +6,18 @@ import { logger } from '@/utils/serverLogger';
 
 export async function GET() {
   try {
-    // Generate nonce server-side: 16 bytes hex = 32 chars
+    // Generate nonce server-side: 16 bytes hex = 32 chars (for SIWE compliance)
     const array = new Uint8Array(16);
     crypto.getRandomValues(array);
     const nonce = Array.from(array, (byte) => byte.toString(16).padStart(2, '0')).join('');
 
-    const ttlSeconds = process.env.NODE_ENV === 'development' ? 600 : 300; // 10min dev, 5min prod (fix duplicate const)
+    const ttlSeconds = process.env.NODE_ENV === 'development' ? 600 : 300; // 10min dev, 5min prod
     const client = await getRedisClient();
     const expires = Date.now() + (ttlSeconds * 1000);
     await client.setEx(`siwe:nonce:${nonce}`, ttlSeconds, JSON.stringify({ expires }));
 
-    logger.info('Nonce generated and stored', {
-      fullNonce: nonce,  // Log full để so
+    logger.info('Nonce generated and stored for SIWE', {
+      fullNonce: nonce,
       nonceLength: nonce.length,
       expires: new Date(expires).toISOString(),
       ttlSeconds
@@ -29,7 +29,7 @@ export async function GET() {
   }
 }
 
-// Giữ DELETE (giữ nguyên)
+// Giữ DELETE (cleanup nonce on success/fail)
 export async function DELETE(request) {
   try {
     const body = await request.json().catch(() => ({}));  // Graceful parse nếu no body
@@ -41,7 +41,7 @@ export async function DELETE(request) {
     const client = await getRedisClient();
     const deleted = await client.del(`siwe:nonce:${nonce}`);
     if (deleted > 0) {
-      logger.info('Nonce deleted', { nonce: nonce.substring(0, 16) + '...' });
+      logger.info('Nonce deleted (SIWE cleanup)', { nonce: nonce.substring(0, 16) + '...' });
       return NextResponse.json({ success: true });
     }
     return NextResponse.json({ error: 'Nonce not found' }, { status: 404 });

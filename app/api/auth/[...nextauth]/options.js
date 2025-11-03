@@ -12,6 +12,7 @@ import util from 'util';
 import { createPublicClient, http } from 'viem'; 
 import { base } from 'viem/chains'; // Base chain
 import { getRedisClient } from '@/utils/redis';
+import { SiweMessage } from 'siwe'; // NEW: Standard SIWE parser (npm install siwe)
 
 const scrypt = util.promisify(crypto.scrypt);
 
@@ -29,7 +30,7 @@ const publicClient = createPublicClient({
   transport: http('https://mainnet.base.org')
 });
 
-// Verify SIWE cho Base login (tolerant: regex nonce + viem verifyMessage theo Base docs)
+// IMPROVED: Verify SIWE with siwe parser (replaces regex) + viem verify (for ERC-6492)
 async function verifySiwe(credentials) {
   try {
     const { message, signature } = credentials;
@@ -52,48 +53,71 @@ async function verifySiwe(credentials) {
       logger.info('Added 0x prefix to signature');
     }
 
-    // 1. Extract Nonce
-    const nonceMatch = message.match(/Nonce:\s*([a-f0-9]{32})/i);
-    if (!nonceMatch) {
-      logger.error('Nonce not found in message via regex', { messagePreview: message.substring(0, 200) });
-      throw new Error('Invalid SIWE message: missing nonce');
-    }
-    const extractedNonce = nonceMatch[1];
-    logger.info('Extracted nonce from message:', { nonce: extractedNonce });
+    // NEW: Parse with siwe library (strict EIP-4361 validation)
+    let siweMessage;
+    try {
+      siweMessage = new SiweMessage(message);
+      const { address, domain, chainId, nonce, issuedAt, version, uri, resources } = siweMessage;
+      
+      logger.info('Parsed SIWE fields:', {
+        address: address?.toLowerCase(),
+        domain,
+        chainId,
+        nonce,
+        version,
+        issuedAt: issuedAt?.toISOString(),
+        uri,
+        resources: resources?.length || 0
+      });
 
-    // 2. Extract Chain ID
-    if (!message.includes('Chain ID: 8453')) {
-      throw new Error('Invalid chain: expected 8453');
-    }
-
-    const domainMatch = message.match(/^([a-zA-Z0-9.-]+):?\d*\s+wants you to sign in/i);
-    const extractedDomain = domainMatch ? domainMatch[1] : null;
-    logger.info('Extracted domain from message:', { domain: extractedDomain || 'N/A' });
-
-    if (process.env.NODE_ENV !== 'development') {
-      const expectedDomain = process.env.APP_DOMAIN || 'xynapseai.net';
-      if (extractedDomain !== expectedDomain) {
-        throw new Error(`Invalid domain: expected ${expectedDomain}, got ${extractedDomain}`);
+      // Strict validation
+      if (!address || !/^0x[a-fA-F0-9]{40}$/.test(address)) {
+        throw new Error('Invalid address in SIWE message');
       }
+      if (version !== '1') {
+        throw new Error('Invalid SIWE version: must be 1');
+      }
+      if (chainId !== '8453') {  // Base mainnet
+        throw new Error('Invalid chain: expected 8453 (Base)');
+      }
+      if (!domain || (process.env.NODE_ENV !== 'development' && domain !== (process.env.APP_DOMAIN || 'xynapseai.net'))) {
+        throw new Error(`Invalid domain: expected ${process.env.APP_DOMAIN || 'xynapseai.net'}, got ${domain}`);
+      }
+      if (!uri || !uri.startsWith('http')) {
+        throw new Error('Invalid URI in SIWE message');
+      }
+      if (issuedAt) {
+        const issuedDate = new Date(issuedAt);
+        const fiveMinAgo = new Date(Date.now() - 5 * 60 * 1000);
+        if (issuedDate < fiveMinAgo) {
+          throw new Error('SIWE message issued too long ago (must be within 5 minutes)');
+        }
+      } else {
+        throw new Error('Missing issuedAt in SIWE message');
+      }
+      if (resources && resources.length > 0) {
+        // Optional: Allow empty resources, but log if present
+        logger.warn('SIWE message has resources – verify if expected', { resources });
+      }
+
+      // Use parsed nonce
+      const extractedNonce = nonce;
+      if (!extractedNonce || extractedNonce.length !== 32 || !/^[a-f0-9]{32}$/i.test(extractedNonce)) {
+        throw new Error('Invalid nonce in SIWE message');
+      }
+      logger.info('Extracted nonce from SIWE parser:', { nonce: extractedNonce });
+
+      const extractedAddress = address.toLowerCase();
+      logger.info('Extracted address from SIWE parser:', { address: extractedAddress });
+
+    } catch (parseErr) {
+      logger.error('SIWE parse error (invalid format):', { error: parseErr.message, messagePreview: message.substring(0, 200) });
+      throw new Error(`Invalid SIWE message format: ${parseErr.message}`);
     }
 
-    // 4. Extract Address
-    const addressMatch = message.match(/Ethereum account:\s*(0x[0-9a-fA-F]{40})/i);
-    if (!addressMatch) {
-      logger.error('Address not found in message', { messagePreview: message.substring(0, 200) });
-      throw new Error('Invalid SIWE message: missing address');
-    }
-    const extractedAddress = addressMatch[1].toLowerCase();
-    logger.info('Extracted address from message:', { address: extractedAddress });
-
-    const hasVersion = message.includes('Version: 1');
-    const hasIssuedAt = message.includes('Issued At:');
-    if (!hasVersion || !hasIssuedAt) {
-      logger.warn('SIWE message missing required fields (Version/Issued At) – verifying anyway');
-    }
-
+    // Check nonce in Redis (unchanged, but now uses parsed nonce)
     const client = await getRedisClient();
-    const nonceKey = `siwe:nonce:${extractedNonce}`;
+    const nonceKey = `siwe:nonce:${siweMessage.nonce}`;
     logger.info('Redis nonce lookup attempt:', { nonceKey });
 
     const storedData = await client.get(nonceKey);
@@ -123,21 +147,28 @@ async function verifySiwe(credentials) {
       throw new Error(`Nonce expired`);
     }
 
-    // 6. Consume Nonce
+    // NEW: Cross-check issuedAt vs nonce creation (approx, since nonce doesn't store creation time, but expires implies fresh)
+    const nonceCreationApprox = expires - (process.env.NODE_ENV === 'development' ? 600000 : 300000); // TTL ms
+    const issuedTimeMs = new Date(siweMessage.issuedAt).getTime();
+    if (Math.abs(issuedTimeMs - nonceCreationApprox) > 5 * 60 * 1000) {  // >5min diff
+      throw new Error('SIWE issuedAt does not match nonce freshness');
+    }
+
+    // Consume Nonce
     await client.del(nonceKey);
     logger.info('Nonce consumed (deleted from Redis)');
 
-    logger.info('Nonce validated, proceeding to signature verify');
+    logger.info('SIWE parsed & nonce validated, proceeding to signature verify');
 
-    // 7. Verify Signature (use viem native – handles ERC-6492 automatically for pre-deploy)
+    // Verify Signature (keep viem – handles ERC-6492 automatically for pre-deploy)
     let valid;
     try {
       valid = await publicClient.verifyMessage({
-        address: extractedAddress,
+        address: siweMessage.address,
         message,
         signature: sig,
       });
-      logger.info('Viem verifyMessage result:', { valid, expectedAddress: extractedAddress, messageLength: message.length });
+      logger.info('Viem verifyMessage result:', { valid, expectedAddress: siweMessage.address, messageLength: message.length });
     } catch (viemError) {
       logger.error('Viem verifyMessage detailed error:', {
         error: viemError.message,
@@ -151,14 +182,12 @@ async function verifySiwe(credentials) {
       logger.error('Viem verifyMessage returned false', {
         messagePreview: message.substring(0, 200),
         sigLength: sig.length,
-        hasVersion,
-        hasIssuedAt
       });
       throw new Error('Invalid signature (Viem verifyMessage returned false)');
     }
 
-    logger.info('SIWE verified for Base Account', { address: extractedAddress });
-    return { address: extractedAddress, message, signature };
+    logger.info('SIWE fully verified for Base Account (parser + viem)', { address: siweMessage.address.toLowerCase() });
+    return { address: siweMessage.address.toLowerCase(), message, signature };
 
   } catch (error) {
     logger.error('SIWE verification failed details:', {

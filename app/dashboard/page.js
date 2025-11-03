@@ -26,7 +26,7 @@ import * as THREE from "three";
 import { TermsOfServiceContent } from '../../components/TermsOfService';
 import { PrivacyPolicyContent } from '../../components/PrivacyPolicy';
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
-import { SiweMessage } from 'siwe';
+import { SiweMessage } from 'siwe'; // NEW: Client-side parser for basic check (optional, npm install siwe)
 
 gsap.registerPlugin(MotionPathPlugin);
 
@@ -591,9 +591,11 @@ export default function Dashboard() {
     }
   };
 
+  // IMPROVED: Thêm basic client-side SIWE parse check (optional, dùng siwe lib) + cleanup nonce on error
   const handleBaseSignIn = async () => {
     if (isBaseLoading) return;
     setIsBaseLoading(true);
+    let fetchedNonce = null; // For cleanup
 
     try {
       if (!window.createBaseAccountSDK) {
@@ -604,6 +606,7 @@ export default function Dashboard() {
       const nonceRes = await fetch(`${API_BASE_URL}/api/nonce`, { method: 'GET' });
       if (!nonceRes.ok) throw new Error('Failed to fetch nonce');
       const { nonce } = await nonceRes.json();
+      fetchedNonce = nonce;
       if (!nonce || nonce.length !== 32 || !/^[a-f0-9]{32}$/i.test(nonce)) {
         throw new Error('Invalid nonce from server');
       }
@@ -655,35 +658,23 @@ export default function Dashboard() {
       console.log('Raw SDK message:', message); // Debug raw
       console.log('Raw SDK signature length:', signature.length); // Debug
 
-      // KHÔNG FIX \n\n hoặc append nữa – dùng raw để match signature
-      // Chỉ check lenient: chấp nhận single \n, thiếu Version/Issued At (log warning sau)
-
-      // Relaxed SIWE format check (cho raw)
-      const lines = message.split('\n');
-      const lineCount = lines.length;
-      const nonceMatch = message.match(/Nonce:\s*([a-f0-9]{32})/i);
-      const domain = window.location.hostname;
-      const hasPrefix = message.startsWith(`${domain} wants you to sign in with your Ethereum account:`);
-      const hasChainId = message.includes('Chain ID: 8453');
-      const noJsonError = !message.includes('{"success":false');
-      const hasVersion = message.includes('Version: 1');
-      const hasIssuedAt = message.includes('Issued At:');
-
-      console.log('SIWE debug (raw):', {
-        fullMessage: message,
-        lines, lineCount, domain, hasPrefix, nonceInMessage: nonceMatch ? nonceMatch[1] : 'NO MATCH',
-        nonceMatch: nonceMatch && nonceMatch[1] === nonce, hasChainId, noJsonError, hasVersion, hasIssuedAt
-      });
-
-      // Relax: Chỉ require prefix, chain, nonce; warning nếu thiếu Version/Issued At
-      if (!hasPrefix || !hasChainId || !noJsonError || lineCount < 4 || !nonceMatch || nonceMatch[1] !== nonce) {
-        throw new Error('Malformed SIWE message from SDK – missing core fields');
-      }
-      if (!hasVersion || !hasIssuedAt) {
-        console.warn('SIWE missing required fields (Version/Issued At) – proceeding but non-standard');
+      // NEW: Optional client-side parse check (lightweight, using siwe lib)
+      try {
+        const clientSiwe = new SiweMessage(message);
+        const { address, chainId, nonce: msgNonce, version, issuedAt } = clientSiwe;
+        if (chainId !== '8453' || version !== '1' || msgNonce !== nonce) {
+          throw new Error('Client-side SIWE validation failed (chain/nonce/version mismatch)');
+        }
+        if (issuedAt && new Date(issuedAt) < new Date(Date.now() - 5 * 60 * 1000)) {
+          throw new Error('SIWE message too old on client');
+        }
+        console.log('Client-side SIWE parse OK:', { address: address?.toLowerCase() });
+      } catch (clientParseErr) {
+        console.warn('Client-side SIWE parse warning (non-fatal):', clientParseErr.message);
+        // Proceed, server will strict validate
       }
 
-      console.log('Validated SIWE OK (raw), proceeding to signIn');
+      console.log('Validated SIWE OK (raw + client check), proceeding to signIn');
 
       // Sign in via NextAuth với raw message
       const res = await signIn('credentials', {
@@ -695,20 +686,24 @@ export default function Dashboard() {
       if (res?.error) {
         console.error('NextAuth res error:', res.error);
         // Cleanup nonce on fail
-        await fetch(`${API_BASE_URL}/api/nonce`, {
-          method: 'DELETE',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ nonce }),
-        }).catch(err => console.warn('Nonce cleanup failed:', err));
+        if (fetchedNonce) {
+          await fetch(`${API_BASE_URL}/api/nonce`, {
+            method: 'DELETE',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ nonce: fetchedNonce }),
+          }).catch(err => console.warn('Nonce cleanup failed:', err));
+        }
         throw new Error(res.error);
       }
 
       // Cleanup on success
-      await fetch(`${API_BASE_URL}/api/nonce`, {
-        method: 'DELETE',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ nonce }),
-      }).catch(() => { });
+      if (fetchedNonce) {
+        await fetch(`${API_BASE_URL}/api/nonce`, {
+          method: 'DELETE',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ nonce: fetchedNonce }),
+        }).catch(() => { });
+      }
 
       toast.success(`Signed in with Base! Address: ${account.address.slice(0, 6)}...${account.address.slice(-4)}`, { position: 'top-center' });
       setBaseModalOpen(false);
@@ -717,6 +712,14 @@ export default function Dashboard() {
     } catch (err) {
       console.error('Base sign-in error:', err);
       toast.error(`Sign-in error: ${err.message}`, { position: 'top-center' });
+      // Ensure cleanup on error
+      if (fetchedNonce) {
+        await fetch(`${API_BASE_URL}/api/nonce`, {
+          method: 'DELETE',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ nonce: fetchedNonce }),
+        }).catch(err => console.warn('Error cleanup failed:', err));
+      }
     } finally {
       setIsBaseLoading(false);
     }
