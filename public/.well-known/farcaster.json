@@ -1,9 +1,10 @@
 {
-  "miniapp": {
+  "frame": {
     "name": "Xynapse Mini App",
     "version": "1",
     "iconUrl": "https://base.xynapseai.net/logos/logo.png",
     "homeUrl": "https://base.xynapseai.net/dashboard",
+    "imageUrl": "https://base.xynapseai.net/image.png",
     "splashImageUrl": "https://base.xynapseai.net/splash.png",
     "splashBackgroundColor": "#000000",
     "webhookUrl": "https://base.xynapseai.net/api/webhook",
@@ -21,8 +22,7 @@
     ],
     "tagline": "AI Insights on Base",
     "ogTitle": "Xynapse Mini App",
-    "ogDescription": "AI-Powered Crypto Analytics on Base",
-    "noindex" : false
+    "ogDescription": "AI-Powered Crypto Analytics on Base"
   },
   "accountAssociation": {
     "header": "eyJmaWQiOjEzOTU0NzIsInR5cGUiOiJjdXN0b2R5Iiwia2V5IjoiMHg5NjYyNzg5MmMyMWEzRTQ3MTQzNzMyZUNlRENiNkJiMWM4ZjZlRjc0In0",
