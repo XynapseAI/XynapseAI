@@ -314,19 +314,16 @@ export default function Dashboard() {
     };
     initAndCheckEnvironment();
   }, []);
-  // Cải thiện: Gọi ready() chỉ sau khi app fully loaded (isMounted && providers && status !== 'loading')
+
   useEffect(() => {
     const callMiniAppReady = async () => {
-      if (!inMiniApp || miniAppReadyCalled || typeof sdk === 'undefined') {
-        return;
-      }
-      // Kiểm tra app ready: Không còn hiển thị loading overlay
-      if (isMounted && providers && status !== 'loading') {
+
+      if (inMiniApp && !miniAppReadyCalled && isMounted && typeof sdk !== 'undefined') {
+
         try {
           await sdk.actions.ready();
-          safeLog('Mini App ready! (Called after app fully loaded)');
+          safeLog('Mini App ready! (Called after app mounted)');
           setMiniAppReadyCalled(true);
-          // Fetch context sau ready()
           const context = await sdk.context;
           if (context.client.clientFid === 309857) {
             setIsInBaseApp(true);
@@ -334,7 +331,6 @@ export default function Dashboard() {
           }
         } catch (err) {
           safeError('Mini App SDK ready() error:', err);
-          // Fallback: Thử gọi ready() một lần nữa sau 2s nếu lỗi (có thể do timing)
           setTimeout(async () => {
             if (!miniAppReadyCalled) {
               try {
@@ -349,8 +345,10 @@ export default function Dashboard() {
         }
       }
     };
+
     callMiniAppReady();
-  }, [inMiniApp, isMounted, providers, status, miniAppReadyCalled]);
+  }, [inMiniApp, isMounted, miniAppReadyCalled]);
+
   // Load Base Account SDK
   useEffect(() => {
     if (typeof window !== 'undefined' && !window.createBaseAccountSDK) {
