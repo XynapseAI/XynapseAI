@@ -28,6 +28,19 @@ import { PrivacyPolicyContent } from '../../components/PrivacyPolicy';
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 import { SiweMessage } from 'siwe'; // NEW: Client-side parser for basic check (optional, npm install siwe)
 gsap.registerPlugin(MotionPathPlugin);
+
+(async () => {
+  try {
+    const isInMini = await sdk.isInMiniApp();
+    if (isInMini) {
+      await sdk.actions.ready();
+      console.log('Mini App ready called early');
+    }
+  } catch (err) {
+    console.error('Early ready call failed:', err);
+  }
+})();
+
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:3000/api';
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 const BASE_CHAIN_ID = 8453; // Base mainnet
