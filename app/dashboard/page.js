@@ -25,10 +25,8 @@ import { Stars, Sphere, Float, Environment } from "@react-three/drei";
 import * as THREE from "three";
 import { TermsOfServiceContent } from '../../components/TermsOfService';
 import { PrivacyPolicyContent } from '../../components/PrivacyPolicy';
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
 import { SiweMessage } from 'siwe'; // NEW: Client-side parser for basic check (optional, npm install siwe)
 gsap.registerPlugin(MotionPathPlugin);
-
 (async () => {
   try {
     const isInMini = await sdk.isInMiniApp();
@@ -40,7 +38,6 @@ gsap.registerPlugin(MotionPathPlugin);
     console.error('Early ready call failed:', err);
   }
 })();
-
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:3000/api';
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 const BASE_CHAIN_ID = 8453; // Base mainnet
@@ -327,12 +324,9 @@ export default function Dashboard() {
     };
     initAndCheckEnvironment();
   }, []);
-
   useEffect(() => {
     const callMiniAppReady = async () => {
-
       if (inMiniApp && !miniAppReadyCalled && isMounted && typeof sdk !== 'undefined') {
-
         try {
           await sdk.actions.ready();
           safeLog('Mini App ready! (Called after app mounted)');
@@ -358,10 +352,8 @@ export default function Dashboard() {
         }
       }
     };
-
     callMiniAppReady();
   }, [inMiniApp, isMounted, miniAppReadyCalled]);
-
   // Load Base Account SDK
   useEffect(() => {
     if (typeof window !== 'undefined' && !window.createBaseAccountSDK) {
@@ -782,11 +774,13 @@ export default function Dashboard() {
                 transition={{ duration: 0.8, ease: 'easeOut' }}
                 className="w-full h-full flex items-center justify-center text-white font-saira relative"
               >
-                <div className="fixed inset-0 z-0">
-                  <Canvas camera={{ position: [0, 0, 5], fov: 75 }} dpr={[1, 1.5]} performance={{ min: 0.3 }}>
-                    <UniverseBackground />
-                  </Canvas>
-                </div>
+                {!inMiniApp && (
+                  <div className="fixed inset-0 z-0">
+                    <Canvas camera={{ position: [0, 0, 5], fov: 75 }} dpr={[1, 1.5]} performance={{ min: 0.3 }}>
+                      <UniverseBackground />
+                    </Canvas>
+                  </div>
+                )}
                 <motion.div
                   initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: 1, y: 0 }}

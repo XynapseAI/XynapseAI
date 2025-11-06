@@ -13,9 +13,7 @@ import { createPublicClient, http } from 'viem';
 import { base } from 'viem/chains'; // Base chain
 import { getRedisClient } from '@/utils/redis';
 import { SiweMessage } from 'siwe'; // Standard SIWE parser (npm install siwe)
-
 const scrypt = util.promisify(crypto.scrypt);
-
 async function hashApiKey(apiKey) {
   const salt = crypto.randomBytes(16).toString('hex');
   const derived = await scrypt(apiKey, salt, 64);
@@ -24,35 +22,29 @@ async function hashApiKey(apiKey) {
     api_key_salt: salt,
   };
 }
-
 const publicClient = createPublicClient({
   chain: base,
   transport: http('https://mainnet.base.org')
 });
-
 // IMPROVED: Verify SIWE with siwe parser (replaces regex) + viem verify (for ERC-6492)
 async function verifySiwe(credentials) {
   try {
     const { message, signature } = credentials;
-
     logger.info('Full SIWE input to verify:', {
       message: typeof message === 'string' ? message.substring(0, 300) + (message.length > 300 ? '...' : '') : message,
       fullMessageLength: message.length,
       signaturePreview: typeof signature === 'string' ? signature.substring(0, 50) + '...' : signature,
       signatureLength: typeof signature === 'string' ? signature.length : 'N/A'
     });
-
     if (typeof message !== 'string' || typeof signature !== 'string') {
       throw new Error('Message and signature must be strings');
     }
-
     // Ensure signature is 0x-prefixed (common issue with some SDKs)
     let sig = signature;
     if (!sig.startsWith('0x')) {
       sig = '0x' + sig;
       logger.info('Added 0x prefix to signature');
     }
-
     // Try siwe parse first
     let siweMessage, extractedAddress, extractedNonce, extractedDomain, extractedChainId;
     let isPartial = false;
@@ -60,7 +52,6 @@ async function verifySiwe(credentials) {
       siweMessage = new SiweMessage(message);
       // eslint-disable-next-line @typescript-eslint/no-unused-vars
       const { address, domain, chainId, nonce, issuedAt, version, uri, statement, resources } = siweMessage;
-
       logger.info('Parsed SIWE fields:', {
         address: address?.toLowerCase(),
         domain,
@@ -71,7 +62,6 @@ async function verifySiwe(credentials) {
         uri,
         resources: resources?.length || 0
       });
-
       // Strict validation
       if (!address || !/^0x[a-fA-F0-9]{40}$/.test(address)) {
         throw new Error('Invalid address in SIWE message');
@@ -79,7 +69,7 @@ async function verifySiwe(credentials) {
       if (version !== '1') {
         throw new Error('Invalid SIWE version: must be 1');
       }
-      if (chainId !== '8453') {  // Base mainnet
+      if (chainId !== '8453') { // Base mainnet
         throw new Error('Invalid chain: expected 8453 (Base)');
       }
       if (!domain || (process.env.NODE_ENV !== 'development' && domain !== (process.env.APP_DOMAIN || 'xynapseai.net'))) {
@@ -101,58 +91,44 @@ async function verifySiwe(credentials) {
         // Optional: Allow empty resources, but log if present
         logger.warn('SIWE message has resources – verify if expected', { resources });
       }
-
       // Use parsed values
       extractedAddress = address.toLowerCase();
       extractedNonce = nonce;
       extractedDomain = domain;
       extractedChainId = chainId.toString();
-
       logger.info('Extracted from SIWE parser:', { address: extractedAddress, nonce: extractedNonce });
-
     } catch (parseErr) {
       logger.warn('Siwe parse failed (possible partial from SDK), fallback regex:', { error: parseErr.message });
       isPartial = true;
-
       // Fallback improved regex for partial messages
       const domainMatch = message.match(/^([a-zA-Z0-9.-]+):?\d*\s+wants you to sign in/i);
       extractedDomain = domainMatch ? domainMatch[1] : null;
-
       const addressMatch = message.match(/0x[a-fA-F0-9]{40}/i);
       extractedAddress = addressMatch ? addressMatch[0].toLowerCase() : null;
-
       const chainMatch = message.match(/Chain ID:\s*(\d+)/i);
       extractedChainId = chainMatch ? chainMatch[1] : null;
-
       const nonceMatch = message.match(/Nonce:\s*([a-f0-9]{32})/i);
       extractedNonce = nonceMatch ? nonceMatch[1] : null;
-
       // Strict: Reject if missing Version or Issued At (EIP-4361 required)
       const hasVersion = message.includes('Version: 1');
       const hasIssuedAt = message.includes('Issued At:');
       if (!hasVersion || !hasIssuedAt) {
         throw new Error('Invalid SIWE: missing Version or Issued At (required per EIP-4361)');
       }
-
       if (!extractedAddress || !extractedNonce || !extractedDomain || extractedChainId !== '8453') {
         throw new Error('Fallback extract failed: missing core fields');
       }
-
       logger.info('Extracted from fallback regex:', { address: extractedAddress, nonce: extractedNonce });
     }
-
     // Check nonce in Redis (use extractedNonce)
     const client = await getRedisClient();
     const nonceKey = `siwe:nonce:${extractedNonce}`;
     logger.info('Redis nonce lookup attempt:', { nonceKey });
-
     const storedData = await client.get(nonceKey);
     logger.info('Redis nonce lookup result:', { hasData: !!storedData });
-
     if (!storedData) {
       throw new Error(`Nonce not found in Redis or already used`);
     }
-
     let parsedStored;
     try {
       parsedStored = JSON.parse(storedData);
@@ -160,19 +136,16 @@ async function verifySiwe(credentials) {
       logger.error('JSON parse error on stored data:', { error: parseErr.message, rawData: storedData });
       throw new Error(`Invalid stored nonce data: ${parseErr.message}`);
     }
-
     const { expires } = parsedStored;
     const now = Date.now();
     const expiresDate = new Date(expires);
     const nowDate = new Date(now);
     const isExpired = nowDate > expiresDate;
     logger.info('Nonce expiration check:', { isExpired });
-
     if (isExpired) {
       await client.del(nonceKey); // Cleanup expired
       throw new Error(`Nonce expired`);
     }
-
     // Cross-check issuedAt vs nonce creation (approx)
     const ttlMs = process.env.NODE_ENV === 'development' ? 600000 : 300000;
     const nonceCreationApprox = expires - ttlMs;
@@ -180,13 +153,10 @@ async function verifySiwe(credentials) {
     if (Math.abs(issuedTimeMs - nonceCreationApprox) > 5 * 60 * 1000) {
       throw new Error('SIWE issuedAt does not match nonce freshness');
     }
-
     // Consume Nonce
     await client.del(nonceKey);
     logger.info('Nonce consumed (deleted from Redis)');
-
     logger.info('SIWE parsed & nonce validated, proceeding to signature verify');
-
     // Verify Signature (viem – handles ERC-6492 for pre-deploy)
     let valid;
     try {
@@ -204,7 +174,6 @@ async function verifySiwe(credentials) {
       });
       throw new Error(`Signature verification failed: ${viemError.message}`);
     }
-
     if (!valid) {
       logger.error('Viem verifyMessage returned false', {
         messagePreview: message.substring(0, 200),
@@ -212,10 +181,8 @@ async function verifySiwe(credentials) {
       });
       throw new Error('Invalid signature (Viem verifyMessage returned false)');
     }
-
     logger.info(`SIWE fully verified for Base Account (siwe${isPartial ? '+fallback' : ''})`, { address: extractedAddress });
     return { address: extractedAddress, message, signature };
-
   } catch (error) {
     logger.error('SIWE verification failed details:', {
       error: error.message,
@@ -224,7 +191,6 @@ async function verifySiwe(credentials) {
     throw error;
   }
 }
-
 // ================== Email Transporter ==================
 const transporter = createTransport({
   host: process.env.EMAIL_SERVER_HOST,
@@ -234,7 +200,6 @@ const transporter = createTransport({
     pass: process.env.EMAIL_SERVER_PASSWORD,
   },
 });
-
 // ================== Custom Adapter ==================
 const customAdapter = {
   async getUserByEmail(email) {
@@ -268,24 +233,20 @@ const customAdapter = {
   async createUser(data) {
     const id = data.wallet_address || data.google_id || data.id || uuidv4();
     logger.info("Creating user", { id, email: data.email, wallet: data.wallet_address });
-
     if (!data.email && !data.wallet_address) {
       logger.error("Cannot create user without email or wallet", { id });
       throw new Error("Email or wallet is required");
     }
-
     const plainApiKey = randomBytes(32).toString("hex");
     const { api_key_hash, api_key_salt } = await hashApiKey(plainApiKey);
-
     logger.info('Executing user insert', { id, wallet: data.wallet_address });
-
     const { rows } = await query(
       `INSERT INTO users (
         id,email,google_id,google_name,email_verified,profile_picture,wallet_address,
         connected,last_connected,points,tweet_points,ai_points,task_points,
         is_creator,is_ai_rank,tier,is_plus,is_premium,api_key_hash,api_key_salt,created_at
       ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21)
-      ON CONFLICT (wallet_address) DO UPDATE SET  
+      ON CONFLICT (wallet_address) DO UPDATE SET
         email=COALESCE(EXCLUDED.email, users.email),google_name=EXCLUDED.google_name,email_verified=EXCLUDED.email_verified,
         profile_picture=COALESCE(users.profile_picture, EXCLUDED.profile_picture),connected=EXCLUDED.connected,
         last_connected=EXCLUDED.last_connected,updated_at=CURRENT_TIMESTAMP, api_key_hash=EXCLUDED.api_key_hash, api_key_salt=EXCLUDED.api_key_salt
@@ -303,7 +264,7 @@ const customAdapter = {
   async updateUser(data) {
     logger.info("Updating user", { id: data.id, email: data.email, wallet: data.wallet_address });
     const { rows } = await query(
-      `UPDATE users SET 
+      `UPDATE users SET
         email = COALESCE($2, email),
         google_id = COALESCE($3, google_id),
         google_name = COALESCE($4, google_name),
@@ -350,10 +311,8 @@ const customAdapter = {
     return rows[0] || null;
   },
 };
-
 const isProd = process.env.NODE_ENV === 'production';
-const cookieDomain = isProd ? '.xynapseai.net' : undefined;  // Dev: undefined (default localhost), Prod: share subdomain
-
+const cookieDomain = isProd ? '.xynapseai.net' : undefined; // Dev: undefined (default localhost), Prod: share subdomain
 // ================== Auth Options ==================
 export const authOptions = {
   adapter: customAdapter,
@@ -422,7 +381,7 @@ export const authOptions = {
             user = await customAdapter.createUser({
               wallet_address: address,
               email: fallbackEmail,
-              email_verified: true,  // Verified qua SIWE signature
+              email_verified: true, // Verified qua SIWE signature
             });
             await query(
               `INSERT INTO accounts (userId, type, provider, providerAccountId) VALUES ($1, $2, $3, $4)`,
@@ -452,12 +411,10 @@ export const authOptions = {
         logger.info("Sign-in attempt", { provider: account.provider, email: user.email, wallet: user.wallet_address });
         let email = user.email || "";
         let googleId = null, googleName = null, profilePic = "", verified = false, userId = null;
-
         if (!email && !user.wallet_address) {
           logger.error("Sign-in failed: No email or wallet provided", { provider: account.provider });
           return false;
         }
-
         if (account.provider === "google") {
           email = profile.email || user.email || "";
           if (!email) {
@@ -469,16 +426,13 @@ export const authOptions = {
           googleName = profile.name;
           verified = profile.email_verified || false;
           userId = googleId;
-
           const existingUser = await customAdapter.getUserByEmail(email);
           if (existingUser && !existingUser.google_id && !existingUser.wallet_address) {
             logger.warn("Google sign-in denied: Account exists with email only", { email });
             return "This account was registered with email. Please use the old login method (by Email).";
           }
-
           const plainApiKey = randomBytes(32).toString("hex");
           const { api_key_hash, api_key_salt } = await hashApiKey(plainApiKey);
-
           const result = await query(
             `INSERT INTO users (
               id, email, google_id, google_name, email_verified, profile_picture, wallet_address,
@@ -486,20 +440,18 @@ export const authOptions = {
               is_creator, is_ai_rank, tier, is_plus, is_premium, api_key_hash, api_key_salt, created_at
             ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21)
             ON CONFLICT (google_id) DO UPDATE SET
-              email=EXCLUDED.email, google_name=EXCLUDED.google_name, email_verified=EXCLUDED.email_verified, 
+              email=EXCLUDED.email, google_name=EXCLUDED.google_name, email_verified=EXCLUDED.email_verified,
               profile_picture=COALESCE(users.profile_picture, EXCLUDED.profile_picture),
               wallet_address=COALESCE(users.wallet_address, EXCLUDED.wallet_address),
               connected=EXCLUDED.connected,
-              last_connected=EXCLUDED.last_connected, updated_at=CURRENT_TIMESTAMP, 
+              last_connected=EXCLUDED.last_connected, updated_at=CURRENT_TIMESTAMP,
               api_key_hash=EXCLUDED.api_key_hash, api_key_salt=EXCLUDED.api_key_salt`,
             [
               userId, email, googleId, googleName, verified, profilePic, null, true, new Date(),
               0, 0, 0, 0, false, false, "Basic", false, false, api_key_hash, api_key_salt, new Date(),
             ]
           );
-
           logger.info("Google user insert/update result", { userId, email, rowCount: result.rowCount });
-
           await query(
             `INSERT INTO accounts (userId, type, provider, providerAccountId, access_token, expires_at, token_type, scope, id_token)
              VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
@@ -511,7 +463,6 @@ export const authOptions = {
               account.token_type, account.scope, account.id_token,
             ]
           );
-
           logger.info("Sign-in successful", { userId, email });
           return true;
         } else if (account.provider === "email") {
@@ -521,32 +472,28 @@ export const authOptions = {
             return false;
           }
           verified = true;
-
           const existingUser = await customAdapter.getUserByEmail(email);
           if (existingUser) {
             userId = existingUser.id;
             await query(
-              `UPDATE users SET 
+              `UPDATE users SET
                 last_connected = $1, connected = $2, email_verified = $3, updated_at = $4
               WHERE id = $5`,
               [new Date(), true, verified, new Date(), userId]
             );
             logger.info("Existing email user updated", { userId, email });
-
             const plainApiKey = randomBytes(32).toString("hex");
             const { api_key_hash, api_key_salt } = await hashApiKey(plainApiKey);
             await query(
               `UPDATE users SET api_key_hash = $1, api_key_salt = $2 WHERE id = $3`,
               [api_key_hash, api_key_salt, userId]
             );
-
             logger.info("Sign-in successful for existing user", { userId, email });
             return true;
           } else {
             userId = uuidv4();
             const plainApiKey = randomBytes(32).toString("hex");
             const { api_key_hash, api_key_salt } = await hashApiKey(plainApiKey);
-
             const result = await query(
               `INSERT INTO users (
                 id, email, google_id, google_name, email_verified, profile_picture, wallet_address,
@@ -558,7 +505,6 @@ export const authOptions = {
                 0, 0, 0, 0, false, false, "Basic", false, false, api_key_hash, api_key_salt, new Date(),
               ]
             );
-
             logger.info("New email user created", { userId, email, rowCount: result.rowCount });
             logger.info("Sign-in successful", { userId, email });
             return true;
@@ -567,7 +513,6 @@ export const authOptions = {
           logger.info("Base sign-in successful", { wallet: user.wallet_address });
           return true;
         }
-
         logger.error("Sign-in failed: Unsupported provider", { provider: account.provider });
         return false;
       } catch (err) {
@@ -623,7 +568,7 @@ export const authOptions = {
         name: 'next-auth.session-token',
         options: {
           httpOnly: false,
-          sameSite: 'none',  // CHANGED: 'none' to allow cross-site (iframe) requests
+          sameSite: 'none', // CHANGED: 'none' to allow cross-site (iframe) requests
           path: '/',
           secure: true,
           domain: cookieDomain,
@@ -633,7 +578,7 @@ export const authOptions = {
         name: 'next-auth.callback-url',
         options: {
           httpOnly: false,
-          sameSite: 'none',  // CHANGED: 'none'
+          sameSite: 'none', // CHANGED: 'none'
           path: '/',
           secure: true,
           domain: cookieDomain,
@@ -658,5 +603,4 @@ export const authOptions = {
     error: "/auth/error",
   },
 };
-
 export default authOptions;
