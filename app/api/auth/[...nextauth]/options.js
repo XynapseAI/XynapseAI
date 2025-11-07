@@ -724,14 +724,19 @@ export const authOptions = {
       logger.info("Session created", { session: JSON.stringify(session) });
       return session;
     },
+    // FIXED: Prioritize original url if it's on subdomain, fallback to baseUrl
     async redirect({ url, baseUrl }) {
-      // FIXED: Prioritize original url if it's on subdomain, fallback to baseUrl
-      if (url.startsWith('https://base.xynapseai.net/')) {
-        return url; // Keep on subdomain
+      const targetUrl = new URL(url, baseUrl);
+      const targetHost = targetUrl.host;
+      if (targetHost.includes('base.xynapseai.net') || targetHost.includes('xynapseai.net')) {
+        return url;  // Keep full URL
       }
-      if (url.startsWith('/')) return `${baseUrl}${url}`;
-      if (url === baseUrl || url === `${baseUrl}/dashboard`) return url;
-      return baseUrl + '/dashboard';
+      // Fallback to dashboard on same domain
+      const dashboardUrl = new URL('/dashboard', baseUrl);
+      if (baseUrl.includes('base.')) {
+        dashboardUrl.host = baseUrl.replace('/api', '');  // Adjust baseUrl if needed
+      }
+      return dashboardUrl.toString();
     },
   },
   ...(isProd && {

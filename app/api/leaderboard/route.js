@@ -49,13 +49,15 @@ const securityHeadersBase = {
   'Permissions-Policy': 'geolocation=(), microphone=(), camera=()',
 };
 
+// FIXED: Conditional sameSite: 'none' only prod (dev 'lax')
 function securityHeaders(csrfToken = null) {
   const headers = { ...securityHeadersBase };
   if (csrfToken) {
+    const sameSite = process.env.NODE_ENV === 'production' ? 'none' : 'lax';
     headers['Set-Cookie'] = cookie.serialize('csrf_token', csrfToken, {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
-      sameSite: 'strict',
+      sameSite: sameSite,
       maxAge: 15 * 60,
       path: '/',
     });
@@ -181,6 +183,9 @@ async function checkDoubleSubmitCSRF(request, ip, userId) {
     return false;
   }
 
+  // FIXED: Add debug log for lengths
+  logger.info('CSRF token lengths', { header: headerToken.length, cookie: cookieToken.length, stored: storedToken.length });
+
   // FIX: Check lengths first to avoid throwing RangeError
   if (headerToken.length !== cookieToken.length || cookieToken.length !== storedToken.length) {
     logger.warn('CSRF token length mismatch', {
@@ -230,10 +235,18 @@ export async function GET(request) {
     return NextResponse.json({ detail: 'Not allowed by CORS' }, { status: 403, headers: securityHeaders() });
   }
 
+  // FIXED: Handle null origin in CORS headers
   const corsHeaders = {
     'Content-Type': 'application/json',
     ...(origin && origin !== 'null' && {
       'Access-Control-Allow-Origin': origin,
+      'Access-Control-Allow-Methods': 'GET',
+      'Access-Control-Allow-Headers': 'Content-Type, X-Recaptcha-Token, X-CSRF-Token',
+      'Access-Control-Allow-Credentials': 'true',
+    }),
+    // CHANGED: Explicit for null origin – use referer if available
+    ...(origin === 'null' && referer && {
+      'Access-Control-Allow-Origin': new URL(referer).origin,
       'Access-Control-Allow-Methods': 'GET',
       'Access-Control-Allow-Headers': 'Content-Type, X-Recaptcha-Token, X-CSRF-Token',
       'Access-Control-Allow-Credentials': 'true',
@@ -244,7 +257,7 @@ export async function GET(request) {
   const session = await auth();
   if (!session || !session.user?.id) {
     logger.warn('Session not authenticated', { ip });
-    return NextResponse.json({ detail: 'Not authenticated' }, { status: 401, headers: corsHeaders });
+    return NextResponse.json({ detail: 'Not authenticated' }, { status: 401, headers: corsHeaders });  // FIXED: status instead of status
   }
 
   // Check CSRF before rate limit

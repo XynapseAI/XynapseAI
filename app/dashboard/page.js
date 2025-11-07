@@ -94,13 +94,14 @@ const useUserData = (session, csrfToken, setIsAnalyzing) => {
     setLoading(true);
     try {
       if (!recaptchaRef.current) {
-        throw new Error('reCAPTCHA component is not initialized');
+        throw new Error('reCAPTCHA component is not missing');
       }
       const recaptchaToken = await recaptchaRef.current.executeAsync();
       if (!recaptchaToken) {
         throw new Error('Failed to obtain reCAPTCHA token');
       }
       const jwtToken = session?.accessToken;
+      logger.info('Fetching user data with CSRF', { csrfLength: csrfToken.length });  // FIXED: Debug CSRF length from client
       const response = await fetch(`${API_BASE_URL}/user?uid=${encodeURIComponent(session.user.id)}`, {
         method: 'GET',
         headers: {
@@ -407,6 +408,14 @@ export default function Dashboard() {
             redirect: false,
             token,
           });
+          // FIXED: Check for auth loop (error=undefined)
+          if (result?.error && result.error.includes('undefined')) {
+            toast.error('Auth loop detected. Clearing cache and retry.');
+            localStorage.clear();  // Clear client cache
+            await signOut({ redirect: false });
+            router.refresh();
+            return;
+          }
           if (result?.error) throw new Error(result.error);
 
           toast.success('Signed in with Farcaster!', { position: 'top-center' });
@@ -666,6 +675,14 @@ export default function Dashboard() {
   const handleGoogleSignIn = async () => {
     try {
       const result = await signIn('google', { callbackUrl: '/dashboard', redirect: false });
+      // FIXED: Check for auth loop (error=undefined)
+      if (result?.error && result.error.includes('undefined')) {
+        toast.error('Auth loop detected. Clearing cache and retry.');
+        localStorage.clear();  // Clear client cache
+        await signOut({ redirect: false });
+        router.refresh();
+        return;
+      }
       if (result?.error) {
         if (result.error.includes('Rate limit exceeded')) {
           toast.error('Too many sign-in attempts. Please try again later.', { position: 'top-center' });
@@ -792,6 +809,14 @@ export default function Dashboard() {
         signature,
         redirect: false,
       });
+      // FIXED: Check for auth loop (error=undefined)
+      if (res?.error && res.error.includes('undefined')) {
+        toast.error('Auth loop detected. Clearing cache and retry.');
+        localStorage.clear();  // Clear client cache
+        await signOut({ redirect: false });
+        router.refresh();
+        return;
+      }
       if (res?.error) {
         safeError('NextAuth res error:', res.error); // Keep
         throw new Error(res.error);
@@ -991,6 +1016,14 @@ export default function Dashboard() {
                           const { token } = await sdk.quickAuth.getToken();
                           if (!token) throw new Error('Failed to get Quick Auth token');
                           const result = await signIn('farcaster', { redirect: false, token });
+                          // FIXED: Check for auth loop
+                          if (result?.error && result.error.includes('undefined')) {
+                            toast.error('Auth loop detected. Clearing cache and retry.');
+                            localStorage.clear();
+                            await signOut({ redirect: false });
+                            router.refresh();
+                            return;
+                          }
                           if (result?.error) throw new Error(result.error);
                           toast.success('Signed in with Farcaster!', { position: 'top-center' });
                           await update();

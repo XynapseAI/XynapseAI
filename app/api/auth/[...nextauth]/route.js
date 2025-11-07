@@ -269,21 +269,21 @@ const rateLimitedHandler = (handler) =>
       // FIXED: Allow credentials & origins for auth paths
       if (pathname.startsWith('/api/auth/')) {
         newHeaders.set('Access-Control-Allow-Credentials', 'true');
+        // FIXED: Handle null origin explicitly
+        let allowOrigin = 'https://base.xynapseai.net';  // Default cho Mini App
         if (origin && allowedOrigins.includes(origin)) {
-          newHeaders.set('Access-Control-Allow-Origin', origin);
-          newHeaders.set('Access-Control-Allow-Methods', 'GET,POST,OPTIONS');
-          newHeaders.set('Access-Control-Allow-Headers', 'Content-Type,Authorization,X-CSRF-Token,X-Recaptcha-Token,Cookie');
+          allowOrigin = origin;
         } else if (origin === 'null' && referer) {
-          // NEW: Handle null origin in headers
-          const refOrigin = new URL(referer).origin;
-          if (allowedOrigins.includes(refOrigin)) {
-            newHeaders.set('Access-Control-Allow-Origin', refOrigin);
-          } else {
-            newHeaders.set('Access-Control-Allow-Origin', 'null');
+          const refUrl = new URL(referer);
+          allowOrigin = refUrl.origin;  // Use referer origin (e.g., base.xynapseai.net)
+          if (!allowedOrigins.includes(allowOrigin)) {
+            allowOrigin = allowedOrigins[0] || 'https://xynapseai.net';  // Fallback
           }
-          newHeaders.set('Access-Control-Allow-Methods', 'GET,POST,OPTIONS');
-          newHeaders.set('Access-Control-Allow-Headers', 'Content-Type,Authorization,X-CSRF-Token,X-Recaptcha-Token,Cookie');
         }
+        newHeaders.set('Access-Control-Allow-Origin', allowOrigin);  // NOT 'null'
+        newHeaders.set('Access-Control-Allow-Methods', 'GET,POST,OPTIONS');
+        newHeaders.set('Access-Control-Allow-Headers', 'Content-Type,Authorization,X-CSRF-Token,X-Recaptcha-Token,Cookie');
+        logger.info('Set CORS origin:', { allowOrigin, origin, referer });  // Debug log
       }
       return new NextResponse(res.body, { status: res.status || 200, headers: newHeaders });
     } catch (err) {

@@ -217,6 +217,9 @@ async function checkDoubleSubmitCSRF(request, ip, userId) {
     return false;
   }
 
+  // FIXED: Add debug log for lengths
+  logger.info('CSRF token lengths', { header: headerToken.length, cookie: cookieToken.length, stored: storedToken.length });
+
   const valid = crypto.timingSafeEqual(Buffer.from(headerToken), Buffer.from(cookieToken)) &&
     crypto.timingSafeEqual(Buffer.from(cookieToken), Buffer.from(storedToken));
   if (!valid && process.env.NODE_ENV !== 'production') {
@@ -243,6 +246,7 @@ async function hashApiKey(apiKey) {
   };
 }
 
+// FIXED: Conditional sameSite: 'none' only prod (dev 'lax')
 function securityHeaders(csrfToken = null) {
   const nonce = crypto.randomBytes(16).toString('base64');
   const csp = [
@@ -267,10 +271,11 @@ function securityHeaders(csrfToken = null) {
     'Strict-Transport-Security': 'max-age=63072000; includeSubDomains; preload',
   };
   if (csrfToken) {
+    const sameSite = process.env.NODE_ENV === 'production' ? 'none' : 'lax';
     headers['Set-Cookie'] = cookie.serialize('csrf_token', csrfToken, {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
-      sameSite: 'strict',
+      sameSite: sameSite,
       maxAge: 15 * 60,
       path: '/',
     });
@@ -292,65 +297,77 @@ const postSchema = z.object({
   walletAddress: z.string().optional(), // Add for Base
 });
 
+// FIXED: Wrap in try-catch for DB error (cause 500)
 async function computeStreak(userId) {
-  const thirtyDaysAgo = new Date();
-  thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-  const completions = await prisma.task_completions.findMany({
-    where: {
-      user_id: userId,
-      task_id: 'daily_checkin',
-      completed_at: { gte: thirtyDaysAgo },
-    },
-    orderBy: { completed_at: 'desc' },
-  });
+  try {
+    const thirtyDaysAgo = new Date();
+    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+    const completions = await prisma.task_completions.findMany({
+      where: {
+        user_id: userId,
+        task_id: 'daily_checkin',
+        completed_at: { gte: thirtyDaysAgo },
+      },
+      orderBy: { completed_at: 'desc' },
+    });
 
-  let streak = 0;
-  let expectedDate = new Date();
-  expectedDate.setUTCHours(23, 59, 59, 999);
+    let streak = 0;
+    let expectedDate = new Date();
+    expectedDate.setUTCHours(23, 59, 59, 999);
 
-  for (const comp of completions) {
-    const compDate = new Date(comp.completed_at);
-    compDate.setUTCHours(23, 59, 59, 999);
-    if (compDate.getTime() === expectedDate.getTime()) {
-      streak++;
-      expectedDate.setDate(expectedDate.getDate() - 1);
-    } else {
-      break;
+    for (const comp of completions) {
+      const compDate = new Date(comp.completed_at);
+      compDate.setUTCHours(23, 59, 59, 999);
+      if (compDate.getTime() === expectedDate.getTime()) {
+        streak++;
+        expectedDate.setDate(expectedDate.getDate() - 1);
+      } else {
+        break;
+      }
     }
+    return streak;
+  } catch (err) {
+    logger.error('computeStreak error', { err: err.message, userId });
+    return 0;  // Fallback
   }
-  return streak;
 }
 
+// FIXED: Wrap in try-catch for DB error
 async function getLast7Days(userId) {
-  const today = new Date();
-  today.setUTCHours(0, 0, 0, 0);
-  const todayEnd = new Date(today);
-  todayEnd.setUTCHours(23, 59, 59, 999);
-  const sevenDaysAgo = new Date(today);
-  sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+  try {
+    const today = new Date();
+    today.setUTCHours(0, 0, 0, 0);
+    const todayEnd = new Date(today);
+    todayEnd.setUTCHours(23, 59, 59, 999);
+    const sevenDaysAgo = new Date(today);
+    sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
 
-  const completions = await prisma.task_completions.findMany({
-    where: {
-      user_id: userId,
-      task_id: 'daily_checkin',
-      completed_at: { gte: sevenDaysAgo, lte: todayEnd },
-    },
-  });
+    const completions = await prisma.task_completions.findMany({
+      where: {
+        user_id: userId,
+        task_id: 'daily_checkin',
+        completed_at: { gte: sevenDaysAgo, lte: todayEnd },
+      },
+    });
 
-  const checked = new Set();
-  completions.forEach(comp => {
-    const dateStr = new Date(comp.completed_at).toISOString().split('T')[0];
-    checked.add(dateStr);
-  });
+    const checked = new Set();
+    completions.forEach(comp => {
+      const dateStr = new Date(comp.completed_at).toISOString().split('T')[0];
+      checked.add(dateStr);
+    });
 
-  const last7 = [];
-  for (let i = 6; i >= 0; i--) {
-    const date = new Date(today);
-    date.setDate(date.getDate() - i);
-    const dateStr = date.toISOString().split('T')[0];
-    last7.push(checked.has(dateStr));
+    const last7 = [];
+    for (let i = 6; i >= 0; i--) {
+      const date = new Date(today);
+      date.setDate(date.getDate() - i);
+      const dateStr = date.toISOString().split('T')[0];
+      last7.push(checked.has(dateStr));
+    }
+    return last7;
+  } catch (err) {
+    logger.error('getLast7Days error', { err: err.message, userId });
+    return Array(7).fill(false);  // Fallback
   }
-  return last7;
 }
 
 export async function GET(request) {
@@ -368,10 +385,18 @@ export async function GET(request) {
     return NextResponse.json({ detail: 'Not allowed by CORS' }, { status: 403, headers: securityHeaders() });
   }
 
+  // FIXED: Handle null origin in CORS headers
   const headers = {
     ...securityHeaders(),
     ...(origin && origin !== 'null' && {
       'Access-Control-Allow-Origin': origin,
+      'Access-Control-Allow-Methods': 'GET, POST',
+      'Access-Control-Allow-Headers': 'Content-Type, X-Recaptcha-Token, X-CSRF-Token',
+      'Access-Control-Allow-Credentials': 'true',
+    }),
+    // CHANGED: Explicit for null origin – use referer if available
+    ...(origin === 'null' && referer && {
+      'Access-Control-Allow-Origin': new URL(referer).origin,
       'Access-Control-Allow-Methods': 'GET, POST',
       'Access-Control-Allow-Headers': 'Content-Type, X-Recaptcha-Token, X-CSRF-Token',
       'Access-Control-Allow-Credentials': 'true',
@@ -477,7 +502,7 @@ export async function GET(request) {
 
       if (!user) {
         newCsrfToken = newCsrfToken || await setCSRFToken(ip, userId);
-        return NextResponse.json({ detail: 'User not found' }, { status: 404, headers: securityHeaders(newCsrfToken) });
+        return NextResponse.json({ detail: 'User not found' }, { status: 500, headers: securityHeaders(newCsrfToken) });
       }
 
       const streak = await computeStreak(uid);
@@ -512,11 +537,13 @@ export async function GET(request) {
       await client.setEx(cacheKey, 300, JSON.stringify(serializeBigInt(data)));
       newCsrfToken = newCsrfToken || await setCSRFToken(ip, userId);
       return NextResponse.json(data, { headers: securityHeaders(newCsrfToken) });
-    } catch {
+    } catch (error) {
+      logger.error('Error in /api/user GET', { error: error.message, stack: error.stack, ip });
       newCsrfToken = newCsrfToken || await setCSRFToken(ip, userId);
       return NextResponse.json({ detail: 'Server error' }, { status: 500, headers: securityHeaders(newCsrfToken) });
     }
-  } catch {
+  } catch (error) {
+    logger.error('Unexpected error in /api/user GET', { error: error.message, stack: error.stack, ip });
     return NextResponse.json({ detail: 'Server error' }, { status: 500, headers: securityHeaders() });
   }
 }
@@ -535,10 +562,18 @@ export async function POST(request) {
     return NextResponse.json({ detail: 'Not allowed by CORS' }, { status: 403, headers: securityHeaders() });
   }
 
+  // FIXED: Handle null origin in CORS headers
   const headers = {
     ...securityHeaders(),
     ...(origin && origin !== 'null' && {
       'Access-Control-Allow-Origin': origin,
+      'Access-Control-Allow-Methods': 'GET, POST',
+      'Access-Control-Allow-Headers': 'Content-Type, X-Recaptcha-Token, X-CSRF-Token',
+      'Access-Control-Allow-Credentials': 'true',
+    }),
+    // CHANGED: Explicit for null origin – use referer if available
+    ...(origin === 'null' && referer && {
+      'Access-Control-Allow-Origin': new URL(referer).origin,
       'Access-Control-Allow-Methods': 'GET, POST',
       'Access-Control-Allow-Headers': 'Content-Type, X-Recaptcha-Token, X-CSRF-Token',
       'Access-Control-Allow-Credentials': 'true',

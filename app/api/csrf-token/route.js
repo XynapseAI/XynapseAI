@@ -141,7 +141,7 @@ export async function GET(request) {
     const headers = new Headers({
       'Content-Type': 'application/json',
       'Content-Security-Policy': "default-src 'self'",
-      // NEW: Handle null origin in headers
+      // FIXED: Handle null origin in headers – use referer.origin if null
       'Access-Control-Allow-Origin': origin && allowedOrigins.includes(origin) 
         ? origin 
         : (origin === 'null' && referer 
@@ -152,11 +152,12 @@ export async function GET(request) {
       'Access-Control-Allow-Credentials': 'true',
     });
 
-    // Thêm cookie csrf_token
+    // FIXED: Conditional sameSite: 'none' only prod (dev 'lax' to avoid localhost issue)
+    const sameSite = process.env.NODE_ENV === 'production' ? 'none' : 'lax';
     headers.append('Set-Cookie', cookie.serialize('csrf_token', csrfToken, {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
-      sameSite: 'strict',
+      sameSite: sameSite,
       path: '/',
       maxAge: 2 * 60 * 60,
     }));

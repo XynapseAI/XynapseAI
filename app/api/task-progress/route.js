@@ -108,6 +108,9 @@ async function checkDoubleSubmitCSRF(request, ip, userId) {
     return false;
   }
 
+  // FIXED: Add debug log for lengths
+  logger.info('CSRF token lengths', { header: headerToken.length, cookie: cookieToken.length, stored: storedToken.length });
+
   // FIX: Check lengths trước để tránh throw RangeError
   if (headerToken.length !== cookieToken.length || cookieToken.length !== storedToken.length) {
     logger.warn('CSRF token length mismatch', {
@@ -163,13 +166,15 @@ export async function GET(request) {
     const client = await getRedisClient();
     await client.setEx(`csrf:${session.user.id}`, 15 * 60, newCsrfToken);
     logger.warn('Invalid CSRF token, new token issued', { ip });
+    // FIXED: Conditional sameSite
+    const sameSite = process.env.NODE_ENV === 'production' ? 'none' : 'lax';
     return NextResponse.json({ detail: 'Invalid CSRF check. Please refresh.' }, { 
       status: 403, 
       headers: {
         'Set-Cookie': cookie.serialize('csrf_token', newCsrfToken, {
           httpOnly: true,
           secure: process.env.NODE_ENV === 'production',
-          sameSite: 'none',
+          sameSite: sameSite,
           maxAge: 15 * 60,
           path: '/',
         }),
@@ -196,10 +201,12 @@ export async function GET(request) {
     const cached = await redisClient.get(cacheKey);
     if (cached) {
       logger.info(`Cache hit for task progress user ${uid}`, { ip });
+      // FIXED: Handle null origin in response headers
+      const corsOrigin = origin || process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
       return NextResponse.json(JSON.parse(cached), {
         headers: {
           'Content-Type': 'application/json',
-          'Access-Control-Allow-Origin': origin || process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000',
+          'Access-Control-Allow-Origin': origin === 'null' && referer ? new URL(referer).origin : corsOrigin,
           'Access-Control-Allow-Methods': 'GET',
           'Access-Control-Allow-Headers': 'Content-Type, X-Recaptcha-Token, X-CSRF-Token',
           'Access-Control-Allow-Credentials': 'true',
@@ -228,7 +235,7 @@ export async function GET(request) {
     return NextResponse.json(data, {
       headers: {
         'Content-Type': 'application/json',
-        'Access-Control-Allow-Origin': origin || process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000',
+        'Access-Control-Allow-Origin': origin === 'null' && referer ? new URL(referer).origin : corsOrigin,
         'Access-Control-Allow-Methods': 'GET',
         'Access-Control-Allow-Headers': 'Content-Type, X-Recaptcha-Token, X-CSRF-Token',
         'Access-Control-Allow-Credentials': 'true',
