@@ -198,36 +198,56 @@ async function verifyFarcasterJwt(credentials, req) {
   try {
     const { token } = credentials;
     const quickAuthClient = createQuickAuthClient();
-    let domain = req?.headers?.host || process.env.APP_DOMAIN || 'xynapseai.net';
-    logger.info('Verifying Farcaster JWT with domain:', { domain });
+    
+    // IMPROVED: Extract domain from Referer if host null (mobile WebView fix)
+    let domain;
+    const host = req?.headers?.host;
+    const referer = req?.headers?.referer;
+    if (host) {
+      domain = host;
+    } else if (referer) {
+      try {
+        domain = new URL(referer).hostname;  // e.g., 'base.xynapseai.net' from Referer
+        logger.info('Using domain from Referer (mobile fallback):', { domain });
+      } catch (urlErr) {
+        logger.warn('Invalid Referer URL:', { referer, error: urlErr.message });
+        domain = process.env.APP_DOMAIN || 'xynapseai.net';
+      }
+    } else {
+      domain = process.env.APP_DOMAIN || 'xynapseai.net';
+    }
+    
+    logger.info('Verifying Farcaster JWT with domain:', { domain, tokenLength: token?.length || 'N/A' });
+    
     let payload;
     try {
-      payload = await quickAuthClient.verifyJwt({
-        token,
-        domain,
-      });
+      payload = await quickAuthClient.verifyJwt({ token, domain });
     } catch (error) {
-      logger.warn('Verification failed with primary domain, trying alternative domain', { domain, error: error.message });
-      // Try alternative domain (toggle base subdomain)
+      logger.warn('Primary verifyJwt failed, trying alt domain:', { domain, error: error.message });
+      // Alt domain toggle (base. <-> no base)
       const altDomain = domain.startsWith('base.') ? domain.replace('base.', '') : `base.${domain}`;
-      payload = await quickAuthClient.verifyJwt({
-        token,
-        domain: altDomain,
-      });
-      domain = altDomain; // Use successful alternative
-      logger.info('Verification succeeded with alternative domain', { altDomain });
+      payload = await quickAuthClient.verifyJwt({ token, domain: altDomain });
+      domain = altDomain;  // Update to successful one
+      logger.info('Alt domain succeeded:', { altDomain });
     }
+    
     if (!payload || !payload.sub) {
-      throw new Error('Invalid JWT payload');
+      throw new Error('Invalid JWT payload: missing sub (FID)');
     }
-    logger.info('Farcaster JWT verified', { fid: payload.sub, domain });
-    return { fid: parseInt(payload.sub, 10) }; // sub is FID as string
+    
+    logger.info('Farcaster JWT verified successfully', { fid: payload.sub, domain });
+    return { fid: parseInt(payload.sub, 10) };
   } catch (error) {
     if (error instanceof Errors.InvalidTokenError) {
-      throw new Error('Invalid Farcaster token');
+      logger.error('Invalid Farcaster Token Error (mobile?):', { error: error.message, domainAttempted: domain });
+      throw new Error('Invalid Farcaster token – check domain or token expiry');
     }
-    logger.error('Farcaster JWT verification failed', { error: error.message });
-    throw error;
+    logger.error('Farcaster JWT verification failed', { 
+      error: error.message, 
+      stack: error.stack?.substring(0, 200),
+      domain: domain 
+    });
+    throw error;  // Re-throw để propagate error cụ thể (tránh return null → undefined)
   }
 }
 
@@ -745,7 +765,7 @@ export const authOptions = {
         name: 'next-auth.session-token',
         options: {
           httpOnly: false,
-          sameSite: 'none', // CHANGED: 'none' to allow cross-site (iframe) requests
+          sameSite: 'lax', // CHANGED: 'none' to allow cross-site (iframe) requests
           path: '/',
           secure: true,
           domain: cookieDomain,

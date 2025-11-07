@@ -408,15 +408,17 @@ export default function Dashboard() {
             redirect: false,
             token,
           });
-          // FIXED: Check for auth loop (error=undefined)
-          if (result?.error && result.error.includes('undefined')) {
-            toast.error('Auth loop detected. Clearing cache and retry.');
-            localStorage.clear();  // Clear client cache
-            await signOut({ redirect: false });
-            router.refresh();
-            return;
+          if (result?.error) {
+            if (result.error.includes('undefined') || result.error === 'CredentialsSignin') {
+              logger.error('Auth error (possibly domain/token):', result.error);
+              toast.error(`Auth failed: ${result.error || 'Invalid token/domain'}. Clearing cache and retry.`);
+              localStorage.clear();
+              await signOut({ redirect: false });
+              router.refresh();
+              return;
+            }
+            throw new Error(result.error);
           }
-          if (result?.error) throw new Error(result.error);
 
           toast.success('Signed in with Farcaster!', { position: 'top-center' });
           await update();
