@@ -209,11 +209,19 @@ async function verifyFarcasterJwt(credentials, req) {
       domain = host || (referer ? new URL(referer).hostname : process.env.APP_DOMAIN || 'xynapseai.net');
     }
 
+    const isMobileLikely = !req?.headers?.host ? true : false;  // Flag cho mobile
+
+    // NEW: Force domain if mobile or unexpected (e.g., warpcast.com referer)
+    if (isMobileLikely || !domain.includes('xynapseai.net')) {
+      domain = 'base.xynapseai.net';  // Prioritize subdomain for mini app
+      logger.info('Forced domain for mobile/unexpected referer:', { domain });
+    }
+
     logger.info('Farcaster verify attempt:', {
       domain,
       tokenPreview: token.substring(0, 20) + '...',
       tokenLength: token.length,
-      isMobileLikely: !req?.headers?.host ? true : false  // Flag cho mobile
+      isMobileLikely,
     });
 
     let payload;
@@ -221,10 +229,10 @@ async function verifyFarcasterJwt(credentials, req) {
       payload = await quickAuthClient.verifyJwt({ token, domain });
       logger.info('Primary verify success', { domain, fid: payload.sub });
     } catch (primaryErr) {
-      logger.warn('Primary verify failed, alt domain:', { domain, error: primaryErr.message });
+      logger.warn('Primary verify failed, trying alt domain:', { domain, error: primaryErr.message });
       const altDomain = domain.includes('base.') ? domain.replace('base.', '') : `base.${domain}`;
       payload = await quickAuthClient.verifyJwt({ token, domain: altDomain });
-      domain = altDomain;
+      domain = altDomain;  // Update domain to the successful one
       logger.info('Alt verify success', { altDomain, fid: payload.sub });
     }
 
@@ -753,17 +761,12 @@ export const authOptions = {
     },
     // FIXED: Prioritize original url if it's on subdomain, fallback to baseUrl
     async redirect({ url, baseUrl }) {
-      const targetUrl = new URL(url, baseUrl);
-      const targetHost = targetUrl.host;
-      if (targetHost.includes('base.xynapseai.net') || targetHost.includes('xynapseai.net')) {
-        return url;  // Keep full URL
+      // Nếu url là absolute và match domain của bạn, giữ nguyên
+      if (url.startsWith('https://') && (url.includes('xynapseai.net') || url.includes('base.xynapseai.net'))) {
+        return url;
       }
-      // Fallback to dashboard on same domain
-      const dashboardUrl = new URL('/dashboard', baseUrl);
-      if (baseUrl.includes('base.')) {
-        dashboardUrl.host = baseUrl.replace('/api', '');  // Adjust baseUrl if needed
-      }
-      return dashboardUrl.toString();
+      // Fallback relative đến dashboard trên domain hiện tại (dùng baseUrl động)
+      return new URL('/dashboard', baseUrl).toString();
     },
   },
   ...(isProd && {
