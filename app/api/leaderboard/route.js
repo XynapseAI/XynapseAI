@@ -53,7 +53,7 @@ const securityHeadersBase = {
 function securityHeaders(csrfToken = null) {
   const headers = { ...securityHeadersBase };
   if (csrfToken) {
-    const sameSite = process.env.NODE_ENV === 'production' ? 'none' : 'lax';
+    const sameSite = 'lax';
     headers['Set-Cookie'] = cookie.serialize('csrf_token', csrfToken, {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',

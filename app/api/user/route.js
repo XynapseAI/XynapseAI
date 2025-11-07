@@ -271,7 +271,7 @@ function securityHeaders(csrfToken = null) {
     'Strict-Transport-Security': 'max-age=63072000; includeSubDomains; preload',
   };
   if (csrfToken) {
-    const sameSite = process.env.NODE_ENV === 'production' ? 'none' : 'lax';
+    const sameSite = 'lax';
     headers['Set-Cookie'] = cookie.serialize('csrf_token', csrfToken, {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',

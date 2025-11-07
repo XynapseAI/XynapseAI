@@ -311,6 +311,16 @@ export default function Dashboard() {
   const { userData, loading, error } = useUserData(session, csrfToken, setIsAnalyzing);
 
   useEffect(() => {
+    const currentPath = window.location.pathname;
+    if (currentPath.includes('/auth/error') && currentPath.includes('error=undefined')) {
+      console.warn('Detected auth loop on mobile, clearing and refresh');
+      localStorage.clear();
+      sessionStorage.clear();
+      window.location.href = '/dashboard';  // Force redirect, avoid NextAuth loop
+    }
+  }, [window.location.pathname]);  // Re-run on path change
+
+  useEffect(() => {
     const prefetchNonce = async () => {
       try {
         const res = await fetch(`${API_BASE_URL}/api/nonce`, { method: 'GET' });
@@ -404,16 +414,12 @@ export default function Dashboard() {
           safeLog('Quick Auth token obtained');
 
           // Sign in with NextAuth using Farcaster credentials
-          const result = await signIn('farcaster', {
-            redirect: false,
-            token,
-          });
-          // FIXED: Check for auth loop (error=undefined)
+          const result = await signIn('farcaster', { redirect: false, token });
           if (result?.error && result.error.includes('undefined')) {
-            toast.error('Auth loop detected. Clearing cache and retry.');
-            localStorage.clear();  // Clear client cache
+            toast.error('Auth loop detected on mobile. Clearing cache and retry.');
+            localStorage.clear();
             await signOut({ redirect: false });
-            router.refresh();
+            window.location.reload();  // Hard reload to break loop
             return;
           }
           if (result?.error) throw new Error(result.error);

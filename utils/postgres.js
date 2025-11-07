@@ -32,8 +32,8 @@ try {
     database: parsedUrl.pathname?.slice(1),
     ssl: connectionString.includes('sslmode=require') ? { rejectUnauthorized: false } : false,
     max: 40,
-    idleTimeoutMillis: 30000,
-    connectionTimeoutMillis: 10000,
+    idleTimeoutMillis: 60000,  // FIXED: Increased from 30000 for mobile latency tolerance
+    connectionTimeoutMillis: 20000,  // FIXED: Increased from 10000 for better timeout handling
   };
 } catch (err) {
   logger.error(`Failed to parse DATABASE_URL: ${err.message}`);
@@ -61,17 +61,33 @@ async function connectWithRetry(retries = 5, delay = 1000) {
 }
 
 connectWithRetry().catch((error) => {
-  logger.error('Initial PostgreSQL connection failed:', { error: error.message, stack: error.stack });
+  logger.error('Initial PostgreSQL connection failed:', { error: error.message, stack: error.message });
 });
 
+// FIXED: Wrapped query with retry for timeout/conn errors (e.g., mobile latency)
 export async function query(text, params) {
-  try {
-    const res = await pool.query(text, params);
-    return res;
-  } catch (error) {
-    logger.error(`Query error: ${error.message}`, { stack: error.stack, query: text, params });
-    throw error;
+  let retries = 0;
+  const maxRetries = 5;
+  while (retries < maxRetries) {
+    try {
+      const res = await pool.query(text, params);
+      return res;
+    } catch (error) {
+      logger.error(`Query error (attempt ${retries + 1}/${maxRetries}): ${error.message}`, { stack: error.stack, query: text, params });
+      if (
+        (error.code === 'ECONNRESET' || error.message.includes('timeout') || error.message.includes('Connection terminated')) &&
+        retries < maxRetries - 1
+      ) {
+        retries++;
+        const backoffDelay = 1000 * Math.pow(2, retries);  // Exponential backoff: 2s, 4s, 8s, etc.
+        await new Promise((resolve) => setTimeout(resolve, backoffDelay));
+        continue;
+      }
+      // If not retryable or max retries exceeded, re-throw
+      throw error;
+    }
   }
+  throw new Error('DB query failed after all retries');
 }
 
 export { pool };
