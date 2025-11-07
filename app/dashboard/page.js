@@ -390,42 +390,39 @@ export default function Dashboard() {
   // NEW: Handle auto-auth in Mini App using Quick Auth (gọi sau ready(), dùng skeleton nếu pending)
   useEffect(() => {
     if (inMiniApp && status === 'unauthenticated') {
-      const handleMiniAppAuth = async () => {
+      const handleMiniAppAuth = async (retryCount = 0) => {
         setMiniAppAuthLoading(true);
-        setMiniAppAuthError(null); // Reset error
+        setMiniAppAuthError(null);
         try {
-          // Get JWT from Quick Auth
-          const { token } = await sdk.quickAuth.getToken().catch(err => {
-            safeError('QuickAuth failed:', err);
-            throw new Error('Auth token unavailable due to SDK error');
-          });
-          if (!token) throw new Error('Failed to get Quick Auth token');
+          const { token } = await sdk.quickAuth.getToken();
+          if (!token) throw new Error('No token from SDK');
 
-          safeLog('Quick Auth token obtained');
+          // Log token cho debug
+          console.log('Mobile token preview:', token.substring(0, 50) + '...');
+          const payload = JSON.parse(atob(token.split('.')[1]));
+          console.log('Mobile token aud:', payload.aud);  // Check domain
 
-          // Sign in with NextAuth using Farcaster credentials
-          const result = await signIn('farcaster', {
-            redirect: false,
-            token,
-          });
+          const result = await signIn('farcaster', { redirect: false, token });
           if (result?.error) {
-            if (result.error.includes('undefined') || result.error === 'CredentialsSignin') {
-              logger.error('Auth error (possibly domain/token):', result.error);
-              toast.error(`Auth failed: ${result.error || 'Invalid token/domain'}. Clearing cache and retry.`);
-              localStorage.clear();
-              await signOut({ redirect: false });
-              router.refresh();
+            if (result.error.includes('undefined') || result.error.includes('mismatch')) {
+              if (retryCount < 2) {
+                console.log('Retry auth (attempt', retryCount + 1, ')');
+                await new Promise(r => setTimeout(r, 2000));  // Wait 2s
+                return handleMiniAppAuth(retryCount + 1);
+              }
+              // Fallback: Hiển thị manual signin (email/Base) thay vì loop
+              setMiniAppAuthError('Auto-auth failed. Use manual sign-in below.');
+              toast.warn('Auto Farcaster auth failed. Try email or Base.', { position: 'top-center' });
               return;
             }
             throw new Error(result.error);
           }
-
-          toast.success('Signed in with Farcaster!', { position: 'top-center' });
+          toast.success('Farcaster auth OK!');
           await update();
         } catch (err) {
-          safeError('Mini App auth error:', err);
-          setMiniAppAuthError(err.message); // Set error for UI
-          toast.error(`Farcaster sign-in failed: ${err.message}`, { position: 'top-center' });
+          console.error('Mini App auth fail:', err);
+          setMiniAppAuthError(err.message);
+          if (retryCount < 2) return handleMiniAppAuth(retryCount + 1);
         } finally {
           setMiniAppAuthLoading(false);
         }
@@ -433,6 +430,41 @@ export default function Dashboard() {
       handleMiniAppAuth();
     }
   }, [inMiniApp, status, update]);
+
+  // NEW: Debug useEffect cho Mobile Token (tạm thời, xóa sau khi fix)
+  useEffect(() => {
+    if (inMiniApp && isMounted) {  // Chỉ chạy nếu đã detect Mini App
+      const debugToken = async () => {
+        try {
+          // Kiểm tra nếu trong Mini App
+          if (window.sdk && await sdk.isInMiniApp()) {
+            const { token } = await sdk.quickAuth.getToken();
+            console.log('Quick Auth Token (mobile debug):', token ? token.substring(0, 50) + '...' : 'NULL/EMPTY');
+            if (token) {
+              // Decode JWT payload (không cần secret, chỉ xem claims)
+              const payload = JSON.parse(atob(token.split('.')[1]));
+              console.log('Token Payload (debug):', {
+                sub: payload.sub,  // FID
+                aud: payload.aud,  // Audience/domain expected
+                iss: payload.iss,  // Issuer
+                exp: new Date(payload.exp * 1000).toISOString()  // Expiry
+              });
+              // Bonus: Check nếu aud match domain
+              const expectedDomain = 'base.xynapseai.net';  // Thay bằng domain của bạn
+              if (payload.aud !== expectedDomain) {
+                console.error('AUDIENCE MISMATCH! Expected:', expectedDomain, 'Got:', payload.aud);
+              }
+            }
+          } else {
+            console.log('Not in Mini App (debug)');
+          }
+        } catch (err) {
+          console.error('getToken Debug Error:', err);
+        }
+      };
+      debugToken();  // Chạy ngay
+    }
+  }, [inMiniApp, isMounted]);  // Dependency: Chỉ chạy khi inMiniApp thay đổi
 
   // Load Base Account SDK
   useEffect(() => {

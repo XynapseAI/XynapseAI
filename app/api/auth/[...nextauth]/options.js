@@ -197,57 +197,64 @@ async function verifySiwe(credentials) {
 async function verifyFarcasterJwt(credentials, req) {
   try {
     const { token } = credentials;
+    if (!token) throw new Error('Missing token in credentials');
+    
     const quickAuthClient = createQuickAuthClient();
     
-    // IMPROVED: Extract domain from Referer if host null (mobile WebView fix)
-    let domain;
-    const host = req?.headers?.host;
-    const referer = req?.headers?.referer;
-    if (host) {
-      domain = host;
-    } else if (referer) {
-      try {
-        domain = new URL(referer).hostname;  // e.g., 'base.xynapseai.net' from Referer
-        logger.info('Using domain from Referer (mobile fallback):', { domain });
-      } catch (urlErr) {
-        logger.warn('Invalid Referer URL:', { referer, error: urlErr.message });
-        domain = process.env.APP_DOMAIN || 'xynapseai.net';
-      }
-    } else {
-      domain = process.env.APP_DOMAIN || 'xynapseai.net';
+    // STRICT: Dùng NEXTAUTH_URL env nếu có, fallback Referer/host
+    let domain = process.env.NEXTAUTH_URL ? new URL(process.env.NEXTAUTH_URL).hostname : null;
+    if (!domain) {
+      const host = req?.headers?.host;
+      const referer = req?.headers?.referer;
+      domain = host || (referer ? new URL(referer).hostname : process.env.APP_DOMAIN || 'xynapseai.net');
     }
     
-    logger.info('Verifying Farcaster JWT with domain:', { domain, tokenLength: token?.length || 'N/A' });
+    logger.info('Farcaster verify attempt:', { 
+      domain, 
+      tokenPreview: token.substring(0, 20) + '...', 
+      tokenLength: token.length,
+      isMobileLikely: !req?.headers?.host ? true : false  // Flag cho mobile
+    });
     
     let payload;
     try {
       payload = await quickAuthClient.verifyJwt({ token, domain });
-    } catch (error) {
-      logger.warn('Primary verifyJwt failed, trying alt domain:', { domain, error: error.message });
-      // Alt domain toggle (base. <-> no base)
-      const altDomain = domain.startsWith('base.') ? domain.replace('base.', '') : `base.${domain}`;
+      logger.info('Primary verify success', { domain, fid: payload.sub });
+    } catch (primaryErr) {
+      logger.warn('Primary verify failed, alt domain:', { domain, error: primaryErr.message });
+      const altDomain = domain.includes('base.') ? domain.replace('base.', '') : `base.${domain}`;
       payload = await quickAuthClient.verifyJwt({ token, domain: altDomain });
-      domain = altDomain;  // Update to successful one
-      logger.info('Alt domain succeeded:', { altDomain });
+      domain = altDomain;
+      logger.info('Alt verify success', { altDomain, fid: payload.sub });
     }
     
-    if (!payload || !payload.sub) {
-      throw new Error('Invalid JWT payload: missing sub (FID)');
+    if (!payload?.sub) {
+      throw new Error('Invalid payload: No FID (sub)');
     }
     
-    logger.info('Farcaster JWT verified successfully', { fid: payload.sub, domain });
+    // Decode và log payload cho debug (không secret needed)
+    const decoded = JSON.parse(atob(token.split('.')[1]));
+    logger.info('Decoded token claims:', { 
+      sub: decoded.sub, 
+      aud: decoded.aud,  // Check nếu match domain
+      exp: new Date(decoded.exp * 1000).toISOString(),
+      domainUsed: domain 
+    });
+    
+    if (decoded.aud !== domain) {
+      logger.error('Audience mismatch!', { aud: decoded.aud, domainUsed: domain });
+      throw new Error('Token audience mismatch with server domain');
+    }
+    
     return { fid: parseInt(payload.sub, 10) };
   } catch (error) {
-    if (error instanceof Errors.InvalidTokenError) {
-      logger.error('Invalid Farcaster Token Error (mobile?):', { error: error.message, domainAttempted: domain });
-      throw new Error('Invalid Farcaster token – check domain or token expiry');
-    }
-    logger.error('Farcaster JWT verification failed', { 
+    logger.error('Full Farcaster verify error:', { 
       error: error.message, 
-      stack: error.stack?.substring(0, 200),
-      domain: domain 
+      domain: domain,
+      isInvalidToken: error instanceof Errors.InvalidTokenError,
+      stack: error.stack?.substring(0, 200)
     });
-    throw error;  // Re-throw để propagate error cụ thể (tránh return null → undefined)
+    throw error;  // Re-throw để NextAuth có error cụ thể (không return null)
   }
 }
 
