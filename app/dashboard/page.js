@@ -61,6 +61,24 @@ async function hmacSha256(key, data) {
     .join('');
 }
 
+// NEW: Retry function cho ready() (để handle mobile delay/error)
+const callReadyWithRetry = async (retries = 3, delay = 500) => {
+  for (let i = 0; i < retries; i++) {
+    try {
+      await sdk.actions.ready();
+      safeLog('Splash screen hidden successfully (attempt ' + (i + 1) + ')');
+      return true;
+    } catch (err) {
+      safeError('Ready() failed (attempt ' + (i + 1) + '):', err);
+      if (i < retries - 1) {
+        await new Promise(resolve => setTimeout(resolve, delay));
+      }
+    }
+  }
+  safeWarn('All ready() attempts failed – splash may stay visible');
+  return false;
+};
+
 const useUserData = (session, csrfToken, setIsAnalyzing) => {
   const [userData, setUserData] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -305,7 +323,7 @@ export default function Dashboard() {
     prefetchNonce();
   }, []);
 
-  // FIXED: Init SDK and check environment after mount, with increased retries/delay for mobile
+  // FIXED: Init SDK, check environment, và gọi ready() SỚM sau mount (trong cùng useEffect)
   useEffect(() => {
     setIsMounted(true);
     const tab = searchParams.get('tab');
@@ -329,6 +347,8 @@ export default function Dashboard() {
               setIsInBaseApp(true);
               safeLog('Detected Base App environment');
             }
+            // NEW: Gọi ready() NGAY SAU detect inMiniApp (sớm nhất, tránh stuck splash trên mobile)
+            await callReadyWithRetry(); // Sử dụng retry function
             return; // Success, exit loop
           }
         } catch (err) {
@@ -341,18 +361,23 @@ export default function Dashboard() {
       toast.error('Failed to detect Farcaster environment after retries.', { position: 'top-center' });
     };
     initAndCheckEnvironment();
-  }, []);
+  }, []); // Chỉ chạy 1 lần sau mount
 
-  // NEW: Call ready() early after detecting inMiniApp to hide splash screen (best practice)
+  // NEW: Load Eruda cho debug console trên mobile (inject nếu dev hoặc inMiniApp)
   useEffect(() => {
-    if (inMiniApp && isMounted) {
-      sdk.actions.ready()
-        .then(() => safeLog('Splash screen hidden early for Mini App'))
-        .catch(err => safeError('Error calling ready early:', err));
+    if (isDev || inMiniApp) {
+      const script = document.createElement('script');
+      script.src = 'https://cdn.jsdelivr.net/npm/eruda';
+      script.async = true;
+      script.onload = () => {
+        eruda.init(); // Khởi động Eruda console
+        safeLog('Eruda console loaded for mobile debug');
+      };
+      document.head.appendChild(script);
     }
-  }, [inMiniApp, isMounted]);
+  }, [inMiniApp]);
 
-  // NEW: Handle auto-auth in Mini App using Quick Auth (keep, but set error if fail for retry UI)
+  // NEW: Handle auto-auth in Mini App using Quick Auth (gọi sau ready(), dùng skeleton nếu pending)
   useEffect(() => {
     if (inMiniApp && status === 'unauthenticated') {
       const handleMiniAppAuth = async () => {
@@ -378,7 +403,6 @@ export default function Dashboard() {
           safeError('Mini App auth error:', err);
           setMiniAppAuthError(err.message); // Set error for UI
           toast.error(`Farcaster sign-in failed: ${err.message}`, { position: 'top-center' });
-          // No fallback ready() here, since called early
         } finally {
           setMiniAppAuthLoading(false);
         }
@@ -942,7 +966,27 @@ export default function Dashboard() {
                     Error: {miniAppAuthError}. Please retry or contact support.
                   </p>
                   <button
-                    onClick={() => { setMiniAppAuthLoading(true); handleMiniAppAuth(); }} // Retry auth
+                    onClick={() => { 
+                      setMiniAppAuthLoading(true); 
+                      // Retry auth function (từ useEffect trên)
+                      const handleMiniAppAuth = async () => {
+                        setMiniAppAuthError(null);
+                        try {
+                          const { token } = await sdk.quickAuth.getToken();
+                          if (!token) throw new Error('Failed to get Quick Auth token');
+                          const result = await signIn('farcaster', { redirect: false, token });
+                          if (result?.error) throw new Error(result.error);
+                          toast.success('Signed in with Farcaster!', { position: 'top-center' });
+                          await update();
+                        } catch (err) {
+                          setMiniAppAuthError(err.message);
+                          toast.error(`Retry failed: ${err.message}`, { position: 'top-center' });
+                        } finally {
+                          setMiniAppAuthLoading(false);
+                        }
+                      };
+                      handleMiniAppAuth();
+                    }} // Retry auth
                     className="w-full px-5 py-3 bg-blue-600 text-white rounded-2xl text-sm font-semibold uppercase transition-all duration-300 hover:bg-blue-700 flex items-center justify-center gap-3"
                   >
                     Retry Farcaster Sign In
