@@ -285,6 +285,7 @@ export default function Dashboard() {
   const [inMiniApp, setInMiniApp] = useState(false);
   const [miniAppAuthLoading, setMiniAppAuthLoading] = useState(false); // NEW: Loading for Mini App auth
   const [fetchedNonce, setFetchedNonce] = useState(null);
+  const [miniAppAuthError, setMiniAppAuthError] = useState(null); // NEW: Track auth error for retry
   const recaptchaRef = useRef(null);
   const { userData, loading, error } = useUserData(session, csrfToken, setIsAnalyzing);
 
@@ -304,7 +305,7 @@ export default function Dashboard() {
     prefetchNonce();
   }, []);
 
-  // FIXED: Init SDK and check environment after mount, with increased retries for mobile
+  // FIXED: Init SDK and check environment after mount, with increased retries/delay for mobile
   useEffect(() => {
     setIsMounted(true);
     const tab = searchParams.get('tab');
@@ -312,7 +313,7 @@ export default function Dashboard() {
       setActiveTab(tab);
     }
 
-    const initAndCheckEnvironment = async (retries = 5) => {
+    const initAndCheckEnvironment = async (retries = 10, delay = 1500) => { // INCREASED: retries and delay for mobile
       if (typeof sdk === 'undefined') {
         safeWarn('SDK not available');
         return;
@@ -333,7 +334,7 @@ export default function Dashboard() {
         } catch (err) {
           safeError('Mini App SDK init/check error (attempt ' + (i + 1) + '):', err);
           if (i < retries - 1) {
-            await new Promise(resolve => setTimeout(resolve, 1000)); // Increased delay
+            await new Promise(resolve => setTimeout(resolve, delay));
           }
         }
       }
@@ -342,11 +343,21 @@ export default function Dashboard() {
     initAndCheckEnvironment();
   }, []);
 
-  // NEW: Handle auto-auth in Mini App using Quick Auth
+  // NEW: Call ready() early after detecting inMiniApp to hide splash screen (best practice)
+  useEffect(() => {
+    if (inMiniApp && isMounted) {
+      sdk.actions.ready()
+        .then(() => safeLog('Splash screen hidden early for Mini App'))
+        .catch(err => safeError('Error calling ready early:', err));
+    }
+  }, [inMiniApp, isMounted]);
+
+  // NEW: Handle auto-auth in Mini App using Quick Auth (keep, but set error if fail for retry UI)
   useEffect(() => {
     if (inMiniApp && status === 'unauthenticated') {
       const handleMiniAppAuth = async () => {
         setMiniAppAuthLoading(true);
+        setMiniAppAuthError(null); // Reset error
         try {
           // Get JWT from Quick Auth
           const { token } = await sdk.quickAuth.getToken();
@@ -363,20 +374,11 @@ export default function Dashboard() {
 
           toast.success('Signed in with Farcaster!', { position: 'top-center' });
           await update();
-
-          // Call ready() AFTER auth success
-          await sdk.actions.ready();
-          safeLog('Mini App ready called after auth');
         } catch (err) {
           safeError('Mini App auth error:', err);
+          setMiniAppAuthError(err.message); // Set error for UI
           toast.error(`Farcaster sign-in failed: ${err.message}`, { position: 'top-center' });
-          // Fallback: Force ready() to avoid stuck splash
-          setTimeout(async () => {
-            try {
-              await sdk.actions.ready();
-              safeLog('Fallback ready called on auth error');
-            } catch {}
-          }, 1000);
+          // No fallback ready() here, since called early
         } finally {
           setMiniAppAuthLoading(false);
         }
@@ -928,6 +930,23 @@ export default function Dashboard() {
                       Privacy Policy
                     </button>.
                   </p>
+                </div>
+              </div>
+            ) : inMiniApp && miniAppAuthError ? ( // NEW: If Mini App auth fail, show retry UI instead of form
+              <div className="w-full h-full flex items-center justify-center text-white">
+                <div className="bg-black/60 p-8 border border-white/15 rounded-lg max-w-md w-full mx-4 flex flex-col items-center">
+                  <h1 className="text-2xl font-bold text-white uppercase mb-4 text-center">
+                    Farcaster Auth Failed
+                  </h1>
+                  <p className="text-sm text-gray-500 mb-8 text-center">
+                    Error: {miniAppAuthError}. Please retry or contact support.
+                  </p>
+                  <button
+                    onClick={() => { setMiniAppAuthLoading(true); handleMiniAppAuth(); }} // Retry auth
+                    className="w-full px-5 py-3 bg-blue-600 text-white rounded-2xl text-sm font-semibold uppercase transition-all duration-300 hover:bg-blue-700 flex items-center justify-center gap-3"
+                  >
+                    Retry Farcaster Sign In
+                  </button>
                 </div>
               </div>
             ) : (

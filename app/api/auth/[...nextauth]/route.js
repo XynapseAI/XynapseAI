@@ -1,4 +1,3 @@
-// app/api/auth/[...nextauth]/route.js
 import NextAuth from "next-auth";
 import { authOptions } from "./options";
 import Bottleneck from "bottleneck";
@@ -20,9 +19,8 @@ async function getRedisClient() {
   return redisClient;
 }
 // ================= Security Headers =================
-// (Không thay đổi)
 const securityHeaders = {
-  "Content-Security-Policy": "default-src 'self'; frame-ancestors 'self';",
+  "Content-Security-Policy": "default-src 'self'; frame-ancestors *;", // CHANGED: Allow all for Farcaster iframe/WebView
   "X-Content-Type-Options": "nosniff",
   "X-Frame-Options": "DENY",
   "Strict-Transport-Security": "max-age=31536000; includeSubDomains",
