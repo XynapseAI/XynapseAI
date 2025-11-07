@@ -305,6 +305,7 @@ export default function Dashboard() {
   const [isBaseLoading, setIsBaseLoading] = useState(false); // Thêm loading cho Base modal
   const [isInBaseApp, setIsInBaseApp] = useState(false);
   const [inMiniApp, setInMiniApp] = useState(false);
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [miniAppReadyCalled, setMiniAppReadyCalled] = useState(false);
   const recaptchaRef = useRef(null);
   const { userData, loading, error } = useUserData(session, csrfToken, setIsAnalyzing);
