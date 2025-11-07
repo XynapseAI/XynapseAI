@@ -194,18 +194,20 @@ async function verifySiwe(credentials) {
   }
 }
 // NEW: Verify Farcaster Quick Auth JWT
-async function verifyFarcasterJwt(credentials) {
+async function verifyFarcasterJwt(credentials, req) {
   try {
     const { token } = credentials;
     const quickAuthClient = createQuickAuthClient();
+    const domain = req?.headers?.host || process.env.APP_DOMAIN || 'xynapseai.net';
+    logger.info('Verifying Farcaster JWT with domain:', { domain });
     const payload = await quickAuthClient.verifyJwt({
       token,
-      domain: process.env.APP_DOMAIN || 'xynapseai.net', // Must match your app domain
+      domain,
     });
     if (!payload || !payload.sub) {
       throw new Error('Invalid JWT payload');
     }
-    logger.info('Farcaster JWT verified', { fid: payload.sub });
+    logger.info('Farcaster JWT verified', { fid: payload.sub, domain });
     return { fid: parseInt(payload.sub, 10) }; // sub is FID as string
   } catch (error) {
     if (error instanceof Errors.InvalidTokenError) {
@@ -515,9 +517,9 @@ export const authOptions = {
       credentials: {
         token: { label: 'Token', type: 'text' },
       },
-      async authorize(credentials) {
+      async authorize(credentials, req) {
         try {
-          const { fid } = await verifyFarcasterJwt(credentials);
+          const { fid } = await verifyFarcasterJwt(credentials, req);
           let user = await customAdapter.getUserByFid(fid);
           if (!user) {
             const fallbackEmail = `fid${fid}@farcaster.xynapseai.net`;

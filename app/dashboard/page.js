@@ -1,3 +1,4 @@
+// app\dashboard\page.js
 'use client';
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
@@ -269,6 +270,7 @@ export default function Dashboard() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [isMounted, setIsMounted] = useState(false);
+  const [forceLoadingDismiss, setForceLoadingDismiss] = useState(false);
   const [activeTab, setActiveTab] = useState('profile');
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [isAnalyzing, setIsAnalyzing] = useState(false);
@@ -302,7 +304,7 @@ export default function Dashboard() {
     prefetchNonce();
   }, []);
 
-  // FIXED: Init SDK and check environment after mount, with retry for mobile
+  // FIXED: Init SDK and check environment after mount, with increased retries for mobile
   useEffect(() => {
     setIsMounted(true);
     const tab = searchParams.get('tab');
@@ -310,7 +312,7 @@ export default function Dashboard() {
       setActiveTab(tab);
     }
 
-    const initAndCheckEnvironment = async (retries = 3) => {
+    const initAndCheckEnvironment = async (retries = 5) => {
       if (typeof sdk === 'undefined') {
         safeWarn('SDK not available');
         return;
@@ -331,7 +333,7 @@ export default function Dashboard() {
         } catch (err) {
           safeError('Mini App SDK init/check error (attempt ' + (i + 1) + '):', err);
           if (i < retries - 1) {
-            await new Promise(resolve => setTimeout(resolve, 500)); // Retry delay
+            await new Promise(resolve => setTimeout(resolve, 1000)); // Increased delay
           }
         }
       }
@@ -783,11 +785,13 @@ export default function Dashboard() {
   };
 
   // FIXED: Skip loading nếu Mini App + force mounted sau 2s cho mobile
-  const isLoadingState = !isMounted || !providers || status === 'loading';
+  const isLoadingState = (!isMounted || !providers || status === 'loading') && !forceLoadingDismiss;
+  safeLog('Current loading state:', { isMounted, providers: !!providers, status, forceDismiss: forceLoadingDismiss });
   useEffect(() => {
     if (inMiniApp && isLoadingState) {
       const forceMount = setTimeout(() => {
         setIsMounted(true); // Force để dismiss overlay
+        setForceLoadingDismiss(true);
         safeLog('Force mounted for Mini App (avoid stuck)');
       }, 2000);
       return () => clearTimeout(forceMount);
