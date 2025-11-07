@@ -725,6 +725,10 @@ export const authOptions = {
       return session;
     },
     async redirect({ url, baseUrl }) {
+      // FIXED: Prioritize original url if it's on subdomain, fallback to baseUrl
+      if (url.startsWith('https://base.xynapseai.net/')) {
+        return url; // Keep on subdomain
+      }
       if (url.startsWith('/')) return `${baseUrl}${url}`;
       if (url === baseUrl || url === `${baseUrl}/dashboard`) return url;
       return baseUrl + '/dashboard';
