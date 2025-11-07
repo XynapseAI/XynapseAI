@@ -42,11 +42,14 @@ async function getAccountAge(userId) {
   }
 }
 async function dynamicRateLimit(ip, session, pathname) {
+  // FIXED: Add /api/auth/signin and /api/auth/error to skips for NextAuth flow
   if (
     pathname === "/api/auth/session" ||
     pathname === "/api/auth/providers" ||
     pathname === "/api/auth/signout" ||
     pathname === "/api/auth/csrf" ||
+    pathname === "/api/auth/signin" ||  // NEW: Skip base signin
+    pathname === "/api/auth/error" ||   // NEW: Skip error page
     pathname.startsWith("/api/auth/signin/") ||
     pathname.startsWith("/api/auth/callback/")
   ) return;
@@ -80,11 +83,14 @@ async function banIP(ip, durationSeconds = 3600) {
   logger.info("IP banned", { ip, durationSeconds });
 }
 async function checkIPBan(ip, pathname) {
+  // FIXED: Same skips as above for consistency
   if (
     pathname === "/api/auth/session" ||
     pathname === "/api/auth/providers" ||
     pathname === "/api/auth/signout" ||
     pathname === "/api/auth/csrf" ||
+    pathname === "/api/auth/signin" ||  // NEW
+    pathname === "/api/auth/error" ||   // NEW
     pathname.startsWith("/api/auth/signin/") ||
     pathname.startsWith("/api/auth/callback/")
   ) return;
@@ -96,17 +102,20 @@ async function checkIPBan(ip, pathname) {
   }
 }
 async function trackViolation(ip, pathname, reason = "Unknown") {
+  // FIXED: Same skips
   if (
     pathname === "/api/auth/session" ||
     pathname === "/api/auth/providers" ||
     pathname === "/api/auth/signout" ||
     pathname === "/api/auth/csrf" ||
+    pathname === "/api/auth/signin" ||  // NEW
+    pathname === "/api/auth/error" ||   // NEW
     pathname.startsWith("/api/auth/signin/") ||
     pathname.startsWith("/api/auth/callback/")
   ) return;
   const redisClient = await getRedisClient();
   const key = `violations:${ip}`;
-  const maxViolations = 10;
+  const maxViolations = 20;
   const windowMs = 15 * 60 * 1000;
   const violations = parseInt(await redisClient.get(key)) || 0;
   if (violations >= maxViolations) {
@@ -173,6 +182,7 @@ async function isAllowedOrigin(origin, referer, pathname) {
 
 // ================= Rate Limit + CORS wrapper =================
 const limiter = new Bottleneck({ maxConcurrent: 5, minTime: 200 });
+
 const rateLimitedHandler = (handler) =>
   limiter.wrap(async (req, ...args) => {
     const pathname = req?.nextUrl?.pathname || new URL(req.url).pathname;
@@ -184,14 +194,26 @@ const rateLimitedHandler = (handler) =>
     const origin = req.headers.get("origin");
     const referer = req.headers.get("referer");
     logger.info(`Auth Request: IP=${ip}, Origin=${origin || "null"}, Referer=${referer || "null"}, Pathname=${pathname}`);
-    if (pathname === "/api/auth/session" || pathname === "/api/auth/providers" || pathname === "/api/auth/signout" || pathname === "/api/auth/csrf") {
+
+    // FIXED: Broader skip for all auth paths (no rate limit/CORS/IP checks)
+    if (
+      pathname === "/api/auth/session" ||
+      pathname === "/api/auth/providers" ||
+      pathname === "/api/auth/signout" ||
+      pathname === "/api/auth/csrf" ||
+      pathname === "/api/auth/signin" ||  // NEW
+      pathname === "/api/auth/error" ||   // NEW
+      pathname.startsWith("/api/auth/signin/") ||
+      pathname.startsWith("/api/auth/callback/")
+    ) {
       try {
         return await handler(req, ...args);
       } catch (err) {
-        logger.error("NextAuth handler error (session/providers/signout/csrf)", { error: err.message, stack: err.stack });
+        logger.error("NextAuth handler error (auth paths)", { error: err.message, stack: err.stack });
         return NextResponse.json({ detail: `Internal Server Error: ${err.message}` }, { status: 500, headers: securityHeaders });
       }
     }
+
     if (!(await isAllowedOrigin(origin, referer, pathname))) {
       return NextResponse.json({ detail: "CORS Not Allowed" }, { status: 403, headers: securityHeaders });
     }
