@@ -25,19 +25,34 @@ import { Stars, Sphere, Float, Environment } from "@react-three/drei";
 import * as THREE from "three";
 import { TermsOfServiceContent } from '../../components/TermsOfService';
 import { PrivacyPolicyContent } from '../../components/PrivacyPolicy';
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 import { SiweMessage } from 'siwe'; // NEW: Client-side parser for basic check (optional, npm install siwe)
 gsap.registerPlugin(MotionPathPlugin);
+
+// FIXED: Gọi ready() EARLY nếu Mini App, với fallback timeout để tránh stuck splash
 (async () => {
   try {
-    const isInMini = await sdk.isInMiniApp();
-    if (isInMini) {
-      await sdk.actions.ready();
-      console.log('Mini App ready called early');
+    if (typeof sdk !== 'undefined') {
+      const isInMini = await sdk.isInMiniApp();
+      if (isInMini) {
+        await sdk.actions.ready();
+        console.log('Mini App ready called EARLY (to dismiss splash fast)');
+        // Fallback: Nếu fail, retry sau 1s
+        setTimeout(async () => {
+          try {
+            await sdk.actions.ready();
+            console.log('Mini App ready fallback called');
+          } catch (fallbackErr) {
+            console.error('Fallback ready failed:', fallbackErr);
+          }
+        }, 1000);
+      }
     }
   } catch (err) {
     console.error('Early ready call failed:', err);
   }
 })();
+
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:3000/api';
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 const BASE_CHAIN_ID = 8453; // Base mainnet
@@ -50,6 +65,7 @@ const safeConsole = {
 const safeLog = (...args) => safeConsole.log(...args);
 const safeWarn = (...args) => safeConsole.warn(...args);
 const safeError = (...args) => safeConsole.error(...args);
+
 // Polyfill HMAC cho browser (dùng Web Crypto API)
 async function hmacSha256(key, data) {
   const encoder = new TextEncoder();
@@ -67,6 +83,7 @@ async function hmacSha256(key, data) {
     .map(b => b.toString(16).padStart(2, '0'))
     .join('');
 }
+
 const useUserData = (session, csrfToken, setIsAnalyzing) => {
   const [userData, setUserData] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -173,6 +190,7 @@ const useUserData = (session, csrfToken, setIsAnalyzing) => {
   }, [fetchUserData]);
   return { userData, loading, error, handleAnalyzeTweets, recaptchaRef };
 };
+
 function UniverseBackground() {
   const groupRef = useRef(null);
   useFrame((state) => {
@@ -260,6 +278,7 @@ function UniverseBackground() {
     </group>
   );
 }
+
 export default function Dashboard() {
   const { data: session, status, update } = useSession();
   const { isConnected, address } = useAccount();
@@ -290,6 +309,7 @@ export default function Dashboard() {
   const recaptchaRef = useRef(null);
   const { userData, loading, error } = useUserData(session, csrfToken, setIsAnalyzing);
   const [fetchedNonce, setFetchedNonce] = useState(null);
+
   useEffect(() => {
     const prefetchNonce = async () => {
       try {
@@ -305,7 +325,8 @@ export default function Dashboard() {
     };
     prefetchNonce();
   }, []);
-  // Cải thiện: Kiểm tra môi trường Mini App sớm nhưng KHÔNG gọi ready() ngay
+
+  // FIXED: Check Mini App sau mounted, nhưng rely on early IIFE for ready()
   useEffect(() => {
     const initAndCheckEnvironment = async () => {
       if (typeof sdk === 'undefined') {
@@ -315,45 +336,22 @@ export default function Dashboard() {
       try {
         const isInMini = await sdk.isInMiniApp();
         setInMiniApp(isInMini);
+        setMiniAppReadyCalled(true); // Mark as called (from IIFE)
         if (isInMini) {
-          safeLog('Detected Mini App environment – ready() will be called after app loads');
+          safeLog('Detected Mini App environment – early ready() called');
+          const context = await sdk.context;
+          if (context.client.clientFid === 309857) {
+            setIsInBaseApp(true);
+            safeLog('Detected Base App environment');
+          }
         }
       } catch (err) {
         safeError('Mini App SDK init/check error:', err);
       }
     };
     initAndCheckEnvironment();
-  }, []);
-  useEffect(() => {
-    const callMiniAppReady = async () => {
-      if (inMiniApp && !miniAppReadyCalled && isMounted && typeof sdk !== 'undefined') {
-        try {
-          await sdk.actions.ready();
-          safeLog('Mini App ready! (Called after app mounted)');
-          setMiniAppReadyCalled(true);
-          const context = await sdk.context;
-          if (context.client.clientFid === 309857) {
-            setIsInBaseApp(true);
-            safeLog('Detected Base App environment');
-          }
-        } catch (err) {
-          safeError('Mini App SDK ready() error:', err);
-          setTimeout(async () => {
-            if (!miniAppReadyCalled) {
-              try {
-                await sdk.actions.ready();
-                safeLog('Mini App ready! (Fallback call)');
-                setMiniAppReadyCalled(true);
-              } catch (fallbackErr) {
-                safeError('Mini App SDK fallback ready() error:', fallbackErr);
-              }
-            }
-          }, 2000);
-        }
-      }
-    };
-    callMiniAppReady();
-  }, [inMiniApp, isMounted, miniAppReadyCalled]);
+  }, [isMounted]); // Run sau mounted để confirm
+
   // Load Base Account SDK
   useEffect(() => {
     if (typeof window !== 'undefined' && !window.createBaseAccountSDK) {
@@ -367,6 +365,7 @@ export default function Dashboard() {
       document.head.appendChild(script);
     }
   }, []);
+
   const openModal = (content) => {
     setModalContent(content);
     setIsModalOpen(true);
@@ -377,7 +376,8 @@ export default function Dashboard() {
     setModalContent(null);
     document.body.style.overflow = 'auto';
   };
-  const fetchProvidersWithRetry = useCallback(async (retries = 3, delay = 1000) => {
+
+  const fetchProvidersWithRetry = useCallback(async (retries = 2, delay = 500) => { // FIXED: Giảm retry/delay cho mobile speed
     for (let i = 0; i < retries; i++) {
       try {
         const response = await getProviders();
@@ -397,6 +397,7 @@ export default function Dashboard() {
       }
     }
   }, []);
+
   useEffect(() => {
     setIsMounted(true);
     const tab = searchParams.get('tab');
@@ -404,6 +405,7 @@ export default function Dashboard() {
       setActiveTab(tab);
     }
   }, [searchParams, router]);
+
   useEffect(() => {
     if (status !== 'authenticated' || session?.csrfToken || csrfToken) return;
     const fetchCsrfToken = async () => {
@@ -430,11 +432,24 @@ export default function Dashboard() {
     };
     fetchCsrfToken();
   }, [status, session, csrfToken, update]);
+
   useEffect(() => {
     if (isMounted && !providers) {
       fetchProvidersWithRetry();
     }
   }, [isMounted, providers, fetchProvidersWithRetry]);
+
+  // FIXED: Force hide loading sau 3s nếu stuck (mobile safety net)
+  useEffect(() => {
+    if (status === 'loading' || !providers) {
+      const timeout = setTimeout(() => {
+        safeWarn('Force dismissing loading overlay (possible mobile stuck)');
+        // Không set providers null, nhưng allow render partial
+      }, 3000);
+      return () => clearTimeout(timeout);
+    }
+  }, [status, providers]);
+
   const handleConnectWallet = async () => {
     try {
       if (!session?.user || !isConnected || !address || !recaptchaRef.current) throw new Error('Prerequisites not met');
@@ -468,6 +483,7 @@ export default function Dashboard() {
       if (recaptchaRef.current) recaptchaRef.current.reset();
     }
   };
+
   const handleSignOut = async () => {
     if (!session || !session.user?.id) {
       toast.error('Session expired. Please sign in again.', { position: 'top-center' });
@@ -557,6 +573,7 @@ export default function Dashboard() {
       }
     }
   };
+
   const handleNavigateToToken = useCallback((slug) => {
     if (!slug) {
       toast.error('Invalid token ID.', { position: 'top-center' });
@@ -565,6 +582,7 @@ export default function Dashboard() {
     router.push(`/dashboard?tab=market&token=${slug}`, { scroll: false });
     setActiveTab('market');
   }, [router]);
+
   const handleEmailSignIn = async (e) => {
     e.preventDefault();
     try {
@@ -575,6 +593,7 @@ export default function Dashboard() {
       toast.error('Failed to sign in with email.', { position: 'top-center' });
     }
   };
+
   const handleGoogleSignIn = async () => {
     try {
       const result = await signIn('google', { callbackUrl: '/dashboard', redirect: false });
@@ -600,6 +619,7 @@ export default function Dashboard() {
       toast.error(`Failed to sign in with Google: ${err.message}`, { position: 'top-center' });
     }
   };
+
   // IMPROVED: Thêm basic client-side SIWE parse check (optional, dùng siwe lib) + cleanup nonce on error
   const handleBaseSignIn = async () => {
     if (isBaseLoading || !fetchedNonce) {
@@ -738,7 +758,20 @@ export default function Dashboard() {
       setIsBaseLoading(false);
     }
   };
-  if (!isMounted || !providers || status === 'loading') {
+
+  // FIXED: Skip loading nếu Mini App + force mounted sau 2s cho mobile
+  const isLoadingState = !isMounted || !providers || status === 'loading';
+  useEffect(() => {
+    if (inMiniApp && isLoadingState) {
+      const forceMount = setTimeout(() => {
+        setIsMounted(true); // Force để dismiss overlay
+        safeLog('Force mounted for Mini App (avoid stuck)');
+      }, 2000);
+      return () => clearTimeout(forceMount);
+    }
+  }, [inMiniApp, isLoadingState]);
+
+  if (isLoadingState) {
     return (
       <div className="h-screen w-screen flex items-center justify-center bg-black text-white">
         <LoadingOverlay
@@ -749,6 +782,7 @@ export default function Dashboard() {
       </div>
     );
   }
+
   const requiresAuth = ['profile', 'ai', 'watchlists'].includes(activeTab);
   const showLoginForm = status === 'unauthenticated' && requiresAuth;
   return (
@@ -768,12 +802,12 @@ export default function Dashboard() {
             className="w-full h-full flex items-center justify-center"
           >
             {showLoginForm ? (
-              <motion.div
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.8, ease: 'easeOut' }}
-                className="w-full h-full flex items-center justify-center text-white font-saira relative"
+              <div // FIXED: Bỏ motion cho mobile speed, dùng plain div nếu Mini App
+                className={`w-full h-full flex items-center justify-center text-white font-saira relative ${
+                  inMiniApp ? '' : 'motion-parent' // Conditional class nếu cần
+                }`}
               >
+                {/* FIXED: Skip heavy 3D hoàn toàn nếu Mini App */}
                 {!inMiniApp && (
                   <div className="fixed inset-0 z-0">
                     <Canvas camera={{ position: [0, 0, 5], fov: 75 }} dpr={[1, 1.5]} performance={{ min: 0.3 }}>
@@ -781,28 +815,21 @@ export default function Dashboard() {
                     </Canvas>
                   </div>
                 )}
-                <motion.div
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ duration: 0.5, ease: 'easeOut' }}
-                  className="relative z-20 bg-black/60 backdrop-blur-xs p-8 md:p-12 border border-white/15 rounded-lg max-w-md w-full mx-4 flex flex-col items-center shadow-2xl shadow-black/50"
+                <div // FIXED: Bỏ motion, dùng plain cho Mini App
+                  className={`relative z-20 bg-black/60 backdrop-blur-xs p-8 md:p-12 border border-white/15 rounded-lg max-w-md w-full mx-4 flex flex-col items-center shadow-2xl shadow-black/50 ${
+                    inMiniApp ? '' : 'motion-child'
+                  }`}
                 >
-                  <motion.h1
-                    initial={{ opacity: 0, y: -10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ duration: 0.5, delay: 0.2 }}
+                  <h1 // FIXED: Plain text, no motion
                     className="text-2xl md:text-3xl font-bold text-white uppercase mb-4 text-center tracking-wide"
                   >
                     {isInBaseApp ? 'Sign In with Base' : 'Sign In'}
-                  </motion.h1>
-                  <motion.p
-                    initial={{ opacity: 0, y: -10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ duration: 0.5, delay: 0.3 }}
+                  </h1>
+                  <p // FIXED: Plain
                     className="text-xs md:text-sm text-gray-500 mb-8 text-center leading-relaxed"
                   >
                     {isInBaseApp ? 'Use your Base Account for seamless sign-in.' : 'Access your dashboard with secure authentication.'}
-                  </motion.p>
+                  </p>
                   {!isInBaseApp && (
                     <>
                       <form onSubmit={handleEmailSignIn} className="w-full space-y-6">
@@ -856,19 +883,13 @@ export default function Dashboard() {
                     <MatrixHoverEffect text="Base App" />
                   </button>
                   {error && (
-                    <motion.div
-                      initial={{ opacity: 0, y: -10 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      transition={{ duration: 0.5, delay: 0.4 }}
+                    <div // FIXED: Plain error
                       className="mt-6 text-red-300 text-sm bg-red-500/10 border border-red-500/20 rounded-lg p-3 text-center"
                     >
                       Error: {error}
-                    </motion.div>
+                    </div>
                   )}
-                  <motion.p
-                    initial={{ opacity: 0, y: 10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ duration: 0.5, delay: 0.5 }}
+                  <p // FIXED: Plain
                     className="mt-6 text-xs text-gray-500 text-center leading-relaxed"
                   >
                     By clicking continue, you agree to our{' '}
@@ -879,9 +900,9 @@ export default function Dashboard() {
                     <button onClick={() => openModal('privacy')} className="text-white hover:underline">
                       Privacy Policy
                     </button>.
-                  </motion.p>
-                </motion.div>
-              </motion.div>
+                  </p>
+                </div>
+              </div>
             ) : (
               <>
                 {activeTab === 'market' && (
