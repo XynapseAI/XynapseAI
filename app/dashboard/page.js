@@ -331,34 +331,44 @@ export default function Dashboard() {
       setActiveTab(tab);
     }
 
-    const initAndCheckEnvironment = async (retries = 10, delay = 1500) => { // INCREASED: retries and delay for mobile
+    const initAndCheckEnvironment = async (retries = 10, delay = 1500) => {
       if (typeof sdk === 'undefined') {
         safeWarn('SDK not available');
         return;
       }
       for (let i = 0; i < retries; i++) {
         try {
-          const isInMini = await sdk.isInMiniApp();
+          const isInMini = await sdk.isInMiniApp(); // Wrap here
           setInMiniApp(isInMini);
           if (isInMini) {
             safeLog('Detected Mini App environment');
-            const context = await sdk.context;
-            if (context.client.clientFid === 309857) {
-              setIsInBaseApp(true);
-              safeLog('Detected Base App environment');
+            try {
+              const context = await sdk.context; // Separate try for context
+              if (context.client.clientFid === 309857) {
+                setIsInBaseApp(true);
+                safeLog('Detected Base App environment');
+              }
+            } catch (contextErr) {
+              safeError('Context fetch failed (analytics conflict?):', contextErr);
+              // Fallback: Skip analytics-heavy calls
             }
-            // NEW: Gọi ready() NGAY SAU detect inMiniApp (sớm nhất, tránh stuck splash trên mobile)
-            await callReadyWithRetry(); // Sử dụng retry function
-            return; // Success, exit loop
+            // Ready with retry (đã có từ trước)
+            await callReadyWithRetry();
+            return;
           }
         } catch (err) {
-          safeError('Mini App SDK init/check error (attempt ' + (i + 1) + '):', err);
+          safeError('SDK error (attempt ' + (i + 1) + '):', err);
+          if (err.message.includes('AnalyticsSDKApiError') || err.context === 'AnalyticsSDKApiError') {
+            safeWarn('Analytics SDK conflict detected – skipping retry');
+            // Fallback: Assume not in mini app, or force ready if possible
+            if (i === 0) await callReadyWithRetry().catch(() => { }); // One shot
+            break;
+          }
           if (i < retries - 1) {
             await new Promise(resolve => setTimeout(resolve, delay));
           }
         }
       }
-      toast.error('Failed to detect Farcaster environment after retries.', { position: 'top-center' });
     };
     initAndCheckEnvironment();
   }, []); // Chỉ chạy 1 lần sau mount
@@ -385,7 +395,10 @@ export default function Dashboard() {
         setMiniAppAuthError(null); // Reset error
         try {
           // Get JWT from Quick Auth
-          const { token } = await sdk.quickAuth.getToken();
+          const { token } = await sdk.quickAuth.getToken().catch(err => {
+            safeError('QuickAuth failed:', err);
+            throw new Error('Auth token unavailable due to SDK error');
+          });
           if (!token) throw new Error('Failed to get Quick Auth token');
 
           safeLog('Quick Auth token obtained');
@@ -856,9 +869,8 @@ export default function Dashboard() {
           >
             {showLoginForm ? (
               <div // FIXED: Bỏ motion cho mobile speed, dùng plain div nếu Mini App
-                className={`w-full h-full flex items-center justify-center text-white font-saira relative ${
-                  inMiniApp ? '' : 'motion-parent' // Conditional class nếu cần
-                }`}
+                className={`w-full h-full flex items-center justify-center text-white font-saira relative ${inMiniApp ? '' : 'motion-parent' // Conditional class nếu cần
+                  }`}
               >
                 {/* FIXED: Skip heavy 3D hoàn toàn nếu Mini App */}
                 {!inMiniApp && (
@@ -869,9 +881,8 @@ export default function Dashboard() {
                   </div>
                 )}
                 <div // FIXED: Bỏ motion, dùng plain cho Mini App
-                  className={`relative z-20 bg-black/60 backdrop-blur-xs p-8 md:p-12 border border-white/15 rounded-lg max-w-md w-full mx-4 flex flex-col items-center shadow-2xl shadow-black/50 ${
-                    inMiniApp ? '' : 'motion-child'
-                  }`}
+                  className={`relative z-20 bg-black/60 backdrop-blur-xs p-8 md:p-12 border border-white/15 rounded-lg max-w-md w-full mx-4 flex flex-col items-center shadow-2xl shadow-black/50 ${inMiniApp ? '' : 'motion-child'
+                    }`}
                 >
                   <h1 // FIXED: Plain text, no motion
                     className="text-2xl md:text-3xl font-bold text-white uppercase mb-4 text-center tracking-wide"
@@ -966,8 +977,8 @@ export default function Dashboard() {
                     Error: {miniAppAuthError}. Please retry or contact support.
                   </p>
                   <button
-                    onClick={() => { 
-                      setMiniAppAuthLoading(true); 
+                    onClick={() => {
+                      setMiniAppAuthLoading(true);
                       // Retry auth function (từ useEffect trên)
                       const handleMiniAppAuth = async () => {
                         setMiniAppAuthError(null);
