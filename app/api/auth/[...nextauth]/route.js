@@ -124,6 +124,7 @@ const allowedOrigins = [
   "https://base.xynapseai.net",
   "https://xynapse-ai-xynapse-projects.vercel.app",
 ].filter((v, i, a) => a.indexOf(v) === i);
+
 async function isAllowedOrigin(origin, referer, pathname) {
   logger.info("Checking origin", { origin, referer, pathname, allowedOrigins });
   try {
@@ -139,6 +140,11 @@ async function isAllowedOrigin(origin, referer, pathname) {
       const refOrigin = new URL(referer).origin;
       if (allowedOrigins.includes(refOrigin)) {
         logger.info("Referer origin allowed", { referer, refOrigin });
+        return true;
+      }
+      // NEW: Allow Farcaster/Warpcast referers for Mini App iframes
+      if (referer.includes('farcaster.xyz') || referer.includes('warpcast.com')) {
+        logger.info("Allowing Farcaster/Warpcast referer for Mini App", { referer });
         return true;
       }
     }
@@ -164,6 +170,7 @@ async function isAllowedOrigin(origin, referer, pathname) {
     return false;
   }
 }
+
 // ================= Rate Limit + CORS wrapper =================
 const limiter = new Bottleneck({ maxConcurrent: 5, minTime: 200 });
 const rateLimitedHandler = (handler) =>

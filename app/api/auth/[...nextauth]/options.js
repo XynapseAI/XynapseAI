@@ -198,12 +198,25 @@ async function verifyFarcasterJwt(credentials, req) {
   try {
     const { token } = credentials;
     const quickAuthClient = createQuickAuthClient();
-    const domain = req?.headers?.host || process.env.APP_DOMAIN || 'xynapseai.net';
+    let domain = req?.headers?.host || process.env.APP_DOMAIN || 'xynapseai.net';
     logger.info('Verifying Farcaster JWT with domain:', { domain });
-    const payload = await quickAuthClient.verifyJwt({
-      token,
-      domain,
-    });
+    let payload;
+    try {
+      payload = await quickAuthClient.verifyJwt({
+        token,
+        domain,
+      });
+    } catch (error) {
+      logger.warn('Verification failed with primary domain, trying alternative domain', { domain, error: error.message });
+      // Try alternative domain (toggle base subdomain)
+      const altDomain = domain.startsWith('base.') ? domain.replace('base.', '') : `base.${domain}`;
+      payload = await quickAuthClient.verifyJwt({
+        token,
+        domain: altDomain,
+      });
+      domain = altDomain; // Use successful alternative
+      logger.info('Verification succeeded with alternative domain', { altDomain });
+    }
     if (!payload || !payload.sub) {
       throw new Error('Invalid JWT payload');
     }
@@ -217,6 +230,7 @@ async function verifyFarcasterJwt(credentials, req) {
     throw error;
   }
 }
+
 // ================== Email Transporter ==================
 const transporter = createTransport({
   host: process.env.EMAIL_SERVER_HOST,

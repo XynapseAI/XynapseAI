@@ -140,6 +140,7 @@ const useUserData = (session, csrfToken, setIsAnalyzing) => {
       }
     }
   }, [session, csrfToken]);
+
   const handleAnalyzeTweets = useCallback(async () => {
     setIsAnalyzing(true);
     try {
@@ -180,6 +181,7 @@ const useUserData = (session, csrfToken, setIsAnalyzing) => {
       if (recaptchaRef.current) recaptchaRef.current.reset();
     }
   }, [session, csrfToken, setIsAnalyzing]);
+
   useEffect(() => {
     fetchUserData();
   }, [fetchUserData]);
@@ -331,14 +333,10 @@ export default function Dashboard() {
       setActiveTab(tab);
     }
 
-    const initAndCheckEnvironment = async (retries = 10, delay = 1500) => {
-      if (typeof sdk === 'undefined') {
-        safeWarn('SDK not available');
-        return;
-      }
+    const initAndCheckEnvironment = async (retries = 10, delay = 500) => {  // CHANGED: Reduced delay for faster mobile
       for (let i = 0; i < retries; i++) {
         try {
-          const isInMini = await sdk.isInMiniApp(); // Wrap here
+          const isInMini = await sdk.isInMiniApp();
           setInMiniApp(isInMini);
           if (isInMini) {
             safeLog('Detected Mini App environment');
@@ -369,6 +367,7 @@ export default function Dashboard() {
           }
         }
       }
+      await callReadyWithRetry().catch(() => safeWarn('Force ready failed'));
     };
     initAndCheckEnvironment();
   }, []); // Chỉ chạy 1 lần sau mount
