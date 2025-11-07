@@ -29,30 +29,6 @@ import { PrivacyPolicyContent } from '../../components/PrivacyPolicy';
 import { SiweMessage } from 'siwe'; // NEW: Client-side parser for basic check (optional, npm install siwe)
 gsap.registerPlugin(MotionPathPlugin);
 
-// FIXED: Gọi ready() EARLY nếu Mini App, với fallback timeout để tránh stuck splash
-(async () => {
-  try {
-    if (typeof sdk !== 'undefined') {
-      const isInMini = await sdk.isInMiniApp();
-      if (isInMini) {
-        await sdk.actions.ready();
-        console.log('Mini App ready called EARLY (to dismiss splash fast)');
-        // Fallback: Nếu fail, retry sau 1s
-        setTimeout(async () => {
-          try {
-            await sdk.actions.ready();
-            console.log('Mini App ready fallback called');
-          } catch (fallbackErr) {
-            console.error('Fallback ready failed:', fallbackErr);
-          }
-        }, 1000);
-      }
-    }
-  } catch (err) {
-    console.error('Early ready call failed:', err);
-  }
-})();
-
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:3000/api';
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 const BASE_CHAIN_ID = 8453; // Base mainnet
@@ -305,11 +281,10 @@ export default function Dashboard() {
   const [isBaseLoading, setIsBaseLoading] = useState(false); // Thêm loading cho Base modal
   const [isInBaseApp, setIsInBaseApp] = useState(false);
   const [inMiniApp, setInMiniApp] = useState(false);
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const [miniAppReadyCalled, setMiniAppReadyCalled] = useState(false);
+  const [miniAppAuthLoading, setMiniAppAuthLoading] = useState(false); // NEW: Loading for Mini App auth
+  const [fetchedNonce, setFetchedNonce] = useState(null);
   const recaptchaRef = useRef(null);
   const { userData, loading, error } = useUserData(session, csrfToken, setIsAnalyzing);
-  const [fetchedNonce, setFetchedNonce] = useState(null);
 
   useEffect(() => {
     const prefetchNonce = async () => {
@@ -327,31 +302,86 @@ export default function Dashboard() {
     prefetchNonce();
   }, []);
 
-  // FIXED: Check Mini App sau mounted, nhưng rely on early IIFE for ready()
+  // FIXED: Init SDK and check environment after mount, with retry for mobile
   useEffect(() => {
-    const initAndCheckEnvironment = async () => {
+    setIsMounted(true);
+    const tab = searchParams.get('tab');
+    if (tab && ['market', 'ai', 'profile', 'graph', 'watchlists', 'cluster'].includes(tab)) {
+      setActiveTab(tab);
+    }
+
+    const initAndCheckEnvironment = async (retries = 3) => {
       if (typeof sdk === 'undefined') {
         safeWarn('SDK not available');
         return;
       }
-      try {
-        const isInMini = await sdk.isInMiniApp();
-        setInMiniApp(isInMini);
-        setMiniAppReadyCalled(true); // Mark as called (from IIFE)
-        if (isInMini) {
-          safeLog('Detected Mini App environment – early ready() called');
-          const context = await sdk.context;
-          if (context.client.clientFid === 309857) {
-            setIsInBaseApp(true);
-            safeLog('Detected Base App environment');
+      for (let i = 0; i < retries; i++) {
+        try {
+          const isInMini = await sdk.isInMiniApp();
+          setInMiniApp(isInMini);
+          if (isInMini) {
+            safeLog('Detected Mini App environment');
+            const context = await sdk.context;
+            if (context.client.clientFid === 309857) {
+              setIsInBaseApp(true);
+              safeLog('Detected Base App environment');
+            }
+            return; // Success, exit loop
+          }
+        } catch (err) {
+          safeError('Mini App SDK init/check error (attempt ' + (i + 1) + '):', err);
+          if (i < retries - 1) {
+            await new Promise(resolve => setTimeout(resolve, 500)); // Retry delay
           }
         }
-      } catch (err) {
-        safeError('Mini App SDK init/check error:', err);
       }
+      toast.error('Failed to detect Farcaster environment after retries.', { position: 'top-center' });
     };
     initAndCheckEnvironment();
-  }, [isMounted]); // Run sau mounted để confirm
+  }, []);
+
+  // NEW: Handle auto-auth in Mini App using Quick Auth
+  useEffect(() => {
+    if (inMiniApp && status === 'unauthenticated') {
+      const handleMiniAppAuth = async () => {
+        setMiniAppAuthLoading(true);
+        try {
+          // Get JWT from Quick Auth
+          const { token } = await sdk.quickAuth.getToken();
+          if (!token) throw new Error('Failed to get Quick Auth token');
+
+          safeLog('Quick Auth token obtained');
+
+          // Sign in with NextAuth using Farcaster credentials
+          const result = await signIn('farcaster', {
+            redirect: false,
+            token,
+          });
+          if (result?.error) throw new Error(result.error);
+
+          toast.success('Signed in with Farcaster!', { position: 'top-center' });
+          await update();
+
+          // Call ready() AFTER auth success
+          await sdk.actions.ready();
+          safeLog('Mini App ready called after auth');
+        } catch (err) {
+          safeError('Mini App auth error:', err);
+          toast.error(`Farcaster sign-in failed: ${err.message}`, { position: 'top-center' });
+          // Fallback: Force ready() to avoid stuck splash
+          setTimeout(async () => {
+            try {
+              await sdk.actions.ready();
+              safeLog('Fallback ready called on auth error');
+            } catch {}
+          }, 1000);
+        } finally {
+          setMiniAppAuthLoading(false);
+        }
+      };
+      handleMiniAppAuth();
+    }
+  }, [inMiniApp, status, update]);
 
   // Load Base Account SDK
   useEffect(() => {
@@ -400,12 +430,10 @@ export default function Dashboard() {
   }, []);
 
   useEffect(() => {
-    setIsMounted(true);
-    const tab = searchParams.get('tab');
-    if (tab && ['market', 'ai', 'profile', 'graph', 'watchlists', 'cluster'].includes(tab)) {
-      setActiveTab(tab);
+    if (isMounted && !providers) {
+      fetchProvidersWithRetry();
     }
-  }, [searchParams, router]);
+  }, [isMounted, providers, fetchProvidersWithRetry]);
 
   useEffect(() => {
     if (status !== 'authenticated' || session?.csrfToken || csrfToken) return;
@@ -433,12 +461,6 @@ export default function Dashboard() {
     };
     fetchCsrfToken();
   }, [status, session, csrfToken, update]);
-
-  useEffect(() => {
-    if (isMounted && !providers) {
-      fetchProvidersWithRetry();
-    }
-  }, [isMounted, providers, fetchProvidersWithRetry]);
 
   // FIXED: Force hide loading sau 3s nếu stuck (mobile safety net)
   useEffect(() => {
@@ -772,12 +794,12 @@ export default function Dashboard() {
     }
   }, [inMiniApp, isLoadingState]);
 
-  if (isLoadingState) {
+  if (isLoadingState || (inMiniApp && miniAppAuthLoading)) {
     return (
       <div className="h-screen w-screen flex items-center justify-center bg-black text-white">
         <LoadingOverlay
           isLoading={true}
-          message="Loading dashboard..."
+          message={inMiniApp ? "Authenticating with Farcaster..." : "Loading dashboard..."}
           isMobile={typeof window !== 'undefined' && window.innerWidth <= 640}
         />
       </div>
@@ -785,7 +807,7 @@ export default function Dashboard() {
   }
 
   const requiresAuth = ['profile', 'ai', 'watchlists'].includes(activeTab);
-  const showLoginForm = status === 'unauthenticated' && requiresAuth;
+  const showLoginForm = status === 'unauthenticated' && requiresAuth && !inMiniApp; // FIXED: Hide form in Mini App
   return (
     <CurrencyProvider>
       <div className="h-screen w-screen bg-gradient-to-br from-black to-gray-900 backdrop-blur-xs text-white overflow-x-hidden flex flex-col">

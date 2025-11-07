@@ -1,4 +1,3 @@
-// app/api/auth/[...nextauth]/options.js
 import { randomBytes } from "crypto";
 import GoogleProvider from "@auth/core/providers/google";
 import EmailProvider from "@auth/core/providers/email";
@@ -13,6 +12,7 @@ import { createPublicClient, http } from 'viem';
 import { base } from 'viem/chains'; // Base chain
 import { getRedisClient } from '@/utils/redis';
 import { SiweMessage } from 'siwe'; // Standard SIWE parser (npm install siwe)
+import { createClient as createQuickAuthClient, Errors } from '@farcaster/quick-auth'; // NEW: For Farcaster Quick Auth verification
 const scrypt = util.promisify(crypto.scrypt);
 async function hashApiKey(apiKey) {
   const salt = crypto.randomBytes(16).toString('hex');
@@ -32,9 +32,11 @@ async function verifySiwe(credentials) {
     const { message, signature } = credentials;
     logger.info('Full SIWE input to verify:', {
       message: typeof message === 'string' ? message.substring(0, 300) + (message.length > 300 ? '...' : '') : message,
-      fullMessageLength: message.length,
+      fullMessageLength: typeof message === 'string' ? message.length : 'N/A',
       signaturePreview: typeof signature === 'string' ? signature.substring(0, 50) + '...' : signature,
-      signatureLength: typeof signature === 'string' ? signature.length : 'N/A'
+      signatureLength: typeof signature === 'string' ? signature.length : 'N/A',
+      messageType: typeof message,
+      signatureType: typeof signature,
     });
     if (typeof message !== 'string' || typeof signature !== 'string') {
       throw new Error('Message and signature must be strings');
@@ -191,6 +193,28 @@ async function verifySiwe(credentials) {
     throw error;
   }
 }
+// NEW: Verify Farcaster Quick Auth JWT
+async function verifyFarcasterJwt(credentials) {
+  try {
+    const { token } = credentials;
+    const quickAuthClient = createQuickAuthClient();
+    const payload = await quickAuthClient.verifyJwt({
+      token,
+      domain: process.env.APP_DOMAIN || 'xynapseai.net', // Must match your app domain
+    });
+    if (!payload || !payload.sub) {
+      throw new Error('Invalid JWT payload');
+    }
+    logger.info('Farcaster JWT verified', { fid: payload.sub });
+    return { fid: parseInt(payload.sub, 10) }; // sub is FID as string
+  } catch (error) {
+    if (error instanceof Errors.InvalidTokenError) {
+      throw new Error('Invalid Farcaster token');
+    }
+    logger.error('Farcaster JWT verification failed', { error: error.message });
+    throw error;
+  }
+}
 // ================== Email Transporter ==================
 const transporter = createTransport({
   host: process.env.EMAIL_SERVER_HOST,
@@ -201,9 +225,11 @@ const transporter = createTransport({
   },
 });
 // ================== Custom Adapter ==================
+// FIXED: Backward-compatible queries without farcaster_fid in general SELECTs (add column via migration for Farcaster support)
 const customAdapter = {
   async getUserByEmail(email) {
     logger.info("Fetching user by email", { email });
+    // FIXED: Exclude farcaster_fid to avoid column error if not added yet
     const { rows } = await query(
       `SELECT id,email,google_id,google_name,email_verified,profile_picture,wallet_address,
               connected,last_connected,points,tweet_points,ai_points,task_points,
@@ -215,8 +241,12 @@ const customAdapter = {
   },
   async getUserByAccount({ provider, providerAccountId }) {
     logger.info("Fetching user by account", { provider, providerAccountId });
+    // FIXED: Specify fields without farcaster_fid
     const { rows } = await query(
-      `SELECT u.* FROM users u
+      `SELECT u.id,u.email,u.google_id,u.google_name,u.email_verified,u.profile_picture,u.wallet_address,
+              u.connected,u.last_connected,u.points,u.tweet_points,u.ai_points,u.task_points,
+              u.is_creator,u.is_ai_rank,u.tier,u.is_plus,u.is_premium,u.api_key_hash,u.api_key_salt,u.created_at
+       FROM users u
        JOIN accounts a ON u.id=a.userId
        WHERE a.provider=$1 AND a.providerAccountId=$2`,
       [provider, providerAccountId]
@@ -224,11 +254,31 @@ const customAdapter = {
     return rows[0] ? { ...rows[0], id: rows[0].id.toString() } : null;
   },
   async getUserByWallet(address) {
+    // FIXED: Specify fields without farcaster_fid
     const { rows } = await query(
-      `SELECT * FROM users WHERE wallet_address=$1`,
+      `SELECT id,email,google_id,google_name,email_verified,profile_picture,wallet_address,
+              connected,last_connected,points,tweet_points,ai_points,task_points,
+              is_creator,is_ai_rank,tier,is_plus,is_premium,api_key_hash,api_key_salt,created_at
+       FROM users WHERE wallet_address=$1`,
       [address]
     );
     return rows[0] ? { ...rows[0], id: rows[0].id.toString() } : null;
+  },
+  // NEW: Get user by Farcaster FID (requires column addition: ALTER TABLE users ADD COLUMN farcaster_fid BIGINT;)
+  async getUserByFid(fid) {
+    try {
+      const { rows } = await query(
+        `SELECT * FROM users WHERE farcaster_fid=$1`,
+        [fid]
+      );
+      return rows[0] ? { ...rows[0], id: rows[0].id.toString() } : null;
+    } catch (err) {
+      if (err.message.includes('column "farcaster_fid" does not exist')) {
+        logger.warn('farcaster_fid column missing; run migration to add it for Farcaster support');
+        return null;
+      }
+      throw err;
+    }
   },
   async createUser(data) {
     const id = data.wallet_address || data.google_id || data.id || uuidv4();
@@ -240,12 +290,13 @@ const customAdapter = {
     const plainApiKey = randomBytes(32).toString("hex");
     const { api_key_hash, api_key_salt } = await hashApiKey(plainApiKey);
     logger.info('Executing user insert', { id, wallet: data.wallet_address });
+    // FIXED: General INSERT without farcaster_fid (add via separate for Farcaster)
     const { rows } = await query(
       `INSERT INTO users (
         id,email,google_id,google_name,email_verified,profile_picture,wallet_address,
         connected,last_connected,points,tweet_points,ai_points,task_points,
         is_creator,is_ai_rank,tier,is_plus,is_premium,api_key_hash,api_key_salt,created_at
-      ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21)
+      ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20)
       ON CONFLICT (wallet_address) DO UPDATE SET
         email=COALESCE(EXCLUDED.email, users.email),google_name=EXCLUDED.google_name,email_verified=EXCLUDED.email_verified,
         profile_picture=COALESCE(users.profile_picture, EXCLUDED.profile_picture),connected=EXCLUDED.connected,
@@ -261,8 +312,42 @@ const customAdapter = {
     logger.info("User created", { id, email: data.email, wallet: data.wallet_address, rowCount: rows.length });
     return { ...rows[0], id: rows[0].id.toString() };
   },
+  // NEW: Create/update for Farcaster (assumes column exists)
+  async createFarcasterUser(fid, fallbackEmail) {
+    const id = uuidv4();
+    const plainApiKey = randomBytes(32).toString("hex");
+    const { api_key_hash, api_key_salt } = await hashApiKey(plainApiKey);
+    try {
+      const { rows } = await query(
+        `INSERT INTO users (
+          id,email,farcaster_fid,google_name,email_verified,profile_picture,wallet_address,
+          connected,last_connected,points,tweet_points,ai_points,task_points,
+          is_creator,is_ai_rank,tier,is_plus,is_premium,api_key_hash,api_key_salt,created_at
+        ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21)
+        ON CONFLICT (farcaster_fid) DO UPDATE SET
+          email=COALESCE(EXCLUDED.email, users.email),google_name=EXCLUDED.google_name,email_verified=EXCLUDED.email_verified,
+          profile_picture=COALESCE(users.profile_picture, EXCLUDED.profile_picture),connected=EXCLUDED.connected,
+          last_connected=EXCLUDED.last_connected,updated_at=CURRENT_TIMESTAMP, api_key_hash=EXCLUDED.api_key_hash, api_key_salt=EXCLUDED.api_key_salt
+        RETURNING *`,
+        [
+          id, fallbackEmail, fid, `Farcaster User #${fid}`, true, null, null, true,
+          new Date(), 0, 0, 0, 0, false, false, "Basic", false, false,
+          api_key_hash, api_key_salt, new Date(),
+        ]
+      );
+      logger.info("Farcaster user created/updated", { id, fid, rowCount: rows.length });
+      return { ...rows[0], id: rows[0].id.toString() };
+    } catch (err) {
+      if (err.message.includes('column "farcaster_fid" does not exist')) {
+        logger.error('farcaster_fid column missing; run: ALTER TABLE users ADD COLUMN farcaster_fid BIGINT;');
+        throw new Error('Database migration needed for Farcaster support');
+      }
+      throw err;
+    }
+  },
   async updateUser(data) {
     logger.info("Updating user", { id: data.id, email: data.email, wallet: data.wallet_address });
+    // FIXED: General UPDATE without farcaster_fid
     const { rows } = await query(
       `UPDATE users SET
         email = COALESCE($2, email),
@@ -284,6 +369,26 @@ const customAdapter = {
     );
     logger.info("User updated", { id: data.id, rowCount: rows.length });
     return { ...rows[0], id: rows[0].id.toString() };
+  },
+  // NEW: Update for Farcaster
+  async updateFarcasterUser(id, lastConnected) {
+    try {
+      await query(
+        `UPDATE users SET
+          last_connected = $1,
+          connected = $2,
+          updated_at = $3
+         WHERE id=$4`,
+        [lastConnected, true, new Date(), id]
+      );
+      logger.info("Farcaster user updated", { id });
+    } catch (err) {
+      if (err.message.includes('column "farcaster_fid" does not exist')) {
+        logger.error('farcaster_fid column missing; run migration');
+        throw new Error('Database migration needed');
+      }
+      throw err;
+    }
   },
   async createVerificationToken({ identifier, expires, token }) {
     logger.info("Creating verification token", { identifier });
@@ -404,6 +509,40 @@ export const authOptions = {
         }
       },
     }),
+    // NEW: Farcaster Provider using Quick Auth JWT
+    CredentialsProvider({
+      name: 'farcaster',
+      credentials: {
+        token: { label: 'Token', type: 'text' },
+      },
+      async authorize(credentials) {
+        try {
+          const { fid } = await verifyFarcasterJwt(credentials);
+          let user = await customAdapter.getUserByFid(fid);
+          if (!user) {
+            const fallbackEmail = `fid${fid}@farcaster.xynapseai.net`;
+            user = await customAdapter.createFarcasterUser(fid, fallbackEmail);
+            await query(
+              `INSERT INTO accounts (userId, type, provider, providerAccountId) VALUES ($1, $2, $3, $4)`,
+              [user.id, 'credentials', 'farcaster', fid.toString()]
+            );
+          } else {
+            // Update last_connected
+            await customAdapter.updateFarcasterUser(user.id, new Date());
+          }
+          logger.info('Farcaster login successful', { fid: user.farcaster_fid, email: user.email });
+          return {
+            id: user.id || fid.toString(),
+            email: user.email,
+            name: user.google_name || `Farcaster User #${fid}`,
+            farcaster_fid: fid,
+          };
+        } catch (error) {
+          logger.error('Farcaster authorize failed', { error: error.message });
+          return null;
+        }
+      },
+    }),
   ],
   callbacks: {
     async signIn({ user, account, profile }) {
@@ -433,6 +572,7 @@ export const authOptions = {
           }
           const plainApiKey = randomBytes(32).toString("hex");
           const { api_key_hash, api_key_salt } = await hashApiKey(plainApiKey);
+          // FIXED: Google-specific INSERT without farcaster_fid
           const result = await query(
             `INSERT INTO users (
               id, email, google_id, google_name, email_verified, profile_picture, wallet_address,
@@ -494,6 +634,7 @@ export const authOptions = {
             userId = uuidv4();
             const plainApiKey = randomBytes(32).toString("hex");
             const { api_key_hash, api_key_salt } = await hashApiKey(plainApiKey);
+            // FIXED: Email-specific INSERT without farcaster_fid
             const result = await query(
               `INSERT INTO users (
                 id, email, google_id, google_name, email_verified, profile_picture, wallet_address,
@@ -511,6 +652,9 @@ export const authOptions = {
           }
         } else if (account.provider === "credentials") { // Base login
           logger.info("Base sign-in successful", { wallet: user.wallet_address });
+          return true;
+        } else if (account.provider === "farcaster") { // NEW: Farcaster login
+          logger.info("Farcaster sign-in successful", { fid: user.farcaster_fid });
           return true;
         }
         logger.error("Sign-in failed: Unsupported provider", { provider: account.provider });
@@ -530,6 +674,10 @@ export const authOptions = {
         token.googleName = user.name || profile?.name || "";
         token.walletAddress = user.wallet_address;
         token.csrfToken = token.csrfToken || randomBytes(32).toString("hex");
+        // NEW: Add farcaster_fid if present
+        if (user.farcaster_fid) {
+          token.farcasterFid = user.farcaster_fid;
+        }
       }
       if (Date.now() > token.expiresAt) {
         logger.info("Token expired, refreshing", { tokenId: token.id });
@@ -551,6 +699,10 @@ export const authOptions = {
       session.user.email = token.email;
       session.user.googleName = token.googleName;
       session.user.walletAddress = token.walletAddress;
+      // NEW: Add farcaster_fid if present
+      if (token.farcasterFid) {
+        session.user.farcasterFid = token.farcasterFid;
+      }
       session.user.isPremium = token.isPremium || false;
       session.csrfToken = token.csrfToken;
       logger.info("Session created", { session: JSON.stringify(session) });
