@@ -334,33 +334,30 @@ export default function Dashboard() {
       setActiveTab(tab);
     }
 
-    const initAndCheckEnvironment = async (retries = 10, delay = 500) => {  // CHANGED: Reduced delay for faster mobile
+    const initAndCheckEnvironment = async (retries = 10, delay = 500) => {
+      let isInMini = false;
       for (let i = 0; i < retries; i++) {
         try {
-          const isInMini = await sdk.isInMiniApp();
+          isInMini = await sdk.isInMiniApp();
           setInMiniApp(isInMini);
           if (isInMini) {
-            safeLog('Detected Mini App environment');
+            safeLog('Detected Mini App environment via SDK');
             try {
-              const context = await sdk.context; // Separate try for context
+              const context = await sdk.context;
               if (context.client.clientFid === 309857) {
                 setIsInBaseApp(true);
                 safeLog('Detected Base App environment');
               }
             } catch (contextErr) {
-              safeError('Context fetch failed (analytics conflict?):', contextErr);
-              // Fallback: Skip analytics-heavy calls
+              safeError('Context fetch failed:', contextErr);
             }
-            // Ready with retry (đã có từ trước)
             await callReadyWithRetry();
-            return;
+            return true;  // Success, exit
           }
         } catch (err) {
           safeError('SDK error (attempt ' + (i + 1) + '):', err);
-          if (err.message.includes('AnalyticsSDKApiError') || err.context === 'AnalyticsSDKApiError') {
-            safeWarn('Analytics SDK conflict detected – skipping retry');
-            // Fallback: Assume not in mini app, or force ready if possible
-            if (i === 0) await callReadyWithRetry().catch(() => { }); // One shot
+          if (err.message.includes('AnalyticsSDKApiError')) {
+            safeWarn('Analytics SDK conflict – skipping retry');
             break;
           }
           if (i < retries - 1) {
@@ -368,7 +365,20 @@ export default function Dashboard() {
           }
         }
       }
-      await callReadyWithRetry().catch(() => safeWarn('Force ready failed'));
+
+      // NEW: Fallback detection via referrer if SDK fails (for mobile mini apps)
+      const referrer = document.referrer || '';
+      if (!isInMini && (referrer.includes('warpcast.com') || referrer.includes('farcaster.xyz'))) {
+        isInMini = true;
+        setInMiniApp(true);
+        safeLog('Forced Mini App detection via referrer (SDK failed):', { referrer });
+        // Still try ready() even if SDK failed
+        await callReadyWithRetry().catch(() => safeWarn('Ready failed on referrer fallback'));
+        return true;
+      }
+
+      safeWarn('Failed to detect Mini App after retries and referrer check');
+      return false;
     };
     initAndCheckEnvironment();
   }, []); // Chỉ chạy 1 lần sau mount
@@ -397,25 +407,19 @@ export default function Dashboard() {
           const { token } = await sdk.quickAuth.getToken();
           if (!token) throw new Error('No token from SDK');
 
-          // Log token cho debug
           console.log('Mobile token preview:', token.substring(0, 50) + '...');
           const payload = JSON.parse(atob(token.split('.')[1]));
-          console.log('Mobile token aud:', payload.aud);  // Check domain
+          console.log('Mobile token aud:', payload.aud);
 
           const result = await signIn('farcaster', { redirect: false, token });
           if (result?.error) {
-            if (result.error.includes('undefined') || result.error.includes('mismatch')) {
-              if (retryCount < 2) {
-                console.log('Retry auth (attempt', retryCount + 1, ')');
-                await new Promise(r => setTimeout(r, 2000));  // Wait 2s
-                return handleMiniAppAuth(retryCount + 1);
-              }
-              // Fallback: Hiển thị manual signin (email/Base) thay vì loop
-              setMiniAppAuthError('Auto-auth failed. Use manual sign-in below.');
-              toast.warn('Auto Farcaster auth failed. Try email or Base.', { position: 'top-center' });
-              return;
+            // NEW: Handle general errors, not just specific strings
+            if (retryCount < 2) {
+              console.log('Retry auth (attempt', retryCount + 1, ')');
+              await new Promise(r => setTimeout(r, 2000));
+              return handleMiniAppAuth(retryCount + 1);
             }
-            throw new Error(result.error);
+            throw new Error(result.error || 'Auth failed (undefined error)');
           }
           toast.success('Farcaster auth OK!');
           await update();
