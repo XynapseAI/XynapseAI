@@ -198,9 +198,9 @@ async function verifyFarcasterJwt(credentials, req) {
   try {
     const { token } = credentials;
     if (!token) throw new Error('Missing token in credentials');
-    
+
     const quickAuthClient = createQuickAuthClient();
-    
+
     // STRICT: Dùng NEXTAUTH_URL env nếu có, fallback Referer/host
     let domain = process.env.NEXTAUTH_URL ? new URL(process.env.NEXTAUTH_URL).hostname : null;
     if (!domain) {
@@ -208,14 +208,14 @@ async function verifyFarcasterJwt(credentials, req) {
       const referer = req?.headers?.referer;
       domain = host || (referer ? new URL(referer).hostname : process.env.APP_DOMAIN || 'xynapseai.net');
     }
-    
-    logger.info('Farcaster verify attempt:', { 
-      domain, 
-      tokenPreview: token.substring(0, 20) + '...', 
+
+    logger.info('Farcaster verify attempt:', {
+      domain,
+      tokenPreview: token.substring(0, 20) + '...',
       tokenLength: token.length,
       isMobileLikely: !req?.headers?.host ? true : false  // Flag cho mobile
     });
-    
+
     let payload;
     try {
       payload = await quickAuthClient.verifyJwt({ token, domain });
@@ -227,29 +227,29 @@ async function verifyFarcasterJwt(credentials, req) {
       domain = altDomain;
       logger.info('Alt verify success', { altDomain, fid: payload.sub });
     }
-    
+
     if (!payload?.sub) {
       throw new Error('Invalid payload: No FID (sub)');
     }
-    
+
     // Decode và log payload cho debug (không secret needed)
     const decoded = JSON.parse(atob(token.split('.')[1]));
-    logger.info('Decoded token claims:', { 
-      sub: decoded.sub, 
+    logger.info('Decoded token claims:', {
+      sub: decoded.sub,
       aud: decoded.aud,  // Check nếu match domain
       exp: new Date(decoded.exp * 1000).toISOString(),
-      domainUsed: domain 
+      domainUsed: domain
     });
-    
+
     if (decoded.aud !== domain) {
       logger.error('Audience mismatch!', { aud: decoded.aud, domainUsed: domain });
       throw new Error('Token audience mismatch with server domain');
     }
-    
+
     return { fid: parseInt(payload.sub, 10) };
   } catch (error) {
-    logger.error('Full Farcaster verify error:', { 
-      error: error.message, 
+    logger.error('Full Farcaster verify error:', {
+      error: error.message,
       domain: domain,
       isInvalidToken: error instanceof Errors.InvalidTokenError,
       stack: error.stack?.substring(0, 200)
@@ -772,7 +772,7 @@ export const authOptions = {
         name: 'next-auth.session-token',
         options: {
           httpOnly: false,
-          sameSite: 'lax', // CHANGED: 'none' to allow cross-site (iframe) requests
+          sameSite: 'none', // Changed back to 'none' for cross-site compatibility (e.g., mobile WebView)
           path: '/',
           secure: true,
           domain: cookieDomain,
@@ -782,7 +782,7 @@ export const authOptions = {
         name: 'next-auth.callback-url',
         options: {
           httpOnly: false,
-          sameSite: 'none', // CHANGED: 'none'
+          sameSite: 'none',
           path: '/',
           secure: true,
           domain: cookieDomain,
