@@ -153,7 +153,7 @@ export async function GET(request) {
     });
 
     // FIXED: Conditional sameSite: 'none' only prod (dev 'lax' to avoid localhost issue)
-    const sameSite = 'lax';
+    const sameSite = process.env.NODE_ENV === 'production' ? 'none' : 'lax';
     headers.append('Set-Cookie', cookie.serialize('csrf_token', csrfToken, {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',

@@ -745,7 +745,7 @@ export const authOptions = {
         name: 'next-auth.session-token',
         options: {
           httpOnly: false,
-          sameSite: 'lax', // CHANGED: 'none' to allow cross-site (iframe) requests
+          sameSite: 'none', // CHANGED: 'none' to allow cross-site (iframe) requests
           path: '/',
           secure: true,
           domain: cookieDomain,
@@ -755,7 +755,7 @@ export const authOptions = {
         name: 'next-auth.callback-url',
         options: {
           httpOnly: false,
-          sameSite: 'lax', // CHANGED: 'none'
+          sameSite: 'none', // CHANGED: 'none'
           path: '/',
           secure: true,
           domain: cookieDomain,
@@ -765,7 +765,7 @@ export const authOptions = {
         name: 'next-auth.csrf-token',
         options: {
           httpOnly: false,
-          sameSite: 'lax',
+          sameSite: 'none',
           path: '/',
           secure: true,
           domain: process.env.COOKIE_DOMAIN || '.xynapseai.net',

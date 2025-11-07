@@ -156,7 +156,7 @@ export async function GET(request) {
     await client.setEx(`csrf:${session.user.id}`, 15 * 60, newCsrfToken);
     logger.warn('Invalid CSRF token, new token issued', { ip });
     // FIXED: Conditional sameSite
-    const sameSite = 'lax';
+    const sameSite = process.env.NODE_ENV === 'production' ? 'none' : 'lax';
     return NextResponse.json({ detail: 'Invalid CSRF check. Please refresh.' }, { 
       status: 403, 
       headers: {
