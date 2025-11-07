@@ -35,8 +35,9 @@ const allowedOrigins = [
   'https://xynapse-ai.vercel.app',
 ].filter((v, i, a) => a.indexOf(v) === i);
 
-// Function to check Origin/Referer
+// IMPROVED: Updated to handle Origin: "null" from WebViews
 function isAllowedOrigin(origin, referer) {
+  logger.info("Checking origin in CSRF", { origin, referer, allowedOrigins });
   try {
     if (origin) {
       if (allowedOrigins.includes(origin)) {
@@ -44,6 +45,20 @@ function isAllowedOrigin(origin, referer) {
       }
       const hostname = new URL(origin).hostname;
       if (hostname.endsWith('.vercel.app')) {
+        return true;
+      }
+    }
+    // NEW: Handle Origin: "null" (string) from WebViews/apps
+    if (origin === 'null' && referer) {
+      const refOrigin = new URL(referer).origin;
+      // Allow if referer from trusted apps or own domains
+      if (
+        allowedOrigins.includes(refOrigin) ||
+        referer.includes('farcaster.xyz') ||
+        referer.includes('warpcast.com') ||
+        referer.includes('base.org')
+      ) {
+        logger.info("Allowing null origin for trusted app/referer in CSRF", { referer, refOrigin });
         return true;
       }
     }
@@ -126,7 +141,12 @@ export async function GET(request) {
     const headers = new Headers({
       'Content-Type': 'application/json',
       'Content-Security-Policy': "default-src 'self'",
-      'Access-Control-Allow-Origin': origin && allowedOrigins.includes(origin) ? origin : process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000',
+      // NEW: Handle null origin in headers
+      'Access-Control-Allow-Origin': origin && allowedOrigins.includes(origin) 
+        ? origin 
+        : (origin === 'null' && referer 
+          ? new URL(referer).origin 
+          : (process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000')),
       'Access-Control-Allow-Methods': 'GET',
       'Access-Control-Allow-Headers': 'Content-Type, X-CSRF-Token',
       'Access-Control-Allow-Credentials': 'true',

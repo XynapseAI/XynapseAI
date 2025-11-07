@@ -141,6 +141,7 @@ const allowedOrigins = [
   "https://xynapse-ai-xynapse-projects.vercel.app",
 ].filter((v, i, a) => a.indexOf(v) === i);
 
+// IMPROVED: Updated to handle Origin: "null" from WebViews
 async function isAllowedOrigin(origin, referer, pathname) {
   logger.info("Checking origin", { origin, referer, pathname, allowedOrigins });
   try {
@@ -152,6 +153,20 @@ async function isAllowedOrigin(origin, referer, pathname) {
       logger.info("Origin allowed", { origin });
       return true;
     }
+    // NEW: Handle Origin: "null" (string) from WebViews/apps
+    if (origin === 'null' && referer) {
+      const refOrigin = new URL(referer).origin;
+      // Allow if referer from trusted apps or own domains
+      if (
+        allowedOrigins.includes(refOrigin) ||
+        referer.includes('farcaster.xyz') ||
+        referer.includes('warpcast.com') ||
+        referer.includes('base.org') // Add Base app referer pattern
+      ) {
+        logger.info("Allowing null origin for trusted app/referer", { referer, refOrigin });
+        return true;
+      }
+    }
     if (!origin && referer) {
       const refOrigin = new URL(referer).origin;
       if (allowedOrigins.includes(refOrigin)) {
@@ -159,8 +174,8 @@ async function isAllowedOrigin(origin, referer, pathname) {
         return true;
       }
       // FIXED: Allow Farcaster/Warpcast for Mini App
-      if (referer.includes('farcaster.xyz') || referer.includes('warpcast.com')) {
-        logger.info("Allowing Farcaster/Warpcast referer", { referer });
+      if (referer.includes('farcaster.xyz') || referer.includes('warpcast.com') || referer.includes('base.org')) {
+        logger.info("Allowing Farcaster/Warpcast/Base referer", { referer });
         return true;
       }
     }
@@ -168,15 +183,16 @@ async function isAllowedOrigin(origin, referer, pathname) {
       logger.info("Allowing internal/SSR request");
       return true;
     }
-    if (!origin && process.env.NODE_ENV === "production") {
-      logger.error("Null origin blocked in production", { pathname });
-      await trackViolation(referer || "unknown", pathname, "Null origin in production");
-      return false;
-    }
     if (!origin && process.env.NODE_ENV === "development") {
       logger.warn("Origin is null, allowing in development mode");
       return true;
     }
+    // REMOVE or COMMENT this block - it's too strict for app WebViews
+    // if (!origin && process.env.NODE_ENV === "production") {
+    //   logger.error("Null origin blocked in production", { pathname });
+    //   await trackViolation(referer || "unknown", pathname, "Null origin in production");
+    //   return false;
+    // }
     logger.error("CORS blocked", { origin, referer, pathname });
     await trackViolation(origin || referer || "unknown", pathname, "CORS blocked");
     return false;
@@ -255,6 +271,16 @@ const rateLimitedHandler = (handler) =>
         newHeaders.set('Access-Control-Allow-Credentials', 'true');
         if (origin && allowedOrigins.includes(origin)) {
           newHeaders.set('Access-Control-Allow-Origin', origin);
+          newHeaders.set('Access-Control-Allow-Methods', 'GET,POST,OPTIONS');
+          newHeaders.set('Access-Control-Allow-Headers', 'Content-Type,Authorization,X-CSRF-Token,X-Recaptcha-Token,Cookie');
+        } else if (origin === 'null' && referer) {
+          // NEW: Handle null origin in headers
+          const refOrigin = new URL(referer).origin;
+          if (allowedOrigins.includes(refOrigin)) {
+            newHeaders.set('Access-Control-Allow-Origin', refOrigin);
+          } else {
+            newHeaders.set('Access-Control-Allow-Origin', 'null');
+          }
           newHeaders.set('Access-Control-Allow-Methods', 'GET,POST,OPTIONS');
           newHeaders.set('Access-Control-Allow-Headers', 'Content-Type,Authorization,X-CSRF-Token,X-Recaptcha-Token,Cookie');
         }
