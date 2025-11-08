@@ -389,7 +389,7 @@ export async function GET(request) {
   const headers = {
     ...securityHeaders(),
     ...(origin && origin !== 'null' && {
-      'Access-Control-Allow-Origin': origin,
+      'Access-Control-Allow-Origin': new URL(referer).origin.includes('warpcast.com') ? 'https://base.xynapseai.net' : new URL(referer).origin,
       'Access-Control-Allow-Methods': 'GET, POST',
       'Access-Control-Allow-Headers': 'Content-Type, X-Recaptcha-Token, X-CSRF-Token',
       'Access-Control-Allow-Credentials': 'true',
@@ -663,7 +663,7 @@ export async function POST(request) {
         profile_picture: profilePicture || '',
         google_name: googleName || '',
         email_verified: emailVerified || false,
-        wallet_address: walletAddress || null, 
+        wallet_address: walletAddress || null,
         connected: true,
         last_connected: new Date(),
         points: 0,
@@ -705,7 +705,7 @@ export async function POST(request) {
       try {
         const client = await getRedisClient();
         const cacheKey = updatedUser.wallet_address ? `user:${updatedUser.wallet_address}` : `user:${id}`;
-        await client.del(cacheKey); 
+        await client.del(cacheKey);
       } catch (err) {
         if (process.env.NODE_ENV !== 'production') {
           logger.warn('Failed to clear cache for user', { id: mask(id), err: err?.message });
@@ -722,7 +722,7 @@ export async function POST(request) {
             email: updatedUser.email,
             profile_picture: updatedUser.profile_picture,
             google_name: updatedUser.google_name,
-            wallet_address: updatedUser.wallet_address, 
+            wallet_address: updatedUser.wallet_address,
             email_verified: updatedUser.email_verified,
           }),
         },

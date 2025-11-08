@@ -194,48 +194,55 @@ async function verifySiwe(credentials) {
   }
 }
 // NEW: Verify Farcaster Quick Auth JWT
-async function verifyFarcasterJwt(credentials) {
+async function verifyFarcasterJwt(credentials, req) {
   try {
     const { token } = credentials;
     if (!token) throw new Error('Missing token in credentials');
     const quickAuthClient = createQuickAuthClient();
-    // Decode token to log aud for debug
+    // Decode để lấy aud exact (không cần secret)
     const decoded = JSON.parse(atob(token.split('.')[1]));
-    logger.info('Decoded token for verification:', {
+    logger.info('Farcaster token decoded (debug):', {
       sub: decoded.sub, // FID
-      aud: decoded.aud, // Key: Check this!
+      aud: decoded.aud, // CRITICAL: Exact audience từ Warpcast
+      iss: decoded.iss,
       exp: new Date(decoded.exp * 1000).toISOString(),
+      domainFromReq: req?.headers?.host || 'unknown',
     });
-    // Domains to try: always test both
-    const domainsToTry = ['base.xynapseai.net', 'xynapseai.net'];
+    // Thử primary: exact aud từ token (best match cho Mini App)
     let payload;
-    let verifiedDomain;
-    for (const tryDomain of domainsToTry) {
-      try {
-        payload = await quickAuthClient.verifyJwt({ token, domain: tryDomain });
-        // eslint-disable-next-line @typescript-eslint/no-unused-vars
-        verifiedDomain = tryDomain;
-        logger.info('Verify success with domain:', { domain: tryDomain, fid: payload.sub });
-        break;
-      } catch (err) {
-        logger.warn('Verify failed with domain:', { domain: tryDomain, error: err.message });
+    let verifiedDomain = decoded.aud; // Use token's aud first
+    try {
+      payload = await quickAuthClient.verifyJwt({ token, domain: verifiedDomain });
+      logger.info('Verify success with token aud:', { domain: verifiedDomain, fid: payload.sub });
+    } catch (primaryErr) {
+      logger.warn('Primary (token aud) failed, trying fallbacks:', { error: primaryErr.message, aud: decoded.aud });
+      // Fallback: multiple domains (base + main)
+      const fallbacks = ['base.xynapseai.net', 'xynapseai.net'];
+      for (const fbDomain of fallbacks) {
+        if (fbDomain === verifiedDomain) continue; // Skip duplicate
+        try {
+          payload = await quickAuthClient.verifyJwt({ token, domain: fbDomain });
+          verifiedDomain = fbDomain;
+          logger.info('Verify success with fallback domain:', { domain: fbDomain, fid: payload.sub });
+          break;
+        } catch (fbErr) {
+          logger.warn('Fallback failed:', { domain: fbDomain, error: fbErr.message });
+        }
       }
     }
-    if (!payload) {
-      throw new Error('Verification failed with all domains');
-    }
     if (!payload?.sub) {
-      throw new Error('Invalid payload: No FID (sub)');
+      throw new Error(`Invalid payload: No FID (sub). Aud was ${decoded.aud}`);
     }
-    // Skip aud check since we tried multiple
+    // Skip strict aud check vì đã verify success
+    logger.info('Farcaster JWT fully verified', { fid: payload.sub, verifiedDomain });
     return { fid: parseInt(payload.sub, 10) };
   } catch (error) {
-    logger.error('Full Farcaster verify error:', {
+    logger.error('Farcaster verify full error:', {
       error: error.message,
-      isInvalidToken: error instanceof Errors.InvalidTokenError,
-      stack: error.stack?.substring(0, 200)
+      tokenPreview: token?.substring(0, 20) + '...',
+      isInvalidToken: error instanceof Errors.InvalidTokenError ? 'Yes' : 'No',
     });
-    throw error;
+    throw new Error(`Farcaster auth failed: ${error.message}`); // Throw với message rõ để tránh undefined
   }
 }
 
@@ -677,7 +684,11 @@ export const authOptions = {
         } else if (account.provider === "credentials") { // Base login
           logger.info("Base sign-in successful", { wallet: user.wallet_address });
           return true;
-        } else if (account.provider === "farcaster") { // NEW: Farcaster login
+        } else if (account.provider === "farcaster") {
+          if (!user) {
+            logger.error('Farcaster signIn failed: No user from authorize');
+            return '/auth/error?error=FarcasterAuthFailed'; // Redirect với error rõ (hiển thị message custom)
+          }
           logger.info("Farcaster sign-in successful", { fid: user.farcaster_fid });
           return true;
         }
@@ -734,12 +745,13 @@ export const authOptions = {
     },
     // FIXED: Prioritize original url if it's on subdomain, fallback to baseUrl
     async redirect({ url, baseUrl }) {
-      // Nếu url là absolute và match domain của bạn, giữ nguyên
-      if (url.startsWith('https://') && (url.includes('xynapseai.net') || url.includes('base.xynapseai.net'))) {
+      // Nếu url absolute và match any domain của bạn, keep
+      if (url.startsWith('https://') && (url.includes('xynapseai.net'))) {
         return url;
       }
-      // Fallback relative đến dashboard trên domain hiện tại (dùng baseUrl động)
-      return new URL('/dashboard', baseUrl).toString();
+      // Fallback đến /dashboard trên baseUrl (đảm bảo https)
+      const safeBase = baseUrl.startsWith('http://') ? baseUrl.replace('http://', 'https://') : baseUrl;
+      return `${safeBase}/dashboard`;
     },
   },
   ...(isProd && {
