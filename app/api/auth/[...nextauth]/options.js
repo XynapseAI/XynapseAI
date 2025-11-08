@@ -198,63 +198,52 @@ async function verifyFarcasterJwt(credentials, req) {
   try {
     const { token } = credentials;
     if (!token) throw new Error('Missing token in credentials');
-
     const quickAuthClient = createQuickAuthClient();
-
-    // STRICT: Dùng NEXTAUTH_URL env nếu có, fallback Referer/host → luôn ưu tiên main domain
+    // STRICT: Dùng NEXTAUTH_URL env nếu có, fallback Referer/host
     let domain = process.env.NEXTAUTH_URL ? new URL(process.env.NEXTAUTH_URL).hostname : null;
     if (!domain) {
       const host = req?.headers?.host;
       const referer = req?.headers?.referer;
       domain = host || (referer ? new URL(referer).hostname : process.env.APP_DOMAIN || 'xynapseai.net');
     }
-
-    // FIXED: Không force 'base.' nữa (vì đã bỏ subdomain). Nếu mobile/referer warpcast, vẫn dùng main domain
-    const isMobileLikely = !req?.headers?.host || req.headers.referer?.includes('warpcast');  // Cải thiện detect mobile
-    if (isMobileLikely) {
-      domain = process.env.APP_DOMAIN || 'xynapseai.net';  // Force main domain cho mobile
-      logger.info('Mobile Farcaster detected, using main domain:', { domain });
+    const isMobileLikely = !req?.headers?.host ? true : false; // Flag cho mobile
+    // FIXED: Force domain to 'xynapseai.net' for mobile (since abandoned base.)
+    if (isMobileLikely || !domain.includes('xynapseai.net')) {
+      domain = 'xynapseai.net'; // Change from 'base.xynapseai.net'
+      logger.info('Forced domain for mobile/unexpected referer:', { domain });
     }
-
     logger.info('Farcaster verify attempt:', {
       domain,
       tokenPreview: token.substring(0, 20) + '...',
       tokenLength: token.length,
       isMobileLikely,
-      referer: req?.headers?.referer?.substring(0, 50) + '...'
     });
-
     let payload;
     try {
       payload = await quickAuthClient.verifyJwt({ token, domain });
       logger.info('Primary verify success', { domain, fid: payload.sub });
     } catch (primaryErr) {
       logger.warn('Primary verify failed, trying alt domain:', { domain, error: primaryErr.message });
-      // FIXED: Alt chỉ thử variant không có base (vì đã bỏ base subdomain)
-      const altDomain = domain.includes('www.') ? domain.replace('www.', '') : (domain.includes('.') ? domain : `www.${domain}`);
+      const altDomain = domain.includes('base.') ? domain.replace('base.', '') : `base.${domain}`;
       payload = await quickAuthClient.verifyJwt({ token, domain: altDomain });
-      domain = altDomain;  // Update to successful one
+      domain = altDomain; // Update domain to the successful one
       logger.info('Alt verify success', { altDomain, fid: payload.sub });
     }
-
     if (!payload?.sub) {
       throw new Error('Invalid payload: No FID (sub)');
     }
-
-    // Decode và log payload cho debug
+    // Decode và log payload cho debug (không secret needed)
     const decoded = JSON.parse(atob(token.split('.')[1]));
     logger.info('Decoded token claims:', {
       sub: decoded.sub,
-      aud: decoded.aud,  // Check nếu match domain
+      aud: decoded.aud, // Check nếu match domain
       exp: new Date(decoded.exp * 1000).toISOString(),
       domainUsed: domain
     });
-
     if (decoded.aud !== domain) {
       logger.error('Audience mismatch!', { aud: decoded.aud, domainUsed: domain });
       throw new Error('Token audience mismatch with server domain');
     }
-
     return { fid: parseInt(payload.sub, 10) };
   } catch (error) {
     logger.error('Full Farcaster verify error:', {
@@ -263,7 +252,7 @@ async function verifyFarcasterJwt(credentials, req) {
       isInvalidToken: error instanceof Errors.InvalidTokenError,
       stack: error.stack?.substring(0, 200)
     });
-    throw error;
+    throw error; // Re-throw để NextAuth có error cụ thể (không return null)
   }
 }
 
@@ -762,8 +751,12 @@ export const authOptions = {
     },
     // FIXED: Prioritize original url if it's on subdomain, fallback to baseUrl
     async redirect({ url, baseUrl }) {
+      // FIXED: For Mini App/mobile, no redirect – return current url to stay in app
+      if (process.env.NODE_ENV === 'production' && !req?.headers?.host) { // Mobile flag
+        return url; // Keep current (no change)
+      }
       // Nếu url là absolute và match domain của bạn, giữ nguyên
-      if (url.startsWith('https://') && (url.includes('xynapseai.net') || url.includes('base.xynapseai.net'))) {
+      if (url.startsWith('https://') && url.includes('xynapseai.net')) {
         return url;
       }
       // Fallback relative đến dashboard trên domain hiện tại (dùng baseUrl động)

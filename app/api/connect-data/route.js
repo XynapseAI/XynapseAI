@@ -492,6 +492,7 @@ export async function GET(request) {
             wallet_address: true,
             last_connected: true,
             twitter_handle: true,
+            farcaster_fid: true,
             twitter_handles: {
               select: {
                 profile_picture: true,

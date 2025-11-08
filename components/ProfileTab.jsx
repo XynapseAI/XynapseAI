@@ -141,7 +141,7 @@ const CustomTooltip = ({ active, payload, label }) => {
   return null;
 };
 export default function ProfileTab({ recaptchaRef, handleSignOut }) {
-  const { data: session, status , update } = useSession();
+  const { data: session, status } = useSession();
   const queryClient = useQueryClient();
   const router = useRouter();
   const [isMobile, setIsMobile] = useState(typeof window !== 'undefined' && window.innerWidth <= 640);
@@ -412,33 +412,25 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
     retry: 3,
     retryDelay: (attempt) => Math.min(1000 * 2 ** attempt, 30000),
     onError: async (err) => {
-  if (process.env.NODE_ENV !== 'production') {
-    logger.error('Error fetching user data:', err.response?.data || err.message);
-  }
-  let errorMessage = 'Unable to load your profile data. Please try refreshing the page.';
-  if (err.response?.status === 429) {
-    errorMessage = 'Request limit reached. Please wait a moment and refresh.';
-  } else if (err.response?.status === 403) {
-    errorMessage = 'Authentication issue detected. Please log in again.';
-    await signOut({ redirect: false });
-    router.push('/dashboard');  // FIXED: Redirect dashboard thay vì /auth/signin (tránh loop)
-  } else if (err.response?.status === 404) {
-    // FIXED: Đối với Farcaster/Mini App, retry session trước khi signOut
-    if (session?.user?.farcasterFid) {
-      toast.warn('Syncing Farcaster profile...');
-      await update();  // Update session từ NextAuth
-      queryClient.invalidateQueries(['userData']);  // Retry query
-      return;  // Không error ngay
-    }
-    errorMessage = 'Profile not found. Syncing data...';
-    await update();  // Force update session
-    router.refresh();  // Refresh page để retry fetch
-    return;
-  } else {
-    errorMessage = err.response?.data?.detail || err.message || 'Profile load failed unexpectedly.';
-  }
-  toast.error(errorMessage, { position: 'top-center', autoClose: 6000 });
-},
+      if (process.env.NODE_ENV !== 'production') {
+        logger.error('Error fetching user data:', err.response?.data || err.message);
+      }
+      let errorMessage = 'Unable to load your profile data. Please try refreshing the page.';
+      if (err.response?.status === 429) {
+        errorMessage = 'Request limit reached. Please wait a moment and refresh.';
+      } else if (err.response?.status === 403) {
+        errorMessage = 'Authentication issue detected. Please log in again.';
+        await signOut({ redirect: false });
+        window.location.href = '/auth/signin';
+      } else if (err.response?.status === 404) {
+        errorMessage = 'Profile not found. Please log in again to sync your data.';
+        await signOut({ redirect: false });
+        window.location.href = '/auth/signin';
+      } else {
+        errorMessage = err.response?.data?.detail || err.message || 'Profile load failed unexpectedly.';
+      }
+      toast.error(errorMessage, { position: 'top-center', autoClose: 6000 });
+    },
   });
   useEffect(() => {
     if (userData?.twitterHandle && !userData?.profilePicture.includes('pbs.twimg.com') && status === 'authenticated') {

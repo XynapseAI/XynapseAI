@@ -491,6 +491,7 @@ export async function GET(request) {
             last_connected: true,
             twitter_handle: true,
             days_active: true,
+            farcaster_fid: true,
             twitter_handles: {
               select: {
                 profile_picture: true,
