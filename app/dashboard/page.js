@@ -407,13 +407,18 @@ export default function Dashboard() {
           const { token } = await sdk.quickAuth.getToken();
           if (!token) throw new Error('No token from SDK');
 
-          console.log('Mobile token preview:', token.substring(0, 50) + '...');
+          // UPDATED: More debug logs
+          console.log('Quick Auth Token Preview:', token.substring(0, 50) + '...');
           const payload = JSON.parse(atob(token.split('.')[1]));
-          console.log('Mobile token aud:', payload.aud);
+          console.log('Token Payload Details:', {
+            sub: payload.sub,  // FID
+            aud: payload.aud,  // Should be your domain, e.g., 'xynapseai.net'
+            iss: payload.iss,
+            exp: new Date(payload.exp * 1000).toISOString(),
+          });
 
           const result = await signIn('farcaster', { redirect: false, token });
           if (result?.error) {
-            // NEW: Handle general errors, not just specific strings
             if (retryCount < 2) {
               console.log('Retry auth (attempt', retryCount + 1, ')');
               await new Promise(r => setTimeout(r, 2000));

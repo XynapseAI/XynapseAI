@@ -211,9 +211,9 @@ async function verifyFarcasterJwt(credentials, req) {
 
     const isMobileLikely = !req?.headers?.host ? true : false;  // Flag cho mobile
 
-    // NEW: Force domain if mobile or unexpected (e.g., warpcast.com referer)
+    // UPDATED: Prioritize main domain 'xynapseai.net' for mobile/Mini App
     if (isMobileLikely || !domain.includes('xynapseai.net')) {
-      domain = 'base.xynapseai.net';  // Prioritize subdomain for mini app
+      domain = 'xynapseai.net';  // Change to main domain
       logger.info('Forced domain for mobile/unexpected referer:', { domain });
     }
 
