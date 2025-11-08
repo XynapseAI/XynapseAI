@@ -13,7 +13,9 @@ import { base } from 'viem/chains'; // Base chain
 import { getRedisClient } from '@/utils/redis';
 import { SiweMessage } from 'siwe'; // Standard SIWE parser (npm install siwe)
 import { createClient as createQuickAuthClient, Errors } from '@farcaster/quick-auth'; // NEW: For Farcaster Quick Auth verification
+
 const scrypt = util.promisify(crypto.scrypt);
+
 async function hashApiKey(apiKey) {
   const salt = crypto.randomBytes(16).toString('hex');
   const derived = await scrypt(apiKey, salt, 64);
@@ -22,12 +24,14 @@ async function hashApiKey(apiKey) {
     api_key_salt: salt,
   };
 }
+
 const publicClient = createPublicClient({
   chain: base,
   transport: http('https://mainnet.base.org')
 });
+
 // IMPROVED: Verify SIWE with siwe parser (replaces regex) + viem verify (for ERC-6492)
-async function verifySiwe(credentials) {
+async function verifySiwe(credentials, req) {  // CHANGED: Thêm req parameter để kiểm tra domain động
   try {
     const { message, signature } = credentials;
     logger.info('Full SIWE input to verify:', {
@@ -74,8 +78,10 @@ async function verifySiwe(credentials) {
       if (chainId !== '8453') { // Base mainnet
         throw new Error('Invalid chain: expected 8453 (Base)');
       }
-      if (!domain || (process.env.NODE_ENV !== 'development' && domain !== (process.env.APP_DOMAIN || 'xynapseai.net'))) {
-        throw new Error(`Invalid domain: expected ${process.env.APP_DOMAIN || 'xynapseai.net'}, got ${domain}`);
+      // CHANGED: Sử dụng req.headers.host để kiểm tra domain động (hỗ trợ subdomain như base.xynapseai.net)
+      const expectedDomain = req?.headers?.host || process.env.NEXTAUTH_URL?.split('://')[1]?.split('/')[0] || 'xynapseai.net';
+      if (!domain || (process.env.NODE_ENV !== 'development' && domain !== expectedDomain)) {
+        throw new Error(`Invalid domain: expected ${expectedDomain}, got ${domain}`);
       }
       if (!uri || !uri.startsWith('http')) {
         throw new Error('Invalid URI in SIWE message');
@@ -117,8 +123,10 @@ async function verifySiwe(credentials) {
       if (!hasVersion || !hasIssuedAt) {
         throw new Error('Invalid SIWE: missing Version or Issued At (required per EIP-4361)');
       }
-      if (!extractedAddress || !extractedNonce || !extractedDomain || extractedChainId !== '8453') {
-        throw new Error('Fallback extract failed: missing core fields');
+      // CHANGED: Kiểm tra domain động ở fallback
+      const expectedDomain = req?.headers?.host || process.env.NEXTAUTH_URL?.split('://')[1]?.split('/')[0] || 'xynapseai.net';
+      if (!extractedAddress || !extractedNonce || !extractedDomain || extractedChainId !== '8453' || extractedDomain !== expectedDomain) {
+        throw new Error('Fallback extract failed: missing core fields or domain mismatch');
       }
       logger.info('Extracted from fallback regex:', { address: extractedAddress, nonce: extractedNonce });
     }
@@ -193,6 +201,7 @@ async function verifySiwe(credentials) {
     throw error;
   }
 }
+
 // NEW: Verify Farcaster Quick Auth JWT
 async function verifyFarcasterJwt(credentials, req) {
   try {
@@ -206,7 +215,7 @@ async function verifyFarcasterJwt(credentials, req) {
     if (!domain) {
       const host = req?.headers?.host;
       const referer = req?.headers?.referer;
-      domain = host || (referer ? new URL(referer).hostname : process.env.APP_DOMAIN || 'xynapseai.net');
+      domain = host || (referer ? new URL(referer).hostname : 'xynapseai.net');
     }
 
     const isMobileLikely = !req?.headers?.host ? true : false;  // Flag cho mobile
@@ -465,6 +474,7 @@ const customAdapter = {
     return rows[0] || null;
   },
 };
+
 const isProd = process.env.NODE_ENV === 'production';
 const cookieDomain = isProd ? '.xynapseai.net' : undefined; // Dev: undefined (default localhost), Prod: share subdomain
 // ================== Auth Options ==================
@@ -526,9 +536,9 @@ export const authOptions = {
         message: { label: 'Message', type: 'text' },
         signature: { label: 'Signature', type: 'text' },
       },
-      async authorize(credentials) {
+      async authorize(credentials, req) {  // CHANGED: Thêm req parameter và pass vào verifySiwe
         try {
-          const { address } = await verifySiwe(credentials);
+          const { address } = await verifySiwe(credentials, req);  // CHANGED: Pass req vào verifySiwe
           let user = await customAdapter.getUserByWallet(address);
           if (!user) {
             const fallbackEmail = `${address.toLowerCase()}@base.xynapseai.net`;
@@ -808,4 +818,5 @@ export const authOptions = {
     error: "/auth/error",
   },
 };
+
 export default authOptions;
