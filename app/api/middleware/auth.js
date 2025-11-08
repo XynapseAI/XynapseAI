@@ -13,6 +13,7 @@ export async function requireAuth(request) {
     '/api/auth/signout',
     '/api/auth/callback/google',
     '/api/auth/session',
+    '/api/auth/callback/:path*',
   ];
   if (publicApis.includes(pathname)) {
     logger.info('Skipping auth for public API', { pathname, ip });

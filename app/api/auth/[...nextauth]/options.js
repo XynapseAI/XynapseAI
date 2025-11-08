@@ -435,6 +435,7 @@ export const authOptions = {
     GoogleProvider({
       clientId: process.env.GOOGLE_CLIENT_ID,
       clientSecret: process.env.GOOGLE_CLIENT_SECRET,
+      checks: ['none'],
       authorization: {
         params: {
           prompt: "consent",
@@ -738,14 +739,14 @@ export const authOptions = {
   ...(isProd && {
     cookies: {
       sessionToken: {
-        name: 'next-auth.session-token',
+        name: '__Secure-next-auth.session-token',
         options: {
-          httpOnly: false,
-          sameSite: 'lax', // Changed back to 'none' for cross-site compatibility (e.g., mobile WebView)
+          httpOnly: true,
+          sameSite: 'none', // Fix mobile WebView
           path: '/',
-          secure: true,
-          domain: cookieDomain,
-        },
+          secure: true, // Chỉ prod
+          domain: '.xynapseai.net' // Share cross base/main
+        }
       },
       callbackUrl: {
         name: 'next-auth.callback-url',
