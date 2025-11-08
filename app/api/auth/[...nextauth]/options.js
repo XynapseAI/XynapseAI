@@ -194,7 +194,7 @@ async function verifySiwe(credentials) {
   }
 }
 // NEW: Verify Farcaster Quick Auth JWT
-async function verifyFarcasterJwt(credentials, req) {
+async function verifyFarcasterJwt(credentials) {
   try {
     const { token } = credentials;
     if (!token) throw new Error('Missing token in credentials');
@@ -213,6 +213,7 @@ async function verifyFarcasterJwt(credentials, req) {
     for (const tryDomain of domainsToTry) {
       try {
         payload = await quickAuthClient.verifyJwt({ token, domain: tryDomain });
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars
         verifiedDomain = tryDomain;
         logger.info('Verify success with domain:', { domain: tryDomain, fid: payload.sub });
         break;
