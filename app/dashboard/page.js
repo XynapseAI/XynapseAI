@@ -407,26 +407,26 @@ export default function Dashboard() {
           const { token } = await sdk.quickAuth.getToken();
           if (!token) throw new Error('No token from SDK');
 
-          console.log('Mobile token preview:', token.substring(0, 50) + '...');
+          // Decode và log aud client-side
           const payload = JSON.parse(atob(token.split('.')[1]));
-          console.log('Mobile token aud:', payload.aud);
+          console.log('Client token aud:', payload.aud);  // Check đây!
 
           const result = await signIn('farcaster', { redirect: false, token });
           if (result?.error) {
-            // NEW: Handle general errors, not just specific strings
-            if (retryCount < 2) {
-              console.log('Retry auth (attempt', retryCount + 1, ')');
-              await new Promise(r => setTimeout(r, 2000));
+            if (result.error.includes('Audience mismatch')) {
+              console.error('Aud mismatch client:', result.error);
+            }
+            if (retryCount < 3) {
+              await new Promise(r => setTimeout(r, 1000));
               return handleMiniAppAuth(retryCount + 1);
             }
-            throw new Error(result.error || 'Auth failed (undefined error)');
+            throw new Error(result.error || 'Auth failed');
           }
           toast.success('Farcaster auth OK!');
           await update();
         } catch (err) {
           console.error('Mini App auth fail:', err);
           setMiniAppAuthError(err.message);
-          if (retryCount < 2) return handleMiniAppAuth(retryCount + 1);
         } finally {
           setMiniAppAuthLoading(false);
         }
