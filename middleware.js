@@ -1,28 +1,27 @@
 import { NextResponse } from 'next/server';
-import crypto from 'crypto';
+
+// Chỉ định runtime là Node.js
 export const runtime = 'nodejs';
+
 export function middleware(request) {
-  const { pathname } = request.nextUrl;
-  // FIXED: Skip cho auth paths và farcaster.json để tránh conflict
-  if (pathname.startsWith('/api/auth/') || pathname === '/.well-known/farcaster.json') {
-    return NextResponse.next();
-  }
   const response = NextResponse.next();
   let csrfToken = request.cookies.get('csrf_token')?.value;
+
   if (!csrfToken) {
-    // Sử dụng crypto cho secure
-    csrfToken = crypto.randomBytes(32).toString('hex');
+    // Sử dụng crypto.randomUUID để tạo CSRF token thay vì randomBytes
+    csrfToken = crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).substring(2, 34);
     response.cookies.set('csrf_token', csrfToken, {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
-      sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax', // Fix mobile/cross-site
+      sameSite: 'none',
       path: '/',
-      domain: '.xynapseai.net' // Share cross subdomain
     });
   }
+
   response.headers.set('X-CSRF-Token', csrfToken);
   return response;
 }
+
 export const config = {
   matcher: '/api/:path*',
 };
