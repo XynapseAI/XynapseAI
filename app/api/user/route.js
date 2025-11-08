@@ -9,7 +9,9 @@ import { createClient } from 'redis';
 import crypto from 'crypto';
 import util from 'util';
 import cookie from 'cookie';
+
 const scrypt = util.promisify(crypto.scrypt);
+
 const prisma = new PrismaClient({
   errorFormat: 'minimal',
   datasources: {
@@ -18,6 +20,7 @@ const prisma = new PrismaClient({
     },
   },
 });
+
 let redisClient;
 async function getRedisClient() {
   if (redisClient?.isOpen) return redisClient;
@@ -41,12 +44,14 @@ async function getRedisClient() {
     }
   }
 }
+
 function getClientIp(request) {
   const xForwardedFor = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim();
   const xRealIp = request.headers.get('x-real-ip')?.trim();
   const vercelIp = request.headers.get('x-vercel-forwarded-for')?.trim();
   return xRealIp || vercelIp || xForwardedFor || 'unknown';
 }
+
 const serializeBigInt = (obj) => {
   return JSON.parse(
     JSON.stringify(obj, (key, value) =>
@@ -54,14 +59,12 @@ const serializeBigInt = (obj) => {
     )
   );
 };
-async function withRetry(fn, retries = 3, delay = 3000) { // FIXED: Increase delay for DB timeout
+
+async function withRetry(fn, retries = 3, delay = 2000) {
   for (let i = 0; i < retries; i++) {
     try {
       return await fn();
     } catch (err) {
-      if (err.message.includes('timeout') || err.code === 'ECONNRESET') { // FIXED: Detect timeout
-        logger.warn(`DB timeout detected, retrying...`, { attempt: i + 1 });
-      }
       if (i === retries - 1) throw err;
       if (process.env.NODE_ENV !== 'production') {
         logger.warn(`Database connection failed, retrying...`, { attempt: i + 1, err: err?.message });
@@ -70,6 +73,7 @@ async function withRetry(fn, retries = 3, delay = 3000) { // FIXED: Increase del
     }
   }
 }
+
 async function checkRateLimit(ip, userId = null) {
   const client = await getRedisClient();
   const windowSeconds = 15 * 60;
@@ -90,6 +94,7 @@ async function checkRateLimit(ip, userId = null) {
     }
   }
 }
+
 async function trackViolation(ip, reason) {
   const client = await getRedisClient();
   const key = `violations:${ip}`;
@@ -98,18 +103,15 @@ async function trackViolation(ip, reason) {
   const violations = parseInt(await client.get(key)) || 0;
   if (violations >= maxViolations) {
     await client.setEx(`banned_ip:${ip}`, 3600, 'banned');
-    logger.info('IP banned', { ip: mask(ip), reason }); // FIXED: Mask IP in log
+    logger.info('IP banned', { ip, reason });
     throw new Error('IP banned due to repeated violations.');
   }
   await client.multi().incr(key).expire(key, Math.floor(windowMs / 1000)).exec();
   if (process.env.NODE_ENV !== 'production') {
-    logger.warn('Violation recorded', { ip: mask(ip), reason, violations: violations + 1 });
+    logger.warn('Violation recorded', { ip, reason, violations: violations + 1 });
   }
 }
-function mask(value, keep = 6) { // FIXED: Add mask function
-  if (!value) return '';
-  return value.length <= keep ? '••••' : value.slice(0, keep) + '••••';
-}
+
 async function isAllowedOrigin(origin, referer, pathname, ip) {
   const configured = [
     process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000',
@@ -118,16 +120,18 @@ async function isAllowedOrigin(origin, referer, pathname, ip) {
     'https://xynapse-ai-xynapse-projects.vercel.app',
     'https://xynapse-ai.vercel.app',
     'https://base.xynapseai.net', // Add for Base mini app
-    'https://warpcast.com', // FIXED: Add for Farcaster mobile
   ].filter(Boolean);
+
   if (process.env.NODE_ENV !== 'production') {
     return configured.includes(origin) || configured.includes(referer ? new URL(referer).origin : null);
   }
+
   try {
     if (!origin && !referer) {
       await trackViolation(ip, 'Missing origin and referer in production');
       return false;
     }
+
     if (origin && origin !== 'null') {
       if (!origin.startsWith('https://')) {
         await trackViolation(ip, 'Non-HTTPS origin in production');
@@ -139,6 +143,7 @@ async function isAllowedOrigin(origin, referer, pathname, ip) {
       await trackViolation(ip, 'Invalid origin');
       return false;
     }
+
     if (referer) {
       const refOrigin = new URL(referer).origin;
       if (!refOrigin.startsWith('https://')) {
@@ -151,6 +156,7 @@ async function isAllowedOrigin(origin, referer, pathname, ip) {
       await trackViolation(ip, 'Invalid referer');
       return false;
     }
+
     await trackViolation(ip, 'Invalid origin or referer');
     return false;
   } catch {
@@ -158,7 +164,7 @@ async function isAllowedOrigin(origin, referer, pathname, ip) {
     return false;
   }
 }
-// [Other functions unchanged - omitted]
+
 function parseCookies(request) {
   const raw = request.headers.get('cookie') || '';
   try {
@@ -167,9 +173,11 @@ function parseCookies(request) {
     return {};
   }
 }
+
 async function generateCSRFToken() {
   return crypto.randomBytes(32).toString('hex');
 }
+
 async function setCSRFToken(ip, userId) {
   const client = await getRedisClient();
   const token = await generateCSRFToken();
@@ -177,16 +185,19 @@ async function setCSRFToken(ip, userId) {
   await client.setEx(key, 15 * 60, token);
   return token;
 }
+
 async function checkDoubleSubmitCSRF(request, ip, userId) {
   const headerToken = request.headers.get('x-csrf-token') || '';
   const cookies = parseCookies(request);
   const cookieToken = cookies['csrf_token'] || '';
+
   if (process.env.NODE_ENV === 'development' && headerToken === 'dev-csrf' && cookieToken === 'dev-csrf') {
     if (process.env.NODE_ENV !== 'production') {
       logger.info('Development CSRF bypass used');
     }
     return true;
   }
+
   if (!headerToken || !cookieToken) {
     if (process.env.NODE_ENV !== 'production') {
       logger.warn('CSRF tokens missing', {
@@ -196,6 +207,7 @@ async function checkDoubleSubmitCSRF(request, ip, userId) {
     }
     return false;
   }
+
   const client = await getRedisClient();
   const storedToken = await client.get(`csrf:${userId || ip}`);
   if (!storedToken) {
@@ -204,8 +216,10 @@ async function checkDoubleSubmitCSRF(request, ip, userId) {
     }
     return false;
   }
+
   // FIXED: Add debug log for lengths
   logger.info('CSRF token lengths', { header: headerToken.length, cookie: cookieToken.length, stored: storedToken.length });
+
   const valid = crypto.timingSafeEqual(Buffer.from(headerToken), Buffer.from(cookieToken)) &&
     crypto.timingSafeEqual(Buffer.from(cookieToken), Buffer.from(storedToken));
   if (!valid && process.env.NODE_ENV !== 'production') {
@@ -217,6 +231,12 @@ async function checkDoubleSubmitCSRF(request, ip, userId) {
   }
   return valid;
 }
+
+function mask(value, keep = 6) {
+  if (!value) return '';
+  return value.length <= keep ? '••••' : value.slice(0, keep) + '••••';
+}
+
 async function hashApiKey(apiKey) {
   const salt = crypto.randomBytes(16).toString('hex');
   const derived = await scrypt(apiKey, salt, 64);
@@ -225,6 +245,7 @@ async function hashApiKey(apiKey) {
     api_key_salt: salt,
   };
 }
+
 // FIXED: Conditional sameSite: 'none' only prod (dev 'lax')
 function securityHeaders(csrfToken = null) {
   const nonce = crypto.randomBytes(16).toString('base64');
@@ -239,6 +260,7 @@ function securityHeaders(csrfToken = null) {
     "base-uri 'self'",
     "form-action 'self'"
   ].join('; ');
+
   const headers = {
     'Content-Security-Policy': csp,
     'Content-Security-Policy-Nonce': nonce,
@@ -260,9 +282,11 @@ function securityHeaders(csrfToken = null) {
   }
   return headers;
 }
+
 const getSchema = z.object({
   uid: z.string().max(100),
 });
+
 const postSchema = z.object({
   id: z.string().max(100),
   email: z.string().email(),
@@ -272,74 +296,77 @@ const postSchema = z.object({
   emailVerified: z.boolean().optional(),
   walletAddress: z.string().optional(), // Add for Base
 });
-// FIXED: Wrap in try-catch for DB error (cause 500), use withRetry
+
+// FIXED: Wrap in try-catch for DB error (cause 500)
 async function computeStreak(userId) {
   try {
-    return await withRetry(async () => {
-      const thirtyDaysAgo = new Date();
-      thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-      const completions = await prisma.task_completions.findMany({
-        where: {
-          user_id: userId,
-          task_id: 'daily_checkin',
-          completed_at: { gte: thirtyDaysAgo },
-        },
-        orderBy: { completed_at: 'desc' },
-      });
-      let streak = 0;
-      let expectedDate = new Date();
-      expectedDate.setUTCHours(23, 59, 59, 999);
-      for (const comp of completions) {
-        const compDate = new Date(comp.completed_at);
-        compDate.setUTCHours(23, 59, 59, 999);
-        if (compDate.getTime() === expectedDate.getTime()) {
-          streak++;
-          expectedDate.setDate(expectedDate.getDate() - 1);
-        } else {
-          break;
-        }
-      }
-      return streak;
+    const thirtyDaysAgo = new Date();
+    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+    const completions = await prisma.task_completions.findMany({
+      where: {
+        user_id: userId,
+        task_id: 'daily_checkin',
+        completed_at: { gte: thirtyDaysAgo },
+      },
+      orderBy: { completed_at: 'desc' },
     });
+
+    let streak = 0;
+    let expectedDate = new Date();
+    expectedDate.setUTCHours(23, 59, 59, 999);
+
+    for (const comp of completions) {
+      const compDate = new Date(comp.completed_at);
+      compDate.setUTCHours(23, 59, 59, 999);
+      if (compDate.getTime() === expectedDate.getTime()) {
+        streak++;
+        expectedDate.setDate(expectedDate.getDate() - 1);
+      } else {
+        break;
+      }
+    }
+    return streak;
   } catch (err) {
     logger.error('computeStreak error', { err: err.message, userId });
-    return 0; // Fallback
+    return 0;  // Fallback
   }
 }
-// FIXED: Wrap in try-catch for DB error, use withRetry
+
+// FIXED: Wrap in try-catch for DB error
 async function getLast7Days(userId) {
   try {
-    return await withRetry(async () => {
-      const today = new Date();
-      today.setUTCHours(0, 0, 0, 0);
-      const todayEnd = new Date(today);
-      todayEnd.setUTCHours(23, 59, 59, 999);
-      const sevenDaysAgo = new Date(today);
-      sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
-      const completions = await prisma.task_completions.findMany({
-        where: {
-          user_id: userId,
-          task_id: 'daily_checkin',
-          completed_at: { gte: sevenDaysAgo, lte: todayEnd },
-        },
-      });
-      const checked = new Set();
-      completions.forEach(comp => {
-        const dateStr = new Date(comp.completed_at).toISOString().split('T')[0];
-        checked.add(dateStr);
-      });
-      const last7 = [];
-      for (let i = 6; i >= 0; i--) {
-        const date = new Date(today);
-        date.setDate(date.getDate() - i);
-        const dateStr = date.toISOString().split('T')[0];
-        last7.push(checked.has(dateStr));
-      }
-      return last7;
+    const today = new Date();
+    today.setUTCHours(0, 0, 0, 0);
+    const todayEnd = new Date(today);
+    todayEnd.setUTCHours(23, 59, 59, 999);
+    const sevenDaysAgo = new Date(today);
+    sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+
+    const completions = await prisma.task_completions.findMany({
+      where: {
+        user_id: userId,
+        task_id: 'daily_checkin',
+        completed_at: { gte: sevenDaysAgo, lte: todayEnd },
+      },
     });
+
+    const checked = new Set();
+    completions.forEach(comp => {
+      const dateStr = new Date(comp.completed_at).toISOString().split('T')[0];
+      checked.add(dateStr);
+    });
+
+    const last7 = [];
+    for (let i = 6; i >= 0; i--) {
+      const date = new Date(today);
+      date.setDate(date.getDate() - i);
+      const dateStr = date.toISOString().split('T')[0];
+      last7.push(checked.has(dateStr));
+    }
+    return last7;
   } catch (err) {
     logger.error('getLast7Days error', { err: err.message, userId });
-    return Array(7).fill(false); // Fallback
+    return Array(7).fill(false);  // Fallback
   }
 }
 
@@ -362,7 +389,7 @@ export async function GET(request) {
   const headers = {
     ...securityHeaders(),
     ...(origin && origin !== 'null' && {
-      'Access-Control-Allow-Origin': new URL(referer).origin.includes('warpcast.com') ? 'https://base.xynapseai.net' : new URL(referer).origin,
+      'Access-Control-Allow-Origin': origin,
       'Access-Control-Allow-Methods': 'GET, POST',
       'Access-Control-Allow-Headers': 'Content-Type, X-Recaptcha-Token, X-CSRF-Token',
       'Access-Control-Allow-Credentials': 'true',
@@ -636,7 +663,7 @@ export async function POST(request) {
         profile_picture: profilePicture || '',
         google_name: googleName || '',
         email_verified: emailVerified || false,
-        wallet_address: walletAddress || null,
+        wallet_address: walletAddress || null, 
         connected: true,
         last_connected: new Date(),
         points: 0,
@@ -678,7 +705,7 @@ export async function POST(request) {
       try {
         const client = await getRedisClient();
         const cacheKey = updatedUser.wallet_address ? `user:${updatedUser.wallet_address}` : `user:${id}`;
-        await client.del(cacheKey);
+        await client.del(cacheKey); 
       } catch (err) {
         if (process.env.NODE_ENV !== 'production') {
           logger.warn('Failed to clear cache for user', { id: mask(id), err: err?.message });
@@ -695,7 +722,7 @@ export async function POST(request) {
             email: updatedUser.email,
             profile_picture: updatedUser.profile_picture,
             google_name: updatedUser.google_name,
-            wallet_address: updatedUser.wallet_address,
+            wallet_address: updatedUser.wallet_address, 
             email_verified: updatedUser.email_verified,
           }),
         },

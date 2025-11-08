@@ -4,7 +4,7 @@ import EmailProvider from "@auth/core/providers/email";
 import CredentialsProvider from "@auth/core/providers/credentials";
 import { createTransport } from "nodemailer";
 import { v4 as uuidv4 } from "uuid";
-import { query } from "@/utils/postgres"; // FIXED: Use raw query as fallback for DB ops
+import { query } from "@/utils/postgres";
 import { logger } from "@/utils/serverLogger";
 import crypto from 'crypto';
 import util from 'util';
@@ -103,7 +103,7 @@ async function verifySiwe(credentials) {
       logger.warn('Siwe parse failed (possible partial from SDK), fallback regex:', { error: parseErr.message });
       isPartial = true;
       // Fallback improved regex for partial messages
-      const domainMatch = message.match(/^([a-zA-F0-9.-]+):?\d*\s+wants you to sign in/i);
+      const domainMatch = message.match(/^([a-zA-Z0-9.-]+):?\d*\s+wants you to sign in/i);
       extractedDomain = domainMatch ? domainMatch[1] : null;
       const addressMatch = message.match(/0x[a-fA-F0-9]{40}/i);
       extractedAddress = addressMatch ? addressMatch[0].toLowerCase() : null;
@@ -197,38 +197,75 @@ async function verifySiwe(credentials) {
 async function verifyFarcasterJwt(credentials, req) {
   try {
     const { token } = credentials;
-    if (!token) throw new Error('Missing token');
+    if (!token) throw new Error('Missing token in credentials');
+
     const quickAuthClient = createQuickAuthClient();
-    const decoded = JSON.parse(atob(token.split('.')[1]));
-    logger.info('Quick Auth token debug:', {
-      fid: decoded.sub,
-      aud: decoded.aud, // Key: Phải match NEXTAUTH_URL domain
-      iss: decoded.iss, // FIXED: Add issuer check (farcaster.xyz expected)
-      exp: new Date(decoded.exp * 1000).toISOString(),
-      host: req?.headers?.host,
+
+    // STRICT: Dùng NEXTAUTH_URL env nếu có, fallback Referer/host
+    let domain = process.env.NEXTAUTH_URL ? new URL(process.env.NEXTAUTH_URL).hostname : null;
+    if (!domain) {
+      const host = req?.headers?.host;
+      const referer = req?.headers?.referer;
+      domain = host || (referer ? new URL(referer).hostname : process.env.APP_DOMAIN || 'xynapseai.net');
+    }
+
+    const isMobileLikely = !req?.headers?.host ? true : false;  // Flag cho mobile
+
+    // NEW: Force domain if mobile or unexpected (e.g., warpcast.com referer)
+    if (isMobileLikely || !domain.includes('xynapseai.net')) {
+      domain = 'base.xynapseai.net';  // Prioritize subdomain for mini app
+      logger.info('Forced domain for mobile/unexpected referer:', { domain });
+    }
+
+    logger.info('Farcaster verify attempt:', {
+      domain,
+      tokenPreview: token.substring(0, 20) + '...',
+      tokenLength: token.length,
+      isMobileLikely,
     });
-    // Verify với exact aud từ token (fix mismatch)
+
     let payload;
     try {
-      payload = await quickAuthClient.verifyJwt({ token, domain: decoded.aud });
-      // FIXED: Strict issuer check
-      if (payload.iss !== 'https://farcaster.xyz') {
-        throw new Error('Invalid issuer: expected farcaster.xyz');
-      }
-    } catch (err) {
-      if (err instanceof Errors.InvalidTokenError) {
-        logger.error('InvalidTokenError: Domain mismatch?', { expectedAud: decoded.aud, error: err.message });
-        throw new Error('Invalid Farcaster token: Domain mismatch. Check Mini App registration.');
-      }
-      throw err;
+      payload = await quickAuthClient.verifyJwt({ token, domain });
+      logger.info('Primary verify success', { domain, fid: payload.sub });
+    } catch (primaryErr) {
+      logger.warn('Primary verify failed, trying alt domain:', { domain, error: primaryErr.message });
+      const altDomain = domain.includes('base.') ? domain.replace('base.', '') : `base.${domain}`;
+      payload = await quickAuthClient.verifyJwt({ token, domain: altDomain });
+      domain = altDomain;  // Update domain to the successful one
+      logger.info('Alt verify success', { altDomain, fid: payload.sub });
     }
-    if (!payload?.sub) throw new Error('No FID in payload');
+
+    if (!payload?.sub) {
+      throw new Error('Invalid payload: No FID (sub)');
+    }
+
+    // Decode và log payload cho debug (không secret needed)
+    const decoded = JSON.parse(atob(token.split('.')[1]));
+    logger.info('Decoded token claims:', {
+      sub: decoded.sub,
+      aud: decoded.aud,  // Check nếu match domain
+      exp: new Date(decoded.exp * 1000).toISOString(),
+      domainUsed: domain
+    });
+
+    if (decoded.aud !== domain) {
+      logger.error('Audience mismatch!', { aud: decoded.aud, domainUsed: domain });
+      throw new Error('Token audience mismatch with server domain');
+    }
+
     return { fid: parseInt(payload.sub, 10) };
   } catch (error) {
-    logger.error('Quick Auth verify failed:', { error: error.message, tokenLen: token?.length });
-    throw error; // Re-throw để signIn catch và return error rõ
+    logger.error('Full Farcaster verify error:', {
+      error: error.message,
+      domain: domain,
+      isInvalidToken: error instanceof Errors.InvalidTokenError,
+      stack: error.stack?.substring(0, 200)
+    });
+    throw error;  // Re-throw để NextAuth có error cụ thể (không return null)
   }
 }
+
 // ================== Email Transporter ==================
 const transporter = createTransport({
   host: process.env.EMAIL_SERVER_HOST,
@@ -439,7 +476,6 @@ export const authOptions = {
     GoogleProvider({
       clientId: process.env.GOOGLE_CLIENT_ID,
       clientSecret: process.env.GOOGLE_CLIENT_SECRET,
-      checks: ['none'],
       authorization: {
         params: {
           prompt: "consent",
@@ -668,13 +704,7 @@ export const authOptions = {
         } else if (account.provider === "credentials") { // Base login
           logger.info("Base sign-in successful", { wallet: user.wallet_address });
           return true;
-        } else if (account.provider === "farcaster") {
-          logger.info('Farcaster signIn attempt');
-          // FIXED: Remove duplicate if (!user)
-          if (!user) {
-            logger.error('Farcaster signIn failed: No user from authorize');
-            return '/auth/error?error=FarcasterAuthFailed'; // Redirect với error rõ (hiển thị message custom)
-          }
+        } else if (account.provider === "farcaster") { // NEW: Farcaster login
           logger.info("Farcaster sign-in successful", { fid: user.farcaster_fid });
           return true;
         }
@@ -731,32 +761,31 @@ export const authOptions = {
     },
     // FIXED: Prioritize original url if it's on subdomain, fallback to baseUrl
     async redirect({ url, baseUrl }) {
-      // Nếu url absolute và match any domain của bạn, keep
-      if (url.startsWith('https://') && (url.includes('xynapseai.net'))) {
+      // Nếu url là absolute và match domain của bạn, giữ nguyên
+      if (url.startsWith('https://') && (url.includes('xynapseai.net') || url.includes('base.xynapseai.net'))) {
         return url;
       }
-      // Fallback đến /dashboard trên baseUrl (đảm bảo https)
-      const safeBase = baseUrl.startsWith('http://') ? baseUrl.replace('http://', 'https://') : baseUrl;
-      return `${safeBase}/dashboard`;
+      // Fallback relative đến dashboard trên domain hiện tại (dùng baseUrl động)
+      return new URL('/dashboard', baseUrl).toString();
     },
   },
   ...(isProd && {
     cookies: {
       sessionToken: {
-        name: '__Secure-next-auth.session-token',
+        name: 'next-auth.session-token',
         options: {
-          httpOnly: true,
-          sameSite: 'none', // Fix mobile WebView
+          httpOnly: false,
+          sameSite: 'none', // Changed back to 'none' for cross-site compatibility (e.g., mobile WebView)
           path: '/',
-          secure: true, // Chỉ prod
-          domain: '.xynapseai.net' // Share cross base/main
-        }
+          secure: true,
+          domain: cookieDomain,
+        },
       },
       callbackUrl: {
         name: 'next-auth.callback-url',
         options: {
           httpOnly: false,
-          sameSite: 'lax',
+          sameSite: 'none',
           path: '/',
           secure: true,
           domain: cookieDomain,
@@ -766,7 +795,7 @@ export const authOptions = {
         name: 'next-auth.csrf-token',
         options: {
           httpOnly: false,
-          sameSite: 'lax',
+          sameSite: 'none',
           path: '/',
           secure: true,
           domain: process.env.COOKIE_DOMAIN || '.xynapseai.net',
@@ -777,8 +806,8 @@ export const authOptions = {
   secret: process.env.AUTH_SECRET,
   session: { strategy: "jwt", maxAge: 2 * 60 * 60 }, // 2 hours
   pages: {
-    signIn: "/auth/signin", // Separate page, không phải /dashboard
-    error: "/auth/error", // Custom error page dưới
+    signIn: "/dashboard",
+    error: "/auth/error",
   },
 };
 export default authOptions;
