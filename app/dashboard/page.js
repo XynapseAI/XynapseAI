@@ -29,7 +29,6 @@ import { PrivacyPolicyContent } from '../../components/PrivacyPolicy';
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 import { SiweMessage } from 'siwe'; // NEW: Client-side parser for basic check (optional, npm install siwe)
 gsap.registerPlugin(MotionPathPlugin);
-
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:3000/api';
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 const BASE_CHAIN_ID = 8453; // Base mainnet
@@ -42,7 +41,6 @@ const safeConsole = {
 const safeLog = (...args) => safeConsole.log(...args);
 const safeWarn = (...args) => safeConsole.warn(...args);
 const safeError = (...args) => safeConsole.error(...args);
-
 // Polyfill HMAC cho browser (dùng Web Crypto API)
 async function hmacSha256(key, data) {
   const encoder = new TextEncoder();
@@ -60,7 +58,6 @@ async function hmacSha256(key, data) {
     .map(b => b.toString(16).padStart(2, '0'))
     .join('');
 }
-
 // NEW: Retry function cho ready() (để handle mobile delay/error)
 const callReadyWithRetry = async (retries = 3, delay = 500) => {
   for (let i = 0; i < retries; i++) {
@@ -78,7 +75,6 @@ const callReadyWithRetry = async (retries = 3, delay = 500) => {
   safeWarn('All ready() attempts failed – splash may stay visible');
   return false;
 };
-
 const useUserData = (session, csrfToken, setIsAnalyzing) => {
   const [userData, setUserData] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -101,7 +97,7 @@ const useUserData = (session, csrfToken, setIsAnalyzing) => {
         throw new Error('Failed to obtain reCAPTCHA token');
       }
       const jwtToken = session?.accessToken;
-      logger.info('Fetching user data with CSRF', { csrfLength: csrfToken.length });  // FIXED: Debug CSRF length from client
+      console.info('Fetching user data with CSRF', { csrfLength: csrfToken.length }); // FIXED: Replace logger with console (client-side)
       const response = await fetch(`${API_BASE_URL}/user?uid=${encodeURIComponent(session.user.id)}`, {
         method: 'GET',
         headers: {
@@ -182,7 +178,6 @@ const useUserData = (session, csrfToken, setIsAnalyzing) => {
       if (recaptchaRef.current) recaptchaRef.current.reset();
     }
   }, [session, csrfToken, setIsAnalyzing]);
-
   useEffect(() => {
     fetchUserData();
   }, [fetchUserData]);
@@ -411,17 +406,15 @@ export default function Dashboard() {
             const decoded = JSON.parse(atob(token.split('.')[1]));
             console.log('SDK Token AUD (mobile):', decoded.aud); // So sánh với server log
           }
-
           console.log('Mobile token preview:', token.substring(0, 50) + '...');
           const payload = JSON.parse(atob(token.split('.')[1]));
           console.log('Mobile token aud:', payload.aud);
-
           const result = await signIn('farcaster', { redirect: false, token });
           if (result?.error) {
-            // NEW: Handle general errors, not just specific strings
+            // FIXED: Handle general errors, not just specific strings, tăng delay retry
             if (retryCount < 2) {
               console.log('Retry auth (attempt', retryCount + 1, ')');
-              await new Promise(r => setTimeout(r, 2000));
+              await new Promise(r => setTimeout(r, 3000)); // FIXED: Increase delay for mobile
               return handleMiniAppAuth(retryCount + 1);
             }
             throw new Error(result.error || 'Auth failed (undefined error)');
@@ -561,10 +554,10 @@ export default function Dashboard() {
       const timeout = setTimeout(() => {
         safeWarn('Force dismissing loading overlay (possible mobile stuck)');
         // Không set providers null, nhưng allow render partial
-      }, 3000);
+      }, inMiniApp ? 1500 : 3000); // FIXED: Reduce for Mini App
       return () => clearTimeout(timeout);
     }
-  }, [status, providers]);
+  }, [status, providers, inMiniApp]);
 
   const handleConnectWallet = async () => {
     try {

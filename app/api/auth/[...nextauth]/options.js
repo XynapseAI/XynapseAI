@@ -4,7 +4,7 @@ import EmailProvider from "@auth/core/providers/email";
 import CredentialsProvider from "@auth/core/providers/credentials";
 import { createTransport } from "nodemailer";
 import { v4 as uuidv4 } from "uuid";
-import { query } from "@/utils/postgres";
+import { query } from "@/utils/postgres"; // FIXED: Use raw query as fallback for DB ops
 import { logger } from "@/utils/serverLogger";
 import crypto from 'crypto';
 import util from 'util';
@@ -103,7 +103,7 @@ async function verifySiwe(credentials) {
       logger.warn('Siwe parse failed (possible partial from SDK), fallback regex:', { error: parseErr.message });
       isPartial = true;
       // Fallback improved regex for partial messages
-      const domainMatch = message.match(/^([a-zA-Z0-9.-]+):?\d*\s+wants you to sign in/i);
+      const domainMatch = message.match(/^([a-zA-F0-9.-]+):?\d*\s+wants you to sign in/i);
       extractedDomain = domainMatch ? domainMatch[1] : null;
       const addressMatch = message.match(/0x[a-fA-F0-9]{40}/i);
       extractedAddress = addressMatch ? addressMatch[0].toLowerCase() : null;
@@ -203,6 +203,7 @@ async function verifyFarcasterJwt(credentials, req) {
     logger.info('Quick Auth token debug:', {
       fid: decoded.sub,
       aud: decoded.aud, // Key: Phải match NEXTAUTH_URL domain
+      iss: decoded.iss, // FIXED: Add issuer check (farcaster.xyz expected)
       exp: new Date(decoded.exp * 1000).toISOString(),
       host: req?.headers?.host,
     });
@@ -210,6 +211,10 @@ async function verifyFarcasterJwt(credentials, req) {
     let payload;
     try {
       payload = await quickAuthClient.verifyJwt({ token, domain: decoded.aud });
+      // FIXED: Strict issuer check
+      if (payload.iss !== 'https://farcaster.xyz') {
+        throw new Error('Invalid issuer: expected farcaster.xyz');
+      }
     } catch (err) {
       if (err instanceof Errors.InvalidTokenError) {
         logger.error('InvalidTokenError: Domain mismatch?', { expectedAud: decoded.aud, error: err.message });
@@ -224,7 +229,6 @@ async function verifyFarcasterJwt(credentials, req) {
     throw error; // Re-throw để signIn catch và return error rõ
   }
 }
-
 // ================== Email Transporter ==================
 const transporter = createTransport({
   host: process.env.EMAIL_SERVER_HOST,
@@ -666,7 +670,7 @@ export const authOptions = {
           return true;
         } else if (account.provider === "farcaster") {
           logger.info('Farcaster signIn attempt');
-          if (!user) return '/auth/error?error=FarcasterVerifyFailed';
+          // FIXED: Remove duplicate if (!user)
           if (!user) {
             logger.error('Farcaster signIn failed: No user from authorize');
             return '/auth/error?error=FarcasterAuthFailed'; // Redirect với error rõ (hiển thị message custom)

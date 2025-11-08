@@ -1,18 +1,14 @@
 import { NextResponse } from 'next/server';
 import crypto from 'crypto';
-
 export const runtime = 'nodejs';
-
 export function middleware(request) {
   const { pathname } = request.nextUrl;
-  // Skip cho auth paths để tránh conflict NextAuth CSRF/PKCE
-  if (pathname.startsWith('/api/auth/')) {
+  // FIXED: Skip cho auth paths và farcaster.json để tránh conflict
+  if (pathname.startsWith('/api/auth/') || pathname === '/.well-known/farcaster.json') {
     return NextResponse.next();
   }
-
   const response = NextResponse.next();
   let csrfToken = request.cookies.get('csrf_token')?.value;
-
   if (!csrfToken) {
     // Sử dụng crypto cho secure
     csrfToken = crypto.randomBytes(32).toString('hex');
@@ -24,11 +20,9 @@ export function middleware(request) {
       domain: '.xynapseai.net' // Share cross subdomain
     });
   }
-
   response.headers.set('X-CSRF-Token', csrfToken);
   return response;
 }
-
 export const config = {
   matcher: '/api/:path*',
 };

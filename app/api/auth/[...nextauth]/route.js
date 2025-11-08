@@ -6,19 +6,28 @@ import { logger } from "@/utils/serverLogger";
 import { NextResponse } from "next/server";
 import { RateLimiterRedis } from "rate-limiter-flexible";
 import { query } from "@/utils/postgres";
-
 // ================= Redis Client =================
 let redisClient;
 async function getRedisClient() {
   if (!redisClient) {
-    redisClient = createClient({ url: process.env.REDIS_URL || "redis://localhost:6379" });
-    redisClient.on("error", (err) => logger.error("Redis Client Error", { error: err.message, stack: err.stack }));
-    await redisClient.connect();
-    logger.info("Redis connected", { timestamp: new Date().toISOString() });
+    const maxRetries = 3; // FIXED: Add retry for Redis connect (timeout fix)
+    const delay = 1000;
+    for (let i = 0; i < maxRetries; i++) {
+      try {
+        redisClient = createClient({ url: process.env.REDIS_URL || "redis://localhost:6379" });
+        redisClient.on("error", (err) => logger.error("Redis Client Error", { error: err.message, stack: err.stack }));
+        await redisClient.connect();
+        logger.info("Redis connected", { timestamp: new Date().toISOString() });
+        return redisClient;
+      } catch (err) {
+        if (i === maxRetries - 1) throw new Error('Failed to connect to Redis');
+        logger.warn(`Redis connect failed (attempt ${i+1}), retrying...`, { error: err.message });
+        await new Promise(resolve => setTimeout(resolve, delay));
+      }
+    }
   }
   return redisClient;
 }
-
 // ================= Security Headers =================
 const securityHeaders = {
   "Content-Security-Policy": "default-src 'self'; frame-ancestors *;", // Allow all for Farcaster iframe/WebView
@@ -29,7 +38,6 @@ const securityHeaders = {
   "Referrer-Policy": "strict-origin-when-cross-origin",
   "Permissions-Policy": "geolocation=(), microphone=(), camera=()",
 };
-
 // ================= Dynamic Rate Limit =================
 async function getAccountAge(userId) {
   if (!userId) return 0;
@@ -43,7 +51,6 @@ async function getAccountAge(userId) {
     return 0;
   }
 }
-
 async function dynamicRateLimit(ip, session, pathname) {
   // FIXED: Skip ALL auth paths, including signin and error
   if (
@@ -51,8 +58,8 @@ async function dynamicRateLimit(ip, session, pathname) {
     pathname === "/api/auth/providers" ||
     pathname === "/api/auth/signout" ||
     pathname === "/api/auth/csrf" ||
-    pathname === "/api/auth/signin" ||  // Essential for Mini App
-    pathname === "/api/auth/error" ||   // For auth errors
+    pathname === "/api/auth/signin" || // Essential for Mini App
+    pathname === "/api/auth/error" || // For auth errors
     pathname.startsWith("/api/auth/signin/") ||
     pathname.startsWith("/api/auth/callback/")
   ) return;
@@ -79,14 +86,12 @@ async function dynamicRateLimit(ip, session, pathname) {
     throw new Error(`Rate limit exceeded. Try again in ${secs} seconds.`);
   }
 }
-
 // ================= IP Ban Logic =================
 async function banIP(ip, durationSeconds = 3600) {
   const redisClient = await getRedisClient();
   await redisClient.setEx(`banned_ip:${ip}`, durationSeconds, "banned");
   logger.info("IP banned", { ip, durationSeconds });
 }
-
 async function checkIPBan(ip, pathname) {
   // FIXED: Skip auth paths
   if (
@@ -106,7 +111,6 @@ async function checkIPBan(ip, pathname) {
     throw new Error("IP temporarily banned due to excessive violations.");
   }
 }
-
 async function trackViolation(ip, pathname, reason = "Unknown") {
   // FIXED: Skip auth paths
   if (
@@ -131,7 +135,6 @@ async function trackViolation(ip, pathname, reason = "Unknown") {
   await redisClient.multi().incr(key).expire(key, Math.floor(windowMs / 1000)).exec();
   logger.warn("Violation recorded", { ip, pathname, reason, violations: violations + 1 });
 }
-
 // ================= Allowed Origins =================
 const allowedOrigins = [
   process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000",
@@ -139,8 +142,8 @@ const allowedOrigins = [
   "https://www.xynapseai.net",
   "https://base.xynapseai.net",
   "https://xynapse-ai-xynapse-projects.vercel.app",
+  "https://warpcast.com", // FIXED: Add for Farcaster mobile referer
 ].filter((v, i, a) => a.indexOf(v) === i);
-
 // IMPROVED: Updated to handle Origin: "null" from WebViews
 async function isAllowedOrigin(origin, referer, pathname) {
   logger.info("Checking origin", { origin, referer, pathname, allowedOrigins });
@@ -189,9 +192,9 @@ async function isAllowedOrigin(origin, referer, pathname) {
     }
     // REMOVE or COMMENT this block - it's too strict for app WebViews
     // if (!origin && process.env.NODE_ENV === "production") {
-    //   logger.error("Null origin blocked in production", { pathname });
-    //   await trackViolation(referer || "unknown", pathname, "Null origin in production");
-    //   return false;
+    // logger.error("Null origin blocked in production", { pathname });
+    // await trackViolation(referer || "unknown", pathname, "Null origin in production");
+    // return false;
     // }
     logger.error("CORS blocked", { origin, referer, pathname });
     await trackViolation(origin || referer || "unknown", pathname, "CORS blocked");
@@ -202,7 +205,6 @@ async function isAllowedOrigin(origin, referer, pathname) {
     return false;
   }
 }
-
 // ================= Rate Limit + CORS wrapper =================
 const limiter = new Bottleneck({ maxConcurrent: 5, minTime: 200 });
 const rateLimitedHandler = (handler) =>
@@ -216,7 +218,6 @@ const rateLimitedHandler = (handler) =>
     const origin = req.headers.get("origin");
     const referer = req.headers.get("referer");
     logger.info(`Auth Request: IP=${ip}, Origin=${origin || "null"}, Referer=${referer || "null"}, Pathname=${pathname}`);
-
     // FIXED: Broader skip for ALL auth paths (no checks)
     if (
       pathname === "/api/auth/session" ||
@@ -235,11 +236,9 @@ const rateLimitedHandler = (handler) =>
         return NextResponse.json({ detail: `Internal Server Error: ${err.message}` }, { status: 500, headers: securityHeaders });
       }
     }
-
     if (!(await isAllowedOrigin(origin, referer, pathname))) {
       return NextResponse.json({ detail: "CORS Not Allowed" }, { status: 403, headers: securityHeaders });
     }
-
     try {
       await checkIPBan(ip, pathname);
       let session = null;
@@ -261,7 +260,6 @@ const rateLimitedHandler = (handler) =>
       logger.warn("Rate limit / IP ban triggered", { message: err.message, ip, pathname });
       return NextResponse.json({ detail: err.message }, { status: 429, headers: securityHeaders });
     }
-
     try {
       const res = await handler(req, ...args);
       const newHeaders = new Headers(res.headers || {});
@@ -283,7 +281,7 @@ const rateLimitedHandler = (handler) =>
         newHeaders.set('Access-Control-Allow-Origin', allowOrigin);
         newHeaders.set('Access-Control-Allow-Methods', 'GET,POST,OPTIONS');
         newHeaders.set('Access-Control-Allow-Headers', 'Content-Type,Authorization,X-CSRF-Token,X-Recaptcha-Token,Cookie');
-        logger.info('Set CORS origin:', { allowOrigin, origin, referer });  // Debug log
+        logger.info('Set CORS origin:', { allowOrigin, origin, referer }); // Debug log
       }
       return new NextResponse(res.body, { status: res.status || 200, headers: newHeaders });
     } catch (err) {
@@ -291,7 +289,6 @@ const rateLimitedHandler = (handler) =>
       return NextResponse.json({ detail: `Internal Server Error: ${err.message}` }, { status: 500, headers: securityHeaders });
     }
   });
-
 // ================= NextAuth Handlers =================
 const finalAuthOptions = {
   ...authOptions,
@@ -320,14 +317,11 @@ const finalAuthOptions = {
     },
   },
 };
-
 const {
   handlers: { GET: OriginalGET, POST: OriginalPOST },
 } = NextAuth(finalAuthOptions);
-
 export const GET = rateLimitedHandler(OriginalGET);
 export const POST = rateLimitedHandler(OriginalPOST);
-
 // ================= Graceful shutdown =================
 process.on("SIGTERM", async () => {
   if (redisClient?.isOpen) await redisClient.quit();
