@@ -13,7 +13,7 @@ export function middleware(request) {
     response.cookies.set('csrf_token', csrfToken, {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
-      sameSite: 'none',
+      sameSite: 'strict',
       path: '/',
     });
   }

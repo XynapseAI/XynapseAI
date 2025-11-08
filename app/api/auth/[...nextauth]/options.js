@@ -13,9 +13,7 @@ import { base } from 'viem/chains'; // Base chain
 import { getRedisClient } from '@/utils/redis';
 import { SiweMessage } from 'siwe'; // Standard SIWE parser (npm install siwe)
 import { createClient as createQuickAuthClient, Errors } from '@farcaster/quick-auth'; // NEW: For Farcaster Quick Auth verification
-
 const scrypt = util.promisify(crypto.scrypt);
-
 async function hashApiKey(apiKey) {
   const salt = crypto.randomBytes(16).toString('hex');
   const derived = await scrypt(apiKey, salt, 64);
@@ -24,14 +22,12 @@ async function hashApiKey(apiKey) {
     api_key_salt: salt,
   };
 }
-
 const publicClient = createPublicClient({
   chain: base,
   transport: http('https://mainnet.base.org')
 });
-
 // IMPROVED: Verify SIWE with siwe parser (replaces regex) + viem verify (for ERC-6492)
-async function verifySiwe(credentials, req) {  // CHANGED: Thêm req parameter để kiểm tra domain động
+async function verifySiwe(credentials) {
   try {
     const { message, signature } = credentials;
     logger.info('Full SIWE input to verify:', {
@@ -78,10 +74,8 @@ async function verifySiwe(credentials, req) {  // CHANGED: Thêm req parameter �
       if (chainId !== '8453') { // Base mainnet
         throw new Error('Invalid chain: expected 8453 (Base)');
       }
-      // CHANGED: Sử dụng req.headers.host để kiểm tra domain động (hỗ trợ subdomain như base.xynapseai.net)
-      const expectedDomain = req?.headers?.host || process.env.NEXTAUTH_URL?.split('://')[1]?.split('/')[0] || 'xynapseai.net';
-      if (!domain || (process.env.NODE_ENV !== 'development' && domain !== expectedDomain)) {
-        throw new Error(`Invalid domain: expected ${expectedDomain}, got ${domain}`);
+      if (!domain || (process.env.NODE_ENV !== 'development' && domain !== (process.env.APP_DOMAIN || 'xynapseai.net'))) {
+        throw new Error(`Invalid domain: expected ${process.env.APP_DOMAIN || 'xynapseai.net'}, got ${domain}`);
       }
       if (!uri || !uri.startsWith('http')) {
         throw new Error('Invalid URI in SIWE message');
@@ -123,10 +117,8 @@ async function verifySiwe(credentials, req) {  // CHANGED: Thêm req parameter �
       if (!hasVersion || !hasIssuedAt) {
         throw new Error('Invalid SIWE: missing Version or Issued At (required per EIP-4361)');
       }
-      // CHANGED: Kiểm tra domain động ở fallback
-      const expectedDomain = req?.headers?.host || process.env.NEXTAUTH_URL?.split('://')[1]?.split('/')[0] || 'xynapseai.net';
-      if (!extractedAddress || !extractedNonce || !extractedDomain || extractedChainId !== '8453' || extractedDomain !== expectedDomain) {
-        throw new Error('Fallback extract failed: missing core fields or domain mismatch');
+      if (!extractedAddress || !extractedNonce || !extractedDomain || extractedChainId !== '8453') {
+        throw new Error('Fallback extract failed: missing core fields');
       }
       logger.info('Extracted from fallback regex:', { address: extractedAddress, nonce: extractedNonce });
     }
@@ -201,7 +193,6 @@ async function verifySiwe(credentials, req) {  // CHANGED: Thêm req parameter �
     throw error;
   }
 }
-
 // NEW: Verify Farcaster Quick Auth JWT
 async function verifyFarcasterJwt(credentials, req) {
   try {
@@ -215,7 +206,7 @@ async function verifyFarcasterJwt(credentials, req) {
     if (!domain) {
       const host = req?.headers?.host;
       const referer = req?.headers?.referer;
-      domain = host || (referer ? new URL(referer).hostname : 'xynapseai.net');
+      domain = host || (referer ? new URL(referer).hostname : process.env.APP_DOMAIN || 'xynapseai.net');
     }
 
     const isMobileLikely = !req?.headers?.host ? true : false;  // Flag cho mobile
@@ -329,22 +320,17 @@ const customAdapter = {
     try {
       const { rows } = await query(
         `SELECT * FROM users WHERE farcaster_fid=$1`,
-        [fid],  // Thêm maxRetries=3 nếu cần: query(..., 3)
+        [fid]
       );
       return rows[0] ? { ...rows[0], id: rows[0].id.toString() } : null;
     } catch (err) {
-      if (err.message.includes('farcaster_fid does not exist')) {
-        logger.warn('Run: ALTER TABLE users ADD COLUMN farcaster_fid BIGINT;');
+      if (err.message.includes('column "farcaster_fid" does not exist')) {
+        logger.warn('farcaster_fid column missing; run migration to add it for Farcaster support');
         return null;
-      }
-      if (err.message.includes('timeout') || err.code === 'ECONNREFUSED') {
-        logger.error('getUserByFid timeout → auth fail, retry suggested');
-        throw new Error('Temporary DB issue – please retry sign-in');  // Graceful cho NextAuth
       }
       throw err;
     }
   },
-
   async createUser(data) {
     const id = data.wallet_address || data.google_id || data.id || uuidv4();
     logger.info("Creating user", { id, email: data.email, wallet: data.wallet_address });
@@ -383,22 +369,29 @@ const customAdapter = {
     const plainApiKey = randomBytes(32).toString("hex");
     const { api_key_hash, api_key_salt } = await hashApiKey(plainApiKey);
     try {
-      const { rows } = await query(  // Sử dụng retry query
-        `INSERT INTO users (id, email, farcaster_fid, google_name, email_verified, profile_picture, wallet_address, connected, last_connected, points, tweet_points, ai_points, task_points, is_creator, is_ai_rank, tier, is_plus, is_premium, api_key_hash, api_key_salt, created_at) 
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21)
-       ON CONFLICT (farcaster_fid) DO UPDATE SET ... RETURNING *`,
-        [id, fallbackEmail, fid, `Farcaster User #${fid}`, true, null, null, true, new Date(), 0, 0, 0, 0, false, false, "Basic", false, false, api_key_hash, api_key_salt, new Date()],
-        3  // maxRetries=3
+      const { rows } = await query(
+        `INSERT INTO users (
+          id,email,farcaster_fid,google_name,email_verified,profile_picture,wallet_address,
+          connected,last_connected,points,tweet_points,ai_points,task_points,
+          is_creator,is_ai_rank,tier,is_plus,is_premium,api_key_hash,api_key_salt,created_at
+        ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21)
+        ON CONFLICT (farcaster_fid) DO UPDATE SET
+          email=COALESCE(EXCLUDED.email, users.email),google_name=EXCLUDED.google_name,email_verified=EXCLUDED.email_verified,
+          profile_picture=COALESCE(users.profile_picture, EXCLUDED.profile_picture),connected=EXCLUDED.connected,
+          last_connected=EXCLUDED.last_connected,updated_at=CURRENT_TIMESTAMP, api_key_hash=EXCLUDED.api_key_hash, api_key_salt=EXCLUDED.api_key_salt
+        RETURNING *`,
+        [
+          id, fallbackEmail, fid, `Farcaster User #${fid}`, true, null, null, true,
+          new Date(), 0, 0, 0, 0, false, false, "Basic", false, false,
+          api_key_hash, api_key_salt, new Date(),
+        ]
       );
-      logger.info("Farcaster user created/updated OK", { id, fid });
+      logger.info("Farcaster user created/updated", { id, fid, rowCount: rows.length });
       return { ...rows[0], id: rows[0].id.toString() };
     } catch (err) {
-      if (err.message.includes('farcaster_fid')) {
-        throw new Error('DB migration: ALTER TABLE users ADD COLUMN farcaster_fid BIGINT UNIQUE;');  // Thêm UNIQUE nếu chưa
-      }
-      if (err.message.includes('timeout')) {
-        logger.error('createFarcasterUser timeout – user not saved');
-        throw new Error('Server busy, retry sign-in');  // Không block, client retry
+      if (err.message.includes('column "farcaster_fid" does not exist')) {
+        logger.error('farcaster_fid column missing; run: ALTER TABLE users ADD COLUMN farcaster_fid BIGINT;');
+        throw new Error('Database migration needed for Farcaster support');
       }
       throw err;
     }
@@ -474,7 +467,6 @@ const customAdapter = {
     return rows[0] || null;
   },
 };
-
 const isProd = process.env.NODE_ENV === 'production';
 const cookieDomain = isProd ? '.xynapseai.net' : undefined; // Dev: undefined (default localhost), Prod: share subdomain
 // ================== Auth Options ==================
@@ -536,9 +528,9 @@ export const authOptions = {
         message: { label: 'Message', type: 'text' },
         signature: { label: 'Signature', type: 'text' },
       },
-      async authorize(credentials, req) {  // CHANGED: Thêm req parameter và pass vào verifySiwe
+      async authorize(credentials) {
         try {
-          const { address } = await verifySiwe(credentials, req);  // CHANGED: Pass req vào verifySiwe
+          const { address } = await verifySiwe(credentials);
           let user = await customAdapter.getUserByWallet(address);
           if (!user) {
             const fallbackEmail = `${address.toLowerCase()}@base.xynapseai.net`;
@@ -783,7 +775,7 @@ export const authOptions = {
         name: 'next-auth.session-token',
         options: {
           httpOnly: false,
-          sameSite: 'none', // Changed back to 'none' for cross-site compatibility (e.g., mobile WebView)
+          sameSite: 'lax', // Changed back to 'none' for cross-site compatibility (e.g., mobile WebView)
           path: '/',
           secure: true,
           domain: cookieDomain,
@@ -793,7 +785,7 @@ export const authOptions = {
         name: 'next-auth.callback-url',
         options: {
           httpOnly: false,
-          sameSite: 'none',
+          sameSite: 'lax',
           path: '/',
           secure: true,
           domain: cookieDomain,
@@ -803,7 +795,7 @@ export const authOptions = {
         name: 'next-auth.csrf-token',
         options: {
           httpOnly: false,
-          sameSite: 'none',
+          sameSite: 'lax',
           path: '/',
           secure: true,
           domain: process.env.COOKIE_DOMAIN || '.xynapseai.net',
@@ -818,5 +810,4 @@ export const authOptions = {
     error: "/auth/error",
   },
 };
-
 export default authOptions;

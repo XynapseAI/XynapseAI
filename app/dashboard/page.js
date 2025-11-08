@@ -426,11 +426,6 @@ export default function Dashboard() {
         } catch (err) {
           console.error('Mini App auth fail:', err);
           setMiniAppAuthError(err.message);
-          if (err.message.includes('timeout') || err.message.includes('DB')) {
-            toast.error('Server busy, retrying...');
-            setTimeout(() => handleMiniAppAuth(retryCount + 1), 3000);
-            return;
-          }
           if (retryCount < 2) return handleMiniAppAuth(retryCount + 1);
         } finally {
           setMiniAppAuthLoading(false);
