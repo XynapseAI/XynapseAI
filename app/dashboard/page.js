@@ -385,17 +385,19 @@ export default function Dashboard() {
 
   // NEW: Load Eruda cho debug console trên mobile (inject nếu dev hoặc inMiniApp)
   useEffect(() => {
-    if (isDev || inMiniApp) {
+    if (isDev && !inMiniApp) { // Remove inMiniApp condition
       const script = document.createElement('script');
       script.src = 'https://cdn.jsdelivr.net/npm/eruda';
       script.async = true;
       script.onload = () => {
-        eruda.init(); // Khởi động Eruda console
-        safeLog('Eruda console loaded for mobile debug');
+        eruda.init();
+        safeLog('Eruda loaded (dev only, non-Mini App)');
       };
       document.head.appendChild(script);
+    } else if (inMiniApp && isDev) {
+      safeWarn('Eruda skipped in Mini App to avoid SDK conflict');
     }
-  }, [inMiniApp]);
+  }, [inMiniApp, isDev]);
 
   // NEW: Handle auto-auth in Mini App using Quick Auth (gọi sau ready(), dùng skeleton nếu pending)
   useEffect(() => {
