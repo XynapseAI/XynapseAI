@@ -197,52 +197,31 @@ async function verifySiwe(credentials) {
 async function verifyFarcasterJwt(credentials, req) {
   try {
     const { token } = credentials;
-    if (!token) throw new Error('Missing token in credentials');
+    if (!token) throw new Error('Missing token');
     const quickAuthClient = createQuickAuthClient();
-    // Decode để lấy aud exact (không cần secret)
     const decoded = JSON.parse(atob(token.split('.')[1]));
-    logger.info('Farcaster token decoded (debug):', {
-      sub: decoded.sub, // FID
-      aud: decoded.aud, // CRITICAL: Exact audience từ Warpcast
-      iss: decoded.iss,
+    logger.info('Quick Auth token debug:', {
+      fid: decoded.sub,
+      aud: decoded.aud, // Key: Phải match NEXTAUTH_URL domain
       exp: new Date(decoded.exp * 1000).toISOString(),
-      domainFromReq: req?.headers?.host || 'unknown',
+      host: req?.headers?.host,
     });
-    // Thử primary: exact aud từ token (best match cho Mini App)
+    // Verify với exact aud từ token (fix mismatch)
     let payload;
-    let verifiedDomain = decoded.aud; // Use token's aud first
     try {
-      payload = await quickAuthClient.verifyJwt({ token, domain: verifiedDomain });
-      logger.info('Verify success with token aud:', { domain: verifiedDomain, fid: payload.sub });
-    } catch (primaryErr) {
-      logger.warn('Primary (token aud) failed, trying fallbacks:', { error: primaryErr.message, aud: decoded.aud });
-      // Fallback: multiple domains (base + main)
-      const fallbacks = ['base.xynapseai.net', 'xynapseai.net'];
-      for (const fbDomain of fallbacks) {
-        if (fbDomain === verifiedDomain) continue; // Skip duplicate
-        try {
-          payload = await quickAuthClient.verifyJwt({ token, domain: fbDomain });
-          verifiedDomain = fbDomain;
-          logger.info('Verify success with fallback domain:', { domain: fbDomain, fid: payload.sub });
-          break;
-        } catch (fbErr) {
-          logger.warn('Fallback failed:', { domain: fbDomain, error: fbErr.message });
-        }
+      payload = await quickAuthClient.verifyJwt({ token, domain: decoded.aud });
+    } catch (err) {
+      if (err instanceof Errors.InvalidTokenError) {
+        logger.error('InvalidTokenError: Domain mismatch?', { expectedAud: decoded.aud, error: err.message });
+        throw new Error('Invalid Farcaster token: Domain mismatch. Check Mini App registration.');
       }
+      throw err;
     }
-    if (!payload?.sub) {
-      throw new Error(`Invalid payload: No FID (sub). Aud was ${decoded.aud}`);
-    }
-    // Skip strict aud check vì đã verify success
-    logger.info('Farcaster JWT fully verified', { fid: payload.sub, verifiedDomain });
+    if (!payload?.sub) throw new Error('No FID in payload');
     return { fid: parseInt(payload.sub, 10) };
   } catch (error) {
-    logger.error('Farcaster verify full error:', {
-      error: error.message,
-      tokenPreview: token?.substring(0, 20) + '...',
-      isInvalidToken: error instanceof Errors.InvalidTokenError ? 'Yes' : 'No',
-    });
-    throw new Error(`Farcaster auth failed: ${error.message}`); // Throw với message rõ để tránh undefined
+    logger.error('Quick Auth verify failed:', { error: error.message, tokenLen: token?.length });
+    throw error; // Re-throw để signIn catch và return error rõ
   }
 }
 
@@ -685,6 +664,8 @@ export const authOptions = {
           logger.info("Base sign-in successful", { wallet: user.wallet_address });
           return true;
         } else if (account.provider === "farcaster") {
+          logger.info('Farcaster signIn attempt');
+          if (!user) return '/auth/error?error=FarcasterVerifyFailed';
           if (!user) {
             logger.error('Farcaster signIn failed: No user from authorize');
             return '/auth/error?error=FarcasterAuthFailed'; // Redirect với error rõ (hiển thị message custom)
@@ -791,8 +772,8 @@ export const authOptions = {
   secret: process.env.AUTH_SECRET,
   session: { strategy: "jwt", maxAge: 2 * 60 * 60 }, // 2 hours
   pages: {
-    signIn: "/dashboard",
-    error: "/auth/error",
+    signIn: "/auth/signin", // Separate page, không phải /dashboard
+    error: "/auth/error", // Custom error page dưới
   },
 };
 export default authOptions;

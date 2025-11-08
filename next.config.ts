@@ -85,6 +85,7 @@ const nextConfig: NextConfig = {
         source: '/terms-of-service',
         destination: '/',
       },
+      { source: '/:path*', has: [{ type: 'host', value: 'xynapseai.net' }], destination: 'https://base.xynapseai.net/:path*' },
     ]
   },
   webpack: (config, options) => {

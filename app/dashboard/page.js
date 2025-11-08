@@ -405,7 +405,10 @@ export default function Dashboard() {
         setMiniAppAuthError(null);
         try {
           const { token } = await sdk.quickAuth.getToken();
-          if (!token) throw new Error('No token from SDK');
+          if (token) {
+            const decoded = JSON.parse(atob(token.split('.')[1]));
+            console.log('SDK Token AUD (mobile):', decoded.aud); // So sánh với server log
+          }
 
           console.log('Mobile token preview:', token.substring(0, 50) + '...');
           const payload = JSON.parse(atob(token.split('.')[1]));
