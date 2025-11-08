@@ -216,7 +216,7 @@ const rateLimitedHandler = (handler) =>
     const origin = req.headers.get("origin");
     const referer = req.headers.get("referer");
     logger.info(`Auth Request: IP=${ip}, Origin=${origin || "null"}, Referer=${referer || "null"}, Pathname=${pathname}`);
-    
+
     // FIXED: Broader skip for ALL auth paths (no checks)
     if (
       pathname === "/api/auth/session" ||
@@ -235,11 +235,11 @@ const rateLimitedHandler = (handler) =>
         return NextResponse.json({ detail: `Internal Server Error: ${err.message}` }, { status: 500, headers: securityHeaders });
       }
     }
-    
+
     if (!(await isAllowedOrigin(origin, referer, pathname))) {
       return NextResponse.json({ detail: "CORS Not Allowed" }, { status: 403, headers: securityHeaders });
     }
-    
+
     try {
       await checkIPBan(ip, pathname);
       let session = null;
@@ -261,7 +261,7 @@ const rateLimitedHandler = (handler) =>
       logger.warn("Rate limit / IP ban triggered", { message: err.message, ip, pathname });
       return NextResponse.json({ detail: err.message }, { status: 429, headers: securityHeaders });
     }
-    
+
     try {
       const res = await handler(req, ...args);
       const newHeaders = new Headers(res.headers || {});
@@ -270,17 +270,17 @@ const rateLimitedHandler = (handler) =>
       if (pathname.startsWith('/api/auth/')) {
         newHeaders.set('Access-Control-Allow-Credentials', 'true');
         // FIXED: Handle null origin explicitly
-        let allowOrigin = 'https://base.xynapseai.net';  // Default cho Mini App
+        let allowOrigin = 'https://base.xynapseai.net'; // Prioritize Mini App domain
         if (origin && allowedOrigins.includes(origin)) {
           allowOrigin = origin;
         } else if (origin === 'null' && referer) {
           const refUrl = new URL(referer);
-          allowOrigin = refUrl.origin;  // Use referer origin (e.g., base.xynapseai.net)
+          allowOrigin = refUrl.origin;
           if (!allowedOrigins.includes(allowOrigin)) {
-            allowOrigin = allowedOrigins[0] || 'https://xynapseai.net';  // Fallback
+            allowOrigin = 'https://base.xynapseai.net'; // Force correct https domain, avoid localhost
           }
         }
-        newHeaders.set('Access-Control-Allow-Origin', allowOrigin);  // NOT 'null'
+        newHeaders.set('Access-Control-Allow-Origin', allowOrigin);
         newHeaders.set('Access-Control-Allow-Methods', 'GET,POST,OPTIONS');
         newHeaders.set('Access-Control-Allow-Headers', 'Content-Type,Authorization,X-CSRF-Token,X-Recaptcha-Token,Cookie');
         logger.info('Set CORS origin:', { allowOrigin, origin, referer });  // Debug log

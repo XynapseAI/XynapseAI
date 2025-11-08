@@ -198,84 +198,39 @@ async function verifyFarcasterJwt(credentials, req) {
   try {
     const { token } = credentials;
     if (!token) throw new Error('Missing token in credentials');
-
     const quickAuthClient = createQuickAuthClient();
-
-    let domain = process.env.NEXTAUTH_URL ? new URL(process.env.NEXTAUTH_URL).hostname : null;
-    if (!domain) {
-      const host = req?.headers?.host;
-      const referer = req?.headers?.referer;
-      domain = host || (referer ? new URL(referer).hostname : process.env.APP_DOMAIN || 'xynapseai.net');
-    }
-
-    const isMobileLikely = !req?.headers?.host ? true : false;
-
-    if (isMobileLikely || !domain.includes('xynapseai.net')) {
-      domain = 'base.xynapseai.net';  // Prioritize for mini app
-      logger.info('Forced domain for mobile/unexpected referer:', { domain });
-    }
-
-    logger.info('Farcaster verify attempt:', {
-      domain,
-      tokenPreview: token.substring(0, 20) + '...',
-      tokenLength: token.length,
-      isMobileLikely,
+    // Decode token to log aud for debug
+    const decoded = JSON.parse(atob(token.split('.')[1]));
+    logger.info('Decoded token for verification:', {
+      sub: decoded.sub, // FID
+      aud: decoded.aud, // Key: Check this!
+      exp: new Date(decoded.exp * 1000).toISOString(),
     });
-
-    // Decode token để log aud (không cần verify)
-    let decoded;
-    try {
-      decoded = JSON.parse(atob(token.split('.')[1]));
-      logger.info('Decoded token claims BEFORE verify:', {
-        sub: decoded.sub,
-        aud: decoded.aud,
-        exp: new Date(decoded.exp * 1000).toISOString(),
-        domainUsed: domain
-      });
-    } catch (decodeErr) {
-      logger.error('Token decode failed:', { error: decodeErr.message });
-    }
-
+    // Domains to try: always test both
+    const domainsToTry = ['base.xynapseai.net', 'xynapseai.net'];
     let payload;
-    try {
-      payload = await quickAuthClient.verifyJwt({ token, domain });
-      logger.info('Primary verify success', { domain, fid: payload.sub, aud: decoded?.aud });
-    } catch (primaryErr) {
-      logger.warn('Primary verify failed, trying alt domain:', { domain, error: primaryErr.message });
-      const altDomain = domain.includes('base.') ? domain.replace('base.', '') : `base.${domain}`;
+    let verifiedDomain;
+    for (const tryDomain of domainsToTry) {
       try {
-        payload = await quickAuthClient.verifyJwt({ token, domain: altDomain });
-        domain = altDomain;
-        logger.info('Alt verify success', { altDomain, fid: payload.sub, aud: decoded?.aud });
-      } catch (altErr) {
-        // Thêm thử domain khác nếu cần (ví dụ: cho Warpcast/Base)
-        const extraDomains = ['warpcast.com', 'farcaster.xyz', 'base.org'];  // Thử nếu aud là app host
-        for (const extra of extraDomains) {
-          try {
-            payload = await quickAuthClient.verifyJwt({ token, domain: extra });
-            logger.info('Extra domain verify success', { extraDomain: extra, fid: payload.sub, aud: decoded?.aud });
-            break;
-          } catch { }  // Ignore fail
-        }
-        if (!payload) throw altErr;  // Final fail
+        payload = await quickAuthClient.verifyJwt({ token, domain: tryDomain });
+        verifiedDomain = tryDomain;
+        logger.info('Verify success with domain:', { domain: tryDomain, fid: payload.sub });
+        break;
+      } catch (err) {
+        logger.warn('Verify failed with domain:', { domain: tryDomain, error: err.message });
       }
     }
-
+    if (!payload) {
+      throw new Error('Verification failed with all domains');
+    }
     if (!payload?.sub) {
       throw new Error('Invalid payload: No FID (sub)');
     }
-
-    // Check aud match sau verify (nếu cần strict)
-    if (decoded.aud !== domain) {
-      logger.warn('Audience mismatch, but proceeding for debug', { aud: decoded.aud, domainUsed: domain });
-      // Throw nếu strict: throw new Error('Token audience mismatch');
-    }
-
+    // Skip aud check since we tried multiple
     return { fid: parseInt(payload.sub, 10) };
   } catch (error) {
     logger.error('Full Farcaster verify error:', {
       error: error.message,
-      domain: domain,
       isInvalidToken: error instanceof Errors.InvalidTokenError,
       stack: error.stack?.substring(0, 200)
     });
@@ -778,14 +733,12 @@ export const authOptions = {
     },
     // FIXED: Prioritize original url if it's on subdomain, fallback to baseUrl
     async redirect({ url, baseUrl }) {
-      // Log để debug
-      logger.info('Redirect callback:', { url, baseUrl });
+      // Nếu url là absolute và match domain của bạn, giữ nguyên
       if (url.startsWith('https://') && (url.includes('xynapseai.net') || url.includes('base.xynapseai.net'))) {
         return url;
       }
-      // Fallback: Sử dụng process.env.NEXTAUTH_URL nếu baseUrl undefined (mobile)
-      const fallbackBase = process.env.NEXTAUTH_URL || baseUrl || 'https://base.xynapseai.net';
-      return new URL('/dashboard', fallbackBase).toString();
+      // Fallback relative đến dashboard trên domain hiện tại (dùng baseUrl động)
+      return new URL('/dashboard', baseUrl).toString();
     },
   },
   ...(isProd && {
@@ -794,7 +747,7 @@ export const authOptions = {
         name: 'next-auth.session-token',
         options: {
           httpOnly: false,
-          sameSite: 'none',  // Fix: Cho mobile WebView
+          sameSite: 'lax', // Changed back to 'none' for cross-site compatibility (e.g., mobile WebView)
           path: '/',
           secure: true,
           domain: cookieDomain,
@@ -804,7 +757,7 @@ export const authOptions = {
         name: 'next-auth.callback-url',
         options: {
           httpOnly: false,
-          sameSite: 'none',
+          sameSite: 'lax',
           path: '/',
           secure: true,
           domain: cookieDomain,
@@ -814,7 +767,7 @@ export const authOptions = {
         name: 'next-auth.csrf-token',
         options: {
           httpOnly: false,
-          sameSite: 'none',
+          sameSite: 'lax',
           path: '/',
           secure: true,
           domain: process.env.COOKIE_DOMAIN || '.xynapseai.net',
