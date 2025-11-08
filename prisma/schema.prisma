@@ -1,5 +1,3 @@
-// prisma/schema.prisma
-
 generator client {
   provider = "prisma-client-js"
 }
@@ -70,7 +68,7 @@ model large_flows {
 }
 
 model nametags {
-  address     String  @id @db.VarChar(42)
+  address     String  @id @db.VarChar(100)
   nametag     String
   image       String? @default("/icons/default.png")
   description String? @default("")
@@ -149,7 +147,7 @@ model users {
   profile_picture    String?
   email_verified     Boolean?            @default(false)
   google_name        String?
-  wallet_address     String?
+  wallet_address     String?             @unique(map: "unique_wallet_address")
   points             BigInt?             @default(0)
   task_points        BigInt?             @default(0)
   tier               String?             @default("Basic")
@@ -168,6 +166,8 @@ model users {
   twitter_handle     String?             @db.VarChar(255)
   api_key_hash       String?
   api_key_salt       String?
+  days_active        Int                 @default(0)
+  farcaster_fid      BigInt?
   accounts           Account[]           @relation("UserToAccount")
   payments           Payment[]           @relation("UserPayments")
   sessions           Session[]           @relation("UserToSession")
@@ -175,7 +175,6 @@ model users {
   legacyAccounts     accounts[]
   task_completions   task_completions[]
   twitter_handles    twitter_handles?
-  days_active        Int                 @default(0)
 
   @@index([ai_points], map: "idx_users_ai_points")
   @@index([email], map: "idx_users_email")
@@ -413,9 +412,9 @@ model bot_wallets {
 }
 
 model coinbase_cluster {
-  id        Int      @id @default(autoincrement())
-  address   String   @unique @db.VarChar(42)
-  nametag   String
+  id         Int      @id @default(autoincrement())
+  address    String   @unique @db.VarChar(100)
+  nametag    String
   created_at DateTime @default(now()) @db.Timestamp(6)
   updated_at DateTime @updatedAt
 
@@ -423,11 +422,11 @@ model coinbase_cluster {
 }
 
 model etf_clusters {
-  id        Int      @id @default(autoincrement())
-  etf_name  String   // e.g., 'BlackRock IBIT'
-  address   String   @db.VarChar(42)
-  nametag   String
-  type      String   // 'Hot' or 'Vault'
+  id         Int      @id @default(autoincrement())
+  etf_name   String
+  address    String   @db.VarChar(100)
+  nametag    String
+  type       String
   created_at DateTime @default(now()) @db.Timestamp(6)
   updated_at DateTime @updatedAt
 
@@ -437,17 +436,17 @@ model etf_clusters {
 }
 
 model match_history {
-  id                      Int      @id @default(autoincrement())
-  wallet                  String   @db.VarChar(42)
-  ticker                  String   // e.g., 'IBIT'
-  date                    String   // 'YYYY-MM-DD'
-  txid                    String   @db.VarChar(64) @unique // Unique per tx
-  btc_amount              Float?   // Output BTC
-  type                    String   // 'Single Match' or 'Aggregate Match'
-  nametag                 String
-  group_outflow_btc       Float?
-  is_custody_interaction  Boolean? @default(false)
-  created_at              DateTime @default(now()) @db.Timestamp(6)
+  id                     Int      @id @default(autoincrement())
+  wallet                 String   @db.VarChar(100)
+  ticker                 String
+  date                   String
+  txid                   String   @unique @db.VarChar(66)
+  btc_amount             Float?
+  type                   String
+  nametag                String
+  group_outflow_btc      Float?
+  is_custody_interaction Boolean? @default(false)
+  created_at             DateTime @default(now()) @db.Timestamp(6)
 
   @@index([wallet])
   @@index([date])
@@ -456,11 +455,21 @@ model match_history {
 
 model etf_balances {
   id           Int      @id @default(autoincrement())
-  etf_name     String   @unique // One row per ETF
+  etf_name     String   @unique
   total_btc    Float?
   wallet_count Int?
   last_updated DateTime @default(now()) @db.Timestamp(6)
-  details      Json?    // List of {'address': ..., 'nametag': ..., 'balance_btc': ...}
+  details      Json?
 
   @@index([etf_name])
+}
+
+model ibit_wallets {
+  id              Int       @id @default(autoincrement())
+  address         String    @unique @db.VarChar(100)
+  nametag         String?   @db.VarChar(255)
+  from_tx         String?   @db.VarChar(100)
+  amount_received Decimal?  @db.Decimal(20, 8)
+  created_at      DateTime? @default(now()) @db.Timestamp(6)
+  updated_at      DateTime? @default(now()) @db.Timestamp(6)
 }
