@@ -410,6 +410,7 @@ export default function Dashboard() {
           // UPDATED: More debug logs
           console.log('Quick Auth Token Preview:', token.substring(0, 50) + '...');
           const payload = JSON.parse(atob(token.split('.')[1]));
+          toast.info(`Token AUD: ${payload.aud}, FID: ${payload.sub || 'MISSING'}`, { autoClose: false }); // Debug
           console.log('Token Payload Details:', {
             sub: payload.sub,  // FID
             aud: payload.aud,  // Should be your domain, e.g., 'xynapseai.net'
@@ -429,6 +430,7 @@ export default function Dashboard() {
           toast.success('Farcaster auth OK!');
           await update();
         } catch (err) {
+          toast.error(`Auth error: ${err.message}`);
           console.error('Mini App auth fail:', err);
           setMiniAppAuthError(err.message);
           if (retryCount < 2) return handleMiniAppAuth(retryCount + 1);
