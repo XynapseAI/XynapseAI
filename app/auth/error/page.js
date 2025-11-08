@@ -1,39 +1,22 @@
 'use client';
-import { useSearchParams, useRouter } from 'next/navigation';
-import { useEffect } from 'react';
-import { toast } from 'react-toastify';
-import { Suspense } from 'react';
-
-function AuthErrorContent() {
-  const searchParams = useSearchParams();
-  const router = useRouter();
-  const error = searchParams.get('error');
-
-  useEffect(() => {
-    if (error === 'AccessDenied') {
-      toast.error('Access denied. Please try signing in again.');
-      setTimeout(() => router.push('/dashboard'), 5000);
-    } else if (error) {
-      toast.error(`Auth error: ${error}`);
-      setTimeout(() => router.push('/dashboard'), 3000);
-    }
-  }, [error, router]);
-
-  return (
-    <div className="h-screen w-screen flex items-center justify-center bg-black text-white">
-      <div className="text-center">
-        <h1 className="text-2xl font-bold mb-4">Authentication Error</h1>
-        <p className="mb-4">Error: {error || 'Unknown'}</p>
-        <p>Redirecting to dashboard...</p>
-      </div>
-    </div>
-  );
-}
+import { useSearchParams } from 'next/navigation';
+import { signIn } from 'next-auth/react';
 
 export default function AuthError() {
+  const searchParams = useSearchParams();
+  const error = searchParams.get('error');
+  const provider = searchParams.get('provider');
+
   return (
-    <Suspense fallback={<div className="h-screen w-screen flex items-center justify-center bg-black text-white">Loading...</div>}>
-      <AuthErrorContent />
-    </Suspense>
+    <div className="flex items-center justify-center min-h-screen bg-black text-white">
+      <div className="p-8 border rounded-lg text-center">
+        <h1>Auth Error</h1>
+        <p>{error ? `Error: ${error}` : 'Unknown authentication error. Try again.'}</p>
+        <p>If domain mismatch, check NEXTAUTH_URL env.</p>
+        <button onClick={() => signIn(provider || 'farcaster', { callbackUrl: '/dashboard' })}>
+          Retry
+        </button>
+      </div>
+    </div>
   );
 }

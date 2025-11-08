@@ -8,6 +8,7 @@ import { toast } from 'react-toastify'; // Nếu dùng
 export default function SignIn() {
   const router = useRouter();
   const searchParams = useSearchParams();
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [loading, setLoading] = useState(false);
   const error = searchParams.get('error');
 
