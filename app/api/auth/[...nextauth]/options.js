@@ -318,17 +318,21 @@ const customAdapter = {
   // NEW: Get user by Farcaster FID (requires column addition: ALTER TABLE users ADD COLUMN farcaster_fid BIGINT;)
   async getUserByFid(fid) {
     try {
-      return await query(  // Sử dụng query retry
+      const { rows } = await query(
         `SELECT * FROM users WHERE farcaster_fid=$1`,
-        [fid]
-      ).then(({ rows }) => rows[0] ? { ...rows[0], id: rows[0].id.toString() } : null);
+        [fid],  // Thêm maxRetries=3 nếu cần: query(..., 3)
+      );
+      return rows[0] ? { ...rows[0], id: rows[0].id.toString() } : null;
     } catch (err) {
-      if (err.message.includes('farcaster_fid')) {
-        logger.warn('farcaster_fid column missing → run: ALTER TABLE users ADD COLUMN farcaster_fid BIGINT;');
+      if (err.message.includes('farcaster_fid does not exist')) {
+        logger.warn('Run: ALTER TABLE users ADD COLUMN farcaster_fid BIGINT;');
         return null;
       }
-      logger.error('getUserByFid fail:', err);
-      throw err;  // Re-throw để NextAuth handle
+      if (err.message.includes('timeout') || err.code === 'ECONNREFUSED') {
+        logger.error('getUserByFid timeout → auth fail, retry suggested');
+        throw new Error('Temporary DB issue – please retry sign-in');  // Graceful cho NextAuth
+      }
+      throw err;
     }
   },
 
@@ -370,32 +374,22 @@ const customAdapter = {
     const plainApiKey = randomBytes(32).toString("hex");
     const { api_key_hash, api_key_salt } = await hashApiKey(plainApiKey);
     try {
-      const { rows } = await query(
-        `INSERT INTO users (
-          id,email,farcaster_fid,google_name,email_verified,profile_picture,wallet_address,
-          connected,last_connected,points,tweet_points,ai_points,task_points,
-          is_creator,is_ai_rank,tier,is_plus,is_premium,api_key_hash,api_key_salt,created_at
-        ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21)
-        ON CONFLICT (farcaster_fid) DO UPDATE SET
-          email=COALESCE(EXCLUDED.email, users.email),google_name=EXCLUDED.google_name,email_verified=EXCLUDED.email_verified,
-          profile_picture=COALESCE(users.profile_picture, EXCLUDED.profile_picture),connected=EXCLUDED.connected,
-          last_connected=EXCLUDED.last_connected,updated_at=CURRENT_TIMESTAMP, api_key_hash=EXCLUDED.api_key_hash, api_key_salt=EXCLUDED.api_key_salt
-        RETURNING *`,
-        [
-          id, fallbackEmail, fid, `Farcaster User #${fid}`, true, null, null, true,
-          new Date(), 0, 0, 0, 0, false, false, "Basic", false, false,
-          api_key_hash, api_key_salt, new Date(),
-        ]
+      const { rows } = await query(  // Sử dụng retry query
+        `INSERT INTO users (id, email, farcaster_fid, google_name, email_verified, profile_picture, wallet_address, connected, last_connected, points, tweet_points, ai_points, task_points, is_creator, is_ai_rank, tier, is_plus, is_premium, api_key_hash, api_key_salt, created_at) 
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21)
+       ON CONFLICT (farcaster_fid) DO UPDATE SET ... RETURNING *`,
+        [id, fallbackEmail, fid, `Farcaster User #${fid}`, true, null, null, true, new Date(), 0, 0, 0, 0, false, false, "Basic", false, false, api_key_hash, api_key_salt, new Date()],
+        3  // maxRetries=3
       );
-      logger.info("Farcaster user created/updated", { id, fid, rowCount: rows.length });
+      logger.info("Farcaster user created/updated OK", { id, fid });
       return { ...rows[0], id: rows[0].id.toString() };
     } catch (err) {
       if (err.message.includes('farcaster_fid')) {
-        throw new Error('DB migration needed: ALTER TABLE users ADD COLUMN farcaster_fid BIGINT;');
+        throw new Error('DB migration: ALTER TABLE users ADD COLUMN farcaster_fid BIGINT UNIQUE;');  // Thêm UNIQUE nếu chưa
       }
-      if (err.message.includes('timeout') || err.code === 'ECONNREFUSED') {
-        logger.error('DB timeout in createFarcasterUser → retry later');
-        throw new Error('Temporary DB issue, please retry');
+      if (err.message.includes('timeout')) {
+        logger.error('createFarcasterUser timeout – user not saved');
+        throw new Error('Server busy, retry sign-in');  // Không block, client retry
       }
       throw err;
     }
