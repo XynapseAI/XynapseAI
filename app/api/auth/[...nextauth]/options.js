@@ -209,12 +209,15 @@ async function verifyFarcasterJwt(credentials, req) {
       domain = host || (referer ? new URL(referer).hostname : process.env.APP_DOMAIN || 'xynapseai.net');
     }
 
+    // FIXED: Normalize domain: remove 'www.' if present, prioritize 'xynapseai.net'
+    domain = domain.replace(/^www\./, '');
+
     const isMobileLikely = !req?.headers?.host ? true : false;  // Flag cho mobile
 
-    // UPDATED: Prioritize main domain 'xynapseai.net' for mobile/Mini App
+    // UPDATED: Prioritize normalized 'xynapseai.net' for mobile/Mini App
     if (isMobileLikely || !domain.includes('xynapseai.net')) {
-      domain = 'xynapseai.net';  // Change to main domain
-      logger.info('Forced domain for mobile/unexpected referer:', { domain });
+      domain = 'xynapseai.net';
+      logger.info('Forced normalized domain for mobile/unexpected referer:', { domain });
     }
 
     logger.info('Farcaster verify attempt:', {
@@ -229,11 +232,28 @@ async function verifyFarcasterJwt(credentials, req) {
       payload = await quickAuthClient.verifyJwt({ token, domain });
       logger.info('Primary verify success', { domain, fid: payload.sub });
     } catch (primaryErr) {
-      logger.warn('Primary verify failed, trying alt domain:', { domain, error: primaryErr.message });
-      const altDomain = domain.includes('base.') ? domain.replace('base.', '') : `base.${domain}`;
-      payload = await quickAuthClient.verifyJwt({ token, domain: altDomain });
-      domain = altDomain;  // Update domain to the successful one
-      logger.info('Alt verify success', { altDomain, fid: payload.sub });
+      logger.warn('Primary verify failed, trying alts:', { domain, error: primaryErr.message });
+
+      // FIXED: Try multiple variations: with/without www, base subdomain
+      const alts = [
+        `www.${domain}`,
+        domain.replace('xynapseai.net', 'base.xynapseai.net'),
+        'xynapseai.net',
+        'www.xynapseai.net',
+        'base.xynapseai.net',
+      ].filter((d, i, arr) => arr.indexOf(d) === i);  // Unique
+
+      for (const alt of alts) {
+        try {
+          payload = await quickAuthClient.verifyJwt({ token, domain: alt });
+          logger.info('Alt verify success', { alt, fid: payload.sub });
+          domain = alt;  // Use successful alt
+          break;
+        } catch (altErr) {
+          logger.warn('Alt failed:', { alt, error: altErr.message });
+        }
+      }
+      if (!payload) throw primaryErr;  // If all fail, throw original
     }
 
     if (!payload?.sub) {
