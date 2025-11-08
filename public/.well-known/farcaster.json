@@ -4,6 +4,7 @@
     "version": "1",
     "iconUrl": "https://xynapseai.net/logos/logo.png",
     "homeUrl": "https://xynapseai.net/dashboard",
+    "imageUrl": "https://xynapseai.net/image.png",
     "splashImageUrl": "https://xynapseai.net/splash.png",
     "splashBackgroundColor": "#000000",
     "webhookUrl": "https://xynapseai.net/api/webhook",
@@ -16,8 +17,7 @@
     "tags": [
       "crypto",
       "analytics",
-      "onchain",
-      "ai"
+      "onchain"
     ],
     "tagline": "AI Insights on Base",
     "ogTitle": "Xynapse Mini App",
