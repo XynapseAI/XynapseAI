@@ -318,19 +318,20 @@ const customAdapter = {
   // NEW: Get user by Farcaster FID (requires column addition: ALTER TABLE users ADD COLUMN farcaster_fid BIGINT;)
   async getUserByFid(fid) {
     try {
-      const { rows } = await query(
+      return await query(  // Sử dụng query retry
         `SELECT * FROM users WHERE farcaster_fid=$1`,
         [fid]
-      );
-      return rows[0] ? { ...rows[0], id: rows[0].id.toString() } : null;
+      ).then(({ rows }) => rows[0] ? { ...rows[0], id: rows[0].id.toString() } : null);
     } catch (err) {
-      if (err.message.includes('column "farcaster_fid" does not exist')) {
-        logger.warn('farcaster_fid column missing; run migration to add it for Farcaster support');
+      if (err.message.includes('farcaster_fid')) {
+        logger.warn('farcaster_fid column missing → run: ALTER TABLE users ADD COLUMN farcaster_fid BIGINT;');
         return null;
       }
-      throw err;
+      logger.error('getUserByFid fail:', err);
+      throw err;  // Re-throw để NextAuth handle
     }
   },
+
   async createUser(data) {
     const id = data.wallet_address || data.google_id || data.id || uuidv4();
     logger.info("Creating user", { id, email: data.email, wallet: data.wallet_address });
@@ -389,9 +390,12 @@ const customAdapter = {
       logger.info("Farcaster user created/updated", { id, fid, rowCount: rows.length });
       return { ...rows[0], id: rows[0].id.toString() };
     } catch (err) {
-      if (err.message.includes('column "farcaster_fid" does not exist')) {
-        logger.error('farcaster_fid column missing; run: ALTER TABLE users ADD COLUMN farcaster_fid BIGINT;');
-        throw new Error('Database migration needed for Farcaster support');
+      if (err.message.includes('farcaster_fid')) {
+        throw new Error('DB migration needed: ALTER TABLE users ADD COLUMN farcaster_fid BIGINT;');
+      }
+      if (err.message.includes('timeout') || err.code === 'ECONNREFUSED') {
+        logger.error('DB timeout in createFarcasterUser → retry later');
+        throw new Error('Temporary DB issue, please retry');
       }
       throw err;
     }

@@ -30,10 +30,11 @@ try {
     host: parsedUrl.hostname,
     port: parsedUrl.port || 5432,
     database: parsedUrl.pathname?.slice(1),
-    ssl: connectionString.includes('sslmode=require') ? { rejectUnauthorized: false } : false,
-    max: 40,
-    idleTimeoutMillis: 30000,
-    connectionTimeoutMillis: 10000,
+    ssl: { rejectUnauthorized: false },  // Luôn dùng cho Vercel/Neon (bỏ check sslmode)
+    max: 20,  // Giảm max để tránh overload cold start
+    idleTimeoutMillis: 10000,  // Giảm idle để release nhanh
+    connectionTimeoutMillis: 30000,  // TĂNG lên 30s cho mobile
+    acquireTimeoutMillis: 60000,  // Thêm: timeout acquire connection
   };
 } catch (err) {
   logger.error(`Failed to parse DATABASE_URL: ${err.message}`);
@@ -42,35 +43,45 @@ try {
 
 const pool = new Pool(poolConfig);
 
-async function connectWithRetry(retries = 5, delay = 1000) {
+async function connectWithRetry(retries = 10, baseDelay = 2000) {  // Tăng retries cho cold start
   for (let i = 0; i < retries; i++) {
     try {
       const client = await pool.connect();
-      logger.info('Successfully connected to PostgreSQL database');
+      logger.info('PG connected (attempt ' + (i + 1) + ')');
       client.release();
       return true;
     } catch (error) {
-      logger.error(`Failed to connect to PostgreSQL (attempt ${i + 1}/${retries}): ${error.message}`, { stack: error.stack });
+      const delay = baseDelay * Math.pow(2, i);  // Exponential: 2s, 4s, 8s...
+      logger.error(`PG connect fail (attempt ${i + 1}/${retries}): ${error.message}. Retry in ${delay}ms`);
       if (i < retries - 1) {
-        await new Promise((resolve) => setTimeout(resolve, delay * Math.pow(2, i)));
+        await new Promise(resolve => setTimeout(resolve, delay));
       }
     }
   }
-  logger.error('Failed to connect to PostgreSQL after all retries');
-  throw new Error('Failed to connect to PostgreSQL after all retries');
+  logger.error('PG connect failed after all retries');
+  throw new Error('PG connection failed');
 }
 
-connectWithRetry().catch((error) => {
-  logger.error('Initial PostgreSQL connection failed:', { error: error.message, stack: error.stack });
+connectWithRetry().catch(err => {
+  logger.error('Initial PG fail:', err);
+  // Fallback: Không throw để app start, retry per-query
 });
 
-export async function query(text, params) {
-  try {
-    const res = await pool.query(text, params);
-    return res;
-  } catch (error) {
-    logger.error(`Query error: ${error.message}`, { stack: error.stack, query: text, params });
-    throw error;
+export async function query(text, params, maxRetries = 3) {
+  for (let i = 0; i < maxRetries; i++) {
+    try {
+      return await pool.query(text, params);
+    } catch (error) {
+      if (error.code === 'ECONNREFUSED' || error.message.includes('timeout')) {
+        logger.warn(`Query retry ${i + 1}/${maxRetries}: ${error.message}`);
+        if (i < maxRetries - 1) {
+          await new Promise(resolve => setTimeout(resolve, 2000 * (i + 1)));
+          continue;
+        }
+      }
+      logger.error(`Query fail: ${error.message}`, { text, params: params?.map(p => typeof p === 'string' ? p.substring(0, 50) + '...' : p) });
+      throw error;
+    }
   }
 }
 
