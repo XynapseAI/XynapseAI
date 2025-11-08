@@ -1,10 +1,8 @@
-// app\dashboard\page.js
 'use client';
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { useAccount, useDisconnect, useSignMessage, useChainId, useSwitchChain, useConnect } from 'wagmi';
-import { signIn, signOut, useSession, getProviders } from 'next-auth/react';
-import { sdk } from '@farcaster/miniapp-sdk';
+import { useAccount, useDisconnect, useSignMessage } from 'wagmi';
+import { signIn, signOut, useSession, getProviders, getCsrfToken } from 'next-auth/react';
 import Header from '../../components/Header';
 import AITab from '../../components/AITab';
 import ProfileTab from '../../components/ProfileTab';
@@ -21,18 +19,21 @@ import { gsap } from 'gsap';
 import { MotionPathPlugin } from 'gsap/MotionPathPlugin';
 import { LoadingOverlay } from '@/utils/helpers';
 import { CurrencyProvider } from '../../components/CurrencyContext';
+import crypto from 'crypto'; // Giữ cho server-side, polyfill cho browser
 import { Canvas, useFrame } from "@react-three/fiber";
 import { Stars, Sphere, Float, Environment } from "@react-three/drei";
 import * as THREE from "three";
 import { TermsOfServiceContent } from '../../components/TermsOfService';
 import { PrivacyPolicyContent } from '../../components/PrivacyPolicy';
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-import { SiweMessage } from 'siwe'; // NEW: Client-side parser for basic check (optional, npm install siwe)
+import "@farcaster/auth-kit/styles.css";
+import { AuthKitProvider, SignInButton } from "@farcaster/auth-kit";
+import { sdk } from '@farcaster/miniapp-sdk';  // Giữ cho miniapp
+import { useMiniApp, MiniAppProvider } from '@neynar/react';
+
 gsap.registerPlugin(MotionPathPlugin);
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:3000/api';
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-const BASE_CHAIN_ID = 8453; // Base mainnet
+
 const isDev = process.env.NODE_ENV === 'development';
 const safeConsole = {
   log: (...args) => isDev && console.log(...args),
@@ -43,8 +44,11 @@ const safeLog = (...args) => safeConsole.log(...args);
 const safeWarn = (...args) => safeConsole.warn(...args);
 const safeError = (...args) => safeConsole.error(...args);
 
-// Polyfill HMAC cho browser (dùng Web Crypto API)
+// Polyfill HMAC cho browser (dùng Web Crypto API, vì old dùng createHmac - chỉ server)
 async function hmacSha256(key, data) {
+  if (typeof window !== 'undefined' && !crypto.subtle) {
+    throw new Error('Crypto not supported');
+  }
   const encoder = new TextEncoder();
   const keyData = encoder.encode(key);
   const dataArray = encoder.encode(data);
@@ -61,47 +65,31 @@ async function hmacSha256(key, data) {
     .join('');
 }
 
-// NEW: Retry function cho ready() (để handle mobile delay/error)
-const callReadyWithRetry = async (retries = 3, delay = 500) => {
-  for (let i = 0; i < retries; i++) {
-    try {
-      await sdk.actions.ready();
-      safeLog('Splash screen hidden successfully (attempt ' + (i + 1) + ')');
-      return true;
-    } catch (err) {
-      safeError('Ready() failed (attempt ' + (i + 1) + '):', err);
-      if (i < retries - 1) {
-        await new Promise(resolve => setTimeout(resolve, delay));
-      }
-    }
-  }
-  safeWarn('All ready() attempts failed – splash may stay visible');
-  return false;
-};
-
 const useUserData = (session, csrfToken, setIsAnalyzing) => {
   const [userData, setUserData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const recaptchaRef = useRef(null);
+
   const fetchUserData = useCallback(async () => {
+    // Enhanced check to prevent fetch when unauthenticated
     if (!session || !session?.user?.id || !csrfToken) {
       setLoading(false);
       setUserData(null);
       setError(null);
       return;
     }
+
     setLoading(true);
     try {
       if (!recaptchaRef.current) {
-        throw new Error('reCAPTCHA component is not missing');
+        throw new Error('reCAPTCHA component is not initialized');
       }
       const recaptchaToken = await recaptchaRef.current.executeAsync();
       if (!recaptchaToken) {
         throw new Error('Failed to obtain reCAPTCHA token');
       }
       const jwtToken = session?.accessToken;
-      logger.info('Fetching user data with CSRF', { csrfLength: csrfToken.length });  // FIXED: Debug CSRF length from client
       const response = await fetch(`${API_BASE_URL}/user?uid=${encodeURIComponent(session.user.id)}`, {
         method: 'GET',
         headers: {
@@ -124,7 +112,6 @@ const useUserData = (session, csrfToken, setIsAnalyzing) => {
         ...result.user,
         profilePicture: result.user.profile_picture,
         googleName: result.user.google_name,
-        walletAddress: result.user.wallet_address, // Thêm wallet từ API response
         tweetPoints: result.user.tweet_points,
         aiPoints: result.user.ai_points,
       });
@@ -149,7 +136,7 @@ const useUserData = (session, csrfToken, setIsAnalyzing) => {
       const recaptchaToken = process.env.NODE_ENV === 'development' ? 'development-token' : await recaptchaRef.current?.executeAsync();
       const jwtToken = session?.accessToken;
       const payload = { uid: session.user.id };
-      // Sử dụng polyfill HMAC thay crypto.createHmac
+      // Sử dụng polyfill HMAC (tương thích browser/server)
       const sortedPayload = JSON.stringify(payload, Object.keys(payload).sort());
       const signature = await hmacSha256(process.env.HMAC_SECRET || "default-secret", sortedPayload);
       const response = await fetch(`${API_BASE_URL}/api/analyze-tweets`, {
@@ -172,7 +159,7 @@ const useUserData = (session, csrfToken, setIsAnalyzing) => {
         }
         throw new Error(result.detail || 'Tweet analysis failed');
       }
-      setUserData((prev) => (prev ? { ...prev, tweet_points: result.tweet_points } : null));
+      setUserData((prev) => (prev ? { ...prev, tweetPoints: result.tweet_points } : null));
       toast.success('Tweet analysis successful!', { position: 'top-center' });
     } catch (err) {
       safeError('Error analyzing tweet:', err);
@@ -186,52 +173,62 @@ const useUserData = (session, csrfToken, setIsAnalyzing) => {
   useEffect(() => {
     fetchUserData();
   }, [fetchUserData]);
+
   return { userData, loading, error, handleAnalyzeTweets, recaptchaRef };
 };
 
 function UniverseBackground() {
   const groupRef = useRef(null);
+
   useFrame((state) => {
     if (groupRef.current) {
       const time = state.clock.getElapsedTime();
-      groupRef.current.rotation.z = time * 0.003;
+      groupRef.current.rotation.z = time * 0.003; // Reduced speed for lighter performance
       groupRef.current.rotation.y = time * 0.001;
     }
   });
+
+  // Simplified Galaxy with fewer points
   const Galaxy = () => {
     const pointsRef = useRef();
-    const count = 2000;
+    const count = 2000; // Reduced count for performance
     const positions = useMemo(() => new Float32Array(count * 3), []);
     const colors = useMemo(() => new Float32Array(count * 3), []);
+
     useEffect(() => {
       for (let i = 0; i < count; i++) {
         const i3 = i * 3;
-        const radius = (Math.random() * 30) + 3;
-        const arms = 3;
+        const radius = (Math.random() * 30) + 3; // Smaller radius
+        const arms = 3; // Fewer arms
         const spin = radius * 0.15;
         const branchAngle = ((i % arms) / arms) * Math.PI * 2;
         const theta = branchAngle + spin + Math.random() * 0.3;
+
         const randomX = (Math.pow(Math.random(), 3) * (Math.random() < 0.5 ? 1 : -1)) * 1.5;
-        const randomY = (Math.pow(Math.random(), 3) * (Math.random() < 0.5 ? 1 : -1)) * 0.3;
+        const randomY = (Math.pow(Math.random(), 3) * (Math.random() < 0.5 ? 1 : -1)) * 0.3; // Flatter
         const randomZ = (Math.pow(Math.random(), 3) * (Math.random() < 0.5 ? 1 : -1)) * 1.5;
+
         positions[i3] = (Math.cos(theta) * radius) + randomX;
         positions[i3 + 1] = randomY;
         positions[i3 + 2] = (Math.sin(theta) * radius) + randomZ;
+
         const r = Math.random() * 0.3 + 0.7;
         const g = Math.random() * 0.3 + 0.7;
-        const b = Math.random() * 0.5 + 0.5;
+        const b = Math.random() * 0.5 + 0.5; // Subtle blue
         colors[i3] = r;
         colors[i3 + 1] = g;
         colors[i3 + 2] = b;
       }
+
       pointsRef.current.geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
       pointsRef.current.geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
     }, []);
+
     return (
       <points ref={pointsRef} position={[0, 0, -20]} rotation={[Math.PI / 6, 0, 0]}>
         <bufferGeometry />
         <pointsMaterial
-          size={0.05}
+          size={0.05} // Smaller size
           sizeAttenuation
           vertexColors
           transparent
@@ -242,9 +239,12 @@ function UniverseBackground() {
       </points>
     );
   };
+
   return (
     <group ref={groupRef}>
-      <Stars radius={150} depth={60} count={1000} factor={4} saturation={0} fade speed={0.1} />
+      <Stars radius={150} depth={60} count={1000} factor={4} saturation={0} fade speed={0.1} /> {/* Reduced count and speed */}
+
+      {/* Minimal moving stars */}
       <group>
         {Array.from({ length: 3 }).map((_, i) => (
           <Float key={i} speed={0.1} rotationIntensity={0.02}>
@@ -254,7 +254,10 @@ function UniverseBackground() {
           </Float>
         ))}
       </group>
+
       <Galaxy />
+
+      {/* Subtle nebulae */}
       {Array.from({ length: 2 }).map((_, i) => (
         <Float key={`nebula-${i}`} speed={0.1} rotationIntensity={0.02}>
           <Sphere args={[5 + Math.random() * 4, 12, 12]} position={[(Math.random() - 0.5) * 80, (Math.random() - 0.5) * 15, (Math.random() - 0.5) * 80]}>
@@ -269,6 +272,7 @@ function UniverseBackground() {
           </Sphere>
         </Float>
       ))}
+
       <Environment preset="night" />
       <ambientLight intensity={0.15} color="#000022" />
       <pointLight position={[0, 0, 8]} intensity={0.3} color="#FFFFFF" />
@@ -277,21 +281,15 @@ function UniverseBackground() {
   );
 }
 
-export default function Dashboard() {
+// NEW: Inner component để wrap bởi MiniAppProvider, chứa hook useMiniApp
+function DashboardInner() {
   const { data: session, status, update } = useSession();
   const { isConnected, address } = useAccount();
   const { disconnect } = useDisconnect();
   const { signMessageAsync } = useSignMessage();
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const chainId = useChainId();
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const { switchChain } = useSwitchChain();
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const { connect } = useConnect();
   const router = useRouter();
   const searchParams = useSearchParams();
   const [isMounted, setIsMounted] = useState(false);
-  const [forceLoadingDismiss, setForceLoadingDismiss] = useState(false);
   const [activeTab, setActiveTab] = useState('profile');
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [isAnalyzing, setIsAnalyzing] = useState(false);
@@ -300,204 +298,27 @@ export default function Dashboard() {
   const [csrfToken, setCsrfToken] = useState(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [modalContent, setModalContent] = useState(null);
-  const [baseModalOpen, setBaseModalOpen] = useState(false);
-  const [isBaseLoading, setIsBaseLoading] = useState(false); // Thêm loading cho Base modal
-  const [isInBaseApp, setIsInBaseApp] = useState(false);
-  const [inMiniApp, setInMiniApp] = useState(false);
-  const [miniAppAuthLoading, setMiniAppAuthLoading] = useState(false); // NEW: Loading for Mini App auth
-  const [fetchedNonce, setFetchedNonce] = useState(null);
-  const [miniAppAuthError, setMiniAppAuthError] = useState(null); // NEW: Track auth error for retry
+  const [farcasterModalOpen, setFarcasterModalOpen] = useState(false);
+  const [authSuccess, setAuthSuccess] = useState(false); // NEW: Fix loop - track auth success để hide form ngay
   const recaptchaRef = useRef(null);
   const { userData, loading, error } = useUserData(session, csrfToken, setIsAnalyzing);
-
-  useEffect(() => {
-    const prefetchNonce = async () => {
-      try {
-        const res = await fetch(`${API_BASE_URL}/api/nonce`, { method: 'GET' });
-        if (res.ok) {
-          const { nonce } = await res.json();
-          setFetchedNonce(nonce);
-          safeLog('Prefetched nonce:', nonce?.substring(0, 8) + '...'); // Mask
-        }
-      } catch (err) {
-        safeWarn('Nonce prefetch failed:', err.message);
-      }
-    };
-    prefetchNonce();
-  }, []);
-
-  // FIXED: Init SDK, check environment, và gọi ready() SỚM sau mount (trong cùng useEffect)
-  useEffect(() => {
-    setIsMounted(true);
-    const tab = searchParams.get('tab');
-    if (tab && ['market', 'ai', 'profile', 'graph', 'watchlists', 'cluster'].includes(tab)) {
-      setActiveTab(tab);
-    }
-
-    const initAndCheckEnvironment = async (retries = 10, delay = 500) => {
-      let isInMini = false;
-      for (let i = 0; i < retries; i++) {
-        try {
-          isInMini = await sdk.isInMiniApp();
-          setInMiniApp(isInMini);
-          if (isInMini) {
-            safeLog('Detected Mini App environment via SDK');
-            try {
-              const context = await sdk.context;
-              if (context.client.clientFid === 309857) {
-                setIsInBaseApp(true);
-                safeLog('Detected Base App environment');
-              }
-            } catch (contextErr) {
-              safeError('Context fetch failed:', contextErr);
-            }
-            await callReadyWithRetry();
-            return true;  // Success, exit
-          }
-        } catch (err) {
-          safeError('SDK error (attempt ' + (i + 1) + '):', err);
-          if (err.message.includes('AnalyticsSDKApiError')) {
-            safeWarn('Analytics SDK conflict – skipping retry');
-            break;
-          }
-          if (i < retries - 1) {
-            await new Promise(resolve => setTimeout(resolve, delay));
-          }
-        }
-      }
-
-      // NEW: Fallback detection via referrer if SDK fails (for mobile mini apps)
-      const referrer = document.referrer || '';
-      if (!isInMini && (referrer.includes('warpcast.com') || referrer.includes('farcaster.xyz'))) {
-        isInMini = true;
-        setInMiniApp(true);
-        safeLog('Forced Mini App detection via referrer (SDK failed):', { referrer });
-        // Still try ready() even if SDK failed
-        await callReadyWithRetry().catch(() => safeWarn('Ready failed on referrer fallback'));
-        return true;
-      }
-
-      safeWarn('Failed to detect Mini App after retries and referrer check');
-      return false;
-    };
-    initAndCheckEnvironment();
-  }, []); // Chỉ chạy 1 lần sau mount
-
-  // NEW: Load Eruda cho debug console trên mobile (inject nếu dev hoặc inMiniApp)
-  useEffect(() => {
-    if (isDev || inMiniApp) {
-      const script = document.createElement('script');
-      script.src = 'https://cdn.jsdelivr.net/npm/eruda';
-      script.async = true;
-      script.onload = () => {
-        eruda.init(); // Khởi động Eruda console
-        safeLog('Eruda console loaded for mobile debug');
-      };
-      document.head.appendChild(script);
-    }
-  }, [inMiniApp]);
-
-  // NEW: Handle auto-auth in Mini App using Quick Auth (gọi sau ready(), dùng skeleton nếu pending)
-  useEffect(() => {
-    if (inMiniApp && status === 'unauthenticated') {
-      const handleMiniAppAuth = async (retryCount = 0) => {
-        setMiniAppAuthLoading(true);
-        setMiniAppAuthError(null);
-        try {
-          const { token } = await sdk.quickAuth.getToken();
-          if (!token) throw new Error('No token from SDK');
-          console.log('Mobile token preview:', token.substring(0, 50) + '...');
-          const payload = JSON.parse(atob(token.split('.')[1]));
-          console.log('Mobile token aud:', payload.aud);
-          const result = await signIn('farcaster', { redirect: false, token });
-          if (result?.error) {
-            // NEW: Handle general errors, not just specific strings
-            if (retryCount < 2) {
-              console.log('Retry auth (attempt', retryCount + 1, ')');
-              await new Promise(r => setTimeout(r, 2000));
-              return handleMiniAppAuth(retryCount + 1);
-            }
-            throw new Error(result.error || 'Auth failed (undefined error)');
-          }
-          // FIXED: Refresh instead of push to avoid 404 in Mini App
-          if (!result?.error) {
-            toast.success('Farcaster auth OK!');
-            await update();
-            router.refresh();
-          }
-        } catch (err) {
-          console.error('Mini App auth fail:', err);
-          setMiniAppAuthError(err.message);
-          if (retryCount < 2) return handleMiniAppAuth(retryCount + 1);
-        } finally {
-          setMiniAppAuthLoading(false);
-        }
-      };
-      handleMiniAppAuth();
-    }
-  }, [inMiniApp, status, update]);
-
-  // NEW: Debug useEffect cho Mobile Token (tạm thời, xóa sau khi fix)
-  useEffect(() => {
-    if (inMiniApp && isMounted) {  // Chỉ chạy nếu đã detect Mini App
-      const debugToken = async () => {
-        try {
-          // Kiểm tra nếu trong Mini App
-          if (window.sdk && await sdk.isInMiniApp()) {
-            const { token } = await sdk.quickAuth.getToken();
-            console.log('Quick Auth Token (mobile debug):', token ? token.substring(0, 50) + '...' : 'NULL/EMPTY');
-            if (token) {
-              // Decode JWT payload (không cần secret, chỉ xem claims)
-              const payload = JSON.parse(atob(token.split('.')[1]));
-              console.log('Token Payload (debug):', {
-                sub: payload.sub,  // FID
-                aud: payload.aud,  // Audience/domain expected
-                iss: payload.iss,  // Issuer
-                exp: new Date(payload.exp * 1000).toISOString()  // Expiry
-              });
-              // Bonus: Check nếu aud match domain
-              const expectedDomain = 'base.xynapseai.net';  // Thay bằng domain của bạn
-              if (payload.aud !== expectedDomain) {
-                console.error('AUDIENCE MISMATCH! Expected:', expectedDomain, 'Got:', payload.aud);
-              }
-            }
-          } else {
-            console.log('Not in Mini App (debug)');
-          }
-        } catch (err) {
-          console.error('getToken Debug Error:', err);
-        }
-      };
-      debugToken();  // Chạy ngay
-    }
-  }, [inMiniApp, isMounted]);  // Dependency: Chỉ chạy khi inMiniApp thay đổi
-
-  // Load Base Account SDK
-  useEffect(() => {
-    if (typeof window !== 'undefined' && !window.createBaseAccountSDK) {
-      const script = document.createElement('script');
-      script.src = 'https://unpkg.com/@base-org/account@latest/dist/base-account.min.js';
-      script.async = true;
-      script.onload = () => {
-        safeLog('Base Account SDK loaded successfully');
-      };
-      script.onerror = () => safeError('Failed to load Base Account SDK');
-      document.head.appendChild(script);
-    }
-  }, []);
+  const miniApp = useMiniApp(); // FIXED: Hook này giờ nằm trong context của MiniAppProvider
+  const [isMiniApp, setIsMiniApp] = useState(false);
+  const [miniAppAuthLoading, setMiniAppAuthLoading] = useState(false); // NEW: Loading cho quickauth
 
   const openModal = (content) => {
     setModalContent(content);
     setIsModalOpen(true);
     document.body.style.overflow = 'hidden';
   };
+
   const closeModal = () => {
     setIsModalOpen(false);
     setModalContent(null);
     document.body.style.overflow = 'auto';
   };
 
-  const fetchProvidersWithRetry = useCallback(async (retries = 2, delay = 500) => { // FIXED: Giảm retry/delay cho mobile speed
+  const fetchProvidersWithRetry = useCallback(async (retries = 3, delay = 1000) => {
     for (let i = 0; i < retries; i++) {
       try {
         const response = await getProviders();
@@ -519,22 +340,22 @@ export default function Dashboard() {
   }, []);
 
   useEffect(() => {
-    if (isMounted && !providers) {
-      fetchProvidersWithRetry();
+    setIsMounted(true);
+    const tab = searchParams.get('tab');
+    if (tab && ['market', 'ai', 'profile', 'graph', 'watchlists', 'cluster'].includes(tab)) {  // Đổi treemap -> graph
+      setActiveTab(tab);
     }
-  }, [isMounted, providers, fetchProvidersWithRetry]);
+  }, [searchParams, router]);
 
   useEffect(() => {
     if (status !== 'authenticated' || session?.csrfToken || csrfToken) return;
+
     const fetchCsrfToken = async () => {
       try {
-        const response = await fetch(`${API_BASE_URL}/api/csrf-token`, { // FIXED: Use correct path
+        const response = await fetch('/api/auth/csrf', {  // Fix: relative path chuẩn NextAuth
           method: 'GET',
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${session?.accessToken || ''}`,
-          },
-          credentials: 'include',
+          credentials: 'include',  // Fix: Để read/set cookie tự động
+          // Bỏ Authorization: Bearer - NextAuth handle qua cookie
         });
         const result = await response.json();
         if (response.ok) {
@@ -545,22 +366,79 @@ export default function Dashboard() {
         }
       } catch (err) {
         safeError('Error fetching CSRF token:', err);
-        toast.error(`Failed to fetch CSRF token: ${err.message}`, { position: 'top-center' });
+        // Fallback cho dev: Generate local token tạm
+        if (process.env.NODE_ENV === 'development') {
+          const fallbackToken = crypto.randomBytes(32).toString('hex');
+          setCsrfToken(fallbackToken);
+          await update({ csrfToken: fallbackToken });
+          toast.warn('Using dev fallback CSRF token', { position: 'top-center' });
+        } else {
+          toast.error(`Failed to fetch CSRF token: ${err.message}`, { position: 'top-center' });
+        }
       }
     };
     fetchCsrfToken();
   }, [status, session, csrfToken, update]);
 
-  // FIXED: Force hide loading sau 3s nếu stuck (mobile safety net)
   useEffect(() => {
-    if (status === 'loading' || !providers) {
-      const timeout = setTimeout(() => {
-        safeWarn('Force dismissing loading overlay (possible mobile stuck)');
-        // Không set providers null, nhưng allow render partial
-      }, 3000);
-      return () => clearTimeout(timeout);
+    if (isMounted && !providers) {
+      fetchProvidersWithRetry();
     }
-  }, [status, providers]);
+  }, [isMounted, providers, fetchProvidersWithRetry]);
+
+  // NEW: Detect Mini App (tích hợp quickauth)
+  useEffect(() => {
+    const initAndCheckEnvironment = async () => {
+      // Detect via hostname hoặc Neynar hook
+      const hostname = typeof window !== 'undefined' ? window.location.hostname : '';
+      const miniAppDetected = hostname.includes('farcaster.') || !!miniApp?.user;
+      setIsMiniApp(miniAppDetected);
+
+      if (miniAppDetected && sdk) {
+        try {
+          await sdk.actions.ready();  // Ẩn splash, show UI
+          safeLog('Mini App ready! User FID:', miniApp?.user?.fid);
+          // Auto-sign-in nếu chưa session (quickauth)
+          if (!session && miniApp?.user) {
+            handleMiniAppQuickAuth();
+          }
+        } catch (err) {
+          safeError('Mini App init error:', err);
+        }
+      }
+    };
+    initAndCheckEnvironment();
+  }, [miniApp, session]);
+
+  // NEW: Handle quickauth cho miniapp (tích hợp vào old flow)
+  const handleMiniAppQuickAuth = async () => {
+    if (status !== 'unauthenticated') return;
+    setMiniAppAuthLoading(true);
+    try {
+      const { token } = await sdk.quickAuth.getToken();
+      if (!token) throw new Error('No token from SDK');
+
+      safeLog('Mini App quickauth token preview:', token.substring(0, 50) + '...');
+
+      const result = await signIn('farcaster', { 
+        redirect: false, 
+        token,  // Pass token cho Credentials (cần update options.js để handle token)
+        callbackUrl: '/dashboard'
+      });
+      if (result?.error) {
+        throw new Error(result.error || 'Auth failed');
+      }
+      toast.success('Signed in with Farcaster via QuickAuth!');
+      setAuthSuccess(true); // NEW: Fix loop
+      router.push('/dashboard', { shallow: true, scroll: false }); // Shallow để avoid query param
+      await update();
+    } catch (err) {
+      safeError('Mini App quickauth fail:', err);
+      toast.error(`QuickAuth error: ${err.message}`);
+    } finally {
+      setMiniAppAuthLoading(false);
+    }
+  };
 
   const handleConnectWallet = async () => {
     try {
@@ -570,7 +448,7 @@ export default function Dashboard() {
       const signature = await signMessageAsync({ message });
       const jwtToken = session?.accessToken;
       const payload = { walletAddress: address, signature, message, uid: session.user.id };
-      // Sử dụng polyfill HMAC
+      // Sử dụng polyfill HMAC (tương thích browser)
       const sortedPayload = JSON.stringify(payload, Object.keys(payload).sort());
       const hmacSignature = await hmacSha256(process.env.HMAC_SECRET || "default-secret", sortedPayload);
       const response = await fetch(`${API_BASE_URL}/api/verify-wallet`, {
@@ -589,25 +467,25 @@ export default function Dashboard() {
       if (!response.ok) throw new Error(result.detail || 'Wallet verification failed');
       toast.success('Wallet connected successfully!', { position: 'top-center' });
     } catch (err) {
-      safeError('Error verifying wallet:', err); // Fixed
+      safeError('Error verifying wallet:', err);
       toast.error(`Wallet verification error: ${err.message}`, { position: 'top-center' });
     } finally {
       if (recaptchaRef.current) recaptchaRef.current.reset();
     }
   };
 
-  // IMPROVED: Updated handleSignOut with correct path and fallback
   const handleSignOut = async () => {
     if (!session || !session.user?.id) {
       toast.error('Session expired. Please sign in again.', { position: 'top-center' });
       router.push('/dashboard');
       return;
     }
+
     try {
       let currentCsrfToken = csrfToken;
       if (!currentCsrfToken) {
         try {
-          const response = await fetch(`${API_BASE_URL}/api/csrf-token`, { // FIXED: Use correct path
+          const response = await fetch(`${API_BASE_URL}/api/auth/csrf`, {
             method: 'GET',
             headers: {
               'Content-Type': 'application/json',
@@ -622,11 +500,10 @@ export default function Dashboard() {
           await update({ csrfToken: result.csrfToken });
         } catch (csrfError) {
           safeError('Failed to fetch CSRF token:', csrfError);
-          // FALLBACK: Proceed without CSRF fetch
-          safeWarn('CSRF fetch failed, using fallback sign-out');
-          currentCsrfToken = null;
+          throw new Error('Cannot sign out: Missing CSRF token');
         }
       }
+
       try {
         await signOut({ redirect: false });
         await update();
@@ -651,6 +528,7 @@ export default function Dashboard() {
           throw signOutError;
         }
       }
+
       try {
         const token = await recaptchaRef.current?.executeAsync();
         const response = await fetch(`${API_BASE_URL}/api/clear-cache`, {
@@ -669,26 +547,57 @@ export default function Dashboard() {
       } catch (cacheErr) {
         safeWarn('Failed to clear server-side cache:', cacheErr.message);
       }
+
       localStorage.removeItem('csrfToken');
       setCsrfToken(null);
+      setAuthSuccess(false); // NEW: Reset auth success on signout
       if (isConnected) {
         disconnect();
       }
+
       toast.success('Signed out successfully!', { position: 'top-center' });
       router.refresh();
       router.push('/dashboard');
     } catch (error) {
       safeError('Error during sign out process:', error);
-      // FALLBACK: Force sign-out on error
-      await signOut({ redirect: false });
-      localStorage.clear();
-      toast.success('Signed out successfully (fallback mode).', { position: 'top-center' });
+      toast.error(`Failed to sign out: ${error.message}`, { position: 'top-center' });
       router.refresh();
       router.push('/dashboard');
     } finally {
       if (recaptchaRef.current) {
         recaptchaRef.current.reset();
       }
+    }
+  };
+
+  // FIXED: Merge old handleFarcasterSuccess với new (thêm authSuccess + shallow push)
+  const handleFarcasterSuccess = async (result) => {
+    try {
+      const csrf = await getCsrfToken();  // Fetch CSRF token
+      if (!csrf) throw new Error('CSRF token unavailable');
+
+      const res = await signIn('farcaster', {
+        message: result.message,
+        signature: result.signature,
+        // Pass CSRF explicit cho Credentials POST
+        csrfToken: csrf,
+      }, {
+        redirect: false,
+        // Ensure cookies forwarded
+      });
+      if (res?.error) {
+        toast.error(`Farcaster login failed: ${res.error}`);
+      } else {
+        setAuthSuccess(true); // NEW: Fix loop - hide form ngay
+        router.push('/dashboard', { shallow: true, scroll: false }); // NEW: Shallow để avoid query param loop
+        await update();
+        toast.success('Signed in with Farcaster successfully!');
+        setFarcasterModalOpen(false);
+        router.refresh();
+      }
+    } catch (err) {
+      safeError('Farcaster sign-in error:', err);
+      toast.error(`Sign-in error: ${err.message}`);
     }
   };
 
@@ -715,19 +624,12 @@ export default function Dashboard() {
   const handleGoogleSignIn = async () => {
     try {
       const result = await signIn('google', { callbackUrl: '/dashboard', redirect: false });
-      // FIXED: Check for auth loop (error=undefined)
-      if (result?.error && result.error.includes('undefined')) {
-        toast.error('Auth loop detected. Clearing cache and retry.');
-        localStorage.clear();  // Clear client cache
-        await signOut({ redirect: false });
-        router.refresh();
-        return;
-      }
       if (result?.error) {
         if (result.error.includes('Rate limit exceeded')) {
           toast.error('Too many sign-in attempts. Please try again later.', { position: 'top-center' });
           return;
         }
+        // Custom error handling for email-registered account
         if (result.error.includes('This account is registered with email')) {
           toast.error(result.error, { position: 'top-center' });
           return;
@@ -746,173 +648,13 @@ export default function Dashboard() {
     }
   };
 
-  // IMPROVED: Thêm basic client-side SIWE parse check (optional, dùng siwe lib) + cleanup nonce on error
-  const handleBaseSignIn = async () => {
-    if (isBaseLoading || !fetchedNonce) {
-      toast.error('Nonce not ready. Please wait or refresh.');
-      return;
-    }
-    setIsBaseLoading(true);
-    let tempNonce = fetchedNonce;
-    try {
-      if (!window.createBaseAccountSDK) {
-        throw new Error('Base Account SDK not loaded. Please refresh.');
-      }
-      toast.info('Connecting to Base Account...', { position: 'top-center' });
-      const baseSDK = window.createBaseAccountSDK({
-        appName: 'Xynapse Dashboard',
-        appLogoUrl: process.env.NEXT_PUBLIC_APP_URL ? `${process.env.NEXT_PUBLIC_APP_URL}/logo.png` : 'https://base.xynapseai.net/logo.png',
-      });
-      const provider = baseSDK.getProvider();
-      // Switch chain (fixed log)
-      try {
-        await provider.request({
-          method: 'wallet_switchEthereumChain',
-          params: [{ chainId: '0x2105' }],
-        });
-        safeLog('Switched to Base chain');
-      } catch (switchErr) {
-        safeWarn('Chain switch failed (already on Base?):', switchErr.message);
-      }
-      let message, signature, address;
-      // Try wallet_connect
-      try {
-        const response = await provider.request({
-          method: 'wallet_connect',
-          params: [{
-            version: '1',
-            capabilities: {
-              signInWithEthereum: {
-                nonce: tempNonce,
-                chainId: '0x2105',
-              }
-            }
-          }]
-        });
-        safeLog('Full SDK response received'); // Silent raw
-        const accounts = response?.accounts;
-        if (!accounts?.length) throw new Error('No accounts from SDK');
-        const account = accounts[0];
-        const siwe = account.capabilities?.signInWithEthereum;
-        if (!siwe?.message || !siwe?.signature) throw new Error('Invalid SIWE from SDK');
-        message = siwe.message;
-        signature = siwe.signature;
-        address = account.address;
-        const hasVersion = message.includes('Version: 1');
-        const hasIssuedAt = message.includes('Issued At:');
-        if (!hasVersion || !hasIssuedAt) {
-          safeWarn('Partial SIWE from SDK, throwing to fallback');
-          throw new Error('Partial message - fallback');
-        }
-        safeLog('Full SIWE from SDK OK');
-      } catch (walletErr) {
-        safeWarn('wallet_connect failed (origins/unsupported/partial), fallback to manual:', walletErr.message);
-        const accountsResp = await provider.request({
-          method: 'eth_requestAccounts',
-        });
-        if (!accountsResp?.length) throw new Error('No accounts from eth_requestAccounts');
-        address = accountsResp[0];
-        safeLog('Got address for fallback:', address.substring(0, 6) + '...'); // Mask
-        const domain = window.location.host;
-        const uri = window.location.origin;
-        const now = new Date().toISOString();
-        const siweMessage = new SiweMessage({
-          domain,
-          address,
-          uri,
-          version: '1',
-          chainId: 8453,
-          nonce: tempNonce,
-          issuedAt: now,
-          statement: 'Sign in to Xynapse Dashboard.',
-        });
-        message = siweMessage.prepareMessage();
-        safeLog('Constructed full SIWE message (fallback):', message.substring(0, 100) + '...'); // Preview
-        safeLog('Message lines:', message.split('\n').length);
-        signature = await provider.request({
-          method: 'personal_sign',
-          params: [message, address],
-        });
-        safeLog('Fallback signature length:', signature?.length || 'N/A');
-      }
-      if (!message || !signature || !address) {
-        throw new Error('Missing message/signature/address after fallback');
-      }
-      const hasNonce = message.includes(`Nonce: ${tempNonce}`);
-      const hasChain = message.includes('Chain ID: 8453');
-      if (!message.includes('Version: 1') || !message.includes('Issued At:') || !hasNonce || !hasChain) {
-        throw new Error('Invalid SIWE fields after construct');
-      }
-      safeLog('Validated SIWE OK, proceeding to NextAuth signIn');
-      const res = await signIn('credentials', {
-        message,
-        signature,
-        redirect: false,
-      });
-      // FIXED: Check for auth loop (error=undefined)
-      if (res?.error && res.error.includes('undefined')) {
-        toast.error('Auth loop detected. Clearing cache and retry.');
-        localStorage.clear();  // Clear client cache
-        await signOut({ redirect: false });
-        router.refresh();
-        return;
-      }
-      if (res?.error) {
-        safeError('NextAuth res error:', res.error); // Keep
-        throw new Error(res.error);
-      }
-      const delRes = await fetch(`${API_BASE_URL}/api/nonce`, {
-        method: 'DELETE',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ nonce: tempNonce }),
-      });
-      if (!delRes.ok) {
-        safeWarn('Nonce cleanup on success failed:', delRes.status);
-      } else {
-        safeLog('Nonce cleaned up');
-      }
-      toast.success(`Signed in with Base! Address: ${address.substring(0, 6)}...${address.substring(-4)}`, { position: 'top-center' });
-      setBaseModalOpen(false);
-      await update();
-      router.push('/dashboard');
-    } catch (err) {
-      safeError('Base sign-in error:', err); // Keep
-      toast.error(`Sign-in error: ${err.message}`, { position: 'top-center' });
-      try {
-        const delRes = await fetch(`${API_BASE_URL}/api/nonce`, {
-          method: 'DELETE',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ nonce: tempNonce }),
-        });
-        if (!delRes.ok) safeWarn('Nonce cleanup on error failed:', delRes.status);
-      } catch (cleanupErr) {
-        safeWarn('Cleanup fetch error:', cleanupErr);
-      }
-    } finally {
-      setIsBaseLoading(false);
-    }
-  };
-
-  // FIXED: Skip loading nếu Mini App + force mounted sau 2s cho mobile
-  const isLoadingState = (!isMounted || !providers || status === 'loading') && !forceLoadingDismiss;
-  safeLog('Current loading state:', { isMounted, providers: !!providers, status, forceDismiss: forceLoadingDismiss });
-  useEffect(() => {
-    if (inMiniApp && isLoadingState) {
-      const forceMount = setTimeout(() => {
-        setIsMounted(true); // Force để dismiss overlay
-        setForceLoadingDismiss(true);
-        safeLog('Force mounted for Mini App (avoid stuck)');
-      }, 2000);
-      return () => clearTimeout(forceMount);
-    }
-  }, [inMiniApp, isLoadingState]);
-
-  if (isLoadingState || (inMiniApp && miniAppAuthLoading)) {
+  // FIXED: Loading state: Thêm authSuccess để hide form ngay sau signIn
+  if (!isMounted || !providers || status === 'loading' || miniAppAuthLoading) {
     return (
       <div className="h-screen w-screen flex items-center justify-center bg-black text-white">
         <LoadingOverlay
           isLoading={true}
-          message={inMiniApp ? "Authenticating with Farcaster..." : "Loading dashboard..."}
+          message={isMiniApp ? "Authenticating with Farcaster..." : "Loading dashboard..."}
           isMobile={typeof window !== 'undefined' && window.innerWidth <= 640}
         />
       </div>
@@ -920,309 +662,274 @@ export default function Dashboard() {
   }
 
   const requiresAuth = ['profile', 'ai', 'watchlists'].includes(activeTab);
-  const showLoginForm = status === 'unauthenticated' && requiresAuth && !inMiniApp; // FIXED: Hide form in Mini App
+  const showLoginForm = status === 'unauthenticated' && requiresAuth && !authSuccess; // NEW: + !authSuccess để fix loop
+
   return (
     <CurrencyProvider>
-      <div className="h-screen w-screen bg-gradient-to-br from-black to-gray-900 backdrop-blur-xs text-white overflow-x-hidden flex flex-col">
-        <Header
-          activeTab={activeTab}
-          setActiveTab={setActiveTab}
-          handleSignOut={handleSignOut}
-          selectedAddress={searchParams.get('address') || undefined}
-        />
-        <main className="flex-1 flex items-center justify-center overflow-hidden">
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ duration: 0.5 }}
-            className="w-full h-full flex items-center justify-center"
-          >
-            {showLoginForm ? (
-              <div // FIXED: Bỏ motion cho mobile speed, dùng plain div nếu Mini App
-                className={`w-full h-full flex items-center justify-center text-white font-saira relative ${inMiniApp ? '' : 'motion-parent' // Conditional class nếu cần
-                  }`}
-              >
-                {/* FIXED: Skip heavy 3D hoàn toàn nếu Mini App */}
-                {!inMiniApp && (
-                  <div className="fixed inset-0 z-0">
-                    <Canvas camera={{ position: [0, 0, 5], fov: 75 }} dpr={[1, 1.5]} performance={{ min: 0.3 }}>
-                      <UniverseBackground />
-                    </Canvas>
-                  </div>
-                )}
-                <div // FIXED: Bỏ motion, dùng plain cho Mini App
-                  className={`relative z-20 bg-black/60 backdrop-blur-xs p-8 md:p-12 border border-white/15 rounded-lg max-w-md w-full mx-4 flex flex-col items-center shadow-2xl shadow-black/50 ${inMiniApp ? '' : 'motion-child'
-                    }`}
-                >
-                  <h1 // FIXED: Plain text, no motion
-                    className="text-2xl md:text-3xl font-bold text-white uppercase mb-4 text-center tracking-wide"
-                  >
-                    {isInBaseApp ? 'Sign In with Base' : 'Sign In'}
-                  </h1>
-                  <p // FIXED: Plain
-                    className="text-xs md:text-sm text-gray-500 mb-8 text-center leading-relaxed"
-                  >
-                    {isInBaseApp ? 'Use your Base Account for seamless sign-in.' : 'Access your dashboard with secure authentication.'}
-                  </p>
-                  {!isInBaseApp && (
-                    <>
-                      <form onSubmit={handleEmailSignIn} className="w-full space-y-6">
-                        <input
-                          type="email"
-                          value={email}
-                          onChange={(e) => setEmail(e.target.value)}
-                          placeholder="Enter your email"
-                          className="w-full px-5 py-3 bg-black/60 border border-white/15 rounded-2xl text-white text-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-white/30 transition-all duration-300"
-                          required
-                        />
-                        <button
-                          type="submit"
-                          className="w-full px-5 py-3 border-2 border-white/15 bg-white/10 text-white rounded-2xl text-sm font-semibold uppercase transition-all duration-300 hover:border-white/30 hover:bg-white/20 flex items-center justify-center"
-                        >
-                          <MatrixHoverEffect text="Sign in with Email" hoverColor="#FFFFFF" />
-                        </button>
-                      </form>
-                      <div className="flex items-center justify-center my-6 w-full">
-                        <span className="text-gray-500 text-xs uppercase px-4">OR</span>
-                        <div className="flex-1 h-px bg-white/10"></div>
-                      </div>
-                      {providers?.google && (
-                        <button
-                          onClick={handleGoogleSignIn}
-                          className="w-full px-5 py-3 bg-black/20 border border-white/25 rounded-2xl text-white text-sm font-semibold uppercase flex items-center justify-center gap-3 transition-all duration-300 hover:bg-gray-800/30 hover:border-white/40"
-                        >
-                          <Image
-                            src="/logos/google.webp"
-                            alt="Google Logo"
-                            width={20}
-                            height={20}
-                            className="w-5 h-5 object-contain"
-                          />
-                          <MatrixHoverEffect text="Google" />
-                        </button>
-                      )}
-                    </>
-                  )}
-                  <button
-                    onClick={() => setBaseModalOpen(true)}
-                    className="m-2 w-full px-5 py-3 bg-black/20 border border-white/25 rounded-2xl text-white text-sm font-semibold uppercase flex items-center justify-center gap-3 transition-all duration-300 hover:bg-gray-800/30 hover:border-white/40"
-                  >
-                    <Image
-                      src="/logos/base.webp"
-                      alt="Base Logo"
-                      width={20}
-                      height={20}
-                      className="w-5 h-5 object-contain"
-                    />
-                    <MatrixHoverEffect text="Base App" />
-                  </button>
-                  {error && (
-                    <div // FIXED: Plain error
-                      className="mt-6 text-red-300 text-sm bg-red-500/10 border border-red-500/20 rounded-lg p-3 text-center"
-                    >
-                      Error: {error}
-                    </div>
-                  )}
-                  <p // FIXED: Plain
-                    className="mt-6 text-xs text-gray-500 text-center leading-relaxed"
-                  >
-                    By clicking continue, you agree to our{' '}
-                    <button onClick={() => openModal('terms')} className="text-white hover:underline">
-                      Terms of Service
-                    </button>{' '}
-                    and{' '}
-                    <button onClick={() => openModal('privacy')} className="text-white hover:underline">
-                      Privacy Policy
-                    </button>.
-                  </p>
-                </div>
-              </div>
-            ) : inMiniApp && miniAppAuthError ? ( // NEW: If Mini App auth fail, show retry UI instead of form
-              <div className="w-full h-full flex items-center justify-center text-white">
-                <div className="bg-black/60 p-8 border border-white/15 rounded-lg max-w-md w-full mx-4 flex flex-col items-center">
-                  <h1 className="text-2xl font-bold text-white uppercase mb-4 text-center">
-                    Farcaster Auth Failed
-                  </h1>
-                  <p className="text-sm text-gray-500 mb-8 text-center">
-                    Error: {miniAppAuthError}. Please retry or contact support.
-                  </p>
-                  <button
-                    onClick={() => {
-                      setMiniAppAuthLoading(true);
-                      // Retry auth function (từ useEffect trên)
-                      const handleMiniAppAuth = async () => {
-                        setMiniAppAuthError(null);
-                        try {
-                          const { token } = await sdk.quickAuth.getToken();
-                          if (!token) throw new Error('Failed to get Quick Auth token');
-                          const result = await signIn('farcaster', { redirect: false, token });
-                          // FIXED: Check for auth loop
-                          if (result?.error && result.error.includes('undefined')) {
-                            toast.error('Auth loop detected. Clearing cache and retry.');
-                            localStorage.clear();
-                            await signOut({ redirect: false });
-                            router.refresh();
-                            return;
-                          }
-                          if (result?.error) throw new Error(result.error);
-                          toast.success('Signed in with Farcaster!', { position: 'top-center' });
-                          await update();
-                        } catch (err) {
-                          setMiniAppAuthError(err.message);
-                          toast.error(`Retry failed: ${err.message}`, { position: 'top-center' });
-                        } finally {
-                          setMiniAppAuthLoading(false);
-                        }
-                      };
-                      handleMiniAppAuth();
-                    }} // Retry auth
-                    className="w-full px-5 py-3 bg-blue-600 text-white rounded-2xl text-sm font-semibold uppercase transition-all duration-300 hover:bg-blue-700 flex items-center justify-center gap-3"
-                  >
-                    Retry Farcaster Sign In
-                  </button>
-                </div>
-              </div>
-            ) : (
-              <>
-                {activeTab === 'market' && (
-                  <MarketTab
-                    recaptchaRef={recaptchaRef}
-                    toast={toast}
-                    onTokenSelect={handleNavigateToToken}
-                    initialTokenSlug={searchParams.get('token') || undefined}
-                  />
-                )}
-                {activeTab === 'cluster' && (
-                  <ClusterTab
-                    recaptchaRef={recaptchaRef}
-                    initialClusterId={searchParams.get('clusterId') || 'binance'}
-                  />
-                )}
-                {activeTab === 'graph' && <TreemapTab onTokenSelect={handleNavigateToToken} />}
-                {activeTab === 'ai' && <AITab recaptchaRef={recaptchaRef} />}
-                {activeTab === 'profile' && (
-                  <ProfileTab
-                    userData={userData}
-                    loading={loading}
-                    error={error}
-                    isConnected={isConnected}
-                    handleConnectWallet={handleConnectWallet}
-                    recaptchaRef={recaptchaRef}
-                    handleSignOut={handleSignOut}
-                  />
-                )}
-                {activeTab === 'watchlists' && <WatchlistsTab toast={toast} initialAddress={searchParams.get('address') || undefined} />}
-              </>
-            )}
-          </motion.div>
-        </main>
-        {process.env.NEXT_PUBLIC_RECAPTCHA_SITE_KEY ? (
-          <ReCAPTCHA
-            ref={recaptchaRef}
-            sitekey={process.env.NEXT_PUBLIC_RECAPTCHA_SITE_KEY}
-            size="invisible"
-            badge="bottomright"
-            onError={() => {
-              safeError('reCAPTCHA initialization failed');
-              toast.error('Failed to initialize reCAPTCHA', { position: 'top-center' });
-            }}
+      <AuthKitProvider
+        config={{
+          domain: window.location.hostname, // e.g., localhost
+          siweUri: `${window.location.origin}/api/auth/signin/farcaster`, // Callback cho NextAuth
+          relay: 'https://relay.farcaster.xyz', // Default relay
+          rpcUrl: 'https://mainnet.optimism.io', // Base RPC
+          version: 'v1',
+        }}
+      >
+        <div className="h-screen w-screen bg-gradient-to-br from-black to-gray-900 backdrop-blur-xs text-white overflow-x-hidden flex flex-col">
+          <Header
+            activeTab={activeTab}
+            setActiveTab={setActiveTab}
+            handleSignOut={handleSignOut}
+            selectedAddress={searchParams.get('address') || undefined}
           />
-        ) : (
-          <p className="text-[8px] text-red-600 ml-2">
-            Error: reCAPTCHA site key is missing. Please configure NEXT_PUBLIC_RECAPTCHA_SITE_KEY.
-          </p>
-        )}
-        <p className="text-[8px] text-gray-600 ml-2">
-          Protected by reCAPTCHA. See{' '}
-          <a href="https://policies.google.com/privacy" target="_blank" rel="noopener noreferrer" className="text-neon-blue">
-            Privacy Policy
-          </a>{' '}
-          &{' '}
-          <a href="https://policies.google.com/terms" target="_blank" rel="noopener noreferrer" className="text-neon-blue">
-            Terms
-          </a>{' '}
-          of Google.
-        </p>
-        <ToastContainer position="top-center" autoClose={3000} hideProgressBar closeOnClick pauseOnHover />
-        {isModalOpen && (
-          <div
-            className="fixed inset-0 bg-black/75 flex items-center justify-center z-50"
-            onClick={closeModal}
-          >
-            <div
-              className="bg-gray-900/50 backdrop-blur-lg border border-white/20 rounded-2xl w-full max-w-7xl h-[90vh] relative flex flex-col"
-              onClick={(e) => e.stopPropagation()}
+          <main className="flex-1 flex items-center justify-center overflow-hidden">
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ duration: 0.5 }}
+              className="w-full h-full flex items-center justify-center"
             >
-              <div className="sticky top-0 z-10 backdrop-blur-lg border-b border-white/20 p-6 flex justify-between items-center">
-                <h1 className="text-2xl sm:text-3xl font-bold text-white uppercase">
-                  {modalContent === 'privacy'
-                    ? 'Xynapse Privacy Policy'
-                    : 'Xynapse Terms of Service'}
-                  <span className="block text-sm sm:text-base text-gray-300 mt-1">
-                    Effective Date: June 21, 2025
-                  </span>
-                </h1>
-                <button
-                  onClick={closeModal}
-                  aria-label="Close modal"
-                  className="text-white text-xl font-bold hover:text-neon-blue transition-all duration-300"
+              {showLoginForm ? (
+                <motion.div
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.8, ease: 'easeOut' }}
+                  className="w-full h-full p-4 md:p-0 flex items-center justify-center text-white font-saira relative"
                 >
-                  ✕
-                </button>
-              </div>
-              <div className="text-xs sm:text-sm flex-1 overflow-y-auto custom-scrollbar p-6 prose prose-invert max-w-none">
-                {modalContent === 'privacy' ? <PrivacyPolicyContent /> : <TermsOfServiceContent />}
-              </div>
-            </div>
-          </div>
-        )}
-        {baseModalOpen && (
-          <div
-            className="fixed inset-0 bg-black/75 flex items-center justify-center z-50"
-            onClick={() => setBaseModalOpen(false)}
-          >
-            <div
-              className="bg-gray-900/50 backdrop-blur-lg border border-white/20 rounded-2xl w-full max-w-md h-[60vh] relative flex flex-col"
-              onClick={(e) => e.stopPropagation()}
-            >
-              <div className="sticky top-0 z-10 backdrop-blur-lg border-b border-white/20 p-4 flex justify-between items-center">
-                <h2 className="text-xl font-bold text-white uppercase">Sign In with Base App</h2>
-                <button
-                  onClick={() => setBaseModalOpen(false)}
-                  className="text-white text-xl font-bold hover:text-neon-blue transition-all duration-300"
-                >
-                  ✕
-                </button>
-              </div>
-              <div className="flex-1 flex flex-col items-center justify-center p-4 overflow-auto">
-                <p className="text-gray-500 text-sm mb-4 text-center">
-                  Use your Base passkey or wallet for universal sign-in. One tap across Base apps.
-                </p>
-                <button
-                  onClick={handleBaseSignIn}
-                  disabled={isBaseLoading || !fetchedNonce}
-                  className="w-full px-4 py-2.5 bg-blue-600 text-white rounded-2xl text-sm font-semibold transition-all duration-300 hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-                >
-                  {isBaseLoading ? (
-                    <>
-                      <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
-                      Connecting...
-                    </>
-                  ) : (
-                    <>
-                      <Image src="/logos/base.webp" alt="Base Logo" width={16} height={16} className="w-4 h-4 object-contain" />
-                      Sign in with Base
-                    </>
+                  <div className="fixed inset-0 z-0">
+                    {!isMiniApp && (  // Mới: Chỉ render 3D nếu không phải Mini App (lightweight)
+                      <Canvas camera={{ position: [0, 0, 5], fov: 75 }} dpr={[1, 1.5]} performance={{ min: 0.3 }}>
+                        <UniverseBackground />
+                      </Canvas>
+                    )}
+                  </div>
+                  <motion.div
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.5, ease: 'easeOut' }}
+                    className="relative z-20 bg-black/60 backdrop-blur-xs p-6 md:p-10 border border-white/15 rounded-lg max-w-sm w-full mx-4 flex flex-col items-center shadow-2xl shadow-black/50"
+                  >
+                    <motion.h1
+                      initial={{ opacity: 0, y: -10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ duration: 0.5, delay: 0.2 }}
+                      className="text-xl md:text-3xl font-bold text-white uppercase mb-3 text-center tracking-wide"
+                    >
+                      Sign In
+                    </motion.h1>
+                    <motion.p
+                      initial={{ opacity: 0, y: -10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ duration: 0.5, delay: 0.3 }}
+                      className="text-[11px] md:text-xs text-gray-500 mb-6 text-center leading-relaxed"
+                    >
+                      Access your dashboard with secure authentication.
+                    </motion.p>
+                    <form onSubmit={handleEmailSignIn} className="w-full space-y-4">
+                      <input
+                        type="email"
+                        value={email}
+                        onChange={(e) => setEmail(e.target.value)}
+                        placeholder="Enter your email"
+                        className="w-full px-4 py-2.5 bg-black/60 border border-white/15 rounded-2xl text-white text-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-white/30 transition-all duration-300"
+                        required
+                      />
+                      <button
+                        type="submit"
+                        className="w-full px-4 py-2.5 border-2 border-white/15 bg-white/10 text-white rounded-2xl text-sm font-semibold transition-all duration-300 hover:border-white/30 hover:bg-white/20 flex items-center justify-center"
+                      >
+                        <MatrixHoverEffect text="Sign in with Email" hoverColor="#FFFFFF" />
+                      </button>
+                    </form>
+                    <div className="flex items-center justify-center my-4 w-full">
+                      <span className="text-gray-500 text-xs uppercase px-4">OR</span>
+                      <div className="flex-1 h-px bg-white/10"></div>
+                    </div>
+                    {providers?.google && !isMiniApp && (
+                      <button
+                        onClick={handleGoogleSignIn}
+                        className="w-full px-4 py-2.5 bg-black/20 border border-white/25 rounded-2xl text-white text-sm font-semibold flex items-center justify-center gap-3 transition-all duration-300 hover:bg-gray-800/30 hover:border-white/40"
+                      >
+                        <Image src="/logos/google.webp" alt="Google Logo" width={20} height={20} className="w-5 h-5 object-contain" />
+                        <MatrixHoverEffect text="Sign in with Google" />
+                      </button>
+                    )}
+                    <button onClick={() => setFarcasterModalOpen(true)} // Mở modal thay vì signIn trực tiếp
+                      className="w-full px-4 m-2 py-2.5 bg-black/20 border border-white/25 rounded-2xl text-white text-sm font-semibold flex items-center justify-center gap-3 transition-all duration-300 hover:bg-gray-800/30 hover:border-white/40"
+                    >
+                      <Image
+                        src="/logos/farcaster-logo.webp"
+                        alt="Farcaster Logo"
+                        width={20}
+                        height={20}
+                        className="w-6 h-6 rounded-xl object-contain"
+                      />
+                      <MatrixHoverEffect text="Sign in with Farcaster" />
+                    </button>
+                    {error && (
+                      <motion.div
+                        initial={{ opacity: 0, y: -10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ duration: 0.5, delay: 0.4 }}
+                        className="mt-4 text-red-300 text-sm bg-red-500/10 border border-red-500/20 rounded-lg p-2 text-center"
+                      >
+                        Error: {error}
+                      </motion.div>
+                    )}
+                    <motion.p
+                      initial={{ opacity: 0, y: 10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ duration: 0.5, delay: 0.5 }}
+                      className="mt-4 text-[11px] text-gray-500 text-center leading-relaxed"
+                    >
+                      By clicking continue, you agree to our{' '}
+                      <button onClick={() => openModal('terms')} className="text-white hover:underline">
+                        Terms of Service
+                      </button>{' '}
+                      và{' '}
+                      <button onClick={() => openModal('privacy')} className="text-white hover:underline">
+                        Privacy Policy
+                      </button>.
+                    </motion.p>
+                  </motion.div>
+                </motion.div>
+              ) : (
+                <>
+                  {activeTab === 'market' && (
+                    <MarketTab
+                      recaptchaRef={recaptchaRef}
+                      toast={toast}
+                      onTokenSelect={handleNavigateToToken}
+                      initialTokenSlug={searchParams.get('token') || undefined}
+                    />
                   )}
-                </button>
-                <p className="text-xs text-gray-400 mt-4 text-center">
-                  Secure, self-custodial. No seed phrases needed.
-                </p>
+                  {activeTab === 'cluster' && (
+                    <ClusterTab
+                      recaptchaRef={recaptchaRef}
+                      initialClusterId={searchParams.get('clusterId') || 'binance'}  // Sửa từ initialExchangeId
+                    />
+                  )}
+                  {activeTab === 'graph' && <TreemapTab onTokenSelect={handleNavigateToToken} />}
+                  {activeTab === 'ai' && <AITab recaptchaRef={recaptchaRef} />}
+                  {activeTab === 'profile' && (
+                    <ProfileTab
+                      userData={userData}
+                      loading={loading}
+                      error={error}
+                      isConnected={isConnected}
+                      handleConnectWallet={handleConnectWallet}
+                      recaptchaRef={recaptchaRef}
+                      handleSignOut={handleSignOut}
+                    />
+                  )}
+                  {activeTab === 'watchlists' && <WatchlistsTab toast={toast} initialAddress={searchParams.get('address') || undefined} />}
+                </>
+              )}
+            </motion.div>
+          </main>
+          {process.env.NEXT_PUBLIC_RECAPTCHA_SITE_KEY ? (
+            <ReCAPTCHA
+              ref={recaptchaRef}
+              sitekey={process.env.NEXT_PUBLIC_RECAPTCHA_SITE_KEY}
+              size="invisible"
+              badge="bottomright"
+              onError={() => {
+                safeError('reCAPTCHA initialization failed');
+                toast.error('Failed to initialize reCAPTCHA', { position: 'top-center' });
+              }}
+            />
+          ) : (
+            <p className="text-[8px] text-red-600 ml-2">
+              Error: reCAPTCHA site key is missing. Please configure NEXT_PUBLIC_RECAPTCHA_SITE_KEY.
+            </p>
+          )}
+          <p className="text-[8px] text-gray-600 ml-2">
+            Protected by reCAPTCHA. See{' '}
+            <a href="https://policies.google.com/privacy" target="_blank" rel="noopener noreferrer" className="text-neon-blue">
+              Privacy Policy
+            </a>{' '}
+            &{' '}
+            <a href="https://policies.google.com/terms" target="_blank" rel="noopener noreferrer" className="text-neon-blue">
+              Terms
+            </a>{' '}
+            of Google.
+          </p>
+          <ToastContainer position="top-center" autoClose={3000} hideProgressBar closeOnClick pauseOnHover />
+          {/* Modal for Terms and Privacy */}
+          {isModalOpen && (
+            <div
+              className="fixed inset-0 bg-black/75 flex items-center justify-center z-50"
+              onClick={closeModal}
+            >
+              <div
+                className="bg-gray-900/50 backdrop-blur-lg border border-white/20 rounded-2xl w-full max-w-7xl h-[90vh] relative flex flex-col"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <div className="sticky top-0 z-10 backdrop-blur-lg border-b border-white/20 p-6 flex justify-between items-center">
+                  <h1 className="text-2xl sm:text-3xl font-bold text-white uppercase">
+                    {modalContent === 'privacy'
+                      ? 'Xynapse Privacy Policy'
+                      : 'Xynapse Terms of Service'}
+                    <span className="block text-sm sm:text-base text-gray-300 mt-1">
+                      Effective Date: June 21, 2025
+                    </span>
+                  </h1>
+                  <button
+                    onClick={closeModal}
+                    aria-label="Close modal"
+                    className="text-white text-xl font-bold hover:text-neon-blue transition-all duration-300"
+                  >
+                    ✕
+                  </button>
+                </div>
+                <div className="text-xs sm:text-sm flex-1 overflow-y-auto custom-scrollbar p-6 prose prose-invert max-w-none">
+                  {modalContent === 'privacy' ? <PrivacyPolicyContent /> : <TermsOfServiceContent />}
+                </div>
               </div>
             </div>
-          </div>
-        )}
-      </div>
+          )}
+          {farcasterModalOpen && (
+            <div
+              className="fixed inset-0 bg-black/75 flex items-center justify-center z-50"
+              onClick={() => setFarcasterModalOpen(false)}
+            >
+              <div
+                className="bg-gray-900/50 backdrop-blur-lg border border-white/20 rounded-2xl w-full max-w-md h-[60vh] relative flex flex-col"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <div className="sticky top-0 z-10 backdrop-blur-lg border-b border-white/20 p-4 flex justify-between items-center">
+                  <h2 className="text-xl font-bold text-white uppercase">Sign In with Farcaster</h2>
+                  <button
+                    onClick={() => setFarcasterModalOpen(false)}
+                    className="text-white text-xl font-bold hover:text-neon-blue transition-all duration-300"
+                  >
+                    ✕
+                  </button>
+                </div>
+                <div className="flex-1 flex flex-col items-center justify-center p-4 overflow-auto">
+                  <p className="text-gray-500 text-sm mb-4 text-center">Scan the QR code with your Warpcast app to sign in.</p>
+                  <SignInButton // Sử dụng SignInButton thay vì AuthKitButton
+                    onSuccess={handleFarcasterSuccess}
+                    onError={(error) => {
+                      safeError('AuthKit error:', error);
+                      toast.error(`Farcaster error: ${error.message}`);
+                      setFarcasterModalOpen(false);
+                    }}
+                  />
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      </AuthKitProvider>
     </CurrencyProvider>
+  );
+}
+
+export default function Dashboard() {
+  return (
+    <MiniAppProvider>
+      <DashboardInner />
+    </MiniAppProvider>
   );
 }

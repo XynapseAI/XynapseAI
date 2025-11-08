@@ -2,18 +2,19 @@ import { randomBytes } from "crypto";
 import GoogleProvider from "@auth/core/providers/google";
 import EmailProvider from "@auth/core/providers/email";
 import CredentialsProvider from "@auth/core/providers/credentials";
+import { SiweMessage } from "siwe";
 import { createTransport } from "nodemailer";
 import { v4 as uuidv4 } from "uuid";
 import { query } from "@/utils/postgres";
 import { logger } from "@/utils/serverLogger";
 import crypto from 'crypto';
 import util from 'util';
-import { createPublicClient, http } from 'viem';
-import { base } from 'viem/chains'; // Base chain
-import { getRedisClient } from '@/utils/redis';
-import { SiweMessage } from 'siwe'; // Standard SIWE parser (npm install siwe)
-import { createClient as createQuickAuthClient, Errors } from '@farcaster/quick-auth'; // NEW: For Farcaster Quick Auth verification
+import { NeynarAPIClient, Configuration } from "@neynar/nodejs-sdk";  // THAY ĐỔI: Import Configuration cho v2
+import { createClient as createQuickAuthClient } from '@farcaster/quick-auth'; // NEW: Cho quickauth token verify
+
 const scrypt = util.promisify(crypto.scrypt);
+
+// Hàm hashApiKey (giữ nguyên)
 async function hashApiKey(apiKey) {
   const salt = crypto.randomBytes(16).toString('hex');
   const derived = await scrypt(apiKey, salt, 64);
@@ -22,241 +23,24 @@ async function hashApiKey(apiKey) {
     api_key_salt: salt,
   };
 }
-const publicClient = createPublicClient({
-  chain: base,
-  transport: http('https://mainnet.base.org')
-});
-// IMPROVED: Verify SIWE with siwe parser (replaces regex) + viem verify (for ERC-6492)
-async function verifySiwe(credentials) {
+
+// NEW: Verify quickauth JWT token (cho miniapp)
+async function verifyFarcasterJwt(token, req) {
   try {
-    const { message, signature } = credentials;
-    logger.info('Full SIWE input to verify:', {
-      message: typeof message === 'string' ? message.substring(0, 300) + (message.length > 300 ? '...' : '') : message,
-      fullMessageLength: typeof message === 'string' ? message.length : 'N/A',
-      signaturePreview: typeof signature === 'string' ? signature.substring(0, 50) + '...' : signature,
-      signatureLength: typeof signature === 'string' ? signature.length : 'N/A',
-      messageType: typeof message,
-      signatureType: typeof signature,
-    });
-    if (typeof message !== 'string' || typeof signature !== 'string') {
-      throw new Error('Message and signature must be strings');
-    }
-    // Ensure signature is 0x-prefixed (common issue with some SDKs)
-    let sig = signature;
-    if (!sig.startsWith('0x')) {
-      sig = '0x' + sig;
-      logger.info('Added 0x prefix to signature');
-    }
-    // Try siwe parse first
-    let siweMessage, extractedAddress, extractedNonce, extractedDomain, extractedChainId;
-    let isPartial = false;
-    try {
-      siweMessage = new SiweMessage(message);
-      // eslint-disable-next-line @typescript-eslint/no-unused-vars
-      const { address, domain, chainId, nonce, issuedAt, version, uri, statement, resources } = siweMessage;
-      logger.info('Parsed SIWE fields:', {
-        address: address?.toLowerCase(),
-        domain,
-        chainId,
-        nonce,
-        version,
-        issuedAt: issuedAt?.toISOString(),
-        uri,
-        resources: resources?.length || 0
-      });
-      // Strict validation
-      if (!address || !/^0x[a-fA-F0-9]{40}$/.test(address)) {
-        throw new Error('Invalid address in SIWE message');
-      }
-      if (version !== '1') {
-        throw new Error('Invalid SIWE version: must be 1');
-      }
-      if (chainId !== '8453') { // Base mainnet
-        throw new Error('Invalid chain: expected 8453 (Base)');
-      }
-      if (!domain || (process.env.NODE_ENV !== 'development' && domain !== (process.env.APP_DOMAIN || 'xynapseai.net'))) {
-        throw new Error(`Invalid domain: expected ${process.env.APP_DOMAIN || 'xynapseai.net'}, got ${domain}`);
-      }
-      if (!uri || !uri.startsWith('http')) {
-        throw new Error('Invalid URI in SIWE message');
-      }
-      if (issuedAt) {
-        const issuedDate = new Date(issuedAt);
-        const fiveMinAgo = new Date(Date.now() - 5 * 60 * 1000);
-        if (issuedDate < fiveMinAgo) {
-          throw new Error('SIWE message issued too long ago (must be within 5 minutes)');
-        }
-      } else {
-        throw new Error('Missing issuedAt in SIWE message');
-      }
-      if (resources && resources.length > 0) {
-        // Optional: Allow empty resources, but log if present
-        logger.warn('SIWE message has resources – verify if expected', { resources });
-      }
-      // Use parsed values
-      extractedAddress = address.toLowerCase();
-      extractedNonce = nonce;
-      extractedDomain = domain;
-      extractedChainId = chainId.toString();
-      logger.info('Extracted from SIWE parser:', { address: extractedAddress, nonce: extractedNonce });
-    } catch (parseErr) {
-      logger.warn('Siwe parse failed (possible partial from SDK), fallback regex:', { error: parseErr.message });
-      isPartial = true;
-      // Fallback improved regex for partial messages
-      const domainMatch = message.match(/^([a-zA-Z0-9.-]+):?\d*\s+wants you to sign in/i);
-      extractedDomain = domainMatch ? domainMatch[1] : null;
-      const addressMatch = message.match(/0x[a-fA-F0-9]{40}/i);
-      extractedAddress = addressMatch ? addressMatch[0].toLowerCase() : null;
-      const chainMatch = message.match(/Chain ID:\s*(\d+)/i);
-      extractedChainId = chainMatch ? chainMatch[1] : null;
-      const nonceMatch = message.match(/Nonce:\s*([a-f0-9]{32})/i);
-      extractedNonce = nonceMatch ? nonceMatch[1] : null;
-      // Strict: Reject if missing Version or Issued At (EIP-4361 required)
-      const hasVersion = message.includes('Version: 1');
-      const hasIssuedAt = message.includes('Issued At:');
-      if (!hasVersion || !hasIssuedAt) {
-        throw new Error('Invalid SIWE: missing Version or Issued At (required per EIP-4361)');
-      }
-      if (!extractedAddress || !extractedNonce || !extractedDomain || extractedChainId !== '8453') {
-        throw new Error('Fallback extract failed: missing core fields');
-      }
-      logger.info('Extracted from fallback regex:', { address: extractedAddress, nonce: extractedNonce });
-    }
-    // Check nonce in Redis (use extractedNonce)
-    const client = await getRedisClient();
-    const nonceKey = `siwe:nonce:${extractedNonce}`;
-    logger.info('Redis nonce lookup attempt:', { nonceKey });
-    const storedData = await client.get(nonceKey);
-    logger.info('Redis nonce lookup result:', { hasData: !!storedData });
-    if (!storedData) {
-      throw new Error(`Nonce not found in Redis or already used`);
-    }
-    let parsedStored;
-    try {
-      parsedStored = JSON.parse(storedData);
-    } catch (parseErr) {
-      logger.error('JSON parse error on stored data:', { error: parseErr.message, rawData: storedData });
-      throw new Error(`Invalid stored nonce data: ${parseErr.message}`);
-    }
-    const { expires } = parsedStored;
-    const now = Date.now();
-    const expiresDate = new Date(expires);
-    const nowDate = new Date(now);
-    const isExpired = nowDate > expiresDate;
-    logger.info('Nonce expiration check:', { isExpired });
-    if (isExpired) {
-      await client.del(nonceKey); // Cleanup expired
-      throw new Error(`Nonce expired`);
-    }
-    // Cross-check issuedAt vs nonce creation (approx)
-    const ttlMs = process.env.NODE_ENV === 'development' ? 600000 : 300000;
-    const nonceCreationApprox = expires - ttlMs;
-    const issuedTimeMs = new Date(message.match(/Issued At:\s*(.+)/i)?.[1] || now).getTime();
-    if (Math.abs(issuedTimeMs - nonceCreationApprox) > 5 * 60 * 1000) {
-      throw new Error('SIWE issuedAt does not match nonce freshness');
-    }
-    // Consume Nonce
-    await client.del(nonceKey);
-    logger.info('Nonce consumed (deleted from Redis)');
-    logger.info('SIWE parsed & nonce validated, proceeding to signature verify');
-    // Verify Signature (viem – handles ERC-6492 for pre-deploy)
-    let valid;
-    try {
-      valid = await publicClient.verifyMessage({
-        address: extractedAddress,
-        message,
-        signature: sig,
-      });
-      logger.info('Viem verifyMessage result:', { valid, expectedAddress: extractedAddress, messageLength: message.length });
-    } catch (viemError) {
-      logger.error('Viem verifyMessage detailed error:', {
-        error: viemError.message,
-        shortMessage: viemError.shortMessage,
-        cause: viemError.cause?.message || 'unknown',
-      });
-      throw new Error(`Signature verification failed: ${viemError.message}`);
-    }
-    if (!valid) {
-      logger.error('Viem verifyMessage returned false', {
-        messagePreview: message.substring(0, 200),
-        sigLength: sig.length,
-      });
-      throw new Error('Invalid signature (Viem verifyMessage returned false)');
-    }
-    logger.info(`SIWE fully verified for Base Account (siwe${isPartial ? '+fallback' : ''})`, { address: extractedAddress });
-    return { address: extractedAddress, message, signature };
+    const quickAuthClient = createQuickAuthClient();
+    let domain = process.env.NEXTAUTH_URL ? new URL(process.env.NEXTAUTH_URL).hostname : req?.headers?.host || 'localhost:3000';
+    const payload = await quickAuthClient.verifyJwt({ token, domain });
+    if (!payload?.sub) throw new Error('Invalid JWT: No FID');
+    const fid = parseInt(payload.sub, 10);
+    logger.info('QuickAuth verified', { fid });
+    return fid;
   } catch (error) {
-    logger.error('SIWE verification failed details:', {
-      error: error.message,
-      stack: error.stack ? error.stack.substring(0, 200) : 'no stack'
-    });
+    logger.error('QuickAuth verify failed', { error: error.message });
     throw error;
   }
 }
-// NEW: Verify Farcaster Quick Auth JWT
-async function verifyFarcasterJwt(credentials, req) {
-  try {
-    const { token } = credentials;
-    if (!token) throw new Error('Missing token in credentials');
-    const quickAuthClient = createQuickAuthClient();
-    // STRICT: Dùng NEXTAUTH_URL env nếu có, fallback Referer/host
-    let domain = process.env.NEXTAUTH_URL ? new URL(process.env.NEXTAUTH_URL).hostname : null;
-    if (!domain) {
-      const host = req?.headers?.host;
-      const referer = req?.headers?.referer;
-      domain = host || (referer ? new URL(referer).hostname : process.env.APP_DOMAIN || 'xynapseai.net');
-    }
-    const isMobileLikely = !req?.headers?.host ? true : false; // Flag cho mobile
-    // FIXED: Force domain to 'xynapseai.net' for mobile (since abandoned base.)
-    if (isMobileLikely || !domain.includes('xynapseai.net')) {
-      domain = 'xynapseai.net'; // Change from 'base.xynapseai.net'
-      logger.info('Forced domain for mobile/unexpected referer:', { domain });
-    }
-    logger.info('Farcaster verify attempt:', {
-      domain,
-      tokenPreview: token.substring(0, 20) + '...',
-      tokenLength: token.length,
-      isMobileLikely,
-    });
-    let payload;
-    try {
-      payload = await quickAuthClient.verifyJwt({ token, domain });
-      logger.info('Primary verify success', { domain, fid: payload.sub });
-    } catch (primaryErr) {
-      logger.warn('Primary verify failed, trying alt domain:', { domain, error: primaryErr.message });
-      const altDomain = domain.includes('base.') ? domain.replace('base.', '') : `base.${domain}`;
-      payload = await quickAuthClient.verifyJwt({ token, domain: altDomain });
-      domain = altDomain; // Update domain to the successful one
-      logger.info('Alt verify success', { altDomain, fid: payload.sub });
-    }
-    if (!payload?.sub) {
-      throw new Error('Invalid payload: No FID (sub)');
-    }
-    // Decode và log payload cho debug (không secret needed)
-    const decoded = JSON.parse(atob(token.split('.')[1]));
-    logger.info('Decoded token claims:', {
-      sub: decoded.sub,
-      aud: decoded.aud, // Check nếu match domain
-      exp: new Date(decoded.exp * 1000).toISOString(),
-      domainUsed: domain
-    });
-    if (decoded.aud !== domain) {
-      logger.error('Audience mismatch!', { aud: decoded.aud, domainUsed: domain });
-      throw new Error('Token audience mismatch with server domain');
-    }
-    return { fid: parseInt(payload.sub, 10) };
-  } catch (error) {
-    logger.error('Full Farcaster verify error:', {
-      error: error.message,
-      domain: domain,
-      isInvalidToken: error instanceof Errors.InvalidTokenError,
-      stack: error.stack?.substring(0, 200)
-    });
-    throw error; // Re-throw để NextAuth có error cụ thể (không return null)
-  }
-}
 
-// ================== Email Transporter ==================
+// ================== Email Transporter (giữ nguyên) ==================
 const transporter = createTransport({
   host: process.env.EMAIL_SERVER_HOST,
   port: process.env.EMAIL_SERVER_PORT,
@@ -265,14 +49,13 @@ const transporter = createTransport({
     pass: process.env.EMAIL_SERVER_PASSWORD,
   },
 });
-// ================== Custom Adapter ==================
-// FIXED: Backward-compatible queries without farcaster_fid in general SELECTs (add column via migration for Farcaster support)
+
+// ================== Custom Adapter (giữ nguyên + FIX cho Farcaster) ==================
 const customAdapter = {
   async getUserByEmail(email) {
     logger.info("Fetching user by email", { email });
-    // FIXED: Exclude farcaster_fid to avoid column error if not added yet
     const { rows } = await query(
-      `SELECT id,email,google_id,google_name,email_verified,profile_picture,wallet_address,
+      `SELECT id,email,google_id,google_name,email_verified,profile_picture,
               connected,last_connected,points,tweet_points,ai_points,task_points,
               is_creator,is_ai_rank,tier,is_plus,is_premium,api_key_hash,api_key_salt,created_at
        FROM users WHERE email=$1`,
@@ -282,157 +65,98 @@ const customAdapter = {
   },
   async getUserByAccount({ provider, providerAccountId }) {
     logger.info("Fetching user by account", { provider, providerAccountId });
-    // FIXED: Specify fields without farcaster_fid
     const { rows } = await query(
-      `SELECT u.id,u.email,u.google_id,u.google_name,u.email_verified,u.profile_picture,u.wallet_address,
-              u.connected,u.last_connected,u.points,u.tweet_points,u.ai_points,u.task_points,
-              u.is_creator,u.is_ai_rank,u.tier,u.is_plus,u.is_premium,u.api_key_hash,u.api_key_salt,u.created_at
-       FROM users u
+      `SELECT u.* FROM users u
        JOIN accounts a ON u.id=a.userId
        WHERE a.provider=$1 AND a.providerAccountId=$2`,
       [provider, providerAccountId]
     );
     return rows[0] ? { ...rows[0], id: rows[0].id.toString() } : null;
   },
-  async getUserByWallet(address) {
-    // FIXED: Specify fields without farcaster_fid
+  // FIXED: getUserByFid - Pass 2 params: number cho farcaster_fid (bigint), string cho id (text)
+  async getUserByFid(fid) {
+    const fidNum = Number(fid);  // Đảm bảo number cho bigint
+    const fidStr = fid.toString();  // String cho text id
     const { rows } = await query(
-      `SELECT id,email,google_id,google_name,email_verified,profile_picture,wallet_address,
-              connected,last_connected,points,tweet_points,ai_points,task_points,
-              is_creator,is_ai_rank,tier,is_plus,is_premium,api_key_hash,api_key_salt,created_at
-       FROM users WHERE wallet_address=$1`,
-      [address]
+      `SELECT * FROM users WHERE farcaster_fid = $1 OR id = $2`,  // No cast needed, params đúng kiểu
+      [fidNum, fidStr]
     );
     return rows[0] ? { ...rows[0], id: rows[0].id.toString() } : null;
   },
-  // NEW: Get user by Farcaster FID (requires column addition: ALTER TABLE users ADD COLUMN farcaster_fid BIGINT;)
-  async getUserByFid(fid) {
-    try {
-      const { rows } = await query(
-        `SELECT * FROM users WHERE farcaster_fid=$1`,
-        [fid]
-      );
-      return rows[0] ? { ...rows[0], id: rows[0].id.toString() } : null;
-    } catch (err) {
-      if (err.message.includes('column "farcaster_fid" does not exist')) {
-        logger.warn('farcaster_fid column missing; run migration to add it for Farcaster support');
-        return null;
-      }
-      throw err;
-    }
-  },
   async createUser(data) {
-    const id = data.wallet_address || data.google_id || data.id || uuidv4();
-    logger.info("Creating user", { id, email: data.email, wallet: data.wallet_address });
-    if (!data.email && !data.wallet_address) {
-      logger.error("Cannot create user without email or wallet", { id });
-      throw new Error("Email or wallet is required");
+    const id = data.google_id || data.id || uuidv4();
+    logger.info("Creating user", { id, email: data.email });
+
+    // Ensure email is not null
+    if (!data.email) {
+      logger.error("Cannot create user without email", { id });
+      throw new Error("Email is required for user creation");
     }
+
+    // FIXED: Cho Farcaster, đảm bảo id là string (vì column id text)
+    const userId = typeof id === 'number' ? id.toString() : id;
+
+    // Tạo API key và hash
     const plainApiKey = randomBytes(32).toString("hex");
     const { api_key_hash, api_key_salt } = await hashApiKey(plainApiKey);
-    logger.info('Executing user insert', { id, wallet: data.wallet_address });
-    // FIXED: General INSERT without farcaster_fid (add via separate for Farcaster)
+
     const { rows } = await query(
       `INSERT INTO users (
-        id,email,google_id,google_name,email_verified,profile_picture,wallet_address,
+        id,email,google_id,google_name,email_verified,profile_picture,
         connected,last_connected,points,tweet_points,ai_points,task_points,
         is_creator,is_ai_rank,tier,is_plus,is_premium,api_key_hash,api_key_salt,created_at
       ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20)
-      ON CONFLICT (wallet_address) DO UPDATE SET
-        email=COALESCE(EXCLUDED.email, users.email),google_name=EXCLUDED.google_name,email_verified=EXCLUDED.email_verified,
+      ON CONFLICT (google_id) DO UPDATE SET
+        email=EXCLUDED.email,google_name=EXCLUDED.google_name,email_verified=EXCLUDED.email_verified,
         profile_picture=COALESCE(users.profile_picture, EXCLUDED.profile_picture),connected=EXCLUDED.connected,
         last_connected=EXCLUDED.last_connected,updated_at=CURRENT_TIMESTAMP, api_key_hash=EXCLUDED.api_key_hash, api_key_salt=EXCLUDED.api_key_salt
       RETURNING *`,
       [
-        id, data.email || null, data.google_id || null, data.google_name || null,
-        data.email_verified || false, data.profile_picture || null, data.wallet_address || null, true,
+        userId, data.email, data.google_id || null, data.google_name || null,
+        data.email_verified || false, data.profile_picture || null, true,
         new Date(), 0, 0, 0, 0, false, false, "Basic", false, false,
         api_key_hash, api_key_salt, new Date(),
       ]
     );
-    logger.info("User created", { id, email: data.email, wallet: data.wallet_address, rowCount: rows.length });
+    logger.info("User created", { id: userId, email: data.email, rowCount: rows.length });
     return { ...rows[0], id: rows[0].id.toString() };
   },
-  // NEW: Create/update for Farcaster (assumes column exists)
-  async createFarcasterUser(fid, fallbackEmail) {
-    const id = uuidv4();
-    const plainApiKey = randomBytes(32).toString("hex");
-    const { api_key_hash, api_key_salt } = await hashApiKey(plainApiKey);
-    try {
-      const { rows } = await query(
-        `INSERT INTO users (
-          id,email,farcaster_fid,google_name,email_verified,profile_picture,wallet_address,
-          connected,last_connected,points,tweet_points,ai_points,task_points,
-          is_creator,is_ai_rank,tier,is_plus,is_premium,api_key_hash,api_key_salt,created_at
-        ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21)
-        ON CONFLICT (farcaster_fid) DO UPDATE SET
-          email=COALESCE(EXCLUDED.email, users.email),google_name=EXCLUDED.google_name,email_verified=EXCLUDED.email_verified,
-          profile_picture=COALESCE(users.profile_picture, EXCLUDED.profile_picture),connected=EXCLUDED.connected,
-          last_connected=EXCLUDED.last_connected,updated_at=CURRENT_TIMESTAMP, api_key_hash=EXCLUDED.api_key_hash, api_key_salt=EXCLUDED.api_key_salt
-        RETURNING *`,
-        [
-          id, fallbackEmail, fid, `Farcaster User #${fid}`, true, null, null, true,
-          new Date(), 0, 0, 0, 0, false, false, "Basic", false, false,
-          api_key_hash, api_key_salt, new Date(),
-        ]
-      );
-      logger.info("Farcaster user created/updated", { id, fid, rowCount: rows.length });
-      return { ...rows[0], id: rows[0].id.toString() };
-    } catch (err) {
-      if (err.message.includes('column "farcaster_fid" does not exist')) {
-        logger.error('farcaster_fid column missing; run: ALTER TABLE users ADD COLUMN farcaster_fid BIGINT;');
-        throw new Error('Database migration needed for Farcaster support');
-      }
-      throw err;
-    }
-  },
   async updateUser(data) {
-    logger.info("Updating user", { id: data.id, email: data.email, wallet: data.wallet_address });
-    // FIXED: General UPDATE without farcaster_fid
+    logger.info("Updating user", { id: data.id, email: data.email });
+    // Use COALESCE to avoid setting null values for required/important fields
     const { rows } = await query(
-      `UPDATE users SET
+      `UPDATE users SET 
         email = COALESCE($2, email),
         google_id = COALESCE($3, google_id),
         google_name = COALESCE($4, google_name),
         email_verified = COALESCE($5, email_verified),
         profile_picture = COALESCE($6, profile_picture),
-        wallet_address = COALESCE($7, wallet_address),
-        connected = $8,
-        last_connected = $9,
-        updated_at = $10
+        connected = $7,
+        last_connected = $8,
+        updated_at = $9
        WHERE id=$1 RETURNING *`,
       [
         data.id, data.email || null, data.google_id || null, data.google_name || null,
         data.email_verified !== undefined ? data.email_verified : null, data.profile_picture || null,
-        data.wallet_address || null, data.connected !== undefined ? data.connected : true,
+        data.connected !== undefined ? data.connected : true,
         data.last_connected || new Date(), new Date(),
       ]
     );
     logger.info("User updated", { id: data.id, rowCount: rows.length });
     return { ...rows[0], id: rows[0].id.toString() };
   },
-  // NEW: Update for Farcaster
-  async updateFarcasterUser(id, lastConnected) {
-    try {
-      await query(
-        `UPDATE users SET
-          last_connected = $1,
-          connected = $2,
-          updated_at = $3
-         WHERE id=$4`,
-        [lastConnected, true, new Date(), id]
-      );
-      logger.info("Farcaster user updated", { id });
-    } catch (err) {
-      if (err.message.includes('column "farcaster_fid" does not exist')) {
-        logger.error('farcaster_fid column missing; run migration');
-        throw new Error('Database migration needed');
-      }
-      throw err;
-    }
+  // NEW: Update cho Farcaster/QuickAuth (thêm farcaster_fid nếu có) - fidNum là number
+  async updateFarcasterUser(id, fid) {
+    const fidNum = Number(fid);
+    await query(
+      `UPDATE users SET farcaster_fid = $1, last_connected = $2, connected = $3, updated_at = $4 WHERE id = $5`,
+      [fidNum, new Date(), true, new Date(), id]
+    );
+    logger.info("Farcaster user updated", { id, fid: fidNum });
   },
   async createVerificationToken({ identifier, expires, token }) {
     logger.info("Creating verification token", { identifier });
+    // Ensure identifier (email) is not null
     if (!identifier) {
       logger.error("Cannot create verification token without identifier");
       throw new Error("Identifier is required for verification token");
@@ -446,6 +170,7 @@ const customAdapter = {
   },
   async useVerificationToken({ identifier, token }) {
     logger.info("Using verification token", { identifier });
+    // Ensure identifier is not null
     if (!identifier) {
       logger.error("Cannot use verification token without identifier");
       return null;
@@ -457,8 +182,11 @@ const customAdapter = {
     return rows[0] || null;
   },
 };
+
 const isProd = process.env.NODE_ENV === 'production';
-const cookieDomain = isProd ? '.xynapseai.net' : undefined; // Dev: undefined (default localhost), Prod: share subdomain
+const cookieDomain = isProd ? '.xynapseai.net' : undefined;  // Dev: undefined (default localhost), Prod: share subdomain
+
+
 // ================== Auth Options ==================
 export const authOptions = {
   adapter: customAdapter,
@@ -486,6 +214,7 @@ export const authOptions = {
       from: process.env.EMAIL_FROM,
       sendVerificationRequest: async ({ identifier, url, provider }) => {
         logger.info("Sending email verification", { identifier, url });
+        // Ensure identifier is valid email
         if (!identifier || !identifier.includes('@')) {
           logger.error("Invalid email identifier for verification", { identifier });
           throw new Error("Invalid email address");
@@ -513,73 +242,146 @@ export const authOptions = {
       },
     }),
     CredentialsProvider({
-      name: 'base',
+      id: 'farcaster',
+      name: 'Sign in with Farcaster',
       credentials: {
-        message: { label: 'Message', type: 'text' },
-        signature: { label: 'Signature', type: 'text' },
-      },
-      async authorize(credentials) {
-        try {
-          const { address } = await verifySiwe(credentials);
-          let user = await customAdapter.getUserByWallet(address);
-          if (!user) {
-            const fallbackEmail = `${address.toLowerCase()}@base.xynapseai.net`;
-            user = await customAdapter.createUser({
-              wallet_address: address,
-              email: fallbackEmail,
-              email_verified: true, // Verified qua SIWE signature
-            });
-            await query(
-              `INSERT INTO accounts (userId, type, provider, providerAccountId) VALUES ($1, $2, $3, $4)`,
-              [user.id, 'credentials', 'base', address]
-            );
-          } else {
-            // Update last_connected
-            await customAdapter.updateUser({ id: user.id, last_connected: new Date() });
-          }
-          logger.info('Base Account login successful', { address: user.wallet_address, email: user.email });
-          return {
-            id: user.id || address,
-            email: user.email,
-            name: user.google_name || `Base User ${address.slice(0, 6)}`,
-            wallet_address: address,
-          };
-        } catch (error) {
-          logger.error('Base authorize failed', { error: error.message });
-          return null;
-        }
-      },
-    }),
-    // NEW: Farcaster Provider using Quick Auth JWT
-    CredentialsProvider({
-      name: 'farcaster',
-      credentials: {
-        token: { label: 'Token', type: 'text' },
+        message: { label: "SIWE Message", type: "text" },
+        signature: { label: "Signature", type: "text" },
+        token: { label: "QuickAuth Token", type: "text" }, // NEW: Cho quickauth
       },
       async authorize(credentials, req) {
         try {
-          const { fid } = await verifyFarcasterJwt(credentials, req);
-          let user = await customAdapter.getUserByFid(fid);
-          if (!user) {
-            const fallbackEmail = `fid${fid}@farcaster.xynapseai.net`;
-            user = await customAdapter.createFarcasterUser(fid, fallbackEmail);
-            await query(
-              `INSERT INTO accounts (userId, type, provider, providerAccountId) VALUES ($1, $2, $3, $4)`,
-              [user.id, 'credentials', 'farcaster', fid.toString()]
+          let fid;
+          // NEW: Handle quickauth token (cho miniapp)
+          if (credentials.token) {
+            fid = await verifyFarcasterJwt(credentials.token, req);
+          } else if (credentials.message && credentials.signature) {
+            // Old SIWE flow
+            const message = new SiweMessage(credentials.message);
+            const fields = message.prepareMessage();
+
+            if (fields !== credentials.message) {
+              logger.error("Invalid Farcaster message fields");
+              return null;
+            }
+
+            const valid = await message.verify({ signature: credentials.signature });
+            if (!valid) {
+              logger.error("Invalid Farcaster signature");
+              return null;
+            }
+
+            // FIXED: Validate FIP-11 fields (robust chainId comparison)
+            if (message.statement !== 'Farcaster Auth') {
+              logger.error("Invalid Farcaster statement: expected 'Farcaster Auth'", { statement: message.statement });
+              return null;
+            }
+
+            // THAY ĐỔI: Chuyển sang Base chainId 8453 (thay vì Optimism 10) - nhưng Farcaster vẫn dùng Optimism 10
+            if (Number(message.chainId) !== 10) {
+              logger.error("Invalid Farcaster chainId: expected 10 (Optimism)", {
+                chainId: message.chainId,
+                type: typeof message.chainId,
+                parsed: Number(message.chainId)
+              });
+              return null;
+            }
+
+            const resources = message.resources;
+            if (!resources || !Array.isArray(resources) || resources.length === 0) {
+              logger.error("No resources in Farcaster message");
+              return null;
+            }
+
+            // FIXED: Match both spec (fids/) and impl (fid/) formats
+            const fidResource = resources.find(r =>
+              typeof r === 'string' &&
+              (r.startsWith('farcaster://fids/') || r.startsWith('farcaster://fid/'))
             );
+            if (!fidResource) {
+              logger.error("No FID resource in Farcaster message", { resources });
+              return null;
+            }
+
+            // FIXED: Regex for both (?:fids|fid)
+            const fidMatch = fidResource.match(/farcaster:\/\/(?:fids|fid)\/(\d+)/);
+            if (!fidMatch) {
+              logger.error("Invalid FID resource format", { fidResource });
+              return null;
+            }
+            fid = fidMatch[1];
           } else {
-            // Update last_connected
-            await customAdapter.updateFarcasterUser(user.id, new Date());
+            throw new Error('Missing credentials for Farcaster auth');
           }
-          logger.info('Farcaster login successful', { fid: user.farcaster_fid, email: user.email });
-          return {
-            id: user.id || fid.toString(),
-            email: user.email,
-            name: user.google_name || `Farcaster User #${fid}`,
-            farcaster_fid: fid,
-          };
-        } catch (error) {
-          logger.error('Farcaster authorize failed', { error: error.message });
+
+          // FIXED: Đảm bảo fid là number
+          const fidNum = Number(fid);
+          const fidStr = fid.toString();
+
+          // THAY ĐỔI: Neynar v2 - Khởi tạo config và client
+          const config = new Configuration({
+            apiKey: process.env.NEYNAR_API_KEY,
+            baseOptions: {
+              headers: {
+                "x-neynar-experimental": true,
+              },
+            },
+          });
+          const client = new NeynarAPIClient(config);
+
+          // THAY ĐỔI: fetchBulkUsers thay vì fetchUser (v2 API)
+          let userInfo = { pfp_url: null, display_name: null, username: null };  // FIX: Init với pfp_url
+          try {
+            const res = await client.fetchBulkUsers({ fids: [fidNum] });  // Array FID, parseInt cho số
+            const fetchedUser = res.users[0];  // Lấy user đầu tiên
+            if (fetchedUser) {
+              userInfo = {
+                pfp_url: fetchedUser.pfp_url || null,  // FIX: Dùng pfp_url trực tiếp (không phải pfp.url)
+                display_name: fetchedUser.display_name || null,
+                username: fetchedUser.username || null,
+              };
+              logger.info("Neynar user fetched successfully", { fid: fidNum, pfp_url: userInfo.pfp_url ? 'present' : 'missing' });  // THÊM: Log để debug
+            } else {
+              logger.warn("No user found in Neynar response", { fid: fidNum });
+            }
+          } catch (neynarErr) {
+            logger.warn("Neynar fetch failed (proceeding without profile info)", { fid: fidNum, error: neynarErr.message });
+          }
+
+          const fakeEmail = `${fid}@farcaster.local`;
+
+          // FIXED: Sử dụng fidStr cho id lookup (vì id text)
+          const existingUser = await customAdapter.getUserByFid(fidStr);
+
+          if (existingUser) {
+            await customAdapter.updateFarcasterUser(existingUser.id, fidNum); // NEW: Update FID nếu có
+            return existingUser;
+          }
+
+          // Tạo user mới với id = fidStr (string)
+          const newUser = await customAdapter.createUser({
+            id: fidStr,  // FIXED: String cho text column
+            email: fakeEmail,
+            profile_picture: userInfo.pfp_url || null,  // FIX: Dùng pfp_url thay pfp?.url
+            google_name: userInfo.display_name || userInfo.username || null,
+            email_verified: true,
+          });
+
+          // Link account
+          await query(
+            `INSERT INTO accounts (userId, type, provider, providerAccountId)
+             VALUES ($1, $2, $3, $4)
+             ON CONFLICT (provider, providerAccountId) DO NOTHING`,
+            [newUser.id, 'credentials', 'farcaster', fidStr]  // FIXED: providerAccountId string
+          );
+
+          // NEW: Update FID column nếu có (migration needed: ALTER TABLE users ADD COLUMN farcaster_fid BIGINT;)
+          await query(`UPDATE users SET farcaster_fid = $1 WHERE id = $2`, [fidNum, newUser.id]);
+
+          logger.info("Farcaster user created/authorized", { fid: fidNum });
+          return newUser;
+        } catch (err) {
+          logger.error("Farcaster authorize error", { error: err.message });
           return null;
         }
       },
@@ -588,14 +390,17 @@ export const authOptions = {
   callbacks: {
     async signIn({ user, account, profile }) {
       try {
-        logger.info("Sign-in attempt", { provider: account.provider, email: user.email, wallet: user.wallet_address });
+        logger.info("Sign-in attempt", { provider: account.provider, providerId: account.providerId || account.id, email: user.email });  // THÊM: Log account.id cho debug
         let email = user.email || "";
         let googleId = null, googleName = null, profilePic = "", verified = false, userId = null;
-        if (!email && !user.wallet_address) {
-          logger.error("Sign-in failed: No email or wallet provided", { provider: account.provider });
+
+        if (!email) {
+          logger.error("Sign-in failed: No email provided", { provider: account.provider });
           return false;
         }
+
         if (account.provider === "google") {
+          // ... (giữ nguyên phần Google)
           email = profile.email || user.email || "";
           if (!email) {
             logger.error("Google sign-in failed: No email in profile", { providerAccountId: profile.sub });
@@ -606,33 +411,35 @@ export const authOptions = {
           googleName = profile.name;
           verified = profile.email_verified || false;
           userId = googleId;
+
           const existingUser = await customAdapter.getUserByEmail(email);
-          if (existingUser && !existingUser.google_id && !existingUser.wallet_address) {
+          if (existingUser && !existingUser.google_id) {
             logger.warn("Google sign-in denied: Account exists with email only", { email });
             return "This account was registered with email. Please use the old login method (by Email).";
           }
+
+          // Cho Google: Luôn INSERT/UPDATE với ON CONFLICT google_id
           const plainApiKey = randomBytes(32).toString("hex");
           const { api_key_hash, api_key_salt } = await hashApiKey(plainApiKey);
-          // FIXED: Google-specific INSERT without farcaster_fid
+
           const result = await query(
             `INSERT INTO users (
-              id, email, google_id, google_name, email_verified, profile_picture, wallet_address,
+              id, email, google_id, google_name, email_verified, profile_picture,
               connected, last_connected, points, tweet_points, ai_points, task_points,
               is_creator, is_ai_rank, tier, is_plus, is_premium, api_key_hash, api_key_salt, created_at
-            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21)
+            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20)
             ON CONFLICT (google_id) DO UPDATE SET
-              email=EXCLUDED.email, google_name=EXCLUDED.google_name, email_verified=EXCLUDED.email_verified,
-              profile_picture=COALESCE(users.profile_picture, EXCLUDED.profile_picture),
-              wallet_address=COALESCE(users.wallet_address, EXCLUDED.wallet_address),
-              connected=EXCLUDED.connected,
-              last_connected=EXCLUDED.last_connected, updated_at=CURRENT_TIMESTAMP,
-              api_key_hash=EXCLUDED.api_key_hash, api_key_salt=EXCLUDED.api_key_salt`,
+              email=EXCLUDED.email, google_name=EXCLUDED.google_name, email_verified=EXCLUDED.email_verified, 
+              profile_picture=COALESCE(users.profile_picture, EXCLUDED.profile_picture), connected=EXCLUDED.connected,
+              last_connected=EXCLUDED.last_connected, updated_at=CURRENT_TIMESTAMP, api_key_hash=EXCLUDED.api_key_hash, api_key_salt=EXCLUDED.api_key_salt`,
             [
-              userId, email, googleId, googleName, verified, profilePic, null, true, new Date(),
+              userId, email, googleId, googleName, verified, profilePic, true, new Date(),
               0, 0, 0, 0, false, false, "Basic", false, false, api_key_hash, api_key_salt, new Date(),
             ]
           );
+
           logger.info("Google user insert/update result", { userId, email, rowCount: result.rowCount });
+
           await query(
             `INSERT INTO accounts (userId, type, provider, providerAccountId, access_token, expires_at, token_type, scope, id_token)
              VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
@@ -644,81 +451,91 @@ export const authOptions = {
               account.token_type, account.scope, account.id_token,
             ]
           );
+
           logger.info("Sign-in successful", { userId, email });
           return true;
-        } else if (account.provider === "email") {
+        }
+        // FIXED: Đổi account.providerId -> account.provider (Auth.js v5 set provider = id cho credentials)
+        else if (account.provider === "farcaster") {
+          // FIXED: Đảm bảo user.id là string
+          user.id = account.providerAccountId.toString();
+          logger.info("Farcaster sign-in successful (DB handled in authorize)", { fid: user.id });
+          return true; // No redundant updates needed
+        }
+        else if (account.provider === "email") {
+          // ... (giữ nguyên phần Email)
           email = user.email || account.user?.email || "";
           if (!email) {
             logger.error("Email sign-in failed: No email provided", { token: account.token });
             return false;
           }
           verified = true;
+
+          // Check existing user by email
           const existingUser = await customAdapter.getUserByEmail(email);
           if (existingUser) {
             userId = existingUser.id;
+            // Update existing user
             await query(
-              `UPDATE users SET
+              `UPDATE users SET 
                 last_connected = $1, connected = $2, email_verified = $3, updated_at = $4
               WHERE id = $5`,
               [new Date(), true, verified, new Date(), userId]
             );
             logger.info("Existing email user updated", { userId, email });
+
+            // Update API key nếu cần (tùy chọn, vì đã có từ trước)
             const plainApiKey = randomBytes(32).toString("hex");
             const { api_key_hash, api_key_salt } = await hashApiKey(plainApiKey);
             await query(
               `UPDATE users SET api_key_hash = $1, api_key_salt = $2 WHERE id = $3`,
               [api_key_hash, api_key_salt, userId]
             );
+
             logger.info("Sign-in successful for existing user", { userId, email });
             return true;
           } else {
+            // Tạo user mới cho email
             userId = uuidv4();
             const plainApiKey = randomBytes(32).toString("hex");
             const { api_key_hash, api_key_salt } = await hashApiKey(plainApiKey);
-            // FIXED: Email-specific INSERT without farcaster_fid
+
             const result = await query(
               `INSERT INTO users (
-                id, email, google_id, google_name, email_verified, profile_picture, wallet_address,
+                id, email, google_id, google_name, email_verified, profile_picture,
                 connected, last_connected, points, tweet_points, ai_points, task_points,
                 is_creator, is_ai_rank, tier, is_plus, is_premium, api_key_hash, api_key_salt, created_at
-              ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21)`,
+              ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20)`,
               [
-                userId, email, null, null, verified, null, null, true, new Date(),
+                userId, email, null, null, verified, null, true, new Date(),
                 0, 0, 0, 0, false, false, "Basic", false, false, api_key_hash, api_key_salt, new Date(),
               ]
             );
+
             logger.info("New email user created", { userId, email, rowCount: result.rowCount });
             logger.info("Sign-in successful", { userId, email });
             return true;
           }
-        } else if (account.provider === "credentials") { // Base login
-          logger.info("Base sign-in successful", { wallet: user.wallet_address });
-          return true;
-        } else if (account.provider === "farcaster") { // NEW: Farcaster login
-          logger.info("Farcaster sign-in successful", { fid: user.farcaster_fid });
-          return true;
         }
-        logger.error("Sign-in failed: Unsupported provider", { provider: account.provider });
+
+        logger.error("Sign-in failed: Unsupported provider", { provider: account.provider, providerId: account.providerId || account.id });  // FIX: Log account.id thêm
         return false;
       } catch (err) {
         logger.error("signIn error", { error: err.message, stack: err.stack });
         return false;
       }
     },
-    async jwt({ token, account, profile, user }) {
+    // ... (giữ nguyên jwt, session) - FIXED: token.id luôn string
+    async jwt({ token, account, profile }) {
       logger.info("JWT callback", { tokenId: token.id, email: token.email });
-      if (account && user) {
-        token.id = user.wallet_address || account.providerAccountId || token.sub || uuidv4();
+      if (account) {
+        // FIXED: Đảm bảo id string
+        token.id = (account.provider === "google" ? account.providerAccountId : token.sub || uuidv4()).toString();
         token.accessToken = account.access_token || randomBytes(32).toString("hex");
         token.expiresAt = Date.now() + 2 * 60 * 60 * 1000; // 2 hours
-        token.email = user.email || token.email || account.user?.email;
-        token.googleName = user.name || profile?.name || "";
-        token.walletAddress = user.wallet_address;
+        token.email = profile?.email || token.email || account.user?.email;
+        token.googleName = profile?.name || "";
         token.csrfToken = token.csrfToken || randomBytes(32).toString("hex");
-        // NEW: Add farcaster_fid if present
-        if (user.farcaster_fid) {
-          token.farcasterFid = user.farcaster_fid;
-        }
       }
       if (Date.now() > token.expiresAt) {
         logger.info("Token expired, refreshing", { tokenId: token.id });
@@ -736,31 +553,20 @@ export const authOptions = {
         throw new Error("Invalid token: missing id");
       }
       session.user = session.user || {};
-      session.user.id = token.id;
+      session.user.id = token.id.toString();  // FIXED: Đảm bảo string
       session.user.email = token.email;
       session.user.googleName = token.googleName;
-      session.user.walletAddress = token.walletAddress;
-      // NEW: Add farcaster_fid if present
-      if (token.farcasterFid) {
-        session.user.farcasterFid = token.farcasterFid;
-      }
       session.user.isPremium = token.isPremium || false;
       session.csrfToken = token.csrfToken;
       logger.info("Session created", { session: JSON.stringify(session) });
       return session;
     },
-    // FIXED: Prioritize original url if it's on subdomain, fallback to baseUrl
     async redirect({ url, baseUrl }) {
-      // FIXED: For Mini App/mobile, no redirect – return current url to stay in app
-      if (process.env.NODE_ENV === 'production' && !req?.headers?.host) { // Mobile flag
-        return url; // Keep current (no change)
-      }
-      // Nếu url là absolute và match domain của bạn, giữ nguyên
-      if (url.startsWith('https://') && url.includes('xynapseai.net')) {
-        return url;
-      }
-      // Fallback relative đến dashboard trên domain hiện tại (dùng baseUrl động)
-      return new URL('/dashboard', baseUrl).toString();
+      // FIXED: Clear callbackUrl query để avoid loop
+      let cleanUrl = url.replace(/[?&]callbackUrl=[^&]*/, '');
+      if (cleanUrl.startsWith('/')) return `${baseUrl}${cleanUrl}`;
+      if (cleanUrl === baseUrl || cleanUrl === `${baseUrl}/dashboard`) return cleanUrl;
+      return baseUrl + '/dashboard';
     },
   },
   ...(isProd && {
@@ -768,8 +574,8 @@ export const authOptions = {
       sessionToken: {
         name: 'next-auth.session-token',
         options: {
-          httpOnly: false,
-          sameSite: 'lax', // Changed back to 'none' for cross-site compatibility (e.g., mobile WebView)
+          httpOnly: false,  // FIX: false cho Mini App compatibility
+          sameSite: 'none',  // CHANGED: 'none' to allow cross-site (iframe) requests
           path: '/',
           secure: true,
           domain: cookieDomain,
@@ -779,7 +585,7 @@ export const authOptions = {
         name: 'next-auth.callback-url',
         options: {
           httpOnly: false,
-          sameSite: 'lax',
+          sameSite: 'none',  // CHANGED: 'none'
           path: '/',
           secure: true,
           domain: cookieDomain,
@@ -788,11 +594,11 @@ export const authOptions = {
       csrfToken: {
         name: 'next-auth.csrf-token',
         options: {
-          httpOnly: false,
-          sameSite: 'lax',
+          httpOnly: false,  // FIX: false để webview persist cookie
+          sameSite: 'none',  // CHANGED: 'none'
           path: '/',
           secure: true,
-          domain: process.env.COOKIE_DOMAIN || '.xynapseai.net',
+          domain: cookieDomain,
         },
       },
     },
@@ -804,4 +610,5 @@ export const authOptions = {
     error: "/auth/error",
   },
 };
+
 export default authOptions;
