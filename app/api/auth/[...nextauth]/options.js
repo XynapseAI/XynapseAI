@@ -201,7 +201,7 @@ async function verifyFarcasterJwt(credentials, req) {
 
     const quickAuthClient = createQuickAuthClient();
 
-    // STRICT: Dùng NEXTAUTH_URL env nếu có, fallback Referer/host
+    // STRICT: Dùng NEXTAUTH_URL env nếu có, fallback Referer/host → luôn ưu tiên main domain
     let domain = process.env.NEXTAUTH_URL ? new URL(process.env.NEXTAUTH_URL).hostname : null;
     if (!domain) {
       const host = req?.headers?.host;
@@ -209,15 +209,11 @@ async function verifyFarcasterJwt(credentials, req) {
       domain = host || (referer ? new URL(referer).hostname : process.env.APP_DOMAIN || 'xynapseai.net');
     }
 
-    // FIXED: Normalize domain: remove 'www.' if present, prioritize 'xynapseai.net'
-    domain = domain.replace(/^www\./, '');
-
-    const isMobileLikely = !req?.headers?.host ? true : false;  // Flag cho mobile
-
-    // UPDATED: Prioritize normalized 'xynapseai.net' for mobile/Mini App
-    if (isMobileLikely || !domain.includes('xynapseai.net')) {
-      domain = 'xynapseai.net';
-      logger.info('Forced normalized domain for mobile/unexpected referer:', { domain });
+    // FIXED: Không force 'base.' nữa (vì đã bỏ subdomain). Nếu mobile/referer warpcast, vẫn dùng main domain
+    const isMobileLikely = !req?.headers?.host || req.headers.referer?.includes('warpcast');  // Cải thiện detect mobile
+    if (isMobileLikely) {
+      domain = process.env.APP_DOMAIN || 'xynapseai.net';  // Force main domain cho mobile
+      logger.info('Mobile Farcaster detected, using main domain:', { domain });
     }
 
     logger.info('Farcaster verify attempt:', {
@@ -225,6 +221,7 @@ async function verifyFarcasterJwt(credentials, req) {
       tokenPreview: token.substring(0, 20) + '...',
       tokenLength: token.length,
       isMobileLikely,
+      referer: req?.headers?.referer?.substring(0, 50) + '...'
     });
 
     let payload;
@@ -232,35 +229,19 @@ async function verifyFarcasterJwt(credentials, req) {
       payload = await quickAuthClient.verifyJwt({ token, domain });
       logger.info('Primary verify success', { domain, fid: payload.sub });
     } catch (primaryErr) {
-      logger.warn('Primary verify failed, trying alts:', { domain, error: primaryErr.message });
-
-      // FIXED: Try multiple variations: with/without www, base subdomain
-      const alts = [
-        `www.${domain}`,
-        domain.replace('xynapseai.net', 'base.xynapseai.net'),
-        'xynapseai.net',
-        'www.xynapseai.net',
-        'base.xynapseai.net',
-      ].filter((d, i, arr) => arr.indexOf(d) === i);  // Unique
-
-      for (const alt of alts) {
-        try {
-          payload = await quickAuthClient.verifyJwt({ token, domain: alt });
-          logger.info('Alt verify success', { alt, fid: payload.sub });
-          domain = alt;  // Use successful alt
-          break;
-        } catch (altErr) {
-          logger.warn('Alt failed:', { alt, error: altErr.message });
-        }
-      }
-      if (!payload) throw primaryErr;  // If all fail, throw original
+      logger.warn('Primary verify failed, trying alt domain:', { domain, error: primaryErr.message });
+      // FIXED: Alt chỉ thử variant không có base (vì đã bỏ base subdomain)
+      const altDomain = domain.includes('www.') ? domain.replace('www.', '') : (domain.includes('.') ? domain : `www.${domain}`);
+      payload = await quickAuthClient.verifyJwt({ token, domain: altDomain });
+      domain = altDomain;  // Update to successful one
+      logger.info('Alt verify success', { altDomain, fid: payload.sub });
     }
 
     if (!payload?.sub) {
       throw new Error('Invalid payload: No FID (sub)');
     }
 
-    // Decode và log payload cho debug (không secret needed)
+    // Decode và log payload cho debug
     const decoded = JSON.parse(atob(token.split('.')[1]));
     logger.info('Decoded token claims:', {
       sub: decoded.sub,
@@ -282,7 +263,7 @@ async function verifyFarcasterJwt(credentials, req) {
       isInvalidToken: error instanceof Errors.InvalidTokenError,
       stack: error.stack?.substring(0, 200)
     });
-    throw error;  // Re-throw để NextAuth có error cụ thể (không return null)
+    throw error;
   }
 }
 

@@ -114,8 +114,11 @@ const useUserData = (session, csrfToken, setIsAnalyzing) => {
       });
       const result = await response.json();
       if (!response.ok) {
-        if (response.status === 401) {
-          setError('Session expired, please sign in again');
+        if (response.status === 401 || response.status === 404) {
+          // FIXED: Nếu 401/404 sau auth, force re-update session
+          toast.warn('Session sync issue, refreshing...');
+          await update();
+          router.refresh();
           return;
         }
         throw new Error(result.detail || 'Failed to fetch user data');
@@ -134,13 +137,17 @@ const useUserData = (session, csrfToken, setIsAnalyzing) => {
       safeError('Error fetching user data:', err);
       setError(`Failed to fetch user data: ${err.message}`);
       toast.error(`Error: ${err.message}`, { position: 'top-center' });
+      if (err.message.includes('401') || err.message.includes('404')) {
+        toast.error('Auth session expired. Reloading...', { position: 'top-center' });
+        router.refresh();
+      }
     } finally {
       setLoading(false);
       if (recaptchaRef.current) {
         recaptchaRef.current.reset();
       }
     }
-  }, [session, csrfToken]);
+  }, [session, csrfToken, update, router]);
 
   const handleAnalyzeTweets = useCallback(async () => {
     setIsAnalyzing(true);
@@ -407,16 +414,9 @@ export default function Dashboard() {
           const { token } = await sdk.quickAuth.getToken();
           if (!token) throw new Error('No token from SDK');
 
-          // UPDATED: More debug logs
-          console.log('Quick Auth Token Preview:', token.substring(0, 50) + '...');
+          console.log('Mobile token preview:', token.substring(0, 50) + '...');
           const payload = JSON.parse(atob(token.split('.')[1]));
-          toast.info(`Token AUD: ${payload.aud}, FID: ${payload.sub || 'MISSING'}`, { autoClose: false }); // Debug
-          console.log('Token Payload Details:', {
-            sub: payload.sub,  // FID
-            aud: payload.aud,  // Should be your domain, e.g., 'xynapseai.net'
-            iss: payload.iss,
-            exp: new Date(payload.exp * 1000).toISOString(),
-          });
+          console.log('Mobile token aud:', payload.aud);  // Debug aud
 
           const result = await signIn('farcaster', { redirect: false, token });
           if (result?.error) {
@@ -429,8 +429,10 @@ export default function Dashboard() {
           }
           toast.success('Farcaster auth OK!');
           await update();
+          // FIXED: Force refresh để sync session/cookie sau auth (tránh 404)
+          router.refresh();
+          window.location.reload();  // Heavy nhưng an toàn cho mobile webview
         } catch (err) {
-          toast.error(`Auth error: ${err.message}`);
           console.error('Mini App auth fail:', err);
           setMiniAppAuthError(err.message);
           if (retryCount < 2) return handleMiniAppAuth(retryCount + 1);
@@ -440,7 +442,7 @@ export default function Dashboard() {
       };
       handleMiniAppAuth();
     }
-  }, [inMiniApp, status, update]);
+  }, [inMiniApp, status, update, router]);
 
   // NEW: Debug useEffect cho Mobile Token (tạm thời, xóa sau khi fix)
   useEffect(() => {
