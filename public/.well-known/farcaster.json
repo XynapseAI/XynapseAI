@@ -1,4 +1,9 @@
 {
+  "accountAssociation": {
+    "header": "eyJmaWQiOjEzOTU0NzIsInR5cGUiOiJjdXN0b2R5Iiwia2V5IjoiMHg5NjYyNzg5MmMyMWEzRTQ3MTQzNzMyZUNlRENiNkJiMWM4ZjZlRjc0In0",
+    "payload": "eyJkb21haW4iOiJ4eW5hcHNlYWkubmV0In0",
+    "signature": "RYc1lsYxjZPRZ+WX4IxLI39qma/NxBKoBOiq6Y+64VANFClP+JDsM53xDjj6sv+Y6xGcIhE87mwCv/HWPI3wNhw="
+  },
   "miniapp": {
     "name": "Xynapse Mini App",
     "version": "1",
@@ -22,11 +27,6 @@
     "tagline": "AI Insights on Base",
     "ogTitle": "Xynapse Mini App",
     "ogDescription": "AI-Powered Crypto Analytics on Base"
-  },
-  "accountAssociation": {
-    "header": "eyJmaWQiOjEzOTU0NzIsInR5cGUiOiJjdXN0b2R5Iiwia2V5IjoiMHg5NjYyNzg5MmMyMWEzRTQ3MTQzNzMyZUNlRENiNkJiMWM4ZjZlRjc0In0",
-    "payload": "eyJkb21haW4iOiJ4eW5hcHNlYWkubmV0In0",
-    "signature": "RYc1lsYxjZPRZ+WX4IxLI39qma/NxBKoBOiq6Y+64VANFClP+JDsM53xDjj6sv+Y6xGcIhE87mwCv/HWPI3wNhw="
   },
   "baseBuilder": {
     "ownerAddress": "0x9389B506855f6Db781C0af6BE8F14Da1b1114b2d"
