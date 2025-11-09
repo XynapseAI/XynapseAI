@@ -116,7 +116,7 @@ const useUserData = (session, csrfToken, setIsAnalyzing) => {
         tweetPoints: result.user.tweet_points,
         aiPoints: result.user.ai_points,
       });
-      toast.success('User data loaded successfully!', { position: 'top-center' });
+      // REMOVED: toast.success('User data loaded successfully!', { position: 'top-center' }); // Silent load
       setError(null);
     } catch (err) {
       safeError('Error fetching user data:', err);
@@ -434,7 +434,7 @@ function DashboardInner() {
       if (result?.error) {
         throw new Error(result.error || 'Auth failed');
       }
-      toast.success('Signed in with Farcaster via QuickAuth!');
+      // REMOVED: toast.success('Signed in with Farcaster via QuickAuth!'); // Silent success
       setAuthSuccess(true); // NEW: Fix loop
       router.push('/dashboard', { shallow: true, scroll: false }); // NEW: Shallow để avoid query param loop
       await update();
@@ -563,7 +563,7 @@ function DashboardInner() {
         disconnect();
       }
 
-      toast.success('Signed out successfully!', { position: 'top-center' });
+      // REMOVED: toast.success('Signed out successfully!', { position: 'top-center' }); // Silent logout
       router.refresh();
       router.push('/dashboard');
     } catch (error) {
@@ -599,7 +599,7 @@ function DashboardInner() {
         setAuthSuccess(true); // NEW: Fix loop - hide form ngay
         router.push('/dashboard', { shallow: true, scroll: false }); // NEW: Shallow để avoid query param loop
         await update();
-        toast.success('Signed in with Farcaster successfully!');
+        // REMOVED: toast.success('Signed in with Farcaster successfully!'); // Silent success
         setFarcasterModalOpen(false);
         router.refresh();
       }
@@ -622,7 +622,7 @@ function DashboardInner() {
     e.preventDefault();
     try {
       await signIn('email', { email, callbackUrl: '/dashboard', redirect: false });
-      toast.success('Sign-in email sent, please check your inbox!', { position: 'top-center' });
+      // REMOVED: toast.success('Sign-in email sent, please check your inbox!', { position: 'top-center' }); // Silent send
     } catch (err) {
       safeError('Error signing in with email:', err);
       toast.error('Failed to sign in with email.', { position: 'top-center' });
@@ -650,6 +650,7 @@ function DashboardInner() {
         return;
       }
       window.location.href = result.url;
+      // No success toast for Google (redirects immediately)
     } catch (err) {
       safeError('Error signing in with Google:', err);
       toast.error(`Failed to sign in with Google: ${err.message}`, { position: 'top-center' });
@@ -897,7 +898,7 @@ function DashboardInner() {
           )}
           <p className="text-[8px] text-gray-600 ml-2">
             Protected by reCAPTCHA. See{' '}
-            <a href="https://policies.google.com/privacy" target="_blank" rel="noopener noreferrer" className="text-neon-blue">
+            <a href="https://policies.google.com/privacy" target="_0" rel="noopener noreferrer" className="text-neon-blue">
               Privacy Policy
             </a>{' '}
             &{' '}
