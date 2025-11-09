@@ -29,6 +29,7 @@ import "@farcaster/auth-kit/styles.css";
 import { AuthKitProvider, SignInButton } from "@farcaster/auth-kit";
 import { sdk } from '@farcaster/miniapp-sdk';  // Giữ cho miniapp
 import { useMiniApp, MiniAppProvider } from '@neynar/react';
+import { preconnect } from 'react-dom'; // NEW: For preconnect to Quick Auth server
 
 gsap.registerPlugin(MotionPathPlugin);
 
@@ -302,9 +303,11 @@ function DashboardInner() {
   const [authSuccess, setAuthSuccess] = useState(false); // NEW: Fix loop - track auth success để hide form ngay
   const recaptchaRef = useRef(null);
   const { userData, loading, error } = useUserData(session, csrfToken, setIsAnalyzing);
-  const miniApp = useMiniApp(); // FIXED: Hook này giờ nằm trong context của MiniAppProvider
+  const { isSDKLoaded, context, user: miniAppUser } = useMiniApp(); // FIXED: Destructure properly based on Neynar docs (user may be optional)
   const [isMiniApp, setIsMiniApp] = useState(false);
   const [miniAppAuthLoading, setMiniAppAuthLoading] = useState(false); // NEW: Loading cho quickauth
+
+  preconnect("https://auth.farcaster.xyz"); // NEW: Preconnect to Quick Auth server for faster token retrieval (as per docs)
 
   const openModal = (content) => {
     setModalContent(content);
@@ -386,29 +389,25 @@ function DashboardInner() {
     }
   }, [isMounted, providers, fetchProvidersWithRetry]);
 
-  // NEW: Detect Mini App (tích hợp quickauth)
+  // FIXED: Improved Mini App detection and auto-auth trigger based on Neynar docs. Use isSDKLoaded for detection (SDK only loads in Mini App). Trigger auth if no session. Call ready() after auth.
   useEffect(() => {
-    const initAndCheckEnvironment = async () => {
-      // Detect via hostname hoặc Neynar hook
-      const hostname = typeof window !== 'undefined' ? window.location.hostname : '';
-      const miniAppDetected = hostname.includes('farcaster.') || !!miniApp?.user;
-      setIsMiniApp(miniAppDetected);
+    const miniAppDetected = isSDKLoaded && (context === 'miniapp' || !!miniAppUser); // FIXED: Safer detection (assume context === 'miniapp' if available; fallback to !!miniAppUser)
+    setIsMiniApp(miniAppDetected);
 
-      if (miniAppDetected && sdk) {
-        try {
-          await sdk.actions.ready();  // Ẩn splash, show UI
-          safeLog('Mini App ready! User FID:', miniApp?.user?.fid);
-          // Auto-sign-in nếu chưa session (quickauth)
-          if (!session && miniApp?.user) {
-            handleMiniAppQuickAuth();
-          }
-        } catch (err) {
-          safeError('Mini App init error:', err);
-        }
-      }
-    };
-    initAndCheckEnvironment();
-  }, [miniApp, session]);
+    if (miniAppDetected && miniAppUser) {
+      safeLog('Mini App ready! User FID:', miniAppUser?.fid);
+    }
+
+    if (miniAppDetected && session) {
+      sdk.actions.ready(); // NEW: Call ready() if already authenticated
+    }
+  }, [isSDKLoaded, context, miniAppUser, session]);
+
+  useEffect(() => {
+    if (isMiniApp && !session && !miniAppAuthLoading) {
+      handleMiniAppQuickAuth();
+    }
+  }, [isMiniApp, session, miniAppAuthLoading]);
 
   // NEW: Handle quickauth cho miniapp (tích hợp vào old flow)
   const handleMiniAppQuickAuth = async () => {
@@ -430,13 +429,14 @@ function DashboardInner() {
       }
       toast.success('Signed in with Farcaster via QuickAuth!');
       setAuthSuccess(true); // NEW: Fix loop
-      router.push('/dashboard', { shallow: true, scroll: false }); // Shallow để avoid query param
+      router.push('/dashboard', { shallow: true, scroll: false }); // NEW: Shallow để avoid query param loop
       await update();
     } catch (err) {
       safeError('Mini App quickauth fail:', err);
       toast.error(`QuickAuth error: ${err.message}`);
     } finally {
       setMiniAppAuthLoading(false);
+      sdk.actions.ready(); // FIXED: Call ready() after auth (hide splash screen as per docs)
     }
   };
 
