@@ -306,6 +306,7 @@ function DashboardInner() {
   const { isSDKLoaded, context, user: miniAppUser } = useMiniApp(); // FIXED: Destructure properly based on Neynar docs (user may be optional)
   const [isMiniApp, setIsMiniApp] = useState(false);
   const [miniAppAuthLoading, setMiniAppAuthLoading] = useState(false); // NEW: Loading cho quickauth
+  const [miniAppAuthFailed, setMiniAppAuthFailed] = useState(false); // NEW: Track if auto-auth failed for Mini App
 
   preconnect("https://auth.farcaster.xyz"); // NEW: Preconnect to Quick Auth server for faster token retrieval (as per docs)
 
@@ -413,6 +414,7 @@ function DashboardInner() {
   const handleMiniAppQuickAuth = async () => {
     if (status !== 'unauthenticated') return;
     setMiniAppAuthLoading(true);
+    setMiniAppAuthFailed(false); // Reset failure state
     try {
       const { token } = await sdk.quickAuth.getToken();
       if (!token) throw new Error('No token from SDK');
@@ -434,6 +436,7 @@ function DashboardInner() {
     } catch (err) {
       safeError('Mini App quickauth fail:', err);
       toast.error(`QuickAuth error: ${err.message}`);
+      setMiniAppAuthFailed(true); // NEW: Set failure state to show retry UI
     } finally {
       setMiniAppAuthLoading(false);
       sdk.actions.ready(); // FIXED: Call ready() after auth (hide splash screen as per docs)
@@ -662,7 +665,7 @@ function DashboardInner() {
   }
 
   const requiresAuth = ['profile', 'ai', 'watchlists'].includes(activeTab);
-  const showLoginForm = status === 'unauthenticated' && requiresAuth && !authSuccess; // NEW: + !authSuccess để fix loop
+  const showLoginForm = status === 'unauthenticated' && requiresAuth && !authSuccess && !miniAppAuthFailed; // UPDATED: Hide form if auth failed in Mini App (show retry instead)
 
   return (
     <CurrencyProvider>
@@ -689,7 +692,49 @@ function DashboardInner() {
               transition={{ duration: 0.5 }}
               className="w-full h-full flex items-center justify-center"
             >
-              {showLoginForm ? (
+              {isMiniApp && miniAppAuthFailed ? (
+                <motion.div
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.8, ease: 'easeOut' }}
+                  className="w-full h-full p-4 md:p-0 flex items-center justify-center text-white font-saira relative"
+                >
+                  <div className="fixed inset-0 z-0">
+                    <Canvas camera={{ position: [0, 0, 5], fov: 75 }} dpr={[1, 1.5]} performance={{ min: 0.3 }}>
+                      <UniverseBackground />
+                    </Canvas>
+                  </div>
+                  <motion.div
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.5, ease: 'easeOut' }}
+                    className="relative z-20 bg-black/60 backdrop-blur-xs p-6 md:p-10 border border-white/15 rounded-lg max-w-sm w-full mx-4 flex flex-col items-center shadow-2xl shadow-black/50"
+                  >
+                    <motion.h1
+                      initial={{ opacity: 0, y: -10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ duration: 0.5, delay: 0.2 }}
+                      className="text-xl md:text-3xl font-bold text-white uppercase mb-3 text-center tracking-wide"
+                    >
+                      Authentication Failed
+                    </motion.h1>
+                    <motion.p
+                      initial={{ opacity: 0, y: -10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ duration: 0.5, delay: 0.3 }}
+                      className="text-[11px] md:text-xs text-gray-500 mb-6 text-center leading-relaxed"
+                    >
+                      QuickAuth failed. Please try again or contact support.
+                    </motion.p>
+                    <button
+                      onClick={handleMiniAppQuickAuth}
+                      className="w-full px-4 py-2.5 border-2 border-white/15 bg-white/10 text-white rounded-2xl text-sm font-semibold transition-all duration-300 hover:border-white/30 hover:bg-white/20 flex items-center justify-center"
+                    >
+                      <MatrixHoverEffect text="Retry Authentication" hoverColor="#FFFFFF" />
+                    </button>
+                  </motion.div>
+                </motion.div>
+              ) : showLoginForm ? (
                 <motion.div
                   initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: 1, y: 0 }}
@@ -745,7 +790,7 @@ function DashboardInner() {
                       <span className="text-gray-500 text-xs uppercase px-4">OR</span>
                       <div className="flex-1 h-px bg-white/10"></div>
                     </div>
-                    {providers?.google && !isMiniApp && (
+                    {providers?.google && !isMiniApp && ( // UPDATED: Hide Google if in Mini App
                       <button
                         onClick={handleGoogleSignIn}
                         className="w-full px-4 py-2.5 bg-black/20 border border-white/25 rounded-2xl text-white text-sm font-semibold flex items-center justify-center gap-3 transition-all duration-300 hover:bg-gray-800/30 hover:border-white/40"
@@ -754,18 +799,20 @@ function DashboardInner() {
                         <MatrixHoverEffect text="Sign in with Google" />
                       </button>
                     )}
-                    <button onClick={() => setFarcasterModalOpen(true)} // Mở modal thay vì signIn trực tiếp
-                      className="w-full px-4 m-2 py-2.5 bg-black/20 border border-white/25 rounded-2xl text-white text-sm font-semibold flex items-center justify-center gap-3 transition-all duration-300 hover:bg-gray-800/30 hover:border-white/40"
-                    >
-                      <Image
-                        src="/logos/farcaster-logo.webp"
-                        alt="Farcaster Logo"
-                        width={20}
-                        height={20}
-                        className="w-6 h-6 rounded-xl object-contain"
-                      />
-                      <MatrixHoverEffect text="Sign in with Farcaster" />
-                    </button>
+                    {!isMiniApp && ( // UPDATED: Hide Farcaster QR button if in Mini App (use QuickAuth instead)
+                      <button onClick={() => setFarcasterModalOpen(true)} // Mở modal thay vì signIn trực tiếp
+                        className="w-full px-4 m-2 py-2.5 bg-black/20 border border-white/25 rounded-2xl text-white text-sm font-semibold flex items-center justify-center gap-3 transition-all duration-300 hover:bg-gray-800/30 hover:border-white/40"
+                      >
+                        <Image
+                          src="/logos/farcaster-logo.webp"
+                          alt="Farcaster Logo"
+                          width={20}
+                          height={20}
+                          className="w-6 h-6 rounded-xl object-contain"
+                        />
+                        <MatrixHoverEffect text="Sign in with Farcaster" />
+                      </button>
+                    )}
                     {error && (
                       <motion.div
                         initial={{ opacity: 0, y: -10 }}
