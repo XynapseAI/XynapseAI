@@ -392,8 +392,13 @@ function DashboardInner() {
 
   // FIXED: Improved Mini App detection and auto-auth trigger based on Neynar docs. Use isSDKLoaded for detection (SDK only loads in Mini App). Trigger auth if no session. Call ready() after auth.
   useEffect(() => {
-    const miniAppDetected = isSDKLoaded && (context === 'miniapp' || !!miniAppUser); // FIXED: Safer detection (assume context === 'miniapp' if available; fallback to !!miniAppUser)
+    // NEW: Fallback detection via user-agent if SDK fails (for troubleshooting mobile webview)
+    const userAgent = navigator.userAgent.toLowerCase();
+    const isFarcasterMobile = userAgent.includes('warpcast') || userAgent.includes('farcaster');
+    const miniAppDetected = isSDKLoaded && (context === 'miniapp' || !!miniAppUser) || isFarcasterMobile; // Add fallback
     setIsMiniApp(miniAppDetected);
+
+    safeLog('Mini App Detection Debug:', { isSDKLoaded, context, miniAppUser, userAgent, miniAppDetected });
 
     if (miniAppDetected && miniAppUser) {
       safeLog('Mini App ready! User FID:', miniAppUser?.fid);
@@ -790,7 +795,7 @@ function DashboardInner() {
                       <span className="text-gray-500 text-xs uppercase px-4">OR</span>
                       <div className="flex-1 h-px bg-white/10"></div>
                     </div>
-                    {providers?.google && !isMiniApp && ( // UPDATED: Hide Google if in Mini App
+                    {providers?.google && !isMiniApp && (
                       <button
                         onClick={handleGoogleSignIn}
                         className="w-full px-4 py-2.5 bg-black/20 border border-white/25 rounded-2xl text-white text-sm font-semibold flex items-center justify-center gap-3 transition-all duration-300 hover:bg-gray-800/30 hover:border-white/40"
@@ -799,7 +804,7 @@ function DashboardInner() {
                         <MatrixHoverEffect text="Sign in with Google" />
                       </button>
                     )}
-                    {!isMiniApp && ( // UPDATED: Hide Farcaster QR button if in Mini App (use QuickAuth instead)
+                    {!isMiniApp && ( // Hide Farcaster QR if in Mini App
                       <button onClick={() => setFarcasterModalOpen(true)} // Mở modal thay vì signIn trực tiếp
                         className="w-full px-4 m-2 py-2.5 bg-black/20 border border-white/25 rounded-2xl text-white text-sm font-semibold flex items-center justify-center gap-3 transition-all duration-300 hover:bg-gray-800/30 hover:border-white/40"
                       >

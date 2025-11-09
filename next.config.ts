@@ -87,6 +87,15 @@ const nextConfig: NextConfig = {
       },
     ]
   },
+  async redirects() {
+    return [
+      {
+        source: '/.well-known/farcaster.json',
+        destination: 'https://api.farcaster.xyz/miniapps/hosted-manifest/019a6371-a5b1-13b0-a2af-13a8de5cec0e',
+        permanent: false, // 307 redirect
+      },
+    ];
+  },
   webpack: (config, options) => {
     if (options.isServer) {
       config.resolve.alias = {
