@@ -91,7 +91,7 @@ async function verifyWorldSiwe(messageStr, signature) {
         name: 'World Chain',
         nativeCurrency: { decimals: 18, name: 'Ether', symbol: 'ETH' },
         rpcUrls: {
-          default: { http: ['https://world-rpc.publicnode.com'] },  // Public RPC ổn định hơn (từ community)
+          default: { http: ['https://worldchain-mainnet.g.alchemy.com/public'] },  // Official public RPC (Alchemy, no key needed)
         },
         blockExplorers: { default: { name: 'WorldScan', url: 'https://worldscan.org' } },
       };
