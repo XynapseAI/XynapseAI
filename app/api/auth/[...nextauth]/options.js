@@ -47,101 +47,101 @@ async function verifyFarcasterJwt(token, req) {
 async function verifyWorldSiwe(messageStr, signature) {
   try {
     const message = new SiweMessage(messageStr);
-    
-    // Bước 1: Thử standard ECDSA verify (cho EOA wallets)
+
+    // Log đầu vào để debug
+    logger.info('World SIWE input details', {
+      chainId: message.chainId,
+      address: message.address?.toLowerCase(),
+      signaturePreview: signature.substring(0, 10) + '...' + signature.slice(-10),  // Check nếu '0x...'
+      messagePreview: messageStr.substring(0, 50) + '...'
+    });
+
+    // Bước 1: Thử standard ECDSA verify
     let valid = false;
     try {
       valid = await message.verify({ signature });
-      logger.info('Standard SIWE verify attempted', { valid });
+      logger.info('Standard SIWE verify result', { valid });
     } catch (standardErr) {
-      logger.warn('Standard SIWE verify failed, falling back to EIP-1271', { error: standardErr.message });
+      logger.warn('Standard SIWE verify failed (expected for smart wallet)', { error: standardErr.message });
     }
 
     if (valid) {
-      // Standard OK
-      const allowedChains = [chains.optimism.id, chains.base.id, 480];  // 10, 8453, 480
+      const allowedChains = [10, 8453, 480];  // Optimism, Base, World
       if (!allowedChains.includes(Number(message.chainId))) {
-        throw new Error(`Invalid chainId: expected ${allowedChains.join('/')} (World ecosystem)`);
+        throw new Error(`Invalid chainId: expected ${allowedChains.join('/')}`);
       }
       const address = message.address.toLowerCase();
-      logger.info('World SIWE verified (standard ECDSA)', { address, chainId: message.chainId });
+      logger.info('World SIWE verified (ECDSA)', { address, chainId: message.chainId });
       return address;
     }
 
-    // Bước 2: Fallback EIP-1271 cho smart wallets (World App thường dùng cái này)
-    logger.info('Attempting EIP-1271 verification for smart wallet...');
+    // Bước 2: Fallback EIP-1271 cho smart wallet
+    logger.info('Fallback to EIP-1271 verification...');
     const chainId = Number(message.chainId);
     let chainConfig;
-    
-    if (chainId === chains.optimism.id) {
-      chainConfig = chains.optimism;  // RPC mặc định viem: https://mainnet.optimism.io
-    } else if (chainId === chains.base.id) {
+
+    if (chainId === 10) {
+      chainConfig = chains.optimism;  // RPC: https://mainnet.optimism.io
+    } else if (chainId === 8453) {
       chainConfig = chains.base;  // RPC: https://mainnet.base.org
     } else if (chainId === 480) {
-      // Custom config cho World Chain (id 480)
       chainConfig = {
         id: 480,
         name: 'World Chain',
         nativeCurrency: { decimals: 18, name: 'Ether', symbol: 'ETH' },
         rpcUrls: {
-          default: { http: ['https://worldchain-mainnet.rpc.particle.network'] },  // RPC public ổn định
+          default: { http: ['https://world-rpc.publicnode.com'] },  // Public RPC ổn định hơn (từ community)
         },
         blockExplorers: { default: { name: 'WorldScan', url: 'https://worldscan.org' } },
       };
     } else {
-      throw new Error(`Unsupported chainId: ${chainId}. Expected 10, 8453, or 480.`);
+      throw new Error(`Unsupported chainId: ${chainId}. Expected 10/8453/480.`);
     }
 
-    const publicClient = createPublicClient({ 
-      chain: chainConfig, 
-      transport: http()  // Sử dụng RPC từ chain config
+    const publicClient = createPublicClient({
+      chain: chainConfig,
+      transport: http()
     });
 
     const address = message.address.toLowerCase();
     const preparedMessage = message.prepareMessage();
-    const messageHash = hashMessage(preparedMessage);  // Hash chuẩn cho EIP-1271
-    const sigBytes = hexToBytes(signature);  // Chuyển signature thành bytes
+    const messageHash = hashMessage(preparedMessage);  // '0x...' hex
 
-    // Gọi isValidSignature trên wallet contract
-    const isValidSig = await publicClient.readContract({
-      address: address,
-      abi: [  // ABI chuẩn EIP-1271
-        {
-          name: 'isValidSignature',
-          type: 'function',
-          inputs: [
-            { type: 'bytes32', name: 'hash' },
-            { type: 'bytes', name: 'signature' }
-          ],
-          outputs: [{ type: 'bytes4' }],
-          stateMutability: 'view'
-        }
-      ],
-      functionName: 'isValidSignature',
-      args: [messageHash, sigBytes],
-    });
-
-    const MAGIC_VALUE = '0x1626ba7e';  // Magic value chuẩn EIP-1271
-    if (isValidSig.toLowerCase() !== MAGIC_VALUE.toLowerCase()) {
-      throw new Error(`Invalid EIP-1271 signature. Got: ${isValidSig}, expected: ${MAGIC_VALUE}`);
+    // Check hex valid để tránh replace error
+    if (!messageHash.startsWith('0x') || !signature.startsWith('0x')) {
+      throw new Error(`Invalid hex format: messageHash=${messageHash.substring(0, 10)}..., signature=${signature.substring(0, 10)}...`);
     }
 
-    // Kiểm tra chainId allowed (redundant nhưng an toàn)
-    const allowedChains = [10, 8453, 480];
-    if (!allowedChains.includes(chainId)) {
-      throw new Error(`Invalid chainId for EIP-1271: ${chainId}`);
+    // Gọi readContract với args hex string (an toàn hơn Uint8Array)
+    const isValidSig = await publicClient.readContract({
+      address: address,
+      abi: [{
+        name: 'isValidSignature',
+        type: 'function',
+        inputs: [
+          { type: 'bytes32', name: '_hash' },
+          { type: 'bytes', name: '_signature' }
+        ],
+        outputs: [{ type: 'bytes4' }],
+        stateMutability: 'view'
+      }],
+      functionName: 'isValidSignature',
+      args: [messageHash, signature],  // Hex strings trực tiếp
+    });
+
+    const MAGIC_VALUE = '0x1626ba7e';
+    if (isValidSig.toLowerCase() !== MAGIC_VALUE) {
+      throw new Error(`Invalid EIP-1271 sig. Got: ${isValidSig}, expected: ${MAGIC_VALUE}`);
     }
 
     logger.info('World SIWE verified (EIP-1271)', { address, chainId });
     return address;
   } catch (error) {
-    // Log chi tiết để debug (sẽ thấy ở Vercel logs)
-    logger.error('World SIWE verify failed (full details)', { 
-      error: error.message, 
+    logger.error('World SIWE verify failed (detailed)', {
+      error: error.message,
       stack: error.stack,
-      messageStr: messageStr?.substring(0, 100) + '...',  // Truncate để tránh log dài
-      signature: signature?.substring(0, 50) + '...',
-      chainId: messageStr ? new SiweMessage(messageStr).chainId : 'unknown'
+      chainId: new SiweMessage(messageStr).chainId,
+      address: new SiweMessage(messageStr).address
     });
     throw error;
   }
@@ -546,7 +546,7 @@ export const authOptions = {
             id: uuidv4(),  // UUID cho id
             email: fakeEmail,
             profile_picture: null,  // Có thể fetch nếu có API
-            google_name: address.slice(0,6) + '...' + address.slice(-4),  // Display name từ address
+            google_name: address.slice(0, 6) + '...' + address.slice(-4),  // Display name từ address
             email_verified: true,
             wallet_address: address,
           });
