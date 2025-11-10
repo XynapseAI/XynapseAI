@@ -1,3 +1,4 @@
+// app/api/connect-data/route.js
 // app/api/connect-data/route.js (assuming this is /api/user)
 import { NextResponse } from 'next/server';
 import { PrismaClient } from '@prisma/client';

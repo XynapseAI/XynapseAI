@@ -1,3 +1,4 @@
+// app/dashboard/page.js
 'use client';
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
@@ -68,7 +69,7 @@ async function hmacSha256(key, data) {
     .join('');
 }
 
-const useUserData = (session, csrfToken, setIsAnalyzing) => {
+const useUserData = (session, csrfToken, setIsAnalyzing, isWorldMiniApp) => {  // ADDED: isWorldMiniApp param
   const [userData, setUserData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -85,19 +86,22 @@ const useUserData = (session, csrfToken, setIsAnalyzing) => {
 
     setLoading(true);
     try {
-      if (!recaptchaRef.current) {
+      let recaptchaToken = null;
+      if (!isWorldMiniApp && !recaptchaRef.current) {  // MODIFIED: Skip reCAPTCHA for World Mini App
         throw new Error('reCAPTCHA component is not initialized');
       }
-      const recaptchaToken = await recaptchaRef.current.executeAsync();
-      if (!recaptchaToken) {
-        throw new Error('Failed to obtain reCAPTCHA token');
+      if (!isWorldMiniApp) {  // MODIFIED: Only execute if not World Mini App
+        recaptchaToken = await recaptchaRef.current.executeAsync();
+        if (!recaptchaToken) {
+          throw new Error('Failed to obtain reCAPTCHA token');
+        }
       }
       const jwtToken = session?.accessToken;
       const response = await fetch(`${API_BASE_URL}/user?uid=${encodeURIComponent(session.user.id)}`, {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',
-          'X-Recaptcha-Token': recaptchaToken,
+          ...(recaptchaToken && { 'X-Recaptcha-Token': recaptchaToken }),  // MODIFIED: Conditional header
           'X-CSRF-Token': csrfToken,
           Authorization: `Bearer ${jwtToken}`,
         },
@@ -126,11 +130,11 @@ const useUserData = (session, csrfToken, setIsAnalyzing) => {
       toast.error(`Error: ${err.message}`, { position: 'top-center' });
     } finally {
       setLoading(false);
-      if (recaptchaRef.current) {
+      if (recaptchaRef.current && !isWorldMiniApp) {  // MODIFIED: Reset only if used
         recaptchaRef.current.reset();
       }
     }
-  }, [session, csrfToken]);
+  }, [session, csrfToken, isWorldMiniApp]);  // ADDED: isWorldMiniApp to deps
 
   const handleAnalyzeTweets = useCallback(async () => {
     setIsAnalyzing(true);
@@ -304,12 +308,12 @@ function DashboardInner() {
   const [farcasterModalOpen, setFarcasterModalOpen] = useState(false);
   const [authSuccess, setAuthSuccess] = useState(false); // NEW: Fix loop - track auth success để hide form ngay
   const recaptchaRef = useRef(null);
-  const { userData, loading, error } = useUserData(session, csrfToken, setIsAnalyzing);
   const { isSDKLoaded, context, user: miniAppUser } = useMiniApp(); // FIXED: Destructure properly based on Neynar docs (user may be optional)
   const [isMiniApp, setIsMiniApp] = useState(false);
   const [miniAppAuthLoading, setMiniAppAuthLoading] = useState(false); // NEW: Loading cho quickauth
   const [miniAppAuthFailed, setMiniAppAuthFailed] = useState(false); // NEW: Track if auto-auth failed for Mini App
   const [isWorldMiniApp, setIsWorldMiniApp] = useState(false);  // NEW
+  const { userData, loading, error } = useUserData(session, csrfToken, setIsAnalyzing, isWorldMiniApp);  // MODIFIED: Pass isWorldMiniApp
   const [worldAuthLoading, setWorldAuthLoading] = useState(false);  // NEW
   const [worldAuthFailed, setWorldAuthFailed] = useState(false);  // NEW
 

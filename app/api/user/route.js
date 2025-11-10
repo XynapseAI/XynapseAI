@@ -1,4 +1,5 @@
 // app/api/user/route.js
+// app/api/user/route.js
 import { NextResponse } from 'next/server';
 import { PrismaClient } from '@prisma/client';
 import { auth } from '@/lib/auth';

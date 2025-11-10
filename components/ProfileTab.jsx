@@ -1,4 +1,5 @@
 // components/ProfileTab.jsx
+// components/ProfileTab.jsx
 'use client';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useState, useEffect, useCallback, useRef } from 'react';
