@@ -11,6 +11,7 @@ import crypto from 'crypto';
 import util from 'util';
 import { NeynarAPIClient, Configuration } from "@neynar/nodejs-sdk";  // THAY ĐỔI: Import Configuration cho v2
 import { createClient as createQuickAuthClient } from '@farcaster/quick-auth'; // NEW: Cho quickauth token verify
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 import { createPublicClient, http, hexToBytes, hashMessage } from 'viem';
 import * as chains from 'viem/chains';
 
