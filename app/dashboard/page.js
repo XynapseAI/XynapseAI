@@ -489,8 +489,8 @@ function DashboardInner() {
       const { finalPayload } = await MiniKit.commandsAsync.walletAuth({
         nonce,
         requestId: '0x' + Math.random().toString(16).substr(2, 8),  // Random requestId
-        expirationTime: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),  // 7 days
-        notBefore: new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString(),  // Allow 1 day back
+        expirationTime: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),  // 7 days
+        notBefore: new Date(Date.now() - 24 * 60 * 60 * 1000),  // Allow 1 day back
         statement: 'Sign in to XynapseAI with your World wallet.',  // Custom statement
       });
 
