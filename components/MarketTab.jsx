@@ -1085,7 +1085,7 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                             href={`https://twitter.com/${selectedToken?.links?.twitter_screen_name || localCache.current[`token-metadata-${selectedToken?.id}`]?.data?.links?.twitter_screen_name}`}
                             target="_blank"
                             rel="noreferrer"
-                            className="p-1 bg-white/10 rounded-lg hover:bg-white/20 transition-all duration-300 group hover:scale-110 hover:-translate-y-0.5" // CSS
+                            className="p-1 bg-white/10 rounded-lg hover:bg-white/20 transition-all duration-300 group" // CSS
                             title="Twitter"
                           >
                             <img
@@ -1105,7 +1105,7 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                             }
                             target="_blank"
                             rel="noreferrer"
-                            className="p-1 bg-white/10 rounded-lg hover:bg-white/20 transition-all duration-300 group hover:scale-110 hover:-translate-y-0.5"
+                            className="p-1 bg-white/10 rounded-lg hover:bg-white/20 transition-all duration-300 group"
                             title="Discord"
                           >
                             <img
@@ -1125,7 +1125,7 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                             }
                             target="_blank"
                             rel="noreferrer"
-                            className="p-1 bg-white/10 rounded-lg hover:bg-white/20 transition-all duration-300 group hover:scale-110 hover:-translate-y-0.5"
+                            className="p-1 bg-white/10 rounded-lg hover:bg-white/20 transition-all duration-300 group"
                             title="Website"
                           >
                             <img
@@ -1145,7 +1145,7 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                             }
                             target="_blank"
                             rel="noreferrer"
-                            className="p-1 bg-white/10 rounded-lg hover:bg-white/20 transition-all duration-300 group hover:scale-110 hover:-translate-y-0.5"
+                            className="p-1 bg-white/10 rounded-lg hover:bg-white/20 transition-all duration-300 group"
                             title="GitHub"
                           >
                             <img
@@ -1484,7 +1484,7 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                       setActiveMarketTab("holders")
                       setShowTrades(false)
                     }}
-                    className={`flex-1 px-6 py-2 font-semibold transition-all duration-300 relative p-1 group hover:scale-105 ${activeMarketTab === "holders" ? "text-white" : "text-white/60 hover:text-white hover:bg-white/5"
+                    className={`flex-1 px-6 py-2 font-semibold transition-all duration-300 relative p-1 group ${activeMarketTab === "holders" ? "text-white" : "text-white/60 hover:text-white hover:bg-white/5"
                       }`}
                     role="tab"
                     aria-selected={activeMarketTab === "holders"}
@@ -1498,18 +1498,18 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                       setActiveMarketTab("cex")
                       setShowTrades(false)
                     }}
-                    className={`flex-1 px-6 py-2 font-semibold transition-all duration-300 relative p-1 group hover:scale-105 ${activeMarketTab === "cex" ? "text-white" : "text-white/60 hover:text-white hover:bg-white/5"
+                    className={`flex-1 px-6 py-2 font-semibold transition-all duration-300 relative p-1 group ${activeMarketTab === "cex" ? "text-white" : "text-white/60 hover:text-white hover:bg-white/5"
                       }`}
                     role="tab"
                     aria-selected={activeMarketTab === "cex"}
                     aria-controls="cex-panel"
                     id="cex-tab"
                   >
-                    CEX MARKETS
+                    CEX
                   </button>
                   <button
                     onClick={handleDexTabClick}
-                    className={`flex-1 px-6 py-2 font-semibold transition-all duration-300 relative p-1 group hover:scale-105 ${activeMarketTab === "dex" ? "text-white" : "text-white/60 hover:text-white hover:bg-white/5"
+                    className={`flex-1 px-6 py-2 font-semibold transition-all duration-300 relative p-1 group${activeMarketTab === "dex" ? "text-white" : "text-white/60 hover:text-white hover:bg-white/5"
                       }`}
                     role="tab"
                     aria-selected={activeMarketTab === "dex"}
@@ -1518,11 +1518,6 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                   >
                     ON-CHAIN
                   </button>
-                  {/* CSS underline indicator */}
-                  <div
-                    className="absolute bottom-0 h-0.5 bg-white"
-                    style={tabIndicatorStyle}
-                  />
                 </div>
 
                 {/* Tab Content */}

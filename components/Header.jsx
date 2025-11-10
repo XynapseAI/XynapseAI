@@ -3,6 +3,8 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { Power, Search, BarChart3, Network, Activity, List, User } from 'lucide-react';
+import Link from 'next/link';
+import Image from 'next/image';
 import { useCurrency } from './CurrencyContext';
 import { logger } from '../utils/clientLogger';
 import '../styles/globals.css';
@@ -164,28 +166,28 @@ export default function Header({ activeTab, setActiveTab, handleSignOut, selecte
   };
 
   const menuVariants = {
-    closed: { 
-      y: '-100%', 
-      opacity: 0, 
+    closed: {
+      y: '-100%',
+      opacity: 0,
       scaleY: 0.8,
-      transition: { 
-        duration: 0.3, 
+      transition: {
+        duration: 0.3,
         ease: 'easeInOut',
         scaleY: { duration: 0.2, ease: 'easeOut' }
-      } 
+      }
     },
-    open: { 
-      y: 0, 
-      opacity: 1, 
+    open: {
+      y: 0,
+      opacity: 1,
       scaleY: 1,
-      transition: { 
-        duration: 0.4, 
+      transition: {
+        duration: 0.4,
         ease: 'easeOut',
         type: 'spring',
         stiffness: 300,
         damping: 25,
         scaleY: { duration: 0.3, ease: 'easeOut' }
-      } 
+      }
     },
   };
 
@@ -250,8 +252,8 @@ export default function Header({ activeTab, setActiveTab, handleSignOut, selecte
                     onClick={() => handleTabClick(tab.id)}
                     onMouseEnter={(e) => handleMouseEnter(e, tab.label)}
                     className={`group relative flex items-center gap-1 px-3 py-2 text-[10px] font-semibold uppercase rounded-lg transition-all duration-300 ease-out border border-transparent ${isActive
-                        ? 'text-neon-blue'
-                        : 'text-white/70 hover:text-white'
+                      ? 'text-neon-blue'
+                      : 'text-white/70 hover:text-white'
                       }`}
                   >
                     <Icon className={`w-3 h-3 flex-shrink-0 ${isActive ? 'text-white/80' : 'text-white/70 group-hover:text-white'}`} />
@@ -270,6 +272,29 @@ export default function Header({ activeTab, setActiveTab, handleSignOut, selecte
               })}
             </motion.nav>
           </AnimatePresence>
+        </div>
+
+        {/* Right side: Website logo and X logo */}
+        <div className="flex items-center gap-1">
+          <Link href="https://xynapseai.net" target="_blank" className="opacity-80 hover:opacity-100 transition-opacity">
+            <Image
+              src="/logos/website.webp"
+              alt="Xynapse Logo"
+              width={32}
+              height={16}
+              className="mr-2 h-4 w-auto opacity-80"
+              priority
+            />
+          </Link>
+          <Link href="https://x.com/xynapseai_" target="_blank" className="opacity-80 hover:opacity-100 transition-opacity">
+            <Image
+              src="/logos/x.webp"
+              alt="X Logo"
+              width={16}
+              height={16}
+              className="h-4 w-auto"
+            />
+          </Link>
         </div>
 
         <AnimatePresence>
@@ -303,8 +328,8 @@ export default function Header({ activeTab, setActiveTab, handleSignOut, selecte
                       onClick={() => handleTabClick(tab.id)}
                       onMouseEnter={(e) => handleMouseEnter(e, tab.label)}
                       className={`relative w-full flex items-center gap-2 px-3 py-3 text-sm font-semibold transition-all duration-300 rounded-lg border border-transparent ${isActive
-                          ? 'text-neon-blue'
-                          : 'text-white/70 hover:text-white hover:bg-white/5 hover:border-white/5'
+                        ? 'text-neon-blue'
+                        : 'text-white/70 hover:text-white hover:bg-white/5 hover:border-white/5'
                         }`}
                     >
                       <Icon className={`w-4 h-4 flex-shrink-0 ${isActive ? 'text-white/70' : 'text-white/70'}`} />
@@ -320,6 +345,28 @@ export default function Header({ activeTab, setActiveTab, handleSignOut, selecte
                   );
                 })}
               </nav>
+              {/* Add X logo to mobile menu footer for consistency */}
+              <div className="mt-auto pt-4 border-t border-white/10 flex justify-end">
+                <Link href="https://xynapseai.net" target="_blank" className="opacity-80 hover:opacity-100 transition-opacity">
+                  <Image
+                    src="/logos/website.webp"
+                    alt="Xynapse Logo"
+                    width={32}
+                    height={16}
+                    className="mr-2 h-5 w-auto opacity-80"
+                    priority
+                  />
+                </Link>
+                <Link href="https://x.com/xynapseai_" target="_blank" className="opacity-80 hover:opacity-100 transition-opacity">
+                  <Image
+                    src="/logos/x.webp"
+                    alt="X Logo"
+                    width={20}
+                    height={20}
+                    className="h-5 w-auto"
+                  />
+                </Link>
+              </div>
             </motion.div>
           )}
         </AnimatePresence>

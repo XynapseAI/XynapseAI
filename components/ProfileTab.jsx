@@ -378,14 +378,26 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
         }
         return cached;
       }
+      const controller = new AbortController();  // NEW: Timeout
+      const timeoutId = setTimeout(() => controller.abort(), 10000);  // 10s timeout
+
       try {
+        // NEW: Bypass reCAPTCHA if World user (email @world.local)
+        const isWorldUser = session.user.email?.includes('@world.local');
+        const token = isWorldUser ? 'bypass-recaptcha' : await debouncedExecuteRecaptcha('get_user_data');
+
         const response = await axios.get(`/api/user?uid=${encodeURIComponent(session.user.id)}`, {
           headers: {
             'x-csrf-token': csrfToken,
+            'X-Recaptcha-Token': token,  // Use 'bypass' for World
           },
           withCredentials: true,
+          signal: controller.signal,  // Abort on timeout
         });
+
+        clearTimeout(timeoutId);  // Clear timeout if success
         if (!response.data.success) throw new Error(response.data.detail || 'Unable to fetch user data');
+
         const user = {
           ...response.data.user,
           isPremium: response.data.user.isPremium || false,
@@ -393,7 +405,7 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
           twitterHandle: response.data.user.twitterHandle || null,
           profilePicture: response.data.user.profilePicture || '',
           googleName: response.data.user.googleName || '',
-          walletAddress: response.data.user.walletAddress || null, // Ensure wallet from API
+          walletAddress: response.data.user.walletAddress || null,
           daysActive: response.data.user.daysActive || 0,
           streak: response.data.user.streak || 0,
           last7Days: response.data.user.last7Days || [],
@@ -401,6 +413,8 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
         await cacheData(cacheKey, user, 24 * 60 * 1000);
         return user;
       } catch (err) {
+        clearTimeout(timeoutId);
+        if (err.name === 'AbortError') throw new Error('Request timeout - please refresh');
         if (process.env.NODE_ENV !== 'production') {
           logger.error('Error fetching user data:', err.response?.data || err.message);
         }
@@ -410,8 +424,12 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
     enabled: status === 'authenticated' && !!session?.user?.id && !!csrfToken,
     staleTime: 5 * 60 * 1000,
     retry: 3,
-    retryDelay: (attempt) => Math.min(1000 * 2 ** attempt, 30000),
+    retryDelay: (attempt) => Math.min(1000 * 2 ** attempt, 5000),
     onError: async (err) => {
+      if (err.message.includes('timeout')) {
+        toast.error('Profile load timed out. Refreshing in 5 seconds...', { position: 'top-center' });
+        setTimeout(() => window.location.reload(), 5000);
+      }
       if (process.env.NODE_ENV !== 'production') {
         logger.error('Error fetching user data:', err.response?.data || err.message);
       }
@@ -1112,18 +1130,7 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
       toast.error('Failed to clear cache. Please refresh the page manually.', { position: 'top-center', autoClose: 5000 });
     }
   };
-  if (status === 'loading' || csrfLoading) {
-    return (
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.6, ease: 'easeOut' }}
-        className="font-saira w-full max-w-9xl mx-auto p-2 sm:p-2 bg-gradient-to-br from-black/90 to-gray-900/90 rounded-2xl flex flex-col h-[calc(100vh-3rem)] overflow-y-auto hide-scrollbar border border-white/15 shadow-2xl"
-      >
-        <LoadingOverlay isLoading={true} isMobile={isMobile} />
-      </motion.div>
-    );
-  }
+  
   if (!session) {
     return <LoginPrompt />;
   }

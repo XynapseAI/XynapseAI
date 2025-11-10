@@ -918,7 +918,7 @@ export default function Home() {
                 ))}
               </div>
               <div className="flex gap-6">
-                <Link href="https://x.com" className="text-gray-500 hover:text-white transition-colors">
+                <Link href="https://x.com/xynapseai_" className="text-gray-500 hover:text-white transition-colors">
                   <Image
                     src="/logos/x.webp"
                     alt="X Logo"
@@ -1490,7 +1490,7 @@ export default function Home() {
           </div>
           <div className="flex flex-col md:flex-row justify-between items-center pt-8 border-t border-white/20">
             <div className="flex gap-6 mb-4 md:mb-0">
-              <Link href="https://x.com" target="_blank" className="text-gray-500 hover:text-white transition-colors">
+              <Link href="https://x.com/xynapseai_" target="_blank" className="text-gray-500 hover:text-white transition-colors">
                 <Image src="/logos/x.webp" alt="X Logo" width={24} height={24} className="h-5 sm:h-6 w-auto" />
               </Link>
               <span>
