@@ -26,7 +26,9 @@
     ],
     "tagline": "AI Insights on Base",
     "ogTitle": "Xynapse Mini App",
-    "ogDescription": "AI-Powered Crypto Analytics on Base"
+    "ogDescription": "AI-Powered Crypto Analytics on Base",
+    "heroImageUrl": "https://xynapseai.net/hero.png",
+    "ogImageUrl": "https://xynapseai.net/og.png"
   },
   "baseBuilder": {
     "ownerAddress": "0x9389B506855f6Db781C0af6BE8F14Da1b1114b2d"
