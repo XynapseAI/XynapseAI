@@ -1,6 +1,7 @@
 "use client"
 
-import { useEffect, useRef, useState , useMemo} from "react"
+import { useEffect, useRef, useState, useMemo } from "react"
+import { useRouter } from "next/navigation"
 import { motion, useInView, useScroll, useTransform } from "framer-motion"
 import { Canvas, useFrame } from "@react-three/fiber"
 import { OrbitControls, Sphere, Float, Environment, Stars } from "@react-three/drei"
@@ -623,6 +624,7 @@ function HeroSection() {
 }
 
 export default function Home() {
+  const router = useRouter();
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [lenis, setLenis] = useState(null)
   const [isProductOpen, setIsProductOpen] = useState(false)
@@ -631,6 +633,21 @@ export default function Home() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [modalContent, setModalContent] = useState(null);
   const [currentLogoIndex, setCurrentLogoIndex] = useState(0)
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const referrer = document.referrer.toLowerCase();
+      const isFromWorldApp = referrer.includes('worldcoin.org') ||
+        referrer.includes('world.org') ||
+        referrer.includes('worldapp') ||
+        referrer.includes('world app');  // Flexible matching cho user agent/referrer
+      if (isFromWorldApp) {
+        // Optional: Thêm delay nhỏ để tránh flash, hoặc log cho debug
+        console.log('Detected from World App, redirecting to /dashboard');
+        router.push('/dashboard');
+      }
+    }
+  }, [router]);
 
   const openModal = (content) => {
     setModalContent(content);
