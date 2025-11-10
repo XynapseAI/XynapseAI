@@ -16,20 +16,30 @@ export async function GET() {
     const expires = Date.now() + (ttlSeconds * 1000);
     await client.setEx(`siwe:nonce:${nonce}`, ttlSeconds, JSON.stringify({ expires }));
 
-    logger.info('Nonce generated and stored for SIWE', {
+    // NEW: Set HTTP-only cookie (secure cho prod, sameSite: 'none' cho cross-site World App)
+    const response = NextResponse.json({ nonce });
+    response.cookies.set('siwe', nonce, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'none',  // Cho cross-site World App
+      maxAge: ttlSeconds,
+      path: '/',
+    });
+
+    logger.info('Nonce generated and stored for SIWE (World Mini App)', {
       fullNonce: nonce,
       nonceLength: nonce.length,
       expires: new Date(expires).toISOString(),
       ttlSeconds
     });
-    return NextResponse.json({ nonce });
+    return response;
   } catch (error) {
     logger.error('Nonce generation failed', { error: error.message });
     return NextResponse.json({ error: 'Server error' }, { status: 500 });
   }
 }
 
-// Giữ DELETE (cleanup nonce on success/fail)
+// Giữ DELETE (cleanup nonce on success/fail - gọi sau auth thành công trong World flow)
 export async function DELETE(request) {
   try {
     const body = await request.json().catch(() => null);  // Handle no/invalid body
@@ -46,7 +56,7 @@ export async function DELETE(request) {
     const key = `siwe:nonce:${nonce}`;
     const deleted = await client.del(key);
     if (deleted > 0) {
-      logger.info('Nonce deleted successfully', { nonce: nonce.substring(0, 16) + '...' });
+      logger.info('Nonce deleted successfully (post-World auth)', { nonce: nonce.substring(0, 16) + '...' });
       return NextResponse.json({ success: true });
     } else {
       logger.warn('Nonce not found for deletion (already used/expired?)', { nonce: nonce.substring(0, 16) + '...', key });

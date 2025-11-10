@@ -139,6 +139,8 @@ const allowedOrigins = [
   "https://www.xynapseai.net",
   "https://base.xynapseai.net",
   "https://xynapse-ai-xynapse-projects.vercel.app",
+  "https://id.worldcoin.org",  // NEW: Cho World App webviews
+  "https://world.org",
 ].filter((v, i, a) => a.indexOf(v) === i);
 
 // IMPROVED: Updated to handle Origin: "null" from WebViews
@@ -161,7 +163,8 @@ async function isAllowedOrigin(origin, referer, pathname) {
         allowedOrigins.includes(refOrigin) ||
         referer.includes('farcaster.xyz') ||
         referer.includes('warpcast.com') ||
-        referer.includes('base.org') // Add Base app referer pattern
+        referer.includes('base.org') ||
+        referer.includes('worldcoin.org') || referer.includes('world.org') // NEW: Cho World
       ) {
         logger.info("Allowing null origin for trusted app/referer", { referer, refOrigin });
         return true;
@@ -174,8 +177,8 @@ async function isAllowedOrigin(origin, referer, pathname) {
         return true;
       }
       // FIXED: Allow Farcaster/Warpcast for Mini App
-      if (referer.includes('farcaster.xyz') || referer.includes('warpcast.com') || referer.includes('base.org')) {
-        logger.info("Allowing Farcaster/Warpcast/Base referer", { referer });
+      if (referer.includes('farcaster.xyz') || referer.includes('warpcast.com') || referer.includes('base.org') || referer.includes('worldcoin.org') || referer.includes('world.org')) {
+        logger.info("Allowing Farcaster/Warpcast/Base/World referer", { referer });
         return true;
       }
     }

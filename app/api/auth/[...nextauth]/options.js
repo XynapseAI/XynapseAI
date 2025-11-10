@@ -40,6 +40,26 @@ async function verifyFarcasterJwt(token, req) {
   }
 }
 
+// NEW: Verify World SIWE (tương tự Farcaster nhưng cho wallet address)
+async function verifyWorldSiwe(messageStr, signature) {
+  try {
+    const message = new SiweMessage(messageStr);
+    const valid = await message.verify({ signature });
+    if (!valid) throw new Error('Invalid SIWE signature');
+    // Relaxed chainId check for World (Optimism 10, Base 8453, World Chain 480)
+    const allowedChains = [10, 8453, 480];
+    if (!allowedChains.includes(Number(message.chainId))) {
+      throw new Error(`Invalid chainId: expected ${allowedChains.join('/')} (World ecosystem)`);
+    }
+    const address = message.address.toLowerCase();
+    logger.info('World SIWE verified', { address });
+    return address;
+  } catch (error) {
+    logger.error('World SIWE verify failed', { error: error.message });
+    throw error;
+  }
+}
+
 // ================== Email Transporter (giữ nguyên) ==================
 const transporter = createTransport({
   host: process.env.EMAIL_SERVER_HOST,
@@ -50,7 +70,7 @@ const transporter = createTransport({
   },
 });
 
-// ================== Custom Adapter (giữ nguyên + FIX cho Farcaster) ==================
+// ================== Custom Adapter (giữ nguyên + FIX cho Farcaster + NEW cho World) ==================
 const customAdapter = {
   async getUserByEmail(email) {
     logger.info("Fetching user by email", { email });
@@ -83,6 +103,14 @@ const customAdapter = {
     );
     return rows[0] ? { ...rows[0], id: rows[0].id.toString() } : null;
   },
+  // NEW: getUserByWallet
+  async getUserByWallet(walletAddress) {
+    const { rows } = await query(
+      `SELECT * FROM users WHERE wallet_address = $1`,
+      [walletAddress.toLowerCase()]
+    );
+    return rows[0] ? { ...rows[0], id: rows[0].id.toString() } : null;
+  },
   async createUser(data) {
     const id = data.google_id || data.id || uuidv4();
     logger.info("Creating user", { id, email: data.email });
@@ -104,18 +132,21 @@ const customAdapter = {
       `INSERT INTO users (
         id,email,google_id,google_name,email_verified,profile_picture,
         connected,last_connected,points,tweet_points,ai_points,task_points,
-        is_creator,is_ai_rank,tier,is_plus,is_premium,api_key_hash,api_key_salt,created_at
-      ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20)
+        is_creator,is_ai_rank,tier,is_plus,is_premium,api_key_hash,api_key_salt,created_at,
+        wallet_address
+      ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21)
       ON CONFLICT (google_id) DO UPDATE SET
         email=EXCLUDED.email,google_name=EXCLUDED.google_name,email_verified=EXCLUDED.email_verified,
         profile_picture=COALESCE(users.profile_picture, EXCLUDED.profile_picture),connected=EXCLUDED.connected,
-        last_connected=EXCLUDED.last_connected,updated_at=CURRENT_TIMESTAMP, api_key_hash=EXCLUDED.api_key_hash, api_key_salt=EXCLUDED.api_key_salt
+        last_connected=EXCLUDED.last_connected,updated_at=CURRENT_TIMESTAMP, api_key_hash=EXCLUDED.api_key_hash, api_key_salt=EXCLUDED.api_key_salt,
+        wallet_address=COALESCE(users.wallet_address, EXCLUDED.wallet_address)
       RETURNING *`,
       [
         userId, data.email, data.google_id || null, data.google_name || null,
         data.email_verified || false, data.profile_picture || null, true,
         new Date(), 0, 0, 0, 0, false, false, "Basic", false, false,
         api_key_hash, api_key_salt, new Date(),
+        data.wallet_address || null
       ]
     );
     logger.info("User created", { id: userId, email: data.email, rowCount: rows.length });
@@ -133,13 +164,15 @@ const customAdapter = {
         profile_picture = COALESCE($6, profile_picture),
         connected = $7,
         last_connected = $8,
-        updated_at = $9
+        updated_at = $9,
+        wallet_address = COALESCE($10, wallet_address)
        WHERE id=$1 RETURNING *`,
       [
         data.id, data.email || null, data.google_id || null, data.google_name || null,
         data.email_verified !== undefined ? data.email_verified : null, data.profile_picture || null,
         data.connected !== undefined ? data.connected : true,
         data.last_connected || new Date(), new Date(),
+        data.wallet_address || null
       ]
     );
     logger.info("User updated", { id: data.id, rowCount: rows.length });
@@ -153,6 +186,14 @@ const customAdapter = {
       [fidNum, new Date(), true, new Date(), id]
     );
     logger.info("Farcaster user updated", { id, fid: fidNum });
+  },
+  // NEW: updateWorldUser
+  async updateWorldUser(id, walletAddress) {
+    await query(
+      `UPDATE users SET wallet_address = $1, last_connected = $2, connected = $3, updated_at = $4 WHERE id = $5`,
+      [walletAddress.toLowerCase(), new Date(), true, new Date(), id]
+    );
+    logger.info("World user updated", { id, walletAddress });
   },
   async createVerificationToken({ identifier, expires, token }) {
     logger.info("Creating verification token", { identifier });
@@ -386,6 +427,62 @@ export const authOptions = {
         }
       },
     }),
+    // NEW: CredentialsProvider cho World (SIWE via Wallet Auth)
+    CredentialsProvider({
+      id: 'world',
+      name: 'Sign in with World',
+      credentials: {
+        message: { label: "SIWE Message", type: "text" },
+        signature: { label: "Signature", type: "text" },
+      },
+      async authorize(credentials) {
+        try {
+          if (!credentials.message || !credentials.signature) {
+            throw new Error('Missing credentials for World auth');
+          }
+
+          // Verify SIWE
+          const address = await verifyWorldSiwe(credentials.message, credentials.signature);
+
+          const fakeEmail = `${address}@world.local`;
+
+          // Tìm user bằng wallet_address
+          const existingUser = await customAdapter.getUserByWallet(address);
+
+          if (existingUser) {
+            await customAdapter.updateWorldUser(existingUser.id, address);
+            return existingUser;
+          }
+
+          // Tạo user mới
+          const newUser = await customAdapter.createUser({
+            id: uuidv4(),  // UUID cho id
+            email: fakeEmail,
+            profile_picture: null,  // Có thể fetch nếu có API
+            google_name: address.slice(0,6) + '...' + address.slice(-4),  // Display name từ address
+            email_verified: true,
+            wallet_address: address,
+          });
+
+          // Link account (tương tự Farcaster)
+          await query(
+            `INSERT INTO accounts (userId, type, provider, providerAccountId)
+             VALUES ($1, $2, $3, $4)
+             ON CONFLICT (provider, providerAccountId) DO NOTHING`,
+            [newUser.id, 'credentials', 'world', address]
+          );
+
+          // Update wallet_address (redundant nhưng an toàn)
+          await query(`UPDATE users SET wallet_address = $1 WHERE id = $2`, [address, newUser.id]);
+
+          logger.info("World user created/authorized", { address });
+          return newUser;
+        } catch (err) {
+          logger.error("World authorize error", { error: err.message });
+          return null;
+        }
+      },
+    }),
   ],
   callbacks: {
     async signIn({ user, account, profile }) {
@@ -461,6 +558,11 @@ export const authOptions = {
           user.id = account.providerAccountId.toString();
           logger.info("Farcaster sign-in successful (DB handled in authorize)", { fid: user.id });
           return true; // No redundant updates needed
+        }
+        else if (account.provider === "world") {
+          user.id = account.providerAccountId;  // address
+          logger.info("World sign-in successful", { address: user.id });
+          return true;
         }
         else if (account.provider === "email") {
           // ... (giữ nguyên phần Email)

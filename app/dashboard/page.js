@@ -29,6 +29,8 @@ import "@farcaster/auth-kit/styles.css";
 import { AuthKitProvider, SignInButton } from "@farcaster/auth-kit";
 import { sdk } from '@farcaster/miniapp-sdk';  // Giữ cho miniapp
 import { useMiniApp, MiniAppProvider } from '@neynar/react';
+import { MiniKit } from '@worldcoin/minikit-js';  // FIXED: Import MiniKit từ root, MiniKitProvider từ sub-module
+import { MiniKitProvider as WorldMiniKitProvider } from '@worldcoin/minikit-js/minikit-provider';  // FIXED: Import đúng path
 import { preconnect } from 'react-dom'; // NEW: For preconnect to Quick Auth server
 
 gsap.registerPlugin(MotionPathPlugin);
@@ -307,6 +309,9 @@ function DashboardInner() {
   const [isMiniApp, setIsMiniApp] = useState(false);
   const [miniAppAuthLoading, setMiniAppAuthLoading] = useState(false); // NEW: Loading cho quickauth
   const [miniAppAuthFailed, setMiniAppAuthFailed] = useState(false); // NEW: Track if auto-auth failed for Mini App
+  const [isWorldMiniApp, setIsWorldMiniApp] = useState(false);  // NEW
+  const [worldAuthLoading, setWorldAuthLoading] = useState(false);  // NEW
+  const [worldAuthFailed, setWorldAuthFailed] = useState(false);  // NEW
 
   preconnect("https://auth.farcaster.xyz"); // NEW: Preconnect to Quick Auth server for faster token retrieval (as per docs)
 
@@ -415,6 +420,20 @@ function DashboardInner() {
     }
   }, [isMiniApp, session, miniAppAuthLoading]);
 
+  // NEW: Detect World Mini App
+  useEffect(() => {
+    const worldDetected = MiniKit.isInstalled();
+    setIsWorldMiniApp(worldDetected);
+    safeLog('World Mini App Detection:', { worldDetected });
+  }, []);
+
+  // NEW: Auto-auth for World Mini App
+  useEffect(() => {
+    if (isWorldMiniApp && !session && !worldAuthLoading) {
+      handleWorldQuickAuth();
+    }
+  }, [isWorldMiniApp, session, worldAuthLoading]);
+
   // NEW: Handle quickauth cho miniapp (tích hợp vào old flow)
   const handleMiniAppQuickAuth = async () => {
     if (status !== 'unauthenticated') return;
@@ -426,8 +445,8 @@ function DashboardInner() {
 
       safeLog('Mini App quickauth token preview:', token.substring(0, 50) + '...');
 
-      const result = await signIn('farcaster', { 
-        redirect: false, 
+      const result = await signIn('farcaster', {
+        redirect: false,
         token,  // Pass token cho Credentials (cần update options.js để handle token)
         callbackUrl: '/dashboard'
       });
@@ -447,6 +466,91 @@ function DashboardInner() {
       sdk.actions.ready(); // FIXED: Call ready() after auth (hide splash screen as per docs)
     }
   };
+
+  // NEW: Handle World Wallet Auth (SIWE)
+  const handleWorldQuickAuth = async () => {
+    if (status !== 'unauthenticated') return;
+    setWorldAuthLoading(true);
+    setWorldAuthFailed(false);
+    try {
+      // FIXED: Check installed và manual install nếu cần
+      if (!MiniKit.isInstalled()) {
+        throw new Error('World App not detected. Please open in World App.');
+      }
+      // NEW: Manual install nếu error gợi ý (docs 2025: Optional nhưng fix unavailable)
+      await MiniKit.install();  // Auto nếu ready, nhưng force init
+
+      const res = await fetch('/api/nonce');
+      if (!res.ok) throw new Error('Failed to get nonce');
+      const { nonce } = await res.json();
+      if (!nonce) throw new Error('No nonce from server');
+
+      // FIXED: Thêm params đầy đủ theo docs (expirationTime, statement cho SIWE chuẩn)
+      const { finalPayload } = await MiniKit.commandsAsync.walletAuth({
+        nonce,
+        requestId: '0x' + Math.random().toString(16).substr(2, 8),  // Random requestId
+        expirationTime: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),  // 7 days
+        notBefore: new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString(),  // Allow 1 day back
+        statement: 'Sign in to XynapseAI with your World wallet.',  // Custom statement
+      });
+
+      // FIXED: Handle error status (unavailable → specific message)
+      if (finalPayload.status === 'error') {
+        if (finalPayload.error?.includes('unavailable') || finalPayload.error?.includes('install')) {
+          throw new Error('walletAuth unavailable. Update World App to v2.8.79+ and retry.');
+        }
+        throw new Error(finalPayload.error || 'Wallet auth failed');
+      }
+
+      const { message, signature } = finalPayload;
+
+      // NEW: Gọi complete-siwe để verify server-side trước NextAuth
+      const verifyRes = await fetch('/api/complete-siwe', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ payload: finalPayload, nonce }),
+      });
+      const verifyData = await verifyRes.json();
+      if (!verifyRes.ok || !verifyData.isValid) {
+        throw new Error(verifyData.message || 'SIWE verification failed');
+      }
+
+      // Nếu verify OK, proceed NextAuth
+      const result = await signIn('world', {
+        redirect: false,
+        message,
+        signature,
+        callbackUrl: '/dashboard'
+      });
+
+      if (result?.error) {
+        throw new Error(result.error || 'Auth failed');
+      }
+
+      setAuthSuccess(true);
+      router.push('/dashboard', { shallow: true, scroll: false });
+      await update();
+    } catch (err) {
+      safeError('World quickauth fail:', err);
+      toast.error(`World Auth error: ${err.message}`);
+      setWorldAuthFailed(true);
+    } finally {
+      setWorldAuthLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (isWorldMiniApp) {
+      const handleReady = () => {
+        safeLog('MiniKit ready');
+      };
+      // Docs: Listen nếu cần (async commands tự handle)
+      if (window.MiniKit) {
+        window.MiniKit.on('ready', handleReady);
+      }
+      return () => window.MiniKit?.off('ready', handleReady);
+    }
+  }, [isWorldMiniApp]);
 
   const handleConnectWallet = async () => {
     try {
@@ -658,12 +762,12 @@ function DashboardInner() {
   };
 
   // FIXED: Loading state: Thêm authSuccess để hide form ngay sau signIn
-  if (!isMounted || !providers || status === 'loading' || miniAppAuthLoading) {
+  if (!isMounted || !providers || status === 'loading' || miniAppAuthLoading || worldAuthLoading) {
     return (
       <div className="h-screen w-screen flex items-center justify-center bg-black text-white">
         <LoadingOverlay
           isLoading={true}
-          message={isMiniApp ? "Authenticating with Farcaster..." : "Loading dashboard..."}
+          message={isWorldMiniApp ? "Authenticating with World..." : isMiniApp ? "Authenticating with Farcaster..." : "Loading dashboard..."}
           isMobile={typeof window !== 'undefined' && window.innerWidth <= 640}
         />
       </div>
@@ -671,7 +775,7 @@ function DashboardInner() {
   }
 
   const requiresAuth = ['profile', 'ai', 'watchlists'].includes(activeTab);
-  const showLoginForm = status === 'unauthenticated' && requiresAuth && !authSuccess && !miniAppAuthFailed; // UPDATED: Hide form if auth failed in Mini App (show retry instead)
+  const showLoginForm = status === 'unauthenticated' && requiresAuth && !authSuccess && !miniAppAuthFailed && !worldAuthFailed; // UPDATED: Hide form if auth failed in Mini App (show retry instead)
 
   return (
     <CurrencyProvider>
@@ -740,6 +844,48 @@ function DashboardInner() {
                     </button>
                   </motion.div>
                 </motion.div>
+              ) : isWorldMiniApp && worldAuthFailed ? (
+                <motion.div
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.8, ease: 'easeOut' }}
+                  className="w-full h-full p-4 md:p-0 flex items-center justify-center text-white font-saira relative"
+                >
+                  <div className="fixed inset-0 z-0">
+                    <Canvas camera={{ position: [0, 0, 5], fov: 75 }} dpr={[1, 1.5]} performance={{ min: 0.3 }}>
+                      <UniverseBackground />
+                    </Canvas>
+                  </div>
+                  <motion.div
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.5, ease: 'easeOut' }}
+                    className="relative z-20 bg-black/60 backdrop-blur-xs p-6 md:p-10 border border-white/15 rounded-lg max-w-sm w-full mx-4 flex flex-col items-center shadow-2xl shadow-black/50"
+                  >
+                    <motion.h1
+                      initial={{ opacity: 0, y: -10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ duration: 0.5, delay: 0.2 }}
+                      className="text-xl md:text-3xl font-bold text-white uppercase mb-3 text-center tracking-wide"
+                    >
+                      Authentication Failed
+                    </motion.h1>
+                    <motion.p
+                      initial={{ opacity: 0, y: -10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ duration: 0.5, delay: 0.3 }}
+                      className="text-[11px] md:text-xs text-gray-500 mb-6 text-center leading-relaxed"
+                    >
+                      World Auth failed. Please try again or contact support.
+                    </motion.p>
+                    <button
+                      onClick={handleWorldQuickAuth}
+                      className="w-full px-4 py-2.5 border-2 border-white/15 bg-white/10 text-white rounded-2xl text-sm font-semibold transition-all duration-300 hover:border-white/30 hover:bg-white/20 flex items-center justify-center"
+                    >
+                      <MatrixHoverEffect text="Retry Authentication" hoverColor="#FFFFFF" />
+                    </button>
+                  </motion.div>
+                </motion.div>
               ) : showLoginForm ? (
                 <motion.div
                   initial={{ opacity: 0, y: 20 }}
@@ -748,7 +894,7 @@ function DashboardInner() {
                   className="w-full h-full p-4 md:p-0 flex items-center justify-center text-white font-saira relative"
                 >
                   <div className="fixed inset-0 z-0">
-                    {!isMiniApp && (  // Mới: Chỉ render 3D nếu không phải Mini App (lightweight)
+                    {!isMiniApp && !isWorldMiniApp && (  // Mới: Chỉ render 3D nếu không phải Mini App (lightweight)
                       <Canvas camera={{ position: [0, 0, 5], fov: 75 }} dpr={[1, 1.5]} performance={{ min: 0.3 }}>
                         <UniverseBackground />
                       </Canvas>
@@ -796,7 +942,7 @@ function DashboardInner() {
                       <span className="text-gray-500 text-xs uppercase px-4">OR</span>
                       <div className="flex-1 h-px bg-white/10"></div>
                     </div>
-                    {providers?.google && !isMiniApp && (
+                    {providers?.google && !isMiniApp && !isWorldMiniApp && (
                       <button
                         onClick={handleGoogleSignIn}
                         className="w-full px-4 py-2.5 bg-black/20 border border-white/25 rounded-2xl text-white text-sm font-semibold flex items-center justify-center gap-3 transition-all duration-300 hover:bg-gray-800/30 hover:border-white/40"
@@ -805,7 +951,7 @@ function DashboardInner() {
                         <MatrixHoverEffect text="Sign in with Google" />
                       </button>
                     )}
-                    {!isMiniApp && ( // Hide Farcaster QR if in Mini App
+                    {!isMiniApp && !isWorldMiniApp && ( // Hide Farcaster QR if in Mini App
                       <button onClick={() => setFarcasterModalOpen(true)} // Mở modal thay vì signIn trực tiếp
                         className="w-full px-4 m-2 py-2.5 bg-black/20 border border-white/25 rounded-2xl text-white text-sm font-semibold flex items-center justify-center gap-3 transition-all duration-300 hover:bg-gray-800/30 hover:border-white/40"
                       >
@@ -817,6 +963,12 @@ function DashboardInner() {
                           className="w-6 h-6 rounded-xl object-contain"
                         />
                         <MatrixHoverEffect text="Sign in with Farcaster" />
+                      </button>
+                    )}
+                    {!isWorldMiniApp && (
+                      <button onClick={handleWorldQuickAuth} className="w-full px-4 m-2 py-2.5 bg-black/20 border border-white/25 rounded-2xl text-white text-sm font-semibold flex items-center justify-center gap-3 transition-all duration-300 hover:bg-gray-800/30 hover:border-white/40">
+                        <Image src="/logos/worldcoin-logo.png" alt="World Logo" width={20} height={20} />
+                        <MatrixHoverEffect text="Sign in with World" />
                       </button>
                     )}
                     {error && (
@@ -982,7 +1134,9 @@ function DashboardInner() {
 export default function Dashboard() {
   return (
     <MiniAppProvider>
-      <DashboardInner />
+      <WorldMiniKitProvider>
+        <DashboardInner />
+      </WorldMiniKitProvider>
     </MiniAppProvider>
   );
 }
