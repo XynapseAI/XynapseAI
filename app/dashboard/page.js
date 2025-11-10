@@ -422,7 +422,12 @@ function DashboardInner() {
 
   // NEW: Detect World Mini App
   useEffect(() => {
-    const worldDetected = MiniKit.isInstalled();
+    let worldDetected = false;
+    try {
+      worldDetected = MiniKit.isInstalled();
+    } catch (err) {
+      safeWarn('World Mini App detection error:', err);
+    }
     setIsWorldMiniApp(worldDetected);
     safeLog('World Mini App Detection:', { worldDetected });
   }, []);
@@ -478,7 +483,8 @@ function DashboardInner() {
         throw new Error('World App not detected. Please open in World App.');
       }
       // NEW: Manual install nếu error gợi ý (docs 2025: Optional nhưng fix unavailable)
-      await MiniKit.install();  // Auto nếu ready, nhưng force init
+      // await MiniKit.install();  // Comment out if causing error, as per docs it may be auto
+      // Assume init is handled by provider
 
       const res = await fetch('/api/nonce');
       if (!res.ok) throw new Error('Failed to get nonce');
@@ -922,27 +928,31 @@ function DashboardInner() {
                     >
                       Access your dashboard with secure authentication.
                     </motion.p>
-                    <form onSubmit={handleEmailSignIn} className="w-full space-y-4">
-                      <input
-                        type="email"
-                        value={email}
-                        onChange={(e) => setEmail(e.target.value)}
-                        placeholder="Enter your email"
-                        className="w-full px-4 py-2.5 bg-black/60 border border-white/15 rounded-2xl text-white text-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-white/30 transition-all duration-300"
-                        required
-                      />
-                      <button
-                        type="submit"
-                        className="w-full px-4 py-2.5 border-2 border-white/15 bg-white/10 text-white rounded-2xl text-sm font-semibold transition-all duration-300 hover:border-white/30 hover:bg-white/20 flex items-center justify-center"
-                      >
-                        <MatrixHoverEffect text="Sign in with Email" hoverColor="#FFFFFF" />
-                      </button>
-                    </form>
-                    <div className="flex items-center justify-center my-4 w-full">
-                      <span className="text-gray-500 text-xs uppercase px-4">OR</span>
-                      <div className="flex-1 h-px bg-white/10"></div>
-                    </div>
-                    {providers?.google && !isMiniApp && !isWorldMiniApp && (
+                    {!isWorldMiniApp && (
+                      <>
+                        <form onSubmit={handleEmailSignIn} className="w-full space-y-4">
+                          <input
+                            type="email"
+                            value={email}
+                            onChange={(e) => setEmail(e.target.value)}
+                            placeholder="Enter your email"
+                            className="w-full px-4 py-2.5 bg-black/60 border border-white/15 rounded-2xl text-white text-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-white/30 transition-all duration-300"
+                            required
+                          />
+                          <button
+                            type="submit"
+                            className="w-full px-4 py-2.5 border-2 border-white/15 bg-white/10 text-white rounded-2xl text-sm font-semibold transition-all duration-300 hover:border-white/30 hover:bg-white/20 flex items-center justify-center"
+                          >
+                            <MatrixHoverEffect text="Sign in with Email" hoverColor="#FFFFFF" />
+                          </button>
+                        </form>
+                        <div className="flex items-center justify-center my-4 w-full">
+                          <span className="text-gray-500 text-xs uppercase px-4">OR</span>
+                          <div className="flex-1 h-px bg-white/10"></div>
+                        </div>
+                      </>
+                    )}
+                    {providers?.google && !isWorldMiniApp && (
                       <button
                         onClick={handleGoogleSignIn}
                         className="w-full px-4 py-2.5 bg-black/20 border border-white/25 rounded-2xl text-white text-sm font-semibold flex items-center justify-center gap-3 transition-all duration-300 hover:bg-gray-800/30 hover:border-white/40"
@@ -951,7 +961,7 @@ function DashboardInner() {
                         <MatrixHoverEffect text="Sign in with Google" />
                       </button>
                     )}
-                    {!isMiniApp && !isWorldMiniApp && ( // Hide Farcaster QR if in Mini App
+                    {!isWorldMiniApp && !isMiniApp && ( // Hide Farcaster QR if in Mini App or World
                       <button onClick={() => setFarcasterModalOpen(true)} // Mở modal thay vì signIn trực tiếp
                         className="w-full px-4 m-2 py-2.5 bg-black/20 border border-white/25 rounded-2xl text-white text-sm font-semibold flex items-center justify-center gap-3 transition-all duration-300 hover:bg-gray-800/30 hover:border-white/40"
                       >
@@ -965,12 +975,13 @@ function DashboardInner() {
                         <MatrixHoverEffect text="Sign in with Farcaster" />
                       </button>
                     )}
-                    {!isWorldMiniApp && (
-                      <button onClick={handleWorldQuickAuth} className="w-full px-4 m-2 py-2.5 bg-black/20 border border-white/25 rounded-2xl text-white text-sm font-semibold flex items-center justify-center gap-3 transition-all duration-300 hover:bg-gray-800/30 hover:border-white/40">
-                        <Image src="/logos/worldcoin-logo.png" alt="World Logo" width={20} height={20} />
-                        <MatrixHoverEffect text="Sign in with World" />
-                      </button>
-                    )}
+                    <button 
+                      onClick={handleWorldQuickAuth} 
+                      className="w-full px-4 m-2 py-2.5 bg-black/20 border border-white/25 rounded-2xl text-white text-sm font-semibold flex items-center justify-center gap-3 transition-all duration-300 hover:bg-gray-800/30 hover:border-white/40"
+                    >
+                      <Image src="/logos/worldcoin-logo.png" alt="World Logo" width={20} height={20} />
+                      <MatrixHoverEffect text="Sign in with World" />
+                    </button>
                     {error && (
                       <motion.div
                         initial={{ opacity: 0, y: -10 }}
@@ -1050,7 +1061,7 @@ function DashboardInner() {
           )}
           <p className="text-[8px] text-gray-600 ml-2">
             Protected by reCAPTCHA. See{' '}
-            <a href="https://policies.google.com/privacy" target="_0" rel="noopener noreferrer" className="text-neon-blue">
+            <a href="https://policies.google.com/privacy" target="_blank" rel="noopener noreferrer" className="text-neon-blue">
               Privacy Policy
             </a>{' '}
             &{' '}
