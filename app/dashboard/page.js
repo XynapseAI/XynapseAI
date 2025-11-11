@@ -1,4 +1,7 @@
-// app/dashboard/page.js
+// app/dashboard/page.js - No major changes needed, but ensure ExplorerTab receives initialChain properly
+// (Already does: initialChain={searchParams.get('chain')})
+// For better SEO on the dashboard level, consider adding generateMetadata export if making dynamic routes,
+// but since it's tab-based, the client-side updates in ExplorerTab handle it.
 'use client';
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
@@ -11,6 +14,7 @@ import MarketTab from '../../components/MarketTab';
 import TreemapTab from '../../components/TreemapTab';
 import WatchlistsTab from '../../components/WatchlistsTab';
 import ClusterTab from '../../components/ClusterTab';
+import ExplorerTab from '../../components/ExplorerTab';
 import ReCAPTCHA from 'react-google-recaptcha';
 import { toast, ToastContainer } from 'react-toastify';
 import MatrixHoverEffect from '../../components/MatrixHoverEffect';
@@ -356,7 +360,7 @@ function DashboardInner() {
   useEffect(() => {
     setIsMounted(true);
     const tab = searchParams.get('tab');
-    if (tab && ['market', 'ai', 'profile', 'graph', 'watchlists', 'cluster'].includes(tab)) {  // Đổi treemap -> graph
+    if (tab && ['market', 'ai', 'profile', 'graph', 'watchlists', 'cluster', 'explorer'].includes(tab)) {  // Added 'explorer' to valid tabs
       setActiveTab(tab);
     }
   }, [searchParams, router]);
@@ -1040,6 +1044,12 @@ function DashboardInner() {
                   )}
                   {activeTab === 'graph' && <TreemapTab onTokenSelect={handleNavigateToToken} />}
                   {activeTab === 'ai' && <AITab recaptchaRef={recaptchaRef} />}
+                  {activeTab === 'explorer' && (
+                    <ExplorerTab
+                      initialQuery={searchParams.get('query')}
+                      initialChain={searchParams.get('chain')}
+                    />
+                  )}
                   {activeTab === 'profile' && (
                     <ProfileTab
                       userData={userData}

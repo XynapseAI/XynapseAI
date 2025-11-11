@@ -1,13 +1,28 @@
-// app/layout.js
+// app/layout.js - Updated metadata for better SEO baseline
 import '../styles/globals.css';
 import ClientProviders from './ClientProviders';
 
 export const metadata = {
   title: {
-    default: 'Xynapse',
+    default: 'Xynapse - Blockchain Transaction Search',
     template: '%s | Xynapse',
   },
-  description: 'Explore the ultimate AI-powered crypto market analytics platform.',
+  description: 'Xynapse: Search and analyze transactions on Bitcoin, Ethereum, BSC, and Solana. Real-time blockchain data, nametags, token transfers, and insights for crypto enthusiasts.',
+  keywords: 'blockchain explorer, transaction search, Bitcoin tx, Ethereum tx, BSC tx, Solana tx, crypto analytics, Xynapse',
+  openGraph: {
+    title: 'Xynapse',
+    description: 'Explore blockchain transactions with Xynapse. Fast, secure, and insightful crypto explorer.',
+    images: ['https://xynapseai.net/og.png'],
+    url: 'https://xynapseai.net/dashboard?tab=explorer',
+    siteName: 'Xynapse',
+    type: 'website',
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: 'Xynapse',
+    description: 'Search transactions on major blockchains with Xynapse.',
+    images: ['https://xynapseai.net/og.png'],
+  },
   other: {
     'fc:miniapp': JSON.stringify({
       version: 'next',
@@ -16,8 +31,8 @@ export const metadata = {
         title: 'Launch Xynapse',
         action: {
           type: 'launch_miniapp',
-          name: 'Xynapse Mini App',
-          url: 'https://xynapseai.net/dashboard',
+          name: 'Xynapse',
+          url: 'https://xynapseai.net/dashboard?tab=explorer',
           splashImageUrl: 'https://xynapseai.net/splash.png',
           splashBackgroundColor: '#000000',
         },
@@ -47,6 +62,9 @@ export default function RootLayout({ children }) {
 
   return (
     <html lang="en">
+      <head>
+        <link rel="canonical" href="https://xynapseai.net/dashboard?tab=explorer" />
+      </head>
       <body className={`bg-black text-white`}>
         <ClientProviders>{children}</ClientProviders>
       </body>

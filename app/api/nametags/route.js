@@ -10,6 +10,14 @@ import { query } from '../../../utils/postgres';
 import { isAddress } from 'ethers';
 import { getNametagsBatch, addNametag } from '../../../lib/nametags';
 
+// Bitcoin address validation regex
+const isBitcoinAddress = (addr) => {
+  const p2pkh = /^1[1-9A-HJ-NP-Za-km-z]{25,34}$/;  // Legacy P2PKH (1...)
+  const p2sh = /^3[1-9A-HJ-NP-Za-km-z]{25,34}$/;   // Legacy P2SH (3...)
+  const bech32 = /^bc1[a-z0-9]{39,59}$/;           // Native SegWit (bc1...)
+  return p2pkh.test(addr) || p2sh.test(addr) || bech32.test(addr);
+};
+
 // List of allowed origins for CORS
 const allowedOrigins = [
   process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000',
@@ -81,7 +89,8 @@ async function checkCSRF(request, isMutating = false) {
 
     if (isMutating) {
       const tokenFromHeader = request.headers.get('x-csrf-token');
-      const tokenFromCookie = request.cookies.get('csrf-token')?.value;
+      const cookieStore = await cookies();
+      const tokenFromCookie = cookieStore.get('csrf-token')?.value;
       if (!tokenFromHeader || tokenFromHeader !== tokenFromCookie) {
         logger.warn('CSRF token mismatch', { tokenFromHeader: !!tokenFromHeader, tokenFromCookie: !!tokenFromCookie });
         return false;
@@ -145,14 +154,19 @@ const getSchema = z.object({
 });
 
 const postSchema = z.object({
+  chain: z.enum(['ethereum', 'bitcoin', 'bsc', 'solana']).optional(),  // Optional chain for logging/filtering
   addresses: z
-    .array(z.string().refine(isAddress, { message: 'Each address must be a valid EVM address' }))
+    .array(
+      z.string().refine((val) => isAddress(val) || isBitcoinAddress(val), { 
+        message: 'Each address must be a valid EVM or Bitcoin address' 
+      })
+    )
     .min(1)
     .max(100, 'Addresses must be a non-empty array, maximum 100 addresses'),
 });
 
 const putSchema = z.object({
-  address: z.string().refine(isAddress, { message: 'Address must be a valid EVM address' }),
+  address: z.string().refine((val) => isAddress(val) || isBitcoinAddress(val), { message: 'Address must be a valid EVM or Bitcoin address' }),
   labels: z
     .object({
       name: z.string().optional(),
@@ -249,7 +263,7 @@ async function validateRequest(request, requireAuth = false, isMutating = false)
 }
 
 // Helper to create success response with common headers and CSRF cookie
-function createSuccessResponse(data, origin, referer, status = 200) {
+async function createSuccessResponse(data, origin, referer, status = 200) {
   const corsOrigin = origin && allowedOrigins.includes(origin) ? origin : (referer ? new URL(referer).origin : process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000');
   const response = NextResponse.json(data, {
     status,
@@ -263,7 +277,8 @@ function createSuccessResponse(data, origin, referer, status = 200) {
     },
   });
   // Set CSRF cookie if not present
-  if (!cookies().has('csrf-token')) {
+  const cookieStore = await cookies();
+  if (!cookieStore.has('csrf-token')) {
     const csrfToken = generateCSRFToken();
     response.cookies.set('csrf-token', csrfToken, {
       httpOnly: false,
@@ -328,7 +343,7 @@ export async function GET(request) {
 
     if (nametag && nametag.name !== 'Unknown') {
       logger.info(`Nametag found for address ${normalizedAddress}: ${nametag.name}`);
-      return createSuccessResponse(
+      return await createSuccessResponse(
         { success: true, data: { [normalizedAddress]: responseData } },
         origin,
         referer
@@ -378,7 +393,7 @@ export async function POST(request) {
     );
   }
 
-  const { addresses } = parsedBody;
+  const { chain, addresses } = parsedBody;
   const normalizedAddresses = addresses.map((addr) => addr.toLowerCase());
 
   try {
@@ -389,12 +404,13 @@ export async function POST(request) {
       const analysis = analysisMap[addr] || null;
       result[addr] = {
         Address: addr,
+        Chain: chain || 'unknown',  // Optional chain echo
         Labels: {
           deposit: {
-            'Name Tag': nametags[addr].name,
-            Description: nametags[addr].description,
-            Subcategory: nametags[addr].subcategory,
-            image: nametags[addr].image,
+            'Name Tag': nametags[addr]?.name || 'Unknown',
+            Description: nametags[addr]?.description || '',
+            Subcategory: nametags[addr]?.subcategory || 'Others',
+            image: nametags[addr]?.image || '/icons/default.webp',
             is_deposit: analysis?.is_deposit || false,
             deposit_confidence_percentage: analysis?.deposit_confidence_percentage || null,
             reason: analysis?.reason || '',
@@ -406,12 +422,12 @@ export async function POST(request) {
       };
     }
 
-    logger.info(`POST request processed: requested ${normalizedAddresses.length}, found ${Object.keys(result).length}`);
-    return createSuccessResponse(
+    logger.info(`POST request processed: chain=${chain || 'all'}, requested ${normalizedAddresses.length}, found ${Object.keys(nametags).length}`);
+    return await createSuccessResponse(
       {
         success: true,
         data: result,
-        metadata: { requested: normalizedAddresses.length, found: Object.keys(result).length },
+        metadata: { requested: normalizedAddresses.length, found: Object.keys(nametags).length },
       },
       origin,
       referer
@@ -465,7 +481,7 @@ export async function PUT(request) {
     };
     await addNametag(address, normalizedLabels);
     logger.info(`Nametag added/updated for ${address}: ${JSON.stringify(normalizedLabels)} by user ${session.user.id}`);
-    return createSuccessResponse(
+    return await createSuccessResponse(
       {
         success: true,
         detail: `Nametag for ${address} successfully added/updated.`,

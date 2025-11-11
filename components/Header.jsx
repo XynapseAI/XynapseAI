@@ -1,8 +1,8 @@
 'use client';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useState, useEffect, useRef } from 'react';
-import { useRouter } from 'next/navigation';
-import { Power, Search, BarChart3, Network, Activity, List, User } from 'lucide-react';
+import { useRouter, useSearchParams } from 'next/navigation'; // Added useSearchParams for preserving query/chain in explorer
+import { Power, Search as SearchIcon, BarChart3, Network, Activity, List, User, Zap } from 'lucide-react'; // Added Zap for AI (or reuse Activity)
 import Link from 'next/link';
 import Image from 'next/image';
 import { useCurrency } from './CurrencyContext';
@@ -17,6 +17,7 @@ export default function Header({ activeTab, setActiveTab, handleSignOut, selecte
   const menuRef = useRef(null);
   const searchRef = useRef(null);
   const router = useRouter();
+  const searchParams = useSearchParams(); // Added to preserve params for explorer
   let currency = 'usd';
   let setCurrency = () => console.warn('setCurrency not available');
   let availableCurrencies = ['usd', 'eur', 'btc'];
@@ -33,9 +34,11 @@ export default function Header({ activeTab, setActiveTab, handleSignOut, selecte
 
   const tabs = [
     { id: 'market', label: 'Market', icon: BarChart3 },
+    // { id: 'ai', label: 'AI', icon: Zap },
     { id: 'cluster', label: 'Cluster', icon: Network },
     { id: 'graph', label: 'Graph', icon: Activity },
     { id: 'watchlists', label: 'Watchlists', icon: List },
+    { id: 'explorer', label: 'Explorer', icon: SearchIcon }, // Added Explorer tab with Search icon
     { id: 'profile', label: 'Profile', icon: User },
   ];
 
@@ -87,15 +90,23 @@ export default function Header({ activeTab, setActiveTab, handleSignOut, selecte
     setActiveTab(tabId);
     const clusterId = new URLSearchParams(window.location.search).get('clusterId');
     let query = '';
-    if (tabId === 'watchlists' && selectedAddress) {
+    if (tabId === 'explorer') {
+      // Special handling for explorer: Push to /explorer route, preserve query/chain if available
+      const currentQuery = searchParams.get('query') || '';
+      const currentChain = searchParams.get('chain') || 'ethereum';
+      const path = `/explorer${currentQuery ? `?query=${encodeURIComponent(currentQuery)}&chain=${currentChain}` : ''}`;
+      router.push(path, { scroll: false });
+    } else if (tabId === 'watchlists' && selectedAddress) {
       query = `tab=${tabId}&address=${encodeURIComponent(selectedAddress)}`;
     } else if (tabId === 'cluster' && clusterId) {
       query = `tab=${tabId}&clusterId=${encodeURIComponent(clusterId)}`;
     } else {
       query = `tab=${tabId}`;
     }
-    const path = `/dashboard?${query}`;
-    router.push(path, { scroll: false });
+    const path = tabId !== 'explorer' ? `/dashboard?${query}` : ''; // Only for non-explorer
+    if (tabId !== 'explorer') {
+      router.push(path, { scroll: false });
+    }
     setIsMenuOpen(false);
   };
 
