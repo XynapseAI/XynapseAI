@@ -17,8 +17,8 @@ export const metadata = {
         action: {
           type: 'launch_miniapp',
           name: 'Xynapse Mini App',
-          url: 'https://base.xynapseai.net/dashboard',
-          splashImageUrl: 'https://base.xynapseai.net/splash.png',
+          url: 'https://xynapseai.net/dashboard',
+          splashImageUrl: 'https://xynapseai.net/splash.png',
           splashBackgroundColor: '#000000',
         },
       },

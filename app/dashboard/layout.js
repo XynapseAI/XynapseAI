@@ -15,18 +15,18 @@ export async function generateMetadata() {
       keywords: 'cryptocurrency, dashboard, wallet, blockchain, market trends, Xynapse',
       robots: 'index, follow',
       alternates: {
-        canonical: 'https://base.xynapseai.net/dashboard', // Cập nhật cho Base subdomain
+        canonical: 'https://xynapseai.net/dashboard', // Cập nhật cho Base subdomain
       },
       other: { // Thêm fc:miniapp cho dashboard
         'fc:miniapp': JSON.stringify({
           version: 'next',
-          imageUrl: 'https://base.xynapseai.net/og.png',
+          imageUrl: 'https://xynapseai.net/og.png',
           button: {
             title: 'Open Dashboard',
             action: {
               type: 'launch_miniapp',
               name: 'Xynapse Dashboard',
-              url: 'https://base.xynapseai.net/dashboard',
+              url: 'https://xynapseai.net/dashboard',
             },
           },
         }),
@@ -34,11 +34,11 @@ export async function generateMetadata() {
       openGraph: {
         title,
         description,
-        url: 'https://base.xynapseai.net/dashboard',
+        url: 'https://xynapseai.net/dashboard',
         type: 'website',
         images: [
           {
-            url: 'https://base.xynapseai.net/logos/logo-landscape.webp',
+            url: 'https://xynapseai.net/og.png',
             width: 1200,
             height: 630,
             alt: 'Xynapse Dashboard Logo',
@@ -49,7 +49,7 @@ export async function generateMetadata() {
         card: 'summary_large_image',
         title,
         description,
-        images: ['https://base.xynapseai.net/logos/logo-landscape.webp'],
+        images: ['https://xynapseai.net/og.png'],
       },
     };
   } catch (error) {
@@ -60,18 +60,18 @@ export async function generateMetadata() {
       keywords: 'cryptocurrency, dashboard, wallet, blockchain, market trends, Xynapse',
       robots: 'index, follow',
       alternates: {
-        canonical: 'https://base.xynapseai.net/dashboard',
+        canonical: 'https://xynapseai.net/dashboard',
       },
       other: {
         'fc:miniapp': JSON.stringify({
           version: 'next',
-          imageUrl: 'https://base.xynapseai.net/og.png',
+          imageUrl: 'https://xynapseai.net/og.png',
           button: {
             title: 'Open Dashboard',
             action: {
               type: 'launch_miniapp',
               name: 'Xynapse Dashboard',
-              url: 'https://base.xynapseai.net/dashboard',
+              url: 'https://xynapseai.net/dashboard',
             },
           },
         }),
@@ -79,11 +79,11 @@ export async function generateMetadata() {
       openGraph: {
         title: 'Xynapse Dashboard',
         description: 'Manage your cryptocurrency wallet, track market trends, and analyze interactions with Xynapse.',
-        url: 'https://base.xynapseai.net/dashboard',
+        url: 'https://xynapseai.net/dashboard',
         type: 'website',
         images: [
           {
-            url: 'https://base.xynapseai.net/logos/logo-landscape.webp',
+            url: 'https://xynapseai.net/og.png',
             width: 1200,
             height: 630,
             alt: 'Xynapse Dashboard Logo',
@@ -94,7 +94,7 @@ export async function generateMetadata() {
         card: 'summary_large_image',
         title: 'Xynapse Dashboard',
         description: 'Manage your cryptocurrency wallet, track market trends, and analyze interactions with Xynapse.',
-        images: ['https://base.xynapseai.net/logos/logo-landscape.webp'],
+        images: ['https://base.xynapseai.net/og.png'],
       },
     };
   }

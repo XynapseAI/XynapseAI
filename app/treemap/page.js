@@ -47,7 +47,7 @@ export async function generateMetadata({ searchParams }) {
         type: 'website',
         images: [
           {
-            url: 'https://xynapseai.net/logos/logo-landscape.webp',
+            url: 'https://xynapseai.net/logos/og.png',
             width: 1200,
             height: 630,
             alt: `${capitalizedChain} Network Graph`,
@@ -58,7 +58,7 @@ export async function generateMetadata({ searchParams }) {
         card: 'summary_large_image',
         title,
         description,
-        images: ['https://xynapseai.net/logos/logo-landscape.webp'],
+        images: ['https://xynapseai.net/logos/og.png'],
       },
     };
   } catch (error) {
@@ -86,7 +86,7 @@ export async function generateMetadata({ searchParams }) {
         type: 'website',
         images: [
           {
-            url: 'https://xynapseai.net/logos/logo-landscape.webp',
+            url: 'https://xynapseai.net/logos/og.png',
             width: 1200,
             height: 630,
             alt: `${capitalizedChain} Network Graph`,
@@ -97,7 +97,7 @@ export async function generateMetadata({ searchParams }) {
         card: 'summary_large_image',
         title: `Network Graph on ${capitalizedChain} | Xynapse`,
         description: `Explore the network graph for wallet ${truncatedAddress} on ${capitalizedChain} with Xynapse's advanced blockchain analytics. Visualize transactions, clusters, and wallet connections.`,
-        images: ['https://xynapseai.net/logos/logo-landscape.webp'],
+        images: ['https://xynapseai.net/logos/og.png'],
       },
     };
   }

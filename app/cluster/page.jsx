@@ -31,7 +31,7 @@ export async function generateMetadata({ searchParams }) {
         type: 'website',
         images: [
           {
-            url: 'https://xynapseai.net/logos/logo-landscape.webp',
+            url: 'https://xynapseai.net/logos/og.png',
             width: 1200,
             height: 630,
             alt: `${clusterName} Cluster Logo`,
@@ -42,7 +42,7 @@ export async function generateMetadata({ searchParams }) {
         card: 'summary_large_image',
         title,
         description,
-        images: ['https://xynapseai.net/logos/logo-landscape.webp'],
+        images: ['https://xynapseai.net/og.png'],
       },
     };
   } catch (error) {
@@ -65,7 +65,7 @@ export async function generateMetadata({ searchParams }) {
         type: 'website',
         images: [
           {
-            url: 'https://xynapseai.net/logos/logo-landscape.webp',
+            url: 'https://xynapseai.net/og.png',
             width: 1200,
             height: 630,
             alt: `${clusterName} Cluster Logo`,
@@ -76,7 +76,7 @@ export async function generateMetadata({ searchParams }) {
         card: 'summary_large_image',
         title: `${clusterName} Cluster | Xynapse`,
         description: `Explore ${clusterName} cluster details, track wallet balances, transactions, and market trends on Xynapse's advanced blockchain analytics platform.`,
-        images: ['https://xynapseai.net/logos/logo-landscape.webp'],
+        images: ['https://xynapseai.net/og.png'],
       },
     };
   }

@@ -313,6 +313,7 @@ function DashboardInner() {
   const [miniAppAuthLoading, setMiniAppAuthLoading] = useState(false); // NEW: Loading cho quickauth
   const [miniAppAuthFailed, setMiniAppAuthFailed] = useState(false); // NEW: Track if auto-auth failed for Mini App
   const [isWorldMiniApp, setIsWorldMiniApp] = useState(false);  // NEW
+  const [worldAppVersionOk, setWorldAppVersionOk] = useState(true); // NEW: Track if version supports walletAuth
   const { userData, loading, error } = useUserData(session, csrfToken, setIsAnalyzing, isWorldMiniApp);  // MODIFIED: Pass isWorldMiniApp
   const [worldAuthLoading, setWorldAuthLoading] = useState(false);  // NEW
   const [worldAuthFailed, setWorldAuthFailed] = useState(false);  // NEW
@@ -443,6 +444,20 @@ function DashboardInner() {
     }
   }, [isWorldMiniApp, session, worldAuthLoading]);
 
+  // NEW: Optional check for MiniKit ready (docs không require, nhưng safe cho mobile)
+  useEffect(() => {
+    if (isWorldMiniApp) {
+      safeLog('World Mini App detected. Checking readiness...');
+      const checkReady = setInterval(() => {
+        if (window.MiniKit?.ready) {
+          safeLog('MiniKit ready');
+          clearInterval(checkReady);
+        }
+      }, 500);
+      return () => clearInterval(checkReady);
+    }
+  }, [isWorldMiniApp]);
+
   // NEW: Handle quickauth cho miniapp (tích hợp vào old flow)
   const handleMiniAppQuickAuth = async () => {
     if (status !== 'unauthenticated') return;
@@ -476,11 +491,12 @@ function DashboardInner() {
     }
   };
 
-  // NEW: Handle World Wallet Auth (SIWE)
+  // NEW: Handle World Wallet Auth (SIWE) - Updated theo docs
   const handleWorldQuickAuth = async () => {
     if (status !== 'unauthenticated') return;
     setWorldAuthLoading(true);
     setWorldAuthFailed(false);
+    setWorldAppVersionOk(true); // Reset version check
     try {
       // FIXED: Check installed và manual install nếu cần
       if (!MiniKit.isInstalled()) {
@@ -496,7 +512,7 @@ function DashboardInner() {
       if (!nonce) throw new Error('No nonce from server');
 
       // FIXED: Thêm params đầy đủ theo docs (expirationTime, statement cho SIWE chuẩn)
-      const { finalPayload } = await MiniKit.commandsAsync.walletAuth({
+      const { commandPayload, finalPayload } = await MiniKit.commandsAsync.walletAuth({
         nonce,
         requestId: '0x' + Math.random().toString(16).substr(2, 8),  // Random requestId
         expirationTime: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),  // 7 days
@@ -504,10 +520,14 @@ function DashboardInner() {
         statement: 'Sign in to XynapseAI with your World wallet.',  // Custom statement
       });
 
+      safeLog('WalletAuth response:', { commandPayload, finalPayload }); // NEW: Debug log
+
       // FIXED: Handle error status (unavailable → specific message)
       if (finalPayload.status === 'error') {
+        // Check for version-related errors (docs imply 'unavailable' for old versions)
         if (finalPayload.error?.includes('unavailable') || finalPayload.error?.includes('install')) {
-          throw new Error('walletAuth unavailable. Update World App to v2.8.79+ and retry.');
+          setWorldAppVersionOk(false);
+          throw new Error('Wallet Auth unavailable. Please update World App to v2.8.79+ and retry.');
         }
         throw new Error(finalPayload.error || 'Wallet auth failed');
       }
@@ -548,19 +568,6 @@ function DashboardInner() {
       setWorldAuthLoading(false);
     }
   };
-
-  useEffect(() => {
-    if (isWorldMiniApp) {
-      const handleReady = () => {
-        safeLog('MiniKit ready');
-      };
-      // Docs: Listen nếu cần (async commands tự handle)
-      if (window.MiniKit) {
-        window.MiniKit.on('ready', handleReady);
-      }
-      return () => window.MiniKit?.off('ready', handleReady);
-    }
-  }, [isWorldMiniApp]);
 
   const handleConnectWallet = async () => {
     try {
@@ -886,7 +893,7 @@ function DashboardInner() {
                       transition={{ duration: 0.5, delay: 0.3 }}
                       className="text-[11px] md:text-xs text-gray-500 mb-6 text-center leading-relaxed"
                     >
-                      World Auth failed. Please try again or contact support.
+                      {worldAppVersionOk ? 'World Auth failed. Please try again or contact support.' : 'Please update World App to v2.8.79 or higher.'}
                     </motion.p>
                     <button
                       onClick={handleWorldQuickAuth}
@@ -980,8 +987,8 @@ function DashboardInner() {
                       </button>
                     )}
                     {isWorldMiniApp && (
-                      <button 
-                        onClick={handleWorldQuickAuth} 
+                      <button
+                        onClick={handleWorldQuickAuth}
                         className="w-full px-4 m-2 py-2.5 bg-black/20 border border-white/25 rounded-2xl text-white text-sm font-semibold flex items-center justify-center gap-3 transition-all duration-300 hover:bg-gray-800/30 hover:border-white/40"
                       >
                         <Image src="/logos/worldcoin-logo.png" alt="World Logo" width={20} height={20} />
