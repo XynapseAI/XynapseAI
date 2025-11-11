@@ -979,13 +979,15 @@ function DashboardInner() {
                         <MatrixHoverEffect text="Sign in with Farcaster" />
                       </button>
                     )}
-                    <button 
-                      onClick={handleWorldQuickAuth} 
-                      className="w-full px-4 m-2 py-2.5 bg-black/20 border border-white/25 rounded-2xl text-white text-sm font-semibold flex items-center justify-center gap-3 transition-all duration-300 hover:bg-gray-800/30 hover:border-white/40"
-                    >
-                      <Image src="/logos/worldcoin-logo.png" alt="World Logo" width={20} height={20} />
-                      <MatrixHoverEffect text="Sign in with World" />
-                    </button>
+                    {isWorldMiniApp && (
+                      <button 
+                        onClick={handleWorldQuickAuth} 
+                        className="w-full px-4 m-2 py-2.5 bg-black/20 border border-white/25 rounded-2xl text-white text-sm font-semibold flex items-center justify-center gap-3 transition-all duration-300 hover:bg-gray-800/30 hover:border-white/40"
+                      >
+                        <Image src="/logos/worldcoin-logo.png" alt="World Logo" width={20} height={20} />
+                        <MatrixHoverEffect text="Sign in with World" />
+                      </button>
+                    )}
                     {error && (
                       <motion.div
                         initial={{ opacity: 0, y: -10 }}
