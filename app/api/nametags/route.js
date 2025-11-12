@@ -161,11 +161,14 @@ const getSchema = z.object({
 });
 
 const postSchema = z.object({
-  chain: z.enum(['ethereum', 'bitcoin', 'bsc', 'solana']).optional(),  // Optional chain for logging/filtering
+  chain: z.enum([
+    'ethereum', 'bsc', 'arbitrum', 'optimism', 'polygon', 'base',
+    'bitcoin', 'solana'
+  ]).optional(),  // Optional chain for logging/filtering
   addresses: z
     .array(
-      z.string().refine((val) => isValidAddress(val), { 
-        message: 'Each address must be a valid EVM, Bitcoin, or Solana address' 
+      z.string().refine((val) => isValidAddress(val), {
+        message: 'Each address must be a valid EVM, Bitcoin, or Solana address'
       })
     )
     .min(1)

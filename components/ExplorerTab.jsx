@@ -19,26 +19,62 @@ export default function ExplorerTab({ initialQuery, initialChain }) {
     const [error, setError] = useState(null);
     const [isMobile, setIsMobile] = useState(false);
 
+    // UPDATED: Expanded chainConfig for more EVM chains (self-detect + fallback)
     const chainConfig = {
         bitcoin: { id: null, apiBase: '/api/mempool' },
         ethereum: { id: 1, apiBase: '/api/etherscan' },
         bsc: { id: 56, apiBase: '/api/etherscan' },
-        solana: { id: null, apiBase: '/api/solana' }, // UPDATED for Solana: Proxy endpoint
+        arbitrum: { id: 42161, apiBase: '/api/etherscan' },
+        optimism: { id: 10, apiBase: '/api/etherscan' },
+        polygon: { id: 137, apiBase: '/api/etherscan' },
+        base: { id: 8453, apiBase: '/api/etherscan' }, // NEW: Base chain
+        solana: { id: null, apiBase: '/api/solana' },
     };
 
+    // UPDATED: Added logos for new chains
     const chainLogos = {
         bitcoin: 'https://assets.coingecko.com/coins/images/1/small/bitcoin.png',
         ethereum: 'https://assets.coingecko.com/coins/images/279/small/ethereum.png',
         bsc: 'https://assets.coingecko.com/coins/images/825/small/bnb.png',
+        arbitrum: 'https://assets.coingecko.com/coins/images/16547/small/photo_2023-03-29_21-47-11-removebg-preview.png',
+        optimism: 'https://assets.coingecko.com/coins/images/12696/small/optimism.png',
+        polygon: 'https://assets.coingecko.com/coins/images/4713/small/matic-token-icon.png',
+        base: 'https://assets.coingecko.com/coins/images/16547/small/coinbase-base-logo.png', // NEW: Base logo
         solana: 'https://assets.coingecko.com/coins/images/4128/small/solana.png',
+    };
+
+    // FIXED: Native token logos mapped by symbol (for L2 chains using ETH/BNB/MATIC)
+    const nativeTokenLogos = {
+        ETH: 'https://assets.coingecko.com/coins/images/279/small/ethereum.png',
+        BNB: 'https://assets.coingecko.com/coins/images/825/small/bnb.png',
+        MATIC: 'https://assets.coingecko.com/coins/images/4713/small/matic-token-icon.png',
+        BTC: 'https://assets.coingecko.com/coins/images/1/small/bitcoin.png',
+        SOL: 'https://assets.coingecko.com/coins/images/4128/small/solana.png',
+    };
+
+    // UPDATED: Native symbols for EVM chains
+    const nativeSymbols = {
+        ethereum: 'ETH',
+        bsc: 'BNB',
+        arbitrum: 'ETH',
+        optimism: 'ETH',
+        polygon: 'MATIC',
+        base: 'ETH', // NEW
     };
 
     const chainSymbols = {
         bitcoin: 'BTC',
         ethereum: 'ETH',
         bsc: 'BNB',
+        arbitrum: 'ETH',
+        optimism: 'ETH',
+        polygon: 'MATIC',
+        base: 'ETH', // NEW
         solana: 'SOL',
     };
+
+    // FIXED: Adjusted fallback order to prioritize Arbitrum before BSC for better coverage
+    const evmChainsOrder = ['ethereum', 'arbitrum', 'bsc', 'optimism', 'polygon', 'base'];
 
     // SEO useEffect (unchanged)
     useEffect(() => {
@@ -112,7 +148,7 @@ export default function ExplorerTab({ initialQuery, initialChain }) {
     const detectChainForTx = (txHash) => {
         const trimmed = txHash.trim();
         if (trimmed.startsWith('0x') && /^0x[a-fA-F0-9]{64}$/.test(trimmed)) {
-            return 'ethereum';
+            return 'ethereum'; // Default to ETH for EVM hashes
         } else if (/^[a-fA-F0-9]{64}$/.test(trimmed)) {
             return 'bitcoin';
         } else if (/^[1-9A-HJ-NP-Za-km-z]{87,88}$/.test(trimmed)) {
@@ -126,7 +162,10 @@ export default function ExplorerTab({ initialQuery, initialChain }) {
         navigator.clipboard.writeText(text);
     };
 
-    // UPDATED for Solana: Extract addresses from enhanced tx
+    // UPDATED: Generalize for all EVM chains
+    const isEVMChain = (chain) => !!nativeSymbols[chain];
+
+    // UPDATED: Extract addresses - generalized for EVM
     const extractAddresses = (txData, chain) => {
         const addresses = new Set();
         let tx = txData;
@@ -135,7 +174,7 @@ export default function ExplorerTab({ initialQuery, initialChain }) {
         if (tx.from) addresses.add(tx.from.toLowerCase());
         if (tx.to) addresses.add(tx.to.toLowerCase());
 
-        if (chain === 'ethereum' || chain === 'bsc') {
+        if (isEVMChain(chain)) {
             if (tx.tokenTransfers) {
                 tx.tokenTransfers.forEach(t => {
                     if (t.from) addresses.add(t.from.toLowerCase());
@@ -163,7 +202,7 @@ export default function ExplorerTab({ initialQuery, initialChain }) {
                     }
                 });
             }
-        } else if (chain === 'solana') { // UPDATED: Solana addresses
+        } else if (chain === 'solana') {
             if (tx.feePayer) addresses.add(tx.feePayer.toLowerCase());
             if (tx.nativeTransfers) {
                 tx.nativeTransfers.forEach(t => {
@@ -177,7 +216,7 @@ export default function ExplorerTab({ initialQuery, initialChain }) {
                     if (t.toUserAccount) addresses.add(t.toUserAccount.toLowerCase());
                 });
             }
-            if (tx.accountData) { // Optional: accounts
+            if (tx.accountData) {
                 tx.accountData.forEach(acc => {
                     if (acc.account) addresses.add(acc.account.toLowerCase());
                 });
@@ -206,47 +245,42 @@ export default function ExplorerTab({ initialQuery, initialChain }) {
             });
             setNametags(prev => ({ ...prev, ...newNametags }));
         } catch (err) {
-            // Silent error, no console/toast
+            // Silent error
         } finally {
             setNametagsLoading(false);
         }
     };
 
-    const fetchData = async (q, ch) => {
+    // UPDATED: Refactored fetchData with auto-fallback for EVM chains
+    const fetchData = async (q, ch, fallbackIndex = 0) => {
         setLoading(true);
         setError(null);
         try {
             let data = {};
             const fetchOptions = {
-                method: 'POST', // UPDATED: All POST now, including Solana
+                method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                // REMOVED: credentials: 'include' - No session required for public feature
             };
 
-            let endpoint;
+            const config = chainConfig[ch];
+            if (!config) throw new Error(`Unsupported chain: ${ch}`);
+
+            let endpoint = config.apiBase;
             let body;
-            switch (ch) {
-                case 'bitcoin':
-                    endpoint = chainConfig[ch].apiBase;
-                    body = { action: 'tx-details', txHash: q };
-                    break;
-                case 'ethereum':
-                case 'bsc':
-                    endpoint = chainConfig[ch].apiBase;
-                    body = { action: 'tx-details', chain: ch, txHash: q };
-                    break;
-                case 'solana': // UPDATED: POST to proxy
-                    endpoint = chainConfig[ch].apiBase;
-                    body = { action: 'tx-details', txHash: q };
-                    break;
-                default:
-                    throw new Error('Unsupported chain for tx');
+            if (config.apiBase === '/api/etherscan') {
+                body = { action: 'tx-details', chain: ch, txHash: q };
+            } else if (ch === 'bitcoin') {
+                body = { action: 'tx-details', txHash: q };
+            } else if (ch === 'solana') {
+                body = { action: 'tx-details', txHash: q };
+            } else {
+                throw new Error('Unsupported chain for tx');
             }
             fetchOptions.body = JSON.stringify(body);
             const res = await fetch(endpoint, fetchOptions);
             if (!res.ok) throw new Error(`API error: ${res.status}`);
             const resJson = await res.json();
-            if (ch === 'bitcoin' || ch === 'ethereum' || ch === 'bsc' || ch === 'solana') { // UPDATED: Include solana
+            if (ch === 'bitcoin' || isEVMChain(ch) || ch === 'solana') {
                 if (!resJson.success) throw new Error(resJson.detail || 'Transaction not found');
                 data = resJson.data;
             } else {
@@ -254,21 +288,19 @@ export default function ExplorerTab({ initialQuery, initialChain }) {
             }
 
             setResults({ data, chain: ch });
+            setSelectedChain(ch);  // FIXED: Cập nhật selectedChain khi fetch thành công (áp dụng cho fallback)
 
             const addresses = extractAddresses(data, ch);
             if (addresses.length > 0) {
                 await fetchNametags(addresses, ch);
             }
         } catch (err) {
-            if (ch === 'ethereum' && err.message.includes('not found')) {
-                try {
-                    const bscData = await fetchData(q, 'bsc');
-                    setResults({ ...bscData, chain: 'bsc' });
-                    setSelectedChain('bsc');
-                    return;
-                } catch (bscErr) {
-                    throw new Error('Transaction not found on supported chains');
-                }
+            // Auto-fallback for EVM chains
+            if (isEVMChain(ch) && err.message.includes('not found') && fallbackIndex < evmChainsOrder.length - 1) {
+                const nextChain = evmChainsOrder[fallbackIndex + 1];
+                console.log(`Fallback from ${ch} to ${nextChain} for tx ${q.slice(0, 10)}...`); // Debug log
+                await fetchData(q, nextChain, fallbackIndex + 1); // Recursive fallback
+                return;
             }
             let userMsg = err.message;
             if (ch === 'bitcoin' && (err.message.includes('timeout') || err.message.includes('AbortError'))) {
@@ -276,7 +308,10 @@ export default function ExplorerTab({ initialQuery, initialChain }) {
                 setTimeout(() => fetchData(q, ch), 2000);
                 return;
             }
-            setError(err.message);
+            if (isEVMChain(ch) && fallbackIndex === evmChainsOrder.length - 1) {
+                userMsg = 'Transaction not found on supported EVM chains';
+            }
+            setError(userMsg);
         } finally {
             setLoading(false);
         }
@@ -291,7 +326,7 @@ export default function ExplorerTab({ initialQuery, initialChain }) {
 
             router.push(`/dashboard?tab=explorer&query=${encodeURIComponent(query)}&chain=${ch}`, { scroll: false });
 
-            fetchData(query, ch);
+            fetchData(query, ch, 0); // Start fallback from index 0
         } catch (err) {
             setError(err.message);
         }
@@ -304,7 +339,7 @@ export default function ExplorerTab({ initialQuery, initialChain }) {
             setQuery(q);
             if (ch) {
                 setSelectedChain(ch);
-                fetchData(q, ch);
+                fetchData(q, ch, 0);
             } else {
                 handleSearch();
             }
@@ -336,14 +371,20 @@ export default function ExplorerTab({ initialQuery, initialChain }) {
         return `$${value.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
     };
 
+    // FIXED: renderValueWithUSD now uses nativeTokenLogos[symbol] for accurate native logos (e.g., ETH for Arbitrum)
     const renderValueWithUSD = (tokenValue, usdValue, symbol, logoUrl = null, isToken = false) => {
+        // FIXED: For native, use nativeTokenLogos[symbol]; fallback to chainLogos if not found
+        const nativeLogo = nativeTokenLogos[symbol] || logoUrl || chainLogos['ethereum']; // Default to ETH if unknown
         const formattedUSD = formatUSD(usdValue);
-        const logoElement = logoUrl ? (
+        const logoElement = nativeLogo ? (
             <img
-                src={logoUrl}
+                src={nativeLogo}
                 alt={symbol}
                 className="w-3 h-3 mr-1 rounded"
-                onError={(e) => { e.target.src = `https://via.placeholder.com/16?text=${symbol}`; }}
+                onError={(e) => { 
+                    e.target.src = `https://via.placeholder.com/16?text=${symbol}`; 
+                    e.target.alt = `${symbol} Logo`; // FIXED: Ensure alt for accessibility
+                }}
             />
         ) : null;
         if (!usdValue || usdValue === 0) return (
@@ -366,46 +407,52 @@ export default function ExplorerTab({ initialQuery, initialChain }) {
         <span className="flex items-center">
             <img
                 src={logo || `https://via.placeholder.com/16?text=${symbol || 'T'}`}
-                alt={symbol || 'Token'}
+                alt={`${symbol || 'Token'} Logo`} // FIXED: Better alt
                 className="w-3 h-3 mr-1 rounded"
-                onError={(e) => { e.target.src = `https://via.placeholder.com/16?text=${symbol || 'T'}`; }}
+                onError={(e) => { 
+                    e.target.src = `https://via.placeholder.com/16?text=${symbol || 'T'}`; 
+                }}
             />
             {amount} {symbol || ''}
         </span>
     );
 
+    // UPDATED: renderTxDetails - FIXED: Robust status parsing with parseInt; prioritize Arbitrum in fallback order
     const renderTxDetails = (txData, chain) => {
         let tx = txData;
         if (Array.isArray(txData)) tx = txData[0];
-        if (chain === 'ethereum' || chain === 'bsc') {
-            // Unchanged EVM render
+        if (isEVMChain(chain)) {
             const transaction = txData.transaction;
             const receipt = txData.receipt;
             const block = txData.block || null;
-            const internalTxs = txData.internalTxs || [];
-            const tokenTransfers = txData.tokenTransfers || [];
+            const internalTxs = Array.isArray(txData.internalTxs) ? txData.internalTxs : []; // FIXED: Ensure array
+            const tokenTransfers = Array.isArray(txData.tokenTransfers) ? txData.tokenTransfers : []; // FIXED: Ensure array
 
-            const isConfirmed = receipt && receipt.blockNumber;
+            // FIXED: Improved status with robust parsing (handles '0x1', '1', etc.)
+            const isConfirmed = (receipt && receipt.blockNumber) || (transaction && transaction.blockNumber);
             let status = 'Pending';
             let isSuccess = false;
             if (isConfirmed) {
-                status = receipt.status === '0x1' ? 'Success' : 'Failed';
+                const receiptStatus = receipt ? parseInt(receipt.status || '0x0', 16) : 0;
+                status = receiptStatus === 1 ? 'Success' : 'Failed';
                 isSuccess = status === 'Success';
             }
 
+            // FIXED: Thêm fallback '0x0' cho parseInt để tránh NaN
             const blockNumber = transaction.blockNumber ? parseInt(transaction.blockNumber, 16) : null;
-            const timestamp = block ? parseInt(block.timestamp, 16) * 1000 : Date.now();
-            const gasUsed = receipt ? parseInt(receipt.gasUsed, 16) : 0;
-            const effectiveGasPrice = receipt ? parseInt(receipt.effectiveGasPrice || transaction.gasPrice, 16) : parseInt(transaction.gasPrice || '0', 16);
+            const timestamp = block ? parseInt(block.timestamp || '0x0', 16) * 1000 : Date.now();
+            const gasUsed = receipt ? (parseInt(receipt.gasUsed || '0x0', 16) || 0) : 0;
+            const effectiveGasPrice = receipt 
+                ? (parseInt(receipt.effectiveGasPrice || transaction.gasPrice || '0x0', 16) || 0)
+                : (parseInt(transaction.gasPrice || '0x0', 16) || 0);
             const fee = (gasUsed * effectiveGasPrice) / 1e18;
-            const nativeValue = Number(parseInt(transaction.value || '0', 16)) / 1e18;
-            const symbol = chain === 'ethereum' ? 'ETH' : 'BNB';
+            // FIXED: Native value với fallback
+            const nativeValue = Number(parseInt(transaction.value || '0x0', 16)) / 1e18;
+            const symbol = nativeSymbols[chain] || 'Native';
 
-            tx.nativeValueUSD = txData.nativeValueUSD || 0;
-            tx.feeUSD = txData.feeUSD || 0;
+            txData.nativeValueUSD = txData.nativeValueUSD || 0;
+            txData.feeUSD = txData.feeUSD || 0;
             tx = { ...transaction, receipt, internalTxs, tokenTransfers };
-
-            const totalTokenUSD = tokenTransfers.reduce((sum, t) => sum + (t.valueUSD || 0), 0);
 
             return (
                 <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-4 text-sm">
@@ -418,8 +465,8 @@ export default function ExplorerTab({ initialQuery, initialChain }) {
                                 <Copy onClick={() => copyToClipboard(tx.hash)} className="w-4 h-4 cursor-pointer hover:text-neon-blue" />
                             </div>
                             <h2 className="text-base font-semibold flex items-center gap-2">
-                                <img src={chainLogos[selectedChain]} alt={selectedChain} className="w-6 h-6 inline mx-1" />
-                                <span className="text-neon-blue">{selectedChain}</span>
+                                <img src={chainLogos[chain]} alt={chain} className="w-6 h-6 inline mx-1" />
+                                <span className="text-neon-blue">{chain.toUpperCase()}</span>
                             </h2>
                         </div>
                         <div className="md:col-span-2 bg-black/50 p-3 rounded-lg border border-white/10 shadow-md hover:shadow-lg transition-shadow flex items-center backdrop-blur-sm">
@@ -438,7 +485,7 @@ export default function ExplorerTab({ initialQuery, initialChain }) {
                                 <span className="text-white/70 mr-2">Value:</span>
                                 <div className="flex flex-col">
                                     <div className="flex items-center flex-wrap gap-1">
-                                        {renderValueWithUSD(nativeValue, tx.nativeValueUSD, symbol, chainLogos[chain])}
+                                        {renderValueWithUSD(nativeValue, txData.nativeValueUSD, symbol, null)} {/* FIXED: Pass null for logoUrl to use nativeTokenLogos */}
                                     </div>
                                 </div>
                             </div>
@@ -472,7 +519,7 @@ export default function ExplorerTab({ initialQuery, initialChain }) {
                             <Activity className="w-4 h-4 text-neon-blue mr-2" />
                             <span className="text-white/70 mr-2">Fee:</span>
                             <div className="flex flex-col">
-                                {renderValueWithUSD(fee, tx.feeUSD, symbol, chainLogos[chain])}
+                                {renderValueWithUSD(fee, txData.feeUSD, symbol, null)} {/* FIXED: Use nativeTokenLogos for fee too */}
                             </div>
                         </div>
                     </div>
@@ -498,7 +545,7 @@ export default function ExplorerTab({ initialQuery, initialChain }) {
                                                 <td className="p-2 border border-white/10 text-left flex items-center">
                                                     <img
                                                         src={t.logo || `https://via.placeholder.com/16?text=${t.symbol || 'T'}`}
-                                                        alt={t.symbol || 'Token'}
+                                                        alt={`${t.symbol || t.name || 'Token'} Logo`} // FIXED: Better alt text
                                                         className="w-4 h-4 mr-1 rounded"
                                                         onError={(e) => { e.target.src = `https://via.placeholder.com/16?text=${t.symbol || 'T'}`; }}
                                                     />
@@ -544,7 +591,7 @@ export default function ExplorerTab({ initialQuery, initialChain }) {
                             <pre className="text-xs bg-black/70 p-2 rounded overflow-auto max-h-40 custom-scrollbar">
                                 {internalTxs.map((itx, idx) => (
                                     <div key={idx}>
-                                        From: {renderAddress(itx.from, chain)} | To: {renderAddress(itx.to, chain)} | Value: {renderValueWithUSD(Number(itx.value || 0) / 1e18, itx.valueUSD || 0, symbol, chainLogos[chain])}
+                                        From: {renderAddress(itx.from, chain)} | To: {renderAddress(itx.to, chain)} | Value: {renderValueWithUSD(Number(itx.value || 0) / 1e18, itx.valueUSD || 0, symbol, null)} {/* FIXED: Native logo */}
                                     </div>
                                 ))}
                             </pre>
@@ -553,7 +600,6 @@ export default function ExplorerTab({ initialQuery, initialChain }) {
                 </motion.div>
             );
         } else if (chain === 'bitcoin') {
-            // Unchanged Bitcoin render (FIXED: onCopy -> onClick for Copy icon)
             const isConfirmed = tx.status?.confirmed || tx.status?.block_height > 0;
             const status = isConfirmed ? 'Success' : 'Pending';
             const timestamp = tx.status?.block_time ? tx.status.block_time * 1000 : Date.now();
@@ -605,7 +651,7 @@ export default function ExplorerTab({ initialQuery, initialChain }) {
                             <Coins className="w-4 h-4 text-neon-blue mr-2" />
                             <span className="text-white/70 mr-2">Value:</span>
                             <div className="flex flex-col">
-                                {renderValueWithUSD(totalValue, totalValueUSD, 'BTC', chainLogos[chain])}
+                                {renderValueWithUSD(totalValue, totalValueUSD, 'BTC', nativeTokenLogos['BTC'])} {/* FIXED: Use nativeTokenLogos */}
                             </div>
                         </div>
                         {blockNumber && (
@@ -637,12 +683,11 @@ export default function ExplorerTab({ initialQuery, initialChain }) {
                             <Activity className="w-4 h-4 text-neon-blue mr-2" />
                             <span className="text-white/70 mr-2">Fee:</span>
                             <div className="flex flex-col">
-                                {renderValueWithUSD(fee, feeUSD, 'BTC', chainLogos[chain])}
+                                {renderValueWithUSD(fee, feeUSD, 'BTC', nativeTokenLogos['BTC'])} {/* FIXED: Use nativeTokenLogos */}
                             </div>
                         </div>
                     </div>
 
-                    {/* Inputs/Outputs */}
                     <h3 className="text-md font-semibold flex items-center mt-4"><Activity className="w-4 h-4 mr-2 text-neon-blue" />Inputs/Outputs</h3>
                     {tx.vin && tx.vin.length > 0 && (
                         <div>
@@ -655,7 +700,7 @@ export default function ExplorerTab({ initialQuery, initialChain }) {
                                             <td className="p-2 border border-white/10 text-left">{renderAddress(input.prevout?.scriptpubkey_address || 'Coinbase', chain)}</td>
                                             <td className="p-2 border border-white/10 text-left">
                                                 <div className="flex flex-col">
-                                                    {renderValueWithUSD((input.prevout?.value || 0) / 1e8, input.prevout?.valueUSD || 0, 'BTC', chainLogos[chain])}
+                                                    {renderValueWithUSD((input.prevout?.value || 0) / 1e8, input.prevout?.valueUSD || 0, 'BTC', nativeTokenLogos['BTC'])} {/* FIXED: Native logo */}
                                                 </div>
                                             </td>
                                         </tr>
@@ -675,7 +720,7 @@ export default function ExplorerTab({ initialQuery, initialChain }) {
                                             <td className="p-2 border border-white/10 text-left">{renderAddress(output.scriptpubkey_address || 'Unknown', chain)}</td>
                                             <td className="p-2 border border-white/10 text-left">
                                                 <div className="flex flex-col">
-                                                    {renderValueWithUSD((output.value || 0) / 1e8, output.valueUSD || 0, 'BTC', chainLogos[chain])}
+                                                    {renderValueWithUSD((output.value || 0) / 1e8, output.valueUSD || 0, 'BTC', nativeTokenLogos['BTC'])} {/* FIXED: Native logo */}
                                                 </div>
                                             </td>
                                         </tr>
@@ -686,7 +731,7 @@ export default function ExplorerTab({ initialQuery, initialChain }) {
                     )}
                 </motion.div>
             );
-        } else if (chain === 'solana') { // UPDATED: Full Solana render, matching EVM/Bitcoin layout
+        } else if (chain === 'solana') {
             const status = tx.status || 'Success';
             const isSuccess = tx.isSuccess || status === 'Success';
             const timestamp = tx.timestamp || Date.now();
@@ -695,9 +740,9 @@ export default function ExplorerTab({ initialQuery, initialChain }) {
             const nativeValueUSD = tx.nativeValueUSD || 0;
             const fee = tx.fee || 0;
             const feeUSD = tx.feeUSD || 0;
-            const tokenTransfers = tx.tokenTransfers || [];
-            const nativeTransfers = tx.nativeTransfers || [];
-            const solPrice = tx.solPrice || 0; // FIXED: Use tx.solPrice from API data
+            const tokenTransfers = Array.isArray(tx.tokenTransfers) ? tx.tokenTransfers : []; // FIXED: Ensure array
+            const nativeTransfers = Array.isArray(tx.nativeTransfers) ? tx.nativeTransfers : []; // FIXED: Ensure array
+            const solPrice = tx.solPrice || 0;
 
             return (
                 <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-4 text-sm">
@@ -729,7 +774,7 @@ export default function ExplorerTab({ initialQuery, initialChain }) {
                                 <Coins className="w-4 h-4 text-neon-blue mr-2" />
                                 <span className="text-white/70 mr-2">Value:</span>
                                 <div className="flex flex-col">
-                                    {renderValueWithUSD(nativeValue, nativeValueUSD, symbol, chainLogos[chain])}
+                                    {renderValueWithUSD(nativeValue, nativeValueUSD, symbol, nativeTokenLogos['SOL'])} {/* FIXED: Use nativeTokenLogos */}
                                 </div>
                             </div>
                         )}
@@ -762,12 +807,11 @@ export default function ExplorerTab({ initialQuery, initialChain }) {
                             <Activity className="w-4 h-4 text-neon-blue mr-2" />
                             <span className="text-white/70 mr-2">Fee:</span>
                             <div className="flex flex-col">
-                                {renderValueWithUSD(fee, feeUSD, symbol, chainLogos[chain])}
+                                {renderValueWithUSD(fee, feeUSD, symbol, nativeTokenLogos['SOL'])} {/* FIXED: Use nativeTokenLogos */}
                             </div>
                         </div>
                     </div>
 
-                    {/* UPDATED: Token Transfers table for Solana */}
                     {tokenTransfers.length > 0 && (
                         <div className="mt-4">
                             <h3 className="text-md font-semibold flex items-center uppercase"><Coins className="w-4 h-4 mr-2 text-neon-blue" />Token Transfers</h3>
@@ -787,7 +831,7 @@ export default function ExplorerTab({ initialQuery, initialChain }) {
                                             <td className="p-2 border border-white/10 text-left flex items-center">
                                                 <img
                                                     src={t.logo || `https://via.placeholder.com/16?text=${t.symbol || 'T'}`}
-                                                    alt={t.symbol || 'Token'}
+                                                    alt={`${t.symbol || t.name || 'Token'} Logo`} // FIXED: Better alt
                                                     className="w-4 h-4 mr-1 rounded"
                                                     onError={(e) => { e.target.src = `https://via.placeholder.com/16?text=${t.symbol || 'T'}`; }}
                                                 />
@@ -813,7 +857,6 @@ export default function ExplorerTab({ initialQuery, initialChain }) {
                         </div>
                     )}
 
-                    {/* UPDATED: Native Transfers as Inputs/Outputs for Solana (FIXED: Use tx.solPrice) */}
                     <h3 className="text-md font-semibold flex items-center mt-4 uppercase"><Activity className="w-4 h-4 mr-2 text-neon-blue" />Native Transfers</h3>
                     {nativeTransfers.length > 0 && (
                         <div>
@@ -825,7 +868,7 @@ export default function ExplorerTab({ initialQuery, initialChain }) {
                                             <td className="p-2 border border-white/10 text-left">{renderAddress(transfer.fromUserAccount, chain)}</td>
                                             <td className="p-2 border border-white/10 text-left">{renderAddress(transfer.toUserAccount, chain)}</td>
                                             <td className="p-2 border border-white/10 text-left">
-                                                {renderValueWithUSD((transfer.amount || 0) / 1e9, ((transfer.amount || 0) / 1e9) * solPrice, symbol, chainLogos[chain])}
+                                                {renderValueWithUSD((transfer.amount || 0) / 1e9, ((transfer.amount || 0) / 1e9) * solPrice, symbol, nativeTokenLogos['SOL'])} {/* FIXED: Native logo */}
                                             </td>
                                         </tr>
                                     ))}
@@ -834,7 +877,6 @@ export default function ExplorerTab({ initialQuery, initialChain }) {
                         </div>
                     )}
 
-                    {/* Instructions */}
                     {tx.instructions && (
                         <div>
                             <h4 className="flex items-center"><Activity className="w-4 h-4 mr-1" />Instructions</h4>
@@ -862,7 +904,7 @@ export default function ExplorerTab({ initialQuery, initialChain }) {
                         <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-white/50" />
                         <input
                             type="text"
-                            placeholder="Enter transaction hash..."
+                            placeholder="Enter transaction hash... (Auto-detects chain)"
                             value={query}
                             onChange={(e) => setQuery(e.target.value)}
                             className="w-full h-[5vh] pl-10 pr-4 py-2 text-gray-500 border border-white/20 bg-black/50 backdrop-blur-sm focus:outline-none focus:ring-2 focus:ring-neon-blue/50 shadow-sm text-sm"
@@ -899,27 +941,27 @@ export default function ExplorerTab({ initialQuery, initialChain }) {
             </AnimatePresence>
 
             <style jsx>{`
-        table th, table td { border: 1px solid rgba(255,255,255,0.1); padding: 8px; }
-        table tr:hover { background: rgba(255,255,255,0.05); }
-        .break-all { word-break: break-all; }
-        .custom-scrollbar::-webkit-scrollbar {
-          width: 6px;
-        }
-        .custom-scrollbar::-webkit-scrollbar-thumb {
-          background: rgba(255, 255, 255, 0.2);
-          border-radius: 3px;
-        }
-        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
-          background: rgba(255, 255, 255, 0.3);
-        }
-        .hide-scrollbar::-webkit-scrollbar {
-          display: none;
-        }
-        .hide-scrollbar {
-          -ms-overflow-style: none;
-          scrollbar-width: none;
-        }
-      `}</style>
+                table th, table td { border: 1px solid rgba(255,255,255,0.1); padding: 8px; }
+                table tr:hover { background: rgba(255,255,255,0.05); }
+                .break-all { word-break: break-all; }
+                .custom-scrollbar::-webkit-scrollbar {
+                  width: 6px;
+                }
+                .custom-scrollbar::-webkit-scrollbar-thumb {
+                  background: rgba(255, 255, 255, 0.2);
+                  border-radius: 3px;
+                }
+                .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+                  background: rgba(255, 255, 255, 0.3);
+                }
+                .hide-scrollbar::-webkit-scrollbar {
+                  display: none;
+                }
+                .hide-scrollbar {
+                  -ms-overflow-style: none;
+                  scrollbar-width: none;
+                }
+            `}</style>
         </div>
     );
 }

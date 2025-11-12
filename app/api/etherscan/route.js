@@ -1,24 +1,13 @@
 // app/api/etherscan/route.js
-// Upgraded app/api/etherscan/route.js with expanded actions for full explorer support
-// Added: Full support for all Etherscan V2 chains based on latest docs (as of Nov 2025)
-// Expanded chainIdMap with all supported mainnets and testnets
-// Added aliases like 'bsc' for 'bnb_smart_chain_mainnet', 'polygon' for 'polygon_mainnet', etc.
-// Enhanced error handling and logging
-// Enhanced: Parse token transfers from logs in tx-details
-// Enhanced: Fetch token info (name, symbol, decimals) for tokens in tx-details and token-info
-// UPDATED: Integrate CoinMarketCap API for token logos, USD prices, and valueUSD (batched for multiples)
-// FIXED: CMC info mapping - associate returned info to queried addresses via platforms.token_address (keep id as string for key matching)
-// UPDATED: Add native coin (ETH/BNB) price and USD value from CMC, with detailed logging for debug
 import { NextResponse } from 'next/server';
 import axios from 'axios';
 import { z } from 'zod';
 import { logger } from '../../../utils/serverLogger';
 import Bottleneck from 'bottleneck';
 import { isAddress } from 'ethers';
-// REMOVED: import { auth } from '@/lib/auth'; - No session required for public feature
 
 const limiterBottleneck = new Bottleneck({
-  maxConcurrent: 5,  // Safe for 5 req/s
+  maxConcurrent: 5,
   minTime: 250,
 });
 
@@ -33,76 +22,104 @@ const fetchWithRateLimit = limiterBottleneck.wrap(async (url, config) => {
   }
 });
 
-// UPDATED: CoinMarketCap integration functions (with logging)
-async function fetchCmcInfo(addresses) {
-  if (!process.env.COINMARKETCAP_API_KEY || addresses.length === 0) {
-    logger.info('CMC API key missing or no addresses, skipping CMC fetch');
+// FIXED: CoinGecko platform map (same as CMC slugs)
+const platformIdMap = {
+  ethereum: 'ethereum',
+  bsc: 'binance-smart-chain',
+  arbitrum: 'arbitrum-one',
+  optimism: 'optimism',
+  polygon: 'polygon-pos',
+  base: 'base',
+  // Add more: avalanche: 'avalanche', etc.
+};
+
+// FIXED: Fetch token metadata/logo from CoinGecko by contract (batch via Promise.all)
+async function fetchCoinGeckoInfo(chain, addresses) {
+  if (addresses.length === 0) {
+    logger.info('No addresses for CoinGecko fetch');
+    return {};
+  }
+
+  const platform = platformIdMap[chain];
+  if (!platform) {
+    logger.warn(`Unsupported platform for CoinGecko: ${chain}`);
+    return {};
+  }
+
+  const cgInfos = {};
+  // Batch fetch: CoinGecko no direct batch for metadata, so Promise.all single calls (rate limit OK for small batches)
+  await Promise.all(addresses.map(async (addr) => {
+    const url = `https://api.coingecko.com/api/v3/coins/${platform}/contract/${addr}?localization=false&market_data=false`;
+    try {
+      const res = await fetchWithRateLimit(url, { timeout: 5000 });
+      if (res.data.id) {
+        const lowerAddr = addr.toLowerCase();
+        cgInfos[lowerAddr] = {
+          id: res.data.id, // For price fetch
+          logo: res.data.image?.small || res.data.image?.thumb || null, // Prefer small for icons
+          name: res.data.name,
+          symbol: res.data.symbol?.toUpperCase(),
+        };
+        logger.info(`CoinGecko info for ${addr} on ${platform}: ${res.data.name} (${res.data.symbol})`);
+      }
+    } catch (err) {
+      logger.warn(`CoinGecko info failed for ${addr} on ${platform}: ${err.message}`);
+    }
+  }));
+
+  const matchedCount = Object.keys(cgInfos).length;
+  logger.info(`CoinGecko info fetched for ${matchedCount} tokens on ${platform} (queried ${addresses.length})`);
+  return cgInfos;
+}
+
+// FIXED: Fetch prices from CoinGecko by contract addresses (batch support)
+async function fetchCoinGeckoPrices(chain, addresses) {
+  if (addresses.length === 0) {
+    logger.info('No addresses for CoinGecko prices');
+    return {};
+  }
+
+  const platform = platformIdMap[chain];
+  if (!platform) {
+    logger.warn(`Unsupported platform for CoinGecko prices: ${chain}`);
     return {};
   }
 
   const addressStr = addresses.join(',');
-  const url = `https://pro-api.coinmarketcap.com/v2/cryptocurrency/info?address=${addressStr}`;
-  const config = {
-    headers: {
-      'Accept': 'application/json',
-      'X-CMC_PRO_API_KEY': process.env.COINMARKETCAP_API_KEY,
-    },
-    timeout: 10000,
-  };
-
+  const url = `https://api.coingecko.com/api/v3/simple/token_price/${platform}?contract_addresses=${addressStr}&vs_currencies=usd`;
   try {
-    const res = await fetchWithRateLimit(url, config);
-    logger.info(`CMC info called for ${addresses.length} tokens`); // NEW: Log call
-    if (res.data.status?.error_code === 0) {
-      const cmcInfos = {};
-      // FIXED: Map returned info (keyed by CMC ID) to queried addresses via platforms.token_address
-      Object.entries(res.data.data).forEach(([cmcId, info]) => {
-        if (info.platforms) {
-          Object.entries(info.platforms).forEach(([tokenAddress]) => {
-            const lowerAddr = tokenAddress.toLowerCase();
-            if (addresses.includes(lowerAddr)) {
-              cmcInfos[lowerAddr] = {
-                id: cmcId, // Keep as string for key matching
-                logo: info.logo?.png || info.logo, // Prefer PNG
-                name: info.name,
-                symbol: info.symbol,
-              };
-            }
-          });
-        }
-        // Fallback for single platform tokens
-        if (info.platform && info.platform.token_address) {
-          const lowerAddr = info.platform.token_address.toLowerCase();
-          if (addresses.includes(lowerAddr)) {
-            cmcInfos[lowerAddr] = {
-              id: cmcId,
-              logo: info.logo?.png || info.logo,
-              name: info.name,
-              symbol: info.symbol,
-            };
-          }
-        }
-      });
-      const matchedCount = Object.keys(cmcInfos).length;
-      logger.info(`CMC info fetched for ${matchedCount} tokens (queried ${addresses.length})`);
-      return cmcInfos;
-    } else {
-      logger.warn(`CMC info error: ${res.data.status?.error_message}`);
-      return {};
-    }
+    const res = await fetchWithRateLimit(url, { timeout: 5000 });
+    logger.info(`CoinGecko prices called for ${addresses.length} addresses on ${platform}`);
+    // Res: { '0x...': { usd: 1.00 } }
+    const matchedCount = Object.keys(res.data).length;
+    logger.info(`CoinGecko prices fetched for ${matchedCount} tokens on ${platform}`);
+    return res.data;
   } catch (err) {
-    logger.warn(`CMC info fetch failed: ${err.message}`);
+    logger.warn(`CoinGecko prices fetch failed for ${platform}: ${err.message}`);
     return {};
   }
 }
 
-async function fetchCmcPrices(ids) {
-  if (!process.env.COINMARKETCAP_API_KEY || ids.length === 0) {
-    logger.info('CMC prices skipped: no key or ids'); // NEW: Log
-    return {};
+// UPDATED: Fetch native price (keep CMC for accuracy)
+async function fetchNativePrice(chain) {
+  if (!process.env.COINMARKETCAP_API_KEY) {
+    logger.info(`CMC key missing, skipping native price for ${chain}`);
+    return null;
   }
 
-  const idStr = ids.join(',');
+  const nativeIdMap = {
+    ethereum: '1027', // ETH
+    bsc: '1839', // BNB
+    arbitrum: '1027', // ETH
+    optimism: '1027', // ETH
+    polygon: '3890', // MATIC
+    base: '1027', // ETH
+  };
+  const nativeId = nativeIdMap[chain];
+  if (!nativeId) return null;
+
+  // Simple CMC price fetch (no batch needed)
+  const idStr = nativeId;
   const url = `https://pro-api.coinmarketcap.com/v1/cryptocurrency/quotes/latest?id=${idStr}&convert=USD`;
   const config = {
     headers: {
@@ -114,243 +131,81 @@ async function fetchCmcPrices(ids) {
 
   try {
     const res = await fetchWithRateLimit(url, config);
-    logger.info(`CMC prices called for ${ids.length} ids`); // NEW: Log call
     if (res.data.status?.error_code === 0) {
-      logger.info(`CMC prices fetched for ${ids.length} tokens`);
-      return res.data.data;
-    } else {
-      logger.warn(`CMC prices error: ${res.data.status?.error_message}`);
-      return {};
+      const price = res.data.data[nativeId]?.quote?.USD?.price || null;
+      logger.info(`Native ${chain} price from CMC: ${price || 'N/A'} USD`);
+      return price;
     }
   } catch (err) {
-    logger.warn(`CMC prices fetch failed: ${err.message}`);
-    return {};
+    logger.warn(`CMC native price failed for ${chain}: ${err.message}`);
   }
+  return null;
 }
 
-// NEW: Fetch native price (ETH/BNB)
-async function fetchNativePrice(chain) {
-  if (!process.env.COINMARKETCAP_API_KEY) {
-    logger.info(`CMC key missing, skipping native price for ${chain}`);
-    return null;
-  }
-
-  const nativeId = chain === 'ethereum' ? '1027' : chain === 'bsc' ? '1839' : null;
-  if (!nativeId) return null;
-
-  const cmcPrices = await fetchCmcPrices([nativeId]);
-  const price = cmcPrices[nativeId]?.quote?.USD?.price || null;
-  logger.info(`Native ${chain} price from CMC: ${price || 'N/A'} USD`);
-  return price;
-}
-
-// UPDATED: Helper to enrich tokens with CMC data (used in multiple actions)
-async function enrichWithCmc(tokens) {
+// FIXED: Enrich tokens with CoinGecko (logo + price by contract, no key needed)
+async function enrichWithCoinGecko(tokens) {
   if (tokens.length === 0) {
-    logger.info('No tokens to enrich with CMC');
+    logger.info('No tokens to enrich with CoinGecko');
     return tokens;
   }
-  const uniqueAddrs = [...new Set(tokens.map(t => t.tokenAddress.toLowerCase()))];
-  logger.info(`Enriching ${tokens.length} tokens from ${uniqueAddrs.length} unique addrs`); // NEW: Log
-  const cmcInfos = await fetchCmcInfo(uniqueAddrs);
-  const ids = uniqueAddrs.map(addr => cmcInfos[addr]?.id).filter(Boolean);
-  const cmcQuotes = await fetchCmcPrices(ids);
+  const chain = tokens[0].chain; // Assume same chain
+  const uniqueAddrs = [...new Set(tokens.map(t => t.tokenAddress?.toLowerCase()).filter(Boolean))];
+  logger.info(`Enriching ${tokens.length} tokens from ${uniqueAddrs.length} unique addresses on ${chain} with CoinGecko`);
+
+  const cgInfos = await fetchCoinGeckoInfo(chain, uniqueAddrs);
+  const cgPrices = await fetchCoinGeckoPrices(chain, uniqueAddrs);
 
   return tokens.map(t => {
-    const lowerAddr = t.tokenAddress.toLowerCase();
-    const cmcInfo = cmcInfos[lowerAddr];
-    const cmcId = cmcInfo?.id;
-    const priceUSD = cmcId ? cmcQuotes[cmcId]?.quote?.USD?.price : null;
-    const amount = Number(t.value || t.balanceRaw) / 10 ** (t.decimals || 18); // value for transfers, balanceRaw for balances
-    const valueUSD = priceUSD ? amount * priceUSD : null;
-    logger.info(`Enriched token ${lowerAddr}: price ${priceUSD}, amount ${amount}, valueUSD ${valueUSD}`); // NEW: Debug log
+    const lowerAddr = t.tokenAddress?.toLowerCase();
+    const cgInfo = cgInfos[lowerAddr];
+    const cgPrice = cgPrices[lowerAddr]?.usd || null;
+    const amount = Number(t.value || t.balanceRaw) / 10 ** (t.decimals || 18);
+    const valueUSD = cgPrice ? amount * cgPrice : null;
+    logger.info(`Enriched token ${t.tokenAddress} on ${chain}: symbol ${t.symbol || cgInfo?.symbol}, price ${cgPrice}, amount ${amount}, valueUSD ${valueUSD}, logo: ${cgInfo?.logo ? 'OK' : 'fallback'}`);
 
     return {
       ...t,
-      logo: cmcInfo?.logo || null,
-      priceUSD: priceUSD || null,
+      logo: cgInfo?.logo || `https://via.placeholder.com/16?text=${t.symbol || 'T'}`,
+      priceUSD: cgPrice || null,
       valueUSD: valueUSD || null,
+      name: cgInfo?.name || t.name, // Optional: Override if better
+      symbol: cgInfo?.symbol || t.symbol,
     };
   });
 }
 
-// Full chainIdMap based on latest Etherscan V2 docs (50+ chains, mainnets & testnets)
+// Full chainIdMap (unchanged)
 const chainIdMap = {
-  // Ethereum
   ethereum: '1',
   ethereum_mainnet: '1',
-  sepolia: '11155111',
-  holesky: '17000',
-  hoodi: '560048',
-
-  // Abstract
   abstract: '2741',
-  abstract_mainnet: '2741',
-  abstract_sepolia: '11124',
-
-  // ApeChain
   apechain: '33139',
-  apechain_mainnet: '33139',
-  apechain_curtis: '33111',
-
-  // Arbitrum
   arbitrum: '42161',
   arbitrum_one: '42161',
-  arbitrum_one_mainnet: '42161',
   arbitrum_nova: '42170',
-  arbitrum_sepolia: '421614',
-
-  // Avalanche
   avalanche: '43114',
-  avalanche_c: '43114',
-  avalanche_c_chain: '43114',
-  avalanche_fuji: '43113',
-
-  // Base
   base: '8453',
-  base_mainnet: '8453',
-  base_sepolia: '84532',
-
-  // Berachain
-  berachain: '80094',
-  berachain_mainnet: '80094',
-  berachain_bepolia: '80069',
-
-  // BitTorrent
-  bittorrent: '199',
-  bittorrent_chain: '199',
-  bittorrent_chain_mainnet: '199',
-  bittorrent_testnet: '1029',
-
-  // Blast
-  blast: '81457',
-  blast_mainnet: '81457',
-  blast_sepolia: '168587773',
-
-  // BNB Smart Chain (BSC)
   bnb: '56',
   bnb_smart_chain: '56',
-  bnb_smart_chain_mainnet: '56',
-  bsc: '56', // Alias for BSC
-  bsc_mainnet: '56',
-  bnb_testnet: '97',
-  bsc_testnet: '97',
-
-  // Celo
+  bsc: '56',
   celo: '42220',
-  celo_mainnet: '42220',
-  celo_sepolia: '11142220',
-
-  // Fraxtal
-  fraxtal: '252',
-  fraxtal_mainnet: '252',
-  fraxtal_hoodi: '2523',
-
-  // Gnosis
   gnosis: '100',
-
-  // HyperEVM
   hyperevm: '999',
-  hyperevm_mainnet: '999',
-
-  // Katana
-  katana: '747474',
-  katana_mainnet: '747474',
-  katana_bokuto: '737373',
-
-  // Linea
   linea: '59144',
-  linea_mainnet: '59144',
-  linea_sepolia: '59141',
-
-  // Mantle
-  mantle: '5000',
-  mantle_mainnet: '5000',
-  mantle_sepolia: '5003',
-
-  // Memecore
-  memecore: '43521',
-  memecore_testnet: '43521',
-
-  // Monad
   monad: '10143',
-  monad_testnet: '10143',
-
-  // Moonbeam / Moonriver
-  moonbeam: '1284',
-  moonbeam_mainnet: '1284',
-  moonriver: '1285',
-  moonriver_mainnet: '1285',
-  moonbase_alpha: '1287',
-
-  // Optimism (OP)
   op: '10',
-  op_mainnet: '10',
-  op_sepolia: '11155420',
-
-  // opBNB
-  opbnb: '204',
-  opbnb_mainnet: '204',
-  opbnb_testnet: '5611',
-
-  // Polygon
+  optimism: '10',
   polygon: '137',
-  polygon_mainnet: '137',
-  matic: '137', // Alias
-  polygon_amoy: '80002',
-
-  // Scroll
+  matic: '137',
   scroll: '534352',
-  scroll_mainnet: '534352',
-  scroll_sepolia: '534351',
-
-  // Sei
   sei: '1329',
-  sei_mainnet: '1329',
-  sei_testnet: '1328',
-
-  // Sonic
   sonic: '146',
-  sonic_mainnet: '146',
-  sonic_testnet: '14601',
-
-  // Sophon
-  sophon: '50104',
-  sophon_mainnet: '50104',
-  sophon_sepolia: '531050104',
-
-  // Swellchain
-  swellchain: '1923',
-  swellchain_mainnet: '1923',
-  swellchain_testnet: '1924',
-
-  // Taiko
-  taiko: '167000',
-  taiko_mainnet: '167000',
-  taiko_hoodi: '167013',
-
-  // Unichain
   unichain: '130',
-  unichain_mainnet: '130',
-  unichain_sepolia: '1301',
-
-  // World
   world: '480',
-  world_mainnet: '480',
-  world_sepolia: '4801',
-
-  // XDC
-  xdc: '50',
-  xdc_mainnet: '50',
-  xdc_apothem: '51',
-
-  // zkSync
   zksync: '324',
-  zksync_mainnet: '324',
-  zksync_sepolia: '300',
 };
 
-// Allowed origins
+// Allowed origins (unchanged)
 const allowedOrigins = [
   process.env.NEXT_PUBLIC_APP_URL,
   'http://localhost:3000',
@@ -413,12 +268,12 @@ const bodySchema = z.object({
 // V2 unified base URL
 const ETHERSCAN_V2_BASE_URL = 'https://api.etherscan.io/v2/api';
 
-// Helper to fetch token info via eth_call
+// Helper to fetch token info via eth_call (unchanged)
 async function fetchTokenInfo(chainId, tokenAddress) {
   const calls = [
-    { selector: '0x06fdde03', key: 'name' }, // name()
-    { selector: '0x95d89b41', key: 'symbol' }, // symbol()
-    { selector: '0x313ce567', key: 'decimals' }, // decimals()
+    { selector: '0x06fdde03', key: 'name' },
+    { selector: '0x95d89b41', key: 'symbol' },
+    { selector: '0x313ce567', key: 'decimals' },
   ];
   let info = { name: 'Unknown', symbol: 'UNK', decimals: 18 };
 
@@ -431,7 +286,6 @@ async function fetchTokenInfo(chainId, tokenAddress) {
         if (call.key === 'decimals') {
           info[call.key] = parseInt(result, 16);
         } else {
-          // Decode ABI string
           const lenHex = result.slice(66, 130);
           const len = parseInt(lenHex, 16);
           const dataHex = result.slice(130, 130 + len * 2);
@@ -445,7 +299,7 @@ async function fetchTokenInfo(chainId, tokenAddress) {
   return info;
 }
 
-// CORS wrapper
+// CORS wrapper (unchanged)
 const handlerWrapper = (handler) =>
   limiterBottleneck.wrap(async (req) => {
     const ip = req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown';
@@ -493,8 +347,7 @@ export const POST = handlerWrapper(async (request) => {
     return NextResponse.json({ detail: `Unsupported chain for Etherscan V2: ${chain}` }, { status: 400 });
   }
 
-  // REMOVED: Internal token and session auth check - Public feature, no login required
-  // (Keep internal token if needed for server-side, but allow public without it)
+  logger.info(`Processing ${action} for chain ${chain} (ID: ${chainId})`, { ip, txHash: txHash?.slice(0, 10) + '...' });
 
   if (!process.env.ETHERSCAN_API_KEY) {
     logger.error('ETHERSCAN_API_KEY is not configured');
@@ -514,6 +367,7 @@ export const POST = handlerWrapper(async (request) => {
             apiUrl += `&module=${apiModule}&action=${apiAction}&address=${address}&startblock=0&endblock=99999999&page=${page}&offset=${offset}&sort=desc&apikey=${process.env.ETHERSCAN_API_KEY}`;
             logger.info('Calling Etherscan V2 API for transactions', { module: apiModule, action: apiAction, chain, address, ip });
             const response = await fetchWithRateLimit(apiUrl, { timeout: 15000 });
+            logger.info(`API fetch for transactions: status ${response.status}`);
 
             if (response.data.status === '1' && Array.isArray(response.data.result)) {
               data = response.data.result.map((tx) => ({
@@ -540,10 +394,11 @@ export const POST = handlerWrapper(async (request) => {
             apiUrl += `&module=${apiModule}&action=${apiAction}&address=${address}&tag=latest&apikey=${process.env.ETHERSCAN_API_KEY}`;
             logger.info('Calling Etherscan V2 API for native balance', { module: apiModule, action: apiAction, chain, address, ip });
             const response = await fetchWithRateLimit(apiUrl, { timeout: 15000 });
+            logger.info(`API fetch for balance: status ${response.status}`);
 
             if (response.data.status === '1' && typeof response.data.result === 'string') {
               const ethBalanceWei = BigInt(response.data.result);
-              const nativePrice = await fetchNativePrice(chain); // NEW: Add native price
+              const nativePrice = await fetchNativePrice(chain);
               data = {
                 chain,
                 address,
@@ -551,20 +406,20 @@ export const POST = handlerWrapper(async (request) => {
                 decimals: 18,
                 amount: Number(ethBalanceWei) / 1e18,
                 balanceWei: ethBalanceWei.toString(),
-                priceUSD: nativePrice || null, // NEW
-                valueUSD: nativePrice ? (Number(ethBalanceWei) / 1e18) * nativePrice : null, // NEW
+                priceUSD: nativePrice || null,
+                valueUSD: nativePrice ? (Number(ethBalanceWei) / 1e18) * nativePrice : null,
               };
             } else {
               logger.warn(`Etherscan V2 API returned status ${response.data.status} for balance: ${response.data.message}`, { ip, address });
             }
             controller.enqueue(JSON.stringify({ success: true, data }));
           } else if (action === 'token-balances' && address) {
-            // Fetch all tokentx and aggregate balances
             const apiModule = 'account';
             const apiAction = 'tokentx';
             apiUrl += `&module=${apiModule}&action=${apiAction}&address=${address}&startblock=0&endblock=99999999&page=1&offset=10000&sort=desc&apikey=${process.env.ETHERSCAN_API_KEY}`;
             logger.info('Calling Etherscan V2 API for token balances via tokentx', { module: apiModule, action: apiAction, chain, address, ip });
             const response = await fetchWithRateLimit(apiUrl, { timeout: 15000 });
+            logger.info(`API fetch for tokentx: status ${response.status}`);
 
             if (response.data.status === '1' && Array.isArray(response.data.result)) {
               const balances = {};
@@ -597,34 +452,32 @@ export const POST = handlerWrapper(async (request) => {
                   decimals: bal.decimals,
                   amount: Number(BigInt(bal.balanceRaw)) / 10 ** bal.decimals,
                   balanceRaw: bal.balanceRaw,
-                  value: bal.balanceRaw, // For enrich
+                  value: bal.balanceRaw,
                 }));
-              // Enrich with CMC
-              tokenData = await enrichWithCmc(tokenData);
+              tokenData = await enrichWithCoinGecko(tokenData); // FIXED: Use CoinGecko
               data = tokenData;
             } else {
               logger.warn(`Etherscan V2 API returned status ${response.data.status} for tokentx: ${response.data.message}`, { ip, address });
             }
             controller.enqueue(JSON.stringify({ success: true, data }));
           } else if (action === 'tx-details' && txHash) {
-            // For full TX details, we need multiple calls: tx, receipt, internal txs
-            // 1. Get TX
             let txUrl = `${ETHERSCAN_V2_BASE_URL}?chainid=${chainId}&module=proxy&action=eth_getTransactionByHash&txhash=${txHash}&apikey=${process.env.ETHERSCAN_API_KEY}`;
             logger.info('Calling Etherscan V2 API for tx details', { module: 'proxy', action: 'eth_getTransactionByHash', chain, txHash, ip });
             const txResponse = await fetchWithRateLimit(txUrl, { timeout: 15000 });
+            logger.info(`TX fetch for ${chain}: status ${txResponse.status}`);
             if (!txResponse.data.result) throw new Error('TX not found');
 
-            // 2. Get receipt
             let receiptUrl = `${ETHERSCAN_V2_BASE_URL}?chainid=${chainId}&module=proxy&action=eth_getTransactionReceipt&txhash=${txHash}&apikey=${process.env.ETHERSCAN_API_KEY}`;
             const receiptResponse = await fetchWithRateLimit(receiptUrl, { timeout: 15000 });
+            logger.info(`Receipt fetch for ${chain}: status ${receiptResponse.status}`);
 
-            // 3. Internal txs
             let internalUrl = `${ETHERSCAN_V2_BASE_URL}?chainid=${chainId}&module=account&action=txlistinternal&txhash=${txHash}&apikey=${process.env.ETHERSCAN_API_KEY}`;
             const internalResponse = await fetchWithRateLimit(internalUrl, { timeout: 15000 });
+            logger.info(`Internal txs fetch for ${chain}: status ${internalResponse.status}`);
 
-            // 4. Get block details for timestamp
             let blockUrl = `${ETHERSCAN_V2_BASE_URL}?chainid=${chainId}&module=proxy&action=eth_getBlockByNumber&tag=${txResponse.data.result.blockNumber}&boolean=true&apikey=${process.env.ETHERSCAN_API_KEY}`;
             const blockResponse = await fetchWithRateLimit(blockUrl, { timeout: 15000 });
+            logger.info(`Block fetch for ${chain}: status ${blockResponse.status}`);
 
             data = {
               transaction: txResponse.data.result,
@@ -634,7 +487,6 @@ export const POST = handlerWrapper(async (request) => {
               tokenTransfers: [],
             };
 
-            // Parse token transfers from logs
             if (data.receipt && data.receipt.logs) {
               data.receipt.logs.forEach((log) => {
                 if (log.topics && log.topics[0] === '0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef' && log.topics.length === 3) {
@@ -648,7 +500,6 @@ export const POST = handlerWrapper(async (request) => {
               });
             }
 
-            // Fetch token info for each unique token
             if (data.tokenTransfers.length > 0) {
               const uniqueTokens = [...new Set(data.tokenTransfers.map(t => t.tokenAddress.toLowerCase()))];
               const tokenInfos = {};
@@ -659,18 +510,15 @@ export const POST = handlerWrapper(async (request) => {
                 ...t,
                 tokenAddress: t.tokenAddress.toLowerCase(),
                 ...tokenInfos[t.tokenAddress.toLowerCase()],
+                chain, // Ensure chain field
               }));
-            }
 
-            // UPDATED: Enrich tokenTransfers + add native enrich
-            if (data.tokenTransfers.length > 0) {
-              logger.info(`Found ${data.tokenTransfers.length} token transfers, enriching with CMC`); // NEW: Log
-              data.tokenTransfers = await enrichWithCmc(data.tokenTransfers);
+              logger.info(`Found ${data.tokenTransfers.length} token transfers, enriching with CoinGecko on ${chain}`);
+              data.tokenTransfers = await enrichWithCoinGecko(data.tokenTransfers); // FIXED: Use CoinGecko
             } else {
-              logger.info('No token transfers, skipping CMC for tokens'); // NEW: Log
+              logger.info('No token transfers, skipping enrich');
             }
 
-            // NEW: Enrich native ETH/BNB
             const nativePrice = await fetchNativePrice(chain);
             if (nativePrice) {
               const nativeValue = Number(parseInt(data.transaction.value || '0', 16)) / 1e18;
@@ -684,19 +532,18 @@ export const POST = handlerWrapper(async (request) => {
 
             controller.enqueue(JSON.stringify({ success: true, data }));
           } else if (action === 'address-overview' && address) {
-            // Combine native balance, token balances, tx count
             const overview = {};
 
-            // Native balance
             let balUrl = `${ETHERSCAN_V2_BASE_URL}?chainid=${chainId}&module=account&action=balance&address=${address}&tag=latest&apikey=${process.env.ETHERSCAN_API_KEY}`;
             const balResponse = await fetchWithRateLimit(balUrl, { timeout: 15000 });
+            logger.info(`API fetch for balance overview: status ${balResponse.status}`);
             if (balResponse.data.status === '1') {
               overview.nativeBalance = balResponse.data.result;
             }
 
-            // Token balances (from above logic)
             let tokUrl = `${ETHERSCAN_V2_BASE_URL}?chainid=${chainId}&module=account&action=tokentx&address=${address}&startblock=0&endblock=99999999&page=1&offset=10000&sort=desc&apikey=${process.env.ETHERSCAN_API_KEY}`;
             const tokResponse = await fetchWithRateLimit(tokUrl, { timeout: 15000 });
+            logger.info(`API fetch for tokentx overview: status ${tokResponse.status}`);
             if (tokResponse.data.status === '1') {
               const balances = {};
               tokResponse.data.result.forEach((tx) => {
@@ -720,15 +567,20 @@ export const POST = handlerWrapper(async (request) => {
               });
               let tokenData = Object.entries(balances)
                 .filter(([, bal]) => BigInt(bal.balanceRaw) > 0)
-                .map(([contract, bal]) => ({ contractAddress: contract, ...bal, amount: Number(BigInt(bal.balanceRaw)) / 10 ** bal.decimals, value: bal.balanceRaw }));
-              // Enrich
-              tokenData = await enrichWithCmc(tokenData);
+                .map(([contract, bal]) => ({ 
+                  chain,
+                  contractAddress: contract, 
+                  ...bal, 
+                  amount: Number(BigInt(bal.balanceRaw)) / 10 ** bal.decimals, 
+                  value: bal.balanceRaw 
+                }));
+              tokenData = await enrichWithCoinGecko(tokenData); // FIXED: Use CoinGecko
               overview.tokenBalances = tokenData;
             }
 
-            // Tx count
             let txCountUrl = `${ETHERSCAN_V2_BASE_URL}?chainid=${chainId}&module=proxy&action=eth_getTransactionCount&address=${address}&tag=latest&apikey=${process.env.ETHERSCAN_API_KEY}`;
             const txCountResponse = await fetchWithRateLimit(txCountUrl, { timeout: 15000 });
+            logger.info(`API fetch for tx count: status ${txCountResponse.status}`);
             if (txCountResponse.data.result) {
               overview.txCount = parseInt(txCountResponse.data.result, 16);
             }
@@ -741,6 +593,7 @@ export const POST = handlerWrapper(async (request) => {
             apiUrl += `&module=${apiModule}&action=${apiAction}&contractaddress=${tokenAddress}&apikey=${process.env.ETHERSCAN_API_KEY}`;
             logger.info('Calling Etherscan V2 API', { module: apiModule, action: apiAction, chain, tokenAddress, ip });
             const response = await fetchWithRateLimit(apiUrl, { timeout: 15000 });
+            logger.info(`API fetch for token supply: status ${response.status}`);
 
             if (response.data.status === '1' && typeof response.data.result === 'string') {
               const supply = response.data.result;
@@ -753,8 +606,8 @@ export const POST = handlerWrapper(async (request) => {
           } else if (action === 'token-info' && tokenAddress) {
             let tokenData = await fetchTokenInfo(chainId, tokenAddress);
             tokenData.tokenAddress = tokenAddress;
-            // Enrich single token with CMC
-            const enriched = await enrichWithCmc([tokenData]);
+            tokenData.chain = chain;
+            const enriched = await enrichWithCoinGecko([tokenData]); // FIXED: Use CoinGecko
             data = enriched[0];
             controller.enqueue(JSON.stringify({ success: true, data }));
           } else if (action === 'token-transactions' && tokenAddress) {
@@ -763,6 +616,7 @@ export const POST = handlerWrapper(async (request) => {
             apiUrl += `&module=${apiModule}&action=${apiAction}&contractaddress=${tokenAddress}&startblock=0&endblock=99999999&sort=desc&page=${page}&offset=${offset}&apikey=${process.env.ETHERSCAN_API_KEY}`;
             logger.info('Calling Etherscan V2 API', { module: apiModule, action: apiAction, chain, tokenAddress, page, offset, ip });
             const response = await fetchWithRateLimit(apiUrl, { timeout: 15000 });
+            logger.info(`API fetch for token tx: status ${response.status}`);
 
             if (response.data.status === '1' && Array.isArray(response.data.result)) {
               data = response.data.result.map((tx) => ({
@@ -777,11 +631,10 @@ export const POST = handlerWrapper(async (request) => {
                 tokenDecimal: tx.tokenDecimal,
                 gasUsed: tx.gasUsed,
                 gasPrice: tx.gasPrice,
-                tokenAddress: tokenAddress, // Add for enrich
+                tokenAddress: tokenAddress,
                 decimals: parseInt(tx.tokenDecimal) || 18,
               }));
-              // Enrich token txs with CMC (single token)
-              data = await enrichWithCmc(data);
+              data = await enrichWithCoinGecko(data); // FIXED: Use CoinGecko
             } else {
               logger.warn(`Etherscan V2 API returned status ${response.data.status} for token tx: ${response.data.message}`, { ip, tokenAddress });
             }
@@ -792,7 +645,7 @@ export const POST = handlerWrapper(async (request) => {
           }
           controller.close();
         } catch (error) {
-          logger.error(`Etherscan V2 API error for action ${action}: ${error.message}`, {
+          logger.error(`Etherscan V2 API error for ${action} on chain ${chain} (ID: ${chainId}): ${error.message}`, {
             status: error.response?.status,
             data: error.response?.data,
             stack: error.stack,

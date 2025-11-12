@@ -305,11 +305,12 @@ function DashboardInner() {
   const [csrfToken, setCsrfToken] = useState(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [modalContent, setModalContent] = useState(null);
-  const [farcasterModalOpen, setFarcasterModalOpen] = useState(false);
+  // REMOVED: const [farcasterModalOpen, setFarcasterModalOpen] = useState(false); // No longer needed
   const [authSuccess, setAuthSuccess] = useState(false); // NEW: Fix loop - track auth success để hide form ngay
   const recaptchaRef = useRef(null);
   const { isSDKLoaded, context, user: miniAppUser } = useMiniApp(); // FIXED: Destructure properly based on Neynar docs (user may be optional)
   const [isMiniApp, setIsMiniApp] = useState(false);
+  const [isBaseApp, setIsBaseApp] = useState(false); // NEW: Separate detection for Base App
   const [miniAppAuthLoading, setMiniAppAuthLoading] = useState(false); // NEW: Loading cho quickauth
   const [miniAppAuthFailed, setMiniAppAuthFailed] = useState(false); // NEW: Track if auto-auth failed for Mini App
   const [isWorldMiniApp, setIsWorldMiniApp] = useState(false);  // NEW
@@ -401,15 +402,19 @@ function DashboardInner() {
   }, [isMounted, providers, fetchProvidersWithRetry]);
 
   // FIXED: Improved Mini App detection and auto-auth trigger based on Neynar docs. Use isSDKLoaded for detection (SDK only loads in Mini App). Trigger auth if no session. Call ready() after auth.
+  // UPDATED: Added SDK availability check and Base App specific UA for better detection
   useEffect(() => {
     // NEW: Fallback detection via user-agent if SDK fails (for troubleshooting mobile webview)
     const userAgent = navigator.userAgent.toLowerCase();
     const isFarcasterMobile = userAgent.includes('warpcast') || userAgent.includes('farcaster') || 
-      userAgent.includes('coinbase') || userAgent.includes('base');  // NEW: Catch Base App (CoinbaseWallet/Base App UA)
-    const miniAppDetected = isSDKLoaded && (context === 'miniapp' || !!miniAppUser) || isFarcasterMobile; // UPDATED: Fallback mở rộng
+      userAgent.includes('coinbase') || userAgent.includes('base') || userAgent.includes('coinbasewallet') || userAgent.includes('cbwallet');  // UPDATED: Added 'coinbasewallet', 'cbwallet' for Base App UA
+    const sdkAvailable = typeof sdk !== 'undefined' && !!sdk.quickAuth;  // NEW: Check if Farcaster SDK is injected
+    const miniAppDetected = isSDKLoaded && (context === 'miniapp' || !!miniAppUser) || isFarcasterMobile || sdkAvailable; // UPDATED: Include sdkAvailable
+    const isBaseUa = userAgent.includes('coinbasewallet') || userAgent.includes('base') || userAgent.includes('cbwallet');  // NEW: Specific for Base App
     setIsMiniApp(miniAppDetected);
+    setIsBaseApp(isBaseUa && !miniAppDetected);  // NEW: Set if Base UA but not detected as full miniapp (fallback to deeplink flow)
 
-    safeLog('Mini App Detection Debug:', { isSDKLoaded, context, miniAppUser, userAgent, miniAppDetected, isFarcasterMobile });  // UPDATED: Log thêm isFarcasterMobile
+    safeLog('Mini App Detection Debug:', { isSDKLoaded, context, miniAppUser, userAgent, sdkAvailable, miniAppDetected, isFarcasterMobile, isBaseUa, isBaseApp: isBaseUa && !miniAppDetected });  // UPDATED: Log thêm
 
     if (miniAppDetected && miniAppUser) {
       safeLog('Mini App ready! User FID:', miniAppUser?.fid);
@@ -426,7 +431,7 @@ function DashboardInner() {
     }
   }, [isMiniApp, session, miniAppAuthLoading]);
 
-  // NEW: Detect World Mini App
+  // UPDATED: Detect World Mini App with user agent fallback
   useEffect(() => {
     let worldDetected = false;
     try {
@@ -434,8 +439,12 @@ function DashboardInner() {
     } catch (err) {
       safeWarn('World Mini App detection error:', err);
     }
-    setIsWorldMiniApp(worldDetected);
-    safeLog('World Mini App Detection:', { worldDetected });
+    // NEW: User agent fallback for World App / Worldcoin
+    const userAgent = navigator.userAgent.toLowerCase();
+    const isWorldMobile = userAgent.includes('worldcoin') || userAgent.includes('world app') || userAgent.includes('worldapp');
+    const isWorldMiniAppDetected = worldDetected || isWorldMobile;
+    setIsWorldMiniApp(isWorldMiniAppDetected);
+    safeLog('World Mini App Detection:', { worldDetected, isWorldMobile, userAgentSnippet: userAgent.substring(0, 100), isWorldMiniAppDetected });
   }, []);
 
   // NEW: Auto-auth for World Mini App
@@ -726,7 +735,7 @@ function DashboardInner() {
         router.push('/dashboard', { shallow: true, scroll: false }); // NEW: Shallow để avoid query param loop
         await update();
         // REMOVED: toast.success('Signed in with Farcaster successfully!'); // Silent success
-        setFarcasterModalOpen(false);
+        // REMOVED: setFarcasterModalOpen(false); // No modal
         router.refresh();
       }
     } catch (err) {
@@ -944,7 +953,7 @@ function DashboardInner() {
                     >
                       Access your dashboard with secure authentication.
                     </motion.p>
-                    {!isWorldMiniApp && (
+                    {!isWorldMiniApp && !isBaseApp && (  // UPDATED: Hide Email in Base App
                       <>
                         <form onSubmit={handleEmailSignIn} className="w-full space-y-4">
                           <input
@@ -968,7 +977,7 @@ function DashboardInner() {
                         </div>
                       </>
                     )}
-                    {providers?.google && !isWorldMiniApp && (
+                    {providers?.google && !isWorldMiniApp && !isBaseApp && (  // UPDATED: Hide Google in Base App
                       <button
                         onClick={handleGoogleSignIn}
                         className="w-full px-4 py-2.5 bg-black/20 border border-white/25 rounded-2xl text-white text-sm font-semibold flex items-center justify-center gap-3 transition-all duration-300 hover:bg-gray-800/30 hover:border-white/40"
@@ -977,19 +986,58 @@ function DashboardInner() {
                         <MatrixHoverEffect text="Sign in with Google" />
                       </button>
                     )}
-                    {!isWorldMiniApp && !isMiniApp && ( // Hide Farcaster QR if in Mini App or World
-                      <button onClick={() => setFarcasterModalOpen(true)} // Mở modal thay vì signIn trực tiếp
+                    {/* UPDATED: Use SignInButton directly instead of custom button + modal for seamless deeplink on mobile */}
+                    {!isWorldMiniApp && !isMiniApp && (  // Show Farcaster login if not in Mini App or World (auto-handled elsewhere)
+                      <SignInButton
+                        onSuccess={handleFarcasterSuccess}
+                        onError={(error) => {
+                          safeError('AuthKit error:', error);
+                          toast.error(`Farcaster error: ${error.message}`);
+                        }}
                         className="w-full px-4 m-2 py-2.5 bg-black/20 border border-white/25 rounded-2xl text-white text-sm font-semibold flex items-center justify-center gap-3 transition-all duration-300 hover:bg-gray-800/30 hover:border-white/40"
+                        style={{ // Custom style to match existing design
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                        }}
+                        buttonText="Sign in with Farcaster"  // Custom text
+                        showLogo={true}  // Show Farcaster logo
                       >
                         <Image
                           src="/logos/farcaster-logo.webp"
                           alt="Farcaster Logo"
                           width={20}
                           height={20}
-                          className="w-6 h-6 rounded-xl object-contain"
+                          className="w-6 h-6 rounded-xl object-contain mr-2"  // Inline style for logo
                         />
-                        <MatrixHoverEffect text="Sign in with Farcaster" />
-                      </button>
+                        Sign in with Farcaster
+                      </SignInButton>
+                    )}
+                    {isBaseApp && !isMiniApp && (  // NEW: Force show Farcaster in Base App if not auto-detected
+                      <SignInButton
+                        onSuccess={handleFarcasterSuccess}
+                        onError={(error) => {
+                          safeError('AuthKit error:', error);
+                          toast.error(`Farcaster error: ${error.message}`);
+                        }}
+                        className="w-full px-4 m-2 py-2.5 bg-black/20 border border-white/25 rounded-2xl text-white text-sm font-semibold flex items-center justify-center gap-3 transition-all duration-300 hover:bg-gray-800/30 hover:border-white/40"
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                        }}
+                        buttonText="Sign in with Farcaster"
+                        showLogo={true}
+                      >
+                        <Image
+                          src="/logos/farcaster-logo.webp"
+                          alt="Farcaster Logo"
+                          width={20}
+                          height={20}
+                          className="w-6 h-6 rounded-xl object-contain mr-2"
+                        />
+                        Sign in with Farcaster
+                      </SignInButton>
                     )}
                     {isWorldMiniApp && (
                       <button
@@ -1128,38 +1176,7 @@ function DashboardInner() {
               </div>
             </div>
           )}
-          {farcasterModalOpen && (
-            <div
-              className="fixed inset-0 bg-black/75 flex items-center justify-center z-50"
-              onClick={() => setFarcasterModalOpen(false)}
-            >
-              <div
-                className="bg-gray-900/50 backdrop-blur-lg border border-white/20 rounded-2xl w-full max-w-md h-[60vh] relative flex flex-col"
-                onClick={(e) => e.stopPropagation()}
-              >
-                <div className="sticky top-0 z-10 backdrop-blur-lg border-b border-white/20 p-4 flex justify-between items-center">
-                  <h2 className="text-xl font-bold text-white uppercase">Sign In with Farcaster</h2>
-                  <button
-                    onClick={() => setFarcasterModalOpen(false)}
-                    className="text-white text-xl font-bold hover:text-neon-blue transition-all duration-300"
-                  >
-                    ✕
-                  </button>
-                </div>
-                <div className="flex-1 flex flex-col items-center justify-center p-4 overflow-auto">
-                  <p className="text-gray-500 text-sm mb-4 text-center">Scan the QR code with your Warpcast app to sign in.</p>
-                  <SignInButton // Sử dụng SignInButton thay vì AuthKitButton
-                    onSuccess={handleFarcasterSuccess}
-                    onError={(error) => {
-                      safeError('AuthKit error:', error);
-                      toast.error(`Farcaster error: ${error.message}`);
-                      setFarcasterModalOpen(false);
-                    }}
-                  />
-                </div>
-              </div>
-            </div>
-          )}
+          {/* REMOVED: Farcaster modal - now using SignInButton directly */}
         </div>
       </AuthKitProvider>
     </CurrencyProvider>

@@ -1,14 +1,14 @@
 // app/api/solana/route.js
 // Proxy for Helius Enhanced Transactions API
-// Integrates with CMC for USD values, logos, symbols (supports Solana mints via platforms.solana)
+// Integrates with CoinGecko for USD values, logos, symbols (supports Solana mints via /coins/solana/contract/{mint})
 // Based on Helius docs (Nov 2025): POST /v0/transactions?api-key=KEY
+// UPDATED: Switched from CMC to CoinGecko for token enrichment (consistent with Etherscan)
 
 import { NextResponse } from 'next/server';
 import axios from 'axios';
 import { z } from 'zod';
-import { logger } from '../../../utils/serverLogger'; // Assume same as etherscan
+import { logger } from '../../../utils/serverLogger';
 import Bottleneck from 'bottleneck';
-// REMOVED: import { auth } from '@/lib/auth'; - No session required for public feature
 
 const limiterBottleneck = new Bottleneck({
   maxConcurrent: 5,
@@ -26,101 +26,89 @@ const fetchWithRateLimit = limiterBottleneck.wrap(async (url, config) => {
   }
 });
 
-// CMC functions (copied/adapted from etherscan/route.js)
-async function fetchCmcInfo(addresses) { // Works for Solana mints (platforms.solana = mint)
-  if (!process.env.COINMARKETCAP_API_KEY || addresses.length === 0) {
-    logger.info('CMC API key missing or no addresses, skipping CMC fetch');
+// CoinGecko functions for Solana
+const platformIdMap = {
+  solana: 'solana',
+};
+
+// FIXED: Fetch token metadata/logo from CoinGecko by mint (exact case, no lower)
+async function fetchCoinGeckoInfo(addresses) {
+  if (addresses.length === 0) {
+    logger.info('No addresses for CoinGecko fetch');
+    return {};
+  }
+
+  const platform = platformIdMap['solana'];
+  if (!platform) {
+    logger.warn(`Unsupported platform for CoinGecko: solana`);
+    return {};
+  }
+
+  const cgInfos = {};
+  // Batch fetch: Promise.all single calls
+  await Promise.all(addresses.map(async (addr) => {
+    const url = `https://api.coingecko.com/api/v3/coins/${platform}/contract/${addr}?localization=false&market_data=false`;
+    try {
+      const res = await fetchWithRateLimit(url, { method: 'GET', timeout: 5000 });
+      if (res.data.id) {
+        // FIXED: Use exact addr as key (no toLowerCase for Solana case-sensitive mints)
+        cgInfos[addr] = {
+          id: res.data.id,
+          logo: res.data.image?.small || res.data.image?.thumb || null,
+          name: res.data.name,
+          symbol: res.data.symbol?.toUpperCase(),
+        };
+        logger.info(`CoinGecko info for ${addr} on ${platform}: ${res.data.name} (${res.data.symbol})`);
+      }
+    } catch (err) {
+      logger.warn(`CoinGecko info failed for ${addr} on ${platform}: ${err.message}`);
+    }
+  }));
+
+  const matchedCount = Object.keys(cgInfos).length;
+  logger.info(`CoinGecko info fetched for ${matchedCount} tokens on ${platform} (queried ${addresses.length})`);
+  return cgInfos;
+}
+
+// Fetch prices from CoinGecko by mint addresses (batch, original case)
+async function fetchCoinGeckoPrices(addresses) {
+  if (addresses.length === 0) {
+    logger.info('No addresses for CoinGecko prices');
+    return {};
+  }
+
+  const platform = platformIdMap['solana'];
+  if (!platform) {
+    logger.warn(`Unsupported platform for CoinGecko prices: solana`);
     return {};
   }
 
   const addressStr = addresses.join(',');
-  const url = `https://pro-api.coinmarketcap.com/v2/cryptocurrency/info?address=${addressStr}`;
-  const config = {
-    headers: {
-      'Accept': 'application/json',
-      'X-CMC_PRO_API_KEY': process.env.COINMARKETCAP_API_KEY,
-    },
-    timeout: 10000,
-  };
-
+  const url = `https://api.coingecko.com/api/v3/simple/token_price/${platform}?contract_addresses=${addressStr}&vs_currencies=usd`;
   try {
-    const res = await fetchWithRateLimit(url, config);
-    logger.info(`CMC info called for ${addresses.length} tokens (Solana mints)`);
-    if (res.data.status?.error_code === 0) {
-      const cmcInfos = {};
-      Object.entries(res.data.data).forEach(([cmcId, info]) => {
-        if (info.platforms) {
-          Object.entries(info.platforms).forEach(([platform, tokenAddress]) => {
-            if (platform === 'solana') {
-              const lowerAddr = tokenAddress.toLowerCase(); // Mint case-insensitive?
-              if (addresses.includes(lowerAddr)) {
-                cmcInfos[lowerAddr] = {
-                  id: cmcId,
-                  logo: info.logo?.png || info.logo,
-                  name: info.name,
-                  symbol: info.symbol,
-                };
-              }
-            }
-          });
-        }
-      });
-      const matchedCount = Object.keys(cmcInfos).length;
-      logger.info(`CMC info fetched for ${matchedCount} Solana tokens (queried ${addresses.length})`);
-      return cmcInfos;
-    } else {
-      logger.warn(`CMC info error: ${res.data.status?.error_message}`);
-      return {};
-    }
+    const res = await fetchWithRateLimit(url, { method: 'GET', timeout: 5000 });
+    logger.info(`CoinGecko prices called for ${addresses.length} addresses on ${platform}`);
+    const matchedCount = Object.keys(res.data).length;
+    logger.info(`CoinGecko prices fetched for ${matchedCount} tokens on ${platform}`);
+    return res.data;
   } catch (err) {
-    logger.warn(`CMC info fetch failed: ${err.message}`);
+    logger.warn(`CoinGecko prices fetch failed for ${platform}: ${err.message}`);
     return {};
   }
 }
 
-async function fetchCmcPrices(ids) {
-  if (!process.env.COINMARKETCAP_API_KEY || ids.length === 0) {
-    logger.info('CMC prices skipped: no key or ids');
-    return {};
-  }
-
-  const idStr = ids.join(',');
-  const url = `https://pro-api.coinmarketcap.com/v1/cryptocurrency/quotes/latest?id=${idStr}&convert=USD`;
-  const config = {
-    headers: {
-      'Accept': 'application/json',
-      'X-CMC_PRO_API_KEY': process.env.COINMARKETCAP_API_KEY,
-    },
-    timeout: 10000,
-  };
-
-  try {
-    const res = await fetchWithRateLimit(url, config);
-    logger.info(`CMC prices called for ${ids.length} ids`);
-    if (res.data.status?.error_code === 0) {
-      logger.info(`CMC prices fetched for ${ids.length} tokens`);
-      return res.data.data;
-    } else {
-      logger.warn(`CMC prices error: ${res.data.status?.error_message}`);
-      return {};
-    }
-  } catch (err) {
-    logger.warn(`CMC prices fetch failed: ${err.message}`);
-    return {};
-  }
-}
-
-// Fetch SOL price (CMC ID 5426)
+// Fetch SOL price from CoinGecko
 async function fetchSolPrice() {
-  if (!process.env.COINMARKETCAP_API_KEY) {
-    logger.info('CMC key missing, skipping SOL price');
+  const url = `https://api.coingecko.com/api/v3/simple/price?ids=solana&vs_currencies=usd`;
+  try {
+    const res = await fetchWithRateLimit(url, { method: 'GET', timeout: 5000 });
+    const price = res.data.solana?.usd || null;
+    logger.info(`SOL price from CoinGecko: ${price || 'N/A'} USD`);
+    return price;
+  } catch (err) {
+    logger.warn(`CoinGecko SOL price fetch failed: ${err.message}`);
     return null;
   }
-
-  const cmcPrices = await fetchCmcPrices(['5426']);
-  const price = cmcPrices['5426']?.quote?.USD?.price || null;
-  logger.info(`SOL price from CMC: ${price || 'N/A'} USD`);
-  return price;
 }
 
 // Allowed origins (same as etherscan)
@@ -246,9 +234,9 @@ export const POST = handlerWrapper(async (request) => {
 
             let tx = txs[0];
 
-            // Enrich with SOL price
+            // UPDATED: Enrich with SOL price from CoinGecko
             const solPrice = await fetchSolPrice();
-            tx.solPrice = solPrice; // FIXED: Pass solPrice to client-side data
+            tx.solPrice = solPrice;
             tx.fee = (tx.fee || 0) / 1e9;
             tx.feeUSD = tx.fee * (solPrice || 0);
 
@@ -266,34 +254,29 @@ export const POST = handlerWrapper(async (request) => {
             tx.from = tx.feePayer;
             tx.to = nativeTransfers.length > 0 ? nativeTransfers[0].toUserAccount : (tx.tokenTransfers?.[0]?.toUserAccount || 'Contract');
 
-            // Enrich tokenTransfers with CMC
+            // FIXED: Enrich tokenTransfers with CoinGecko (exact mint match)
             if (tx.tokenTransfers && tx.tokenTransfers.length > 0) {
-              const uniqueMints = [...new Set(tx.tokenTransfers.map(t => t.mint))];
-              const cmcInfos = await fetchCmcInfo(uniqueMints);
-              const mintToId = {};
-              Object.entries(cmcInfos).forEach(([mint, info]) => { mintToId[mint] = info.id; });
-              const ids = uniqueMints.filter(m => mintToId[m]).map(m => mintToId[m]);
-              const cmcQuotes = await fetchCmcPrices(ids);
+              const uniqueMints = [...new Set(tx.tokenTransfers.map(t => t.mint))]; // Original case
+              const cgInfos = await fetchCoinGeckoInfo(uniqueMints);
+              const cgPrices = await fetchCoinGeckoPrices(uniqueMints); // Batch with original cases
 
               tx.tokenTransfers = tx.tokenTransfers.map(t => {
-                const mint = t.mint;
-                const cmcInfo = cmcInfos[mint];
-                const cmcId = mintToId[mint];
-                const priceUSD = cmcId ? cmcQuotes[cmcId]?.quote?.USD?.price : null;
-                // Use uiTokenAmount if present, else compute
+                const mint = t.mint; // Exact case
+                const cgInfo = cgInfos[mint]; // FIXED: Exact match, no lower
+                const cgPrice = cgPrices[mint]?.usd || null; // CoinGecko returns keys as requested case
                 const decimals = t.decimals || t.uiTokenAmount?.decimals || 6;
                 const rawAmount = t.tokenAmount || 0;
                 const amount = t.uiTokenAmount?.uiAmount || (rawAmount / Math.pow(10, decimals));
-                const valueUSD = priceUSD ? amount * priceUSD : null;
+                const valueUSD = cgPrice ? amount * cgPrice : null;
 
                 return {
                   ...t,
-                  logo: cmcInfo?.logo || null,
-                  symbol: cmcInfo?.symbol || 'UNK',
-                  name: cmcInfo?.name || 'Unknown Token',
-                  priceUSD: priceUSD || null,
+                  logo: cgInfo?.logo || null,
+                  symbol: cgInfo?.symbol || 'UNK',
+                  name: cgInfo?.name || 'Unknown Token',
+                  priceUSD: cgPrice || null,
                   valueUSD: valueUSD || null,
-                  amount, // For render
+                  amount,
                   decimals,
                 };
               });
