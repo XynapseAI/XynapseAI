@@ -5,7 +5,6 @@ import { useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Search, Clock, Hash as HashIcon, AlertCircle, Wallet, Coins, Activity, Check, Copy, X, DollarSign } from 'lucide-react';
 import { useSearchParams } from 'next/navigation';
-import { toast } from 'react-toastify';
 import { LoadingOverlay } from '../utils/helpers';
 
 export default function ExplorerTab({ initialQuery, initialChain }) {
@@ -66,7 +65,7 @@ export default function ExplorerTab({ initialQuery, initialChain }) {
             if (ogDesc) ogDesc.setAttribute('content', metaDesc);
 
             const ogImage = document.querySelector('meta[property="og:image"]');
-            if (ogImage) ogImage.setAttribute('content', chainLogos[selectedChain] || 'https://xynapseai.net/og.png');
+            if (ogImage) ogImage.setAttribute('content', chainLogos[selectedChain] || 'https://xynapseai.net/explorer.png');
 
             const ogUrl = document.querySelector('meta[property="og:url"]');
             if (ogUrl) ogUrl.setAttribute('content', `${window.location.origin}/dashboard?tab=explorer&query=${encodeURIComponent(query)}&chain=${selectedChain}`);
@@ -124,7 +123,7 @@ export default function ExplorerTab({ initialQuery, initialChain }) {
     };
 
     const copyToClipboard = (text) => {
-        navigator.clipboard.writeText(text).then(() => toast.success('Copied!'));
+        navigator.clipboard.writeText(text);
     };
 
     // UPDATED for Solana: Extract addresses from enhanced tx
@@ -206,12 +205,8 @@ export default function ExplorerTab({ initialQuery, initialChain }) {
                 }
             });
             setNametags(prev => ({ ...prev, ...newNametags }));
-            console.log('Nametags loaded:', newNametags);
-            if (Object.keys(newNametags).length > 0) {
-                toast.success(`Found nametags for ${Object.keys(newNametags).length} addresses`);
-            }
         } catch (err) {
-            console.error('Nametags fetch error:', err);
+            // Silent error, no console/toast
         } finally {
             setNametagsLoading(false);
         }
@@ -278,12 +273,10 @@ export default function ExplorerTab({ initialQuery, initialChain }) {
             let userMsg = err.message;
             if (ch === 'bitcoin' && (err.message.includes('timeout') || err.message.includes('AbortError'))) {
                 userMsg = 'Bitcoin query timeout (network lag), retrying in 2s...';
-                toast.warning(userMsg);
                 setTimeout(() => fetchData(q, ch), 2000);
                 return;
             }
             setError(err.message);
-            toast.error(`Search failed: ${err.message}`);
         } finally {
             setLoading(false);
         }
@@ -301,7 +294,6 @@ export default function ExplorerTab({ initialQuery, initialChain }) {
             fetchData(query, ch);
         } catch (err) {
             setError(err.message);
-            toast.error(err.message);
         }
     };
 
@@ -889,7 +881,7 @@ export default function ExplorerTab({ initialQuery, initialChain }) {
             <LoadingOverlay
                 isLoading={isOverallLoading}
                 message={nametagsLoading ? "Loading nametags..." : "Fetching transaction data..."}
-                className="absolute inset-0 z-5 flex items-center justify-center bg-black/80 backdrop-blur-sm"
+                className="absolute inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm pointer-events-none"
             />
 
             {error && (

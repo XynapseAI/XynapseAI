@@ -1,7 +1,3 @@
-// app/dashboard/page.js - No major changes needed, but ensure ExplorerTab receives initialChain properly
-// (Already does: initialChain={searchParams.get('chain')})
-// For better SEO on the dashboard level, consider adding generateMetadata export if making dynamic routes,
-// but since it's tab-based, the client-side updates in ExplorerTab handle it.
 'use client';
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
@@ -408,11 +404,12 @@ function DashboardInner() {
   useEffect(() => {
     // NEW: Fallback detection via user-agent if SDK fails (for troubleshooting mobile webview)
     const userAgent = navigator.userAgent.toLowerCase();
-    const isFarcasterMobile = userAgent.includes('warpcast') || userAgent.includes('farcaster');
-    const miniAppDetected = isSDKLoaded && (context === 'miniapp' || !!miniAppUser) || isFarcasterMobile; // Add fallback
+    const isFarcasterMobile = userAgent.includes('warpcast') || userAgent.includes('farcaster') || 
+      userAgent.includes('coinbase') || userAgent.includes('base');  // NEW: Catch Base App (CoinbaseWallet/Base App UA)
+    const miniAppDetected = isSDKLoaded && (context === 'miniapp' || !!miniAppUser) || isFarcasterMobile; // UPDATED: Fallback mở rộng
     setIsMiniApp(miniAppDetected);
 
-    safeLog('Mini App Detection Debug:', { isSDKLoaded, context, miniAppUser, userAgent, miniAppDetected });
+    safeLog('Mini App Detection Debug:', { isSDKLoaded, context, miniAppUser, userAgent, miniAppDetected, isFarcasterMobile });  // UPDATED: Log thêm isFarcasterMobile
 
     if (miniAppDetected && miniAppUser) {
       safeLog('Mini App ready! User FID:', miniAppUser?.fid);
@@ -468,6 +465,10 @@ function DashboardInner() {
     setMiniAppAuthLoading(true);
     setMiniAppAuthFailed(false); // Reset failure state
     try {
+      // NEW: Check SDK availability trước khi gọi (fallback nếu Base App không expose full)
+      if (typeof sdk === 'undefined' || !sdk.quickAuth) {
+        throw new Error('Farcaster SDK not available in this client (try manual Farcaster login)');
+      }
       const { token } = await sdk.quickAuth.getToken();
       if (!token) throw new Error('No token from SDK');
 
@@ -486,12 +487,12 @@ function DashboardInner() {
       router.push('/dashboard', { shallow: true, scroll: false }); // NEW: Shallow để avoid query param loop
       await update();
     } catch (err) {
-      safeError('Mini App quickauth fail:', err);
+      safeError('Mini App quickauth fail (check if in valid Mini App client):', err);  // UPDATED: Log chi tiết hơn
       toast.error(`QuickAuth error: ${err.message}`);
       setMiniAppAuthFailed(true); // NEW: Set failure state to show retry UI
     } finally {
       setMiniAppAuthLoading(false);
-      sdk.actions.ready(); // FIXED: Call ready() after auth (hide splash screen as per docs)
+      if (typeof sdk !== 'undefined') sdk.actions.ready(); // FIXED: Chỉ gọi nếu SDK có (hide splash screen as per docs)
     }
   };
 
