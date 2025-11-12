@@ -1,3 +1,4 @@
+// app\api\auth\[...nextauth]\options.js
 import { randomBytes } from "crypto";
 import GoogleProvider from "@auth/core/providers/google";
 import EmailProvider from "@auth/core/providers/email";
@@ -751,12 +752,18 @@ export const authOptions = {
       logger.info("Session created", { session: JSON.stringify(session) });
       return session;
     },
+    // FIXED: Updated redirect callback to prevent infinite loop on /dashboard
     async redirect({ url, baseUrl }) {
-      // FIXED: Clear callbackUrl query để avoid loop
-      let cleanUrl = url.replace(/[?&]callbackUrl=[^&]*/, '');
-      if (cleanUrl.startsWith('/')) return `${baseUrl}${cleanUrl}`;
-      if (cleanUrl === baseUrl || cleanUrl === `${baseUrl}/dashboard`) return cleanUrl;
-      return baseUrl + '/dashboard';
+      // Allows relative callback URLs
+      if (url.startsWith("/")) return `${baseUrl}${url}`;
+      // Allows callback URLs on the same origin
+      else if (new URL(url).origin === baseUrl) return url;
+      // FIXED: Prevent loop by checking if url is already /dashboard or signin-related
+      const dashboardPath = `${baseUrl}/dashboard`;
+      if (url === dashboardPath || url.startsWith(`${baseUrl}/api/auth/signin`) || url.startsWith(`${baseUrl}/api/auth/callback`)) {
+        return url;  // Do not redirect if already on dashboard or auth paths
+      }
+      return dashboardPath;
     },
   },
   ...(isProd && {

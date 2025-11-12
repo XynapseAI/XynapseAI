@@ -431,7 +431,7 @@ function DashboardInner() {
     }
   }, [isMiniApp, session, miniAppAuthLoading]);
 
-  // NEW: Detect World Mini App
+  // UPDATED: Detect World Mini App with user agent fallback
   useEffect(() => {
     let worldDetected = false;
     try {
@@ -439,8 +439,12 @@ function DashboardInner() {
     } catch (err) {
       safeWarn('World Mini App detection error:', err);
     }
-    setIsWorldMiniApp(worldDetected);
-    safeLog('World Mini App Detection:', { worldDetected });
+    // NEW: User agent fallback for World App / Worldcoin
+    const userAgent = navigator.userAgent.toLowerCase();
+    const isWorldMobile = userAgent.includes('worldcoin') || userAgent.includes('world app') || userAgent.includes('worldapp');
+    const isWorldMiniAppDetected = worldDetected || isWorldMobile;
+    setIsWorldMiniApp(isWorldMiniAppDetected);
+    safeLog('World Mini App Detection:', { worldDetected, isWorldMobile, userAgentSnippet: userAgent.substring(0, 100), isWorldMiniAppDetected });
   }, []);
 
   // NEW: Auto-auth for World Mini App
@@ -489,7 +493,8 @@ function DashboardInner() {
       }
       // REMOVED: toast.success('Signed in with Farcaster via QuickAuth!'); // Silent success
       setAuthSuccess(true); // NEW: Fix loop
-      router.push('/dashboard', { shallow: true, scroll: false }); // NEW: Shallow để avoid query param loop
+      // FIXED: Use replace instead of push to avoid history loop, and no shallow on replace
+      router.replace('/dashboard', { scroll: false });
       await update();
     } catch (err) {
       safeError('Mini App quickauth fail (check if in valid Mini App client):', err);  // UPDATED: Log chi tiết hơn
@@ -568,7 +573,8 @@ function DashboardInner() {
       }
 
       setAuthSuccess(true);
-      router.push('/dashboard', { shallow: true, scroll: false });
+      // FIXED: Use replace instead of push to avoid history loop
+      router.replace('/dashboard', { scroll: false });
       await update();
     } catch (err) {
       safeError('World quickauth fail:', err);
@@ -695,13 +701,13 @@ function DashboardInner() {
       }
 
       // REMOVED: toast.success('Signed out successfully!', { position: 'top-center' }); // Silent logout
-      router.refresh();
-      router.push('/dashboard');
+      // FIXED: Remove router.refresh() to avoid potential loop; use replace for clean navigation
+      router.replace('/dashboard', { scroll: false });
     } catch (error) {
       safeError('Error during sign out process:', error);
       toast.error(`Failed to sign out: ${error.message}`, { position: 'top-center' });
-      router.refresh();
-      router.push('/dashboard');
+      // FIXED: Remove router.refresh() here too
+      router.replace('/dashboard', { scroll: false });
     } finally {
       if (recaptchaRef.current) {
         recaptchaRef.current.reset();
@@ -728,11 +734,12 @@ function DashboardInner() {
         toast.error(`Farcaster login failed: ${res.error}`);
       } else {
         setAuthSuccess(true); // NEW: Fix loop - hide form ngay
-        router.push('/dashboard', { shallow: true, scroll: false }); // NEW: Shallow để avoid query param loop
+        // FIXED: Use replace instead of push to avoid history loop
+        router.replace('/dashboard', { scroll: false });
         await update();
         // REMOVED: toast.success('Signed in with Farcaster successfully!'); // Silent success
         // REMOVED: setFarcasterModalOpen(false); // No modal
-        router.refresh();
+        // REMOVED: router.refresh(); // Avoid potential loop
       }
     } catch (err) {
       safeError('Farcaster sign-in error:', err);
@@ -788,7 +795,7 @@ function DashboardInner() {
     }
   };
 
-  // FIXED: Loading state: Thêm authSuccess để hide form ngay sau signIn
+  // FIXED: Loading state: Thêm authSuccess để hide form ngay sau signIn, and add check for authLoading to prevent loop
   if (!isMounted || !providers || status === 'loading' || miniAppAuthLoading || worldAuthLoading) {
     return (
       <div className="h-screen w-screen flex items-center justify-center bg-black text-white">
