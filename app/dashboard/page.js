@@ -431,7 +431,7 @@ function DashboardInner() {
     }
   }, [isMiniApp, session, miniAppAuthLoading]);
 
-  // UPDATED: Detect World Mini App with user agent fallback
+  // NEW: Detect World Mini App
   useEffect(() => {
     let worldDetected = false;
     try {
@@ -439,12 +439,8 @@ function DashboardInner() {
     } catch (err) {
       safeWarn('World Mini App detection error:', err);
     }
-    // NEW: User agent fallback for World App / Worldcoin
-    const userAgent = navigator.userAgent.toLowerCase();
-    const isWorldMobile = userAgent.includes('worldcoin') || userAgent.includes('world app') || userAgent.includes('worldapp');
-    const isWorldMiniAppDetected = worldDetected || isWorldMobile;
-    setIsWorldMiniApp(isWorldMiniAppDetected);
-    safeLog('World Mini App Detection:', { worldDetected, isWorldMobile, userAgentSnippet: userAgent.substring(0, 100), isWorldMiniAppDetected });
+    setIsWorldMiniApp(worldDetected);
+    safeLog('World Mini App Detection:', { worldDetected });
   }, []);
 
   // NEW: Auto-auth for World Mini App
