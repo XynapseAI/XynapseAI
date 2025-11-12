@@ -7,16 +7,20 @@ import { logger } from '../../../utils/serverLogger';
 import { getRedisClient } from '../../../lib/redis';
 import { auth } from '@/lib/auth';
 import { query } from '../../../utils/postgres';
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 import { isAddress } from 'ethers';
 import { getNametagsBatch, addNametag } from '../../../lib/nametags';
 
-// Bitcoin address validation regex
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 const isBitcoinAddress = (addr) => {
   const p2pkh = /^1[1-9A-HJ-NP-Za-km-z]{25,34}$/;  // Legacy P2PKH (1...)
   const p2sh = /^3[1-9A-HJ-NP-Za-km-z]{25,34}$/;   // Legacy P2SH (3...)
   const bech32 = /^bc1[a-z0-9]{39,59}$/;           // Native SegWit (bc1...)
   return p2pkh.test(addr) || p2sh.test(addr) || bech32.test(addr);
 };
+
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+const isSolanaAddress = (addr) => /^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(addr);
 
 // List of allowed origins for CORS
 const allowedOrigins = [
@@ -148,17 +152,20 @@ async function getWalletAnalysis(address) {
   return batchResult[address] || null;
 }
 
-// Validation schemas
+// UPDATED: Import isValidAddress from lib/nametags (now supports Solana)
+import { isValidAddress } from '../../../lib/nametags';
+
+// Validation schemas (UPDATED: Use isValidAddress for EVM/Bitcoin/Solana)
 const getSchema = z.object({
-  address: z.string().optional().refine((val) => !val || isAddress(val), { message: 'Invalid EVM address' }),
+  address: z.string().optional().refine((val) => !val || isValidAddress(val), { message: 'Invalid EVM, Bitcoin, or Solana address' }),
 });
 
 const postSchema = z.object({
   chain: z.enum(['ethereum', 'bitcoin', 'bsc', 'solana']).optional(),  // Optional chain for logging/filtering
   addresses: z
     .array(
-      z.string().refine((val) => isAddress(val) || isBitcoinAddress(val), { 
-        message: 'Each address must be a valid EVM or Bitcoin address' 
+      z.string().refine((val) => isValidAddress(val), { 
+        message: 'Each address must be a valid EVM, Bitcoin, or Solana address' 
       })
     )
     .min(1)
@@ -166,7 +173,7 @@ const postSchema = z.object({
 });
 
 const putSchema = z.object({
-  address: z.string().refine((val) => isAddress(val) || isBitcoinAddress(val), { message: 'Address must be a valid EVM or Bitcoin address' }),
+  address: z.string().refine((val) => isValidAddress(val), { message: 'Address must be a valid EVM, Bitcoin, or Solana address' }),
   labels: z
     .object({
       name: z.string().optional(),
@@ -321,7 +328,7 @@ export async function GET(request) {
 
   const normalizedAddress = address.toLowerCase();
   try {
-    const nametag = (await getNametagsBatch([normalizedAddress]))[normalizedAddress];
+    const nametag = (await getNametagsBatch([address]))[normalizedAddress]; // Pass original for validation
     const analysis = await getWalletAnalysis(normalizedAddress);
     const responseData = {
       Address: normalizedAddress,
@@ -382,11 +389,14 @@ export async function POST(request) {
     );
   }
 
+  // OPTIONAL: Debug log (comment out after test)
+  // logger.info(`Incoming addresses for validation: ${JSON.stringify(body.addresses)}`);
+
   let parsedBody;
   try {
     parsedBody = postSchema.parse(body);
   } catch (err) {
-    logger.warn(`Validation error: ${err.message}`, { ip: validation.ip });
+    logger.warn(`Validation error: ${err.message}`, { ip: validation.ip, sampleAddr: body.addresses?.[0] });
     return NextResponse.json(
       { detail: 'Validation failed', errors: err.errors },
       { status: 400, headers: { 'Content-Type': 'application/json' } }
@@ -397,7 +407,7 @@ export async function POST(request) {
   const normalizedAddresses = addresses.map((addr) => addr.toLowerCase());
 
   try {
-    const nametags = await getNametagsBatch(normalizedAddresses);
+    const nametags = await getNametagsBatch(addresses); // Pass original addresses for validation
     const analysisMap = await getWalletAnalysisBatch(normalizedAddresses);
     const result = {};
     for (const addr of normalizedAddresses) {
@@ -479,7 +489,7 @@ export async function PUT(request) {
       subcategory: labels.deposit?.Subcategory || labels.subcategory || 'Others',
       image: labels.deposit?.image || labels.image || '/icons/default.webp',
     };
-    await addNametag(address, normalizedLabels);
+    await addNametag(address, normalizedLabels); // Pass original address
     logger.info(`Nametag added/updated for ${address}: ${JSON.stringify(normalizedLabels)} by user ${session.user.id}`);
     return await createSuccessResponse(
       {

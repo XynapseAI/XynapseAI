@@ -54,7 +54,7 @@ export async function generateMetadata({ searchParams }) {
             alt: `${capitalizedChain} Transaction Explorer`,
           },
           {
-            url: 'https://xynapseai.net/logos/og.png', // Fallback OG image
+            url: 'https://xynapseai.net/explorer.png', // Fallback OG image
             width: 1200,
             height: 630,
             alt: `Xynapse Explorer - ${capitalizedChain} Tx`,
@@ -67,7 +67,7 @@ export async function generateMetadata({ searchParams }) {
         description,
         images: [
           `https://assets.coingecko.com/coins/images/${validChain === 'bitcoin' ? 1 : validChain === 'ethereum' ? 279 : validChain === 'bsc' ? 825 : 4128}/small/${validChain}.png`,
-          'https://xynapseai.net/logos/og.png',
+          'https://xynapseai.net/explorer.png',
         ],
       },
     };
@@ -102,7 +102,7 @@ export async function generateMetadata({ searchParams }) {
             alt: `${capitalizedChain} Transaction Explorer`,
           },
           {
-            url: 'https://xynapseai.net/logos/og.png', // Fallback OG image
+            url: 'https://xynapseai.net/explorer.png', // Fallback OG image
             width: 1200,
             height: 630,
             alt: `Xynapse Explorer - ${capitalizedChain} Tx`,
@@ -115,7 +115,7 @@ export async function generateMetadata({ searchParams }) {
         description: `Explore transaction ${truncatedQuery} on ${capitalizedChain} blockchain with Xynapse Explorer. View real-time details, token transfers, fees, and nametags for comprehensive blockchain analysis.`,
         images: [
           `https://assets.coingecko.com/coins/images/${validChain === 'bitcoin' ? 1 : validChain === 'ethereum' ? 279 : validChain === 'bsc' ? 825 : 4128}/small/${validChain}.png`,
-          'https://xynapseai.net/logos/og.png',
+          'https://xynapseai.net/explorer.png',
         ],
       },
     };

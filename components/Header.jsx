@@ -1,3 +1,4 @@
+// components/Header.jsx
 'use client';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useState, useEffect, useRef } from 'react';
@@ -89,24 +90,20 @@ export default function Header({ activeTab, setActiveTab, handleSignOut, selecte
   const handleTabClick = (tabId) => {
     setActiveTab(tabId);
     const clusterId = new URLSearchParams(window.location.search).get('clusterId');
-    let query = '';
+    let queryStr = `tab=${tabId}`;
     if (tabId === 'explorer') {
-      // Special handling for explorer: Push to /explorer route, preserve query/chain if available
+      // Preserve query/chain params for explorer
       const currentQuery = searchParams.get('query') || '';
-      const currentChain = searchParams.get('chain') || 'ethereum';
-      const path = `/explorer${currentQuery ? `?query=${encodeURIComponent(currentQuery)}&chain=${currentChain}` : ''}`;
-      router.push(path, { scroll: false });
+      const currentChain = searchParams.get('chain') || '';
+      if (currentQuery) queryStr += `&query=${encodeURIComponent(currentQuery)}`;
+      if (currentChain) queryStr += `&chain=${currentChain}`;
     } else if (tabId === 'watchlists' && selectedAddress) {
-      query = `tab=${tabId}&address=${encodeURIComponent(selectedAddress)}`;
+      queryStr += `&address=${encodeURIComponent(selectedAddress)}`;
     } else if (tabId === 'cluster' && clusterId) {
-      query = `tab=${tabId}&clusterId=${encodeURIComponent(clusterId)}`;
-    } else {
-      query = `tab=${tabId}`;
+      queryStr += `&clusterId=${encodeURIComponent(clusterId)}`;
     }
-    const path = tabId !== 'explorer' ? `/dashboard?${query}` : ''; // Only for non-explorer
-    if (tabId !== 'explorer') {
-      router.push(path, { scroll: false });
-    }
+    const path = `/dashboard?${queryStr}`;
+    router.push(path, { scroll: false });
     setIsMenuOpen(false);
   };
 
@@ -214,7 +211,7 @@ export default function Header({ activeTab, setActiveTab, handleSignOut, selecte
   };
 
   return (
-    <header className="sticky top-4 z-50 w-full m-1">
+    <header className="sticky top-0 z-50 w-full"> {/* Changed top-4 to top-0 for better overlap prevention */}
       <div className="w-[80%] mx-auto h-[4.5vh] sm:h-[4.5vh] bg-gradient-to-br from-black/80 to-gray-900/80 backdrop-blur-sm border border-white/20 rounded-xl flex justify-between items-center px-4 font-saira shadow-2xl">
         <div className="block sm:hidden">
           <motion.button

@@ -1,4 +1,7 @@
+// app/api/mempool/route.js
 // app/api/mempool/route.js - Simplified for speed
+// NEW: Added CoinMarketCap integration for BTC price and USD value calculation
+// (Already public, no changes needed for auth)
 import { NextResponse } from 'next/server';
 import { logger } from '../../../utils/serverLogger';
 import { z } from 'zod';
@@ -42,6 +45,54 @@ function isAllowedOrigin(origin, referer) {
   }
 }
 
+// NEW: Fetch BTC price from CoinMarketCap
+async function fetchBtcPrice() {
+  if (!process.env.COINMARKETCAP_API_KEY) {
+    logger.info('CMC API key missing, skipping BTC price fetch');
+    return null;
+  }
+
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 10000); // 10s timeout
+
+  const startTime = Date.now();
+  logger.info(`Starting CMC fetch for BTC price at ${new Date().toISOString()}`);
+
+  try {
+    const response = await fetch('https://pro-api.coinmarketcap.com/v1/cryptocurrency/quotes/latest?id=1&convert=USD', {
+      signal: controller.signal,
+      method: 'GET',
+      headers: {
+        'Accept': 'application/json',
+        'X-CMC_PRO_API_KEY': process.env.COINMARKETCAP_API_KEY,
+        'User-Agent': 'xynapse-bot/1.0',
+      },
+    });
+
+    clearTimeout(timeoutId);
+
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}: ${await response.text()}`);
+    }
+
+    const data = await response.json();
+    const duration = Date.now() - startTime;
+    logger.info(`CMC fetch completed in ${duration}ms`, { size: JSON.stringify(data).length });
+
+    if (data.status?.error_code === 0 && data.data['1']?.quote?.USD?.price) {
+      return data.data['1'].quote.USD.price;
+    } else {
+      logger.warn(`CMC returned error: ${data.status?.error_message}`);
+      return null;
+    }
+  } catch (error) {
+    clearTimeout(timeoutId);
+    const duration = Date.now() - startTime;
+    logger.error(`CMC fetch failed after ${duration}ms`, { error: error.message, name: error.name });
+    return null;
+  }
+}
+
 // Native fetch with timeout (no axios/Bottleneck for speed)
 async function fetchTx(txHash) {
   const controller = new AbortController();
@@ -65,6 +116,32 @@ async function fetchTx(txHash) {
     const data = await response.json();
     const duration = Date.now() - startTime;
     logger.info(`Mempool fetch completed in ${duration}ms`, { txHash, size: JSON.stringify(data).length });
+
+    // NEW: Fetch BTC price and calculate USD values
+    const btcPrice = await fetchBtcPrice();
+    if (btcPrice) {
+      // Total value in USD
+      const totalValueBtc = data.vout ? data.vout.reduce((sum, out) => sum + (out.value || 0), 0) / 1e8 : 0;
+      data.valueUSD = totalValueBtc * btcPrice;
+
+      // Fee in USD
+      const feeBtc = (data.fee || 0) / 1e8;
+      data.feeUSD = feeBtc * btcPrice;
+
+      // Per output USD (add to each vout)
+      if (data.vout) {
+        data.vout.forEach(vout => {
+          vout.valueUSD = (vout.value || 0) / 1e8 * btcPrice;
+        });
+      }
+
+      // Per input USD (add to each vin prevout if available)
+      if (data.vin) {
+        // Note: vin doesn't have value directly, but if expanded, can add
+      }
+
+      logger.info(`BTC price integrated: ${btcPrice} USD/BTC, total value USD: ${data.valueUSD}`);
+    }
 
     return { success: true, data };
   } catch (error) {

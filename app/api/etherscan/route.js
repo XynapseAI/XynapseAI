@@ -1,3 +1,4 @@
+// app/api/etherscan/route.js
 // Upgraded app/api/etherscan/route.js with expanded actions for full explorer support
 // Added: Full support for all Etherscan V2 chains based on latest docs (as of Nov 2025)
 // Expanded chainIdMap with all supported mainnets and testnets
@@ -5,16 +6,19 @@
 // Enhanced error handling and logging
 // Enhanced: Parse token transfers from logs in tx-details
 // Enhanced: Fetch token info (name, symbol, decimals) for tokens in tx-details and token-info
+// UPDATED: Integrate CoinMarketCap API for token logos, USD prices, and valueUSD (batched for multiples)
+// FIXED: CMC info mapping - associate returned info to queried addresses via platforms.token_address (keep id as string for key matching)
+// UPDATED: Add native coin (ETH/BNB) price and USD value from CMC, with detailed logging for debug
 import { NextResponse } from 'next/server';
 import axios from 'axios';
 import { z } from 'zod';
 import { logger } from '../../../utils/serverLogger';
 import Bottleneck from 'bottleneck';
 import { isAddress } from 'ethers';
-import { auth } from '@/lib/auth';
+// REMOVED: import { auth } from '@/lib/auth'; - No session required for public feature
 
 const limiterBottleneck = new Bottleneck({
-  maxConcurrent: 1,  // Safe for 5 req/s
+  maxConcurrent: 5,  // Safe for 5 req/s
   minTime: 250,
 });
 
@@ -28,6 +32,147 @@ const fetchWithRateLimit = limiterBottleneck.wrap(async (url, config) => {
     throw error;
   }
 });
+
+// UPDATED: CoinMarketCap integration functions (with logging)
+async function fetchCmcInfo(addresses) {
+  if (!process.env.COINMARKETCAP_API_KEY || addresses.length === 0) {
+    logger.info('CMC API key missing or no addresses, skipping CMC fetch');
+    return {};
+  }
+
+  const addressStr = addresses.join(',');
+  const url = `https://pro-api.coinmarketcap.com/v2/cryptocurrency/info?address=${addressStr}`;
+  const config = {
+    headers: {
+      'Accept': 'application/json',
+      'X-CMC_PRO_API_KEY': process.env.COINMARKETCAP_API_KEY,
+    },
+    timeout: 10000,
+  };
+
+  try {
+    const res = await fetchWithRateLimit(url, config);
+    logger.info(`CMC info called for ${addresses.length} tokens`); // NEW: Log call
+    if (res.data.status?.error_code === 0) {
+      const cmcInfos = {};
+      // FIXED: Map returned info (keyed by CMC ID) to queried addresses via platforms.token_address
+      Object.entries(res.data.data).forEach(([cmcId, info]) => {
+        if (info.platforms) {
+          Object.entries(info.platforms).forEach(([tokenAddress]) => {
+            const lowerAddr = tokenAddress.toLowerCase();
+            if (addresses.includes(lowerAddr)) {
+              cmcInfos[lowerAddr] = {
+                id: cmcId, // Keep as string for key matching
+                logo: info.logo?.png || info.logo, // Prefer PNG
+                name: info.name,
+                symbol: info.symbol,
+              };
+            }
+          });
+        }
+        // Fallback for single platform tokens
+        if (info.platform && info.platform.token_address) {
+          const lowerAddr = info.platform.token_address.toLowerCase();
+          if (addresses.includes(lowerAddr)) {
+            cmcInfos[lowerAddr] = {
+              id: cmcId,
+              logo: info.logo?.png || info.logo,
+              name: info.name,
+              symbol: info.symbol,
+            };
+          }
+        }
+      });
+      const matchedCount = Object.keys(cmcInfos).length;
+      logger.info(`CMC info fetched for ${matchedCount} tokens (queried ${addresses.length})`);
+      return cmcInfos;
+    } else {
+      logger.warn(`CMC info error: ${res.data.status?.error_message}`);
+      return {};
+    }
+  } catch (err) {
+    logger.warn(`CMC info fetch failed: ${err.message}`);
+    return {};
+  }
+}
+
+async function fetchCmcPrices(ids) {
+  if (!process.env.COINMARKETCAP_API_KEY || ids.length === 0) {
+    logger.info('CMC prices skipped: no key or ids'); // NEW: Log
+    return {};
+  }
+
+  const idStr = ids.join(',');
+  const url = `https://pro-api.coinmarketcap.com/v1/cryptocurrency/quotes/latest?id=${idStr}&convert=USD`;
+  const config = {
+    headers: {
+      'Accept': 'application/json',
+      'X-CMC_PRO_API_KEY': process.env.COINMARKETCAP_API_KEY,
+    },
+    timeout: 10000,
+  };
+
+  try {
+    const res = await fetchWithRateLimit(url, config);
+    logger.info(`CMC prices called for ${ids.length} ids`); // NEW: Log call
+    if (res.data.status?.error_code === 0) {
+      logger.info(`CMC prices fetched for ${ids.length} tokens`);
+      return res.data.data;
+    } else {
+      logger.warn(`CMC prices error: ${res.data.status?.error_message}`);
+      return {};
+    }
+  } catch (err) {
+    logger.warn(`CMC prices fetch failed: ${err.message}`);
+    return {};
+  }
+}
+
+// NEW: Fetch native price (ETH/BNB)
+async function fetchNativePrice(chain) {
+  if (!process.env.COINMARKETCAP_API_KEY) {
+    logger.info(`CMC key missing, skipping native price for ${chain}`);
+    return null;
+  }
+
+  const nativeId = chain === 'ethereum' ? '1027' : chain === 'bsc' ? '1839' : null;
+  if (!nativeId) return null;
+
+  const cmcPrices = await fetchCmcPrices([nativeId]);
+  const price = cmcPrices[nativeId]?.quote?.USD?.price || null;
+  logger.info(`Native ${chain} price from CMC: ${price || 'N/A'} USD`);
+  return price;
+}
+
+// UPDATED: Helper to enrich tokens with CMC data (used in multiple actions)
+async function enrichWithCmc(tokens) {
+  if (tokens.length === 0) {
+    logger.info('No tokens to enrich with CMC');
+    return tokens;
+  }
+  const uniqueAddrs = [...new Set(tokens.map(t => t.tokenAddress.toLowerCase()))];
+  logger.info(`Enriching ${tokens.length} tokens from ${uniqueAddrs.length} unique addrs`); // NEW: Log
+  const cmcInfos = await fetchCmcInfo(uniqueAddrs);
+  const ids = uniqueAddrs.map(addr => cmcInfos[addr]?.id).filter(Boolean);
+  const cmcQuotes = await fetchCmcPrices(ids);
+
+  return tokens.map(t => {
+    const lowerAddr = t.tokenAddress.toLowerCase();
+    const cmcInfo = cmcInfos[lowerAddr];
+    const cmcId = cmcInfo?.id;
+    const priceUSD = cmcId ? cmcQuotes[cmcId]?.quote?.USD?.price : null;
+    const amount = Number(t.value || t.balanceRaw) / 10 ** (t.decimals || 18); // value for transfers, balanceRaw for balances
+    const valueUSD = priceUSD ? amount * priceUSD : null;
+    logger.info(`Enriched token ${lowerAddr}: price ${priceUSD}, amount ${amount}, valueUSD ${valueUSD}`); // NEW: Debug log
+
+    return {
+      ...t,
+      logo: cmcInfo?.logo || null,
+      priceUSD: priceUSD || null,
+      valueUSD: valueUSD || null,
+    };
+  });
+}
 
 // Full chainIdMap based on latest Etherscan V2 docs (50+ chains, mainnets & testnets)
 const chainIdMap = {
@@ -348,18 +493,8 @@ export const POST = handlerWrapper(async (request) => {
     return NextResponse.json({ detail: `Unsupported chain for Etherscan V2: ${chain}` }, { status: 400 });
   }
 
-  const internalToken = request.headers.get('x-internal-token');
-  if (!internalToken || internalToken !== process.env.INTERNAL_API_TOKEN) {
-    if (process.env.NODE_ENV === 'development') {
-      logger.info(`Bypassing auth in development mode`, { ip });
-    } else {
-      const session = await auth();
-      if (!session || !session.user?.id) {
-        logger.error(`Authentication error: No session or UID`, { ip });
-        return NextResponse.json({ detail: 'Unauthorized: Please log in.' }, { status: 401 });
-      }
-    }
-  }
+  // REMOVED: Internal token and session auth check - Public feature, no login required
+  // (Keep internal token if needed for server-side, but allow public without it)
 
   if (!process.env.ETHERSCAN_API_KEY) {
     logger.error('ETHERSCAN_API_KEY is not configured');
@@ -408,6 +543,7 @@ export const POST = handlerWrapper(async (request) => {
 
             if (response.data.status === '1' && typeof response.data.result === 'string') {
               const ethBalanceWei = BigInt(response.data.result);
+              const nativePrice = await fetchNativePrice(chain); // NEW: Add native price
               data = {
                 chain,
                 address,
@@ -415,6 +551,8 @@ export const POST = handlerWrapper(async (request) => {
                 decimals: 18,
                 amount: Number(ethBalanceWei) / 1e18,
                 balanceWei: ethBalanceWei.toString(),
+                priceUSD: nativePrice || null, // NEW
+                valueUSD: nativePrice ? (Number(ethBalanceWei) / 1e18) * nativePrice : null, // NEW
               };
             } else {
               logger.warn(`Etherscan V2 API returned status ${response.data.status} for balance: ${response.data.message}`, { ip, address });
@@ -434,31 +572,36 @@ export const POST = handlerWrapper(async (request) => {
                 const contract = tx.contractAddress.toLowerCase();
                 if (!balances[contract]) {
                   balances[contract] = {
+                    tokenAddress: tx.contractAddress,
                     symbol: tx.tokenSymbol,
                     name: tx.tokenName,
                     decimals: parseInt(tx.tokenDecimal) || 18,
-                    balance: BigInt(0),
+                    balanceRaw: BigInt(0).toString(),
                   };
                 }
                 const value = BigInt(tx.value);
                 if (tx.to.toLowerCase() === address.toLowerCase()) {
-                  balances[contract].balance += value;
+                  balances[contract].balanceRaw = (BigInt(balances[contract].balanceRaw) + value).toString();
                 }
                 if (tx.from.toLowerCase() === address.toLowerCase()) {
-                  balances[contract].balance -= value;
+                  balances[contract].balanceRaw = (BigInt(balances[contract].balanceRaw) - value).toString();
                 }
               });
-              data = Object.entries(balances)
-                .filter(([, bal]) => bal.balance > 0)
+              let tokenData = Object.entries(balances)
+                .filter(([, bal]) => BigInt(bal.balanceRaw) > 0)
                 .map(([contract, bal]) => ({
                   chain,
                   contractAddress: contract,
                   symbol: bal.symbol,
                   name: bal.name,
                   decimals: bal.decimals,
-                  amount: Number(bal.balance) / 10 ** bal.decimals,
-                  balanceRaw: bal.balance.toString(),
+                  amount: Number(BigInt(bal.balanceRaw)) / 10 ** bal.decimals,
+                  balanceRaw: bal.balanceRaw,
+                  value: bal.balanceRaw, // For enrich
                 }));
+              // Enrich with CMC
+              tokenData = await enrichWithCmc(tokenData);
+              data = tokenData;
             } else {
               logger.warn(`Etherscan V2 API returned status ${response.data.status} for tokentx: ${response.data.message}`, { ip, address });
             }
@@ -510,12 +653,33 @@ export const POST = handlerWrapper(async (request) => {
               const uniqueTokens = [...new Set(data.tokenTransfers.map(t => t.tokenAddress.toLowerCase()))];
               const tokenInfos = {};
               await Promise.all(uniqueTokens.map(async (addr) => {
-                tokenInfos[addr] = await fetchTokenInfo(chainId, addr);
+                tokenInfos[addr] = await fetchTokenInfo(chainId, addr.toLowerCase());
               }));
               data.tokenTransfers = data.tokenTransfers.map(t => ({
                 ...t,
+                tokenAddress: t.tokenAddress.toLowerCase(),
                 ...tokenInfos[t.tokenAddress.toLowerCase()],
               }));
+            }
+
+            // UPDATED: Enrich tokenTransfers + add native enrich
+            if (data.tokenTransfers.length > 0) {
+              logger.info(`Found ${data.tokenTransfers.length} token transfers, enriching with CMC`); // NEW: Log
+              data.tokenTransfers = await enrichWithCmc(data.tokenTransfers);
+            } else {
+              logger.info('No token transfers, skipping CMC for tokens'); // NEW: Log
+            }
+
+            // NEW: Enrich native ETH/BNB
+            const nativePrice = await fetchNativePrice(chain);
+            if (nativePrice) {
+              const nativeValue = Number(parseInt(data.transaction.value || '0', 16)) / 1e18;
+              data.nativeValueUSD = nativeValue * nativePrice;
+              const gasUsed = parseInt(data.receipt?.gasUsed || '0', 16);
+              const effectiveGasPrice = parseInt(data.receipt?.effectiveGasPrice || data.transaction.gasPrice || '0', 16);
+              const fee = (gasUsed * effectiveGasPrice) / 1e18;
+              data.feeUSD = fee * nativePrice;
+              logger.info(`Native ${chain} enriched: value USD ${data.nativeValueUSD}, fee USD ${data.feeUSD}`);
             }
 
             controller.enqueue(JSON.stringify({ success: true, data }));
@@ -539,23 +703,27 @@ export const POST = handlerWrapper(async (request) => {
                 const contract = tx.contractAddress.toLowerCase();
                 if (!balances[contract]) {
                   balances[contract] = {
+                    tokenAddress: tx.contractAddress,
                     symbol: tx.tokenSymbol,
                     name: tx.tokenName,
                     decimals: parseInt(tx.tokenDecimal) || 18,
-                    balance: BigInt(0),
+                    balanceRaw: BigInt(0).toString(),
                   };
                 }
                 const value = BigInt(tx.value);
                 if (tx.to.toLowerCase() === address.toLowerCase()) {
-                  balances[contract].balance += value;
+                  balances[contract].balanceRaw = (BigInt(balances[contract].balanceRaw) + value).toString();
                 }
                 if (tx.from.toLowerCase() === address.toLowerCase()) {
-                  balances[contract].balance -= value;
+                  balances[contract].balanceRaw = (BigInt(balances[contract].balanceRaw) - value).toString();
                 }
               });
-              overview.tokenBalances = Object.entries(balances)
-                .filter(([, bal]) => bal.balance > 0)
-                .map(([contract, bal]) => ({ contractAddress: contract, ...bal, balance: bal.balance.toString() }));
+              let tokenData = Object.entries(balances)
+                .filter(([, bal]) => BigInt(bal.balanceRaw) > 0)
+                .map(([contract, bal]) => ({ contractAddress: contract, ...bal, amount: Number(BigInt(bal.balanceRaw)) / 10 ** bal.decimals, value: bal.balanceRaw }));
+              // Enrich
+              tokenData = await enrichWithCmc(tokenData);
+              overview.tokenBalances = tokenData;
             }
 
             // Tx count
@@ -583,8 +751,11 @@ export const POST = handlerWrapper(async (request) => {
             }
             controller.enqueue(JSON.stringify({ success: true, data }));
           } else if (action === 'token-info' && tokenAddress) {
-            data = await fetchTokenInfo(chainId, tokenAddress);
-            data.tokenAddress = tokenAddress;
+            let tokenData = await fetchTokenInfo(chainId, tokenAddress);
+            tokenData.tokenAddress = tokenAddress;
+            // Enrich single token with CMC
+            const enriched = await enrichWithCmc([tokenData]);
+            data = enriched[0];
             controller.enqueue(JSON.stringify({ success: true, data }));
           } else if (action === 'token-transactions' && tokenAddress) {
             const apiModule = 'account';
@@ -606,7 +777,11 @@ export const POST = handlerWrapper(async (request) => {
                 tokenDecimal: tx.tokenDecimal,
                 gasUsed: tx.gasUsed,
                 gasPrice: tx.gasPrice,
+                tokenAddress: tokenAddress, // Add for enrich
+                decimals: parseInt(tx.tokenDecimal) || 18,
               }));
+              // Enrich token txs with CMC (single token)
+              data = await enrichWithCmc(data);
             } else {
               logger.warn(`Etherscan V2 API returned status ${response.data.status} for token tx: ${response.data.message}`, { ip, tokenAddress });
             }
