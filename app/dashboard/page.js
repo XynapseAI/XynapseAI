@@ -488,8 +488,6 @@ function DashboardInner() {
         // Fallback cho origin/partial SDK (e.g., Base preview)
         setFallbackToManual(true);
         setMiniAppAuthFailed(false);
-        safeLog('QuickAuth fallback to manual due to SDK/origin error');
-        toast.info('Using manual Farcaster login (QuickAuth unavailable)', { position: 'top-center' });
       } else {
         toast.error(`QuickAuth error: ${errorMsg}`);
         setMiniAppAuthFailed(true); // Chỉ fail nếu không phải SDK issue
@@ -957,134 +955,207 @@ function DashboardInner() {
                   className="w-full h-full p-4 md:p-0 flex items-center justify-center text-white font-saira relative"
                 >
                   <div className="fixed inset-0 z-0">
-                    {!isMiniApp && !isWorldMiniApp && (  // Mới: Chỉ render 3D nếu không phải Mini App (lightweight)
+                    {!isMiniApp && !isWorldMiniApp && isBaseAppRef.current ? null : (  // MODIFIED: Không render 3D nếu là Base App (lightweight, chỉ button)
                       <Canvas camera={{ position: [0, 0, 5], fov: 75 }} dpr={[1, 1.5]} performance={{ min: 0.3 }}>
                         <UniverseBackground />
                       </Canvas>
                     )}
                   </div>
-                  <motion.div
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ duration: 0.5, ease: 'easeOut' }}
-                    className="relative z-20 bg-black/60 backdrop-blur-xs p-6 md:p-10 border border-white/15 rounded-lg max-w-sm w-full mx-4 flex flex-col items-center shadow-2xl shadow-black/50"
-                  >
-                    <motion.h1
-                      initial={{ opacity: 0, y: -10 }}
+                  {isBaseAppRef.current ? (
+                    // NEW: Khung đặc biệt cho Base App - chỉ button "Login with Base App" (trigger Farcaster)
+                    <motion.div
+                      initial={{ opacity: 0, y: 20 }}
                       animate={{ opacity: 1, y: 0 }}
-                      transition={{ duration: 0.5, delay: 0.2 }}
-                      className="text-xl md:text-3xl font-bold text-white uppercase mb-3 text-center tracking-wide"
+                      transition={{ duration: 0.5, ease: 'easeOut' }}
+                      className="relative z-20 bg-black/60 backdrop-blur-xs p-6 md:p-10 border border-white/15 rounded-lg max-w-sm w-full mx-4 flex flex-col items-center shadow-2xl shadow-black/50"
                     >
-                      Sign In
-                    </motion.h1>
-                    <motion.p
-                      initial={{ opacity: 0, y: -10 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      transition={{ duration: 0.5, delay: 0.3 }}
-                      className="text-[11px] md:text-xs text-gray-500 mb-6 text-center leading-relaxed"
-                    >
-                      Access your dashboard with secure authentication.
-                    </motion.p>
-                    {!isWorldMiniApp && (  // FIXED: Show Email nếu không phải World (hỗ trợ Base/PC)
-                      <>
-                        <form onSubmit={handleEmailSignIn} className="w-full space-y-4">
-                          <input
-                            type="email"
-                            value={email}
-                            onChange={(e) => setEmail(e.target.value)}
-                            placeholder="Enter your email"
-                            className="w-full px-4 py-2.5 bg-black/60 border border-white/15 rounded-2xl text-white text-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-white/30 transition-all duration-300"
-                            required
-                          />
-                          <button
-                            type="submit"
-                            className="w-full px-4 py-2.5 border-2 border-white/15 bg-white/10 text-white rounded-2xl text-sm font-semibold transition-all duration-300 hover:border-white/30 hover:bg-white/20 flex items-center justify-center"
-                          >
-                            <MatrixHoverEffect text="Sign in with Email" hoverColor="#FFFFFF" />
-                          </button>
-                        </form>
-                        <div className="flex items-center justify-center my-4 w-full">
-                          <span className="text-gray-500 text-xs uppercase px-4">OR</span>
-                          <div className="flex-1 h-px bg-white/10"></div>
-                        </div>
-                      </>
-                    )}
-                    {providers?.google && !isWorldMiniApp && (  // FIXED: Show Google nếu không phải World
-                      <button
-                        onClick={handleGoogleSignIn}
-                        className="m-4 w-full px-4 py-2.5 bg-black/20 border border-white/25 rounded-2xl text-white text-sm font-semibold flex items-center justify-center gap-3 transition-all duration-300 hover:bg-gray-800/30 hover:border-white/40"
+                      <motion.h1
+                        initial={{ opacity: 0, y: -10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ duration: 0.5, delay: 0.2 }}
+                        className="text-xl md:text-3xl font-bold text-white uppercase mb-3 text-center tracking-wide"
                       >
-                        <Image src="/logos/google.webp" alt="Google Logo" width={20} height={20} className="w-5 h-5 object-contain" />
-                        <MatrixHoverEffect text="Sign in with Google" />
-                      </button>
-                    )}
-                    {/* FIXED: Luôn show SignInButton cho Farcaster nếu không phải World (hỗ trợ deeplink ở Base/PC, fallback nếu !isMiniApp) */}
-                    {!isWorldMiniApp && (
+                        Welcome to Base App
+                      </motion.h1>
+                      <motion.p
+                        initial={{ opacity: 0, y: -10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ duration: 0.5, delay: 0.3 }}
+                        className="text-[11px] md:text-xs text-gray-500 mb-6 text-center leading-relaxed"
+                      >
+                        Sign in securely with your Base account via Farcaster.
+                      </motion.p>
                       <SignInButton
                         onSuccess={handleFarcasterSuccess}
                         onError={(error) => {
-                          safeError('AuthKit error:', error);
+                          safeError('AuthKit error in Base App:', error);
                           toast.error(`Farcaster error: ${error.message}`);
+                          // onError: Không thay đổi UI, giữ nguyên khung button (user "bấm ra ngoài" sẽ back về đây)
                         }}
-                        className="!w-full !px-4 !m-2 !py-2.5 !bg-black/20 !border !border-white/25 !rounded-2xl !text-white !text-sm !font-semibold !flex !items-center !justify-center !gap-3 !transition-all !duration-300 hover:!bg-gray-800/30 hover:!border-white/40 !bg-purple-600 hover:!bg-purple-700"
+                        className="!w-full !px-4 !m-2 !py-2.5 !bg-blue-600 !border !border-blue-500 !rounded-2xl !text-white !text-sm !font-semibold !flex !items-center !justify-center !gap-3 !transition-all !duration-300 hover:!bg-blue-700 hover:!border-blue-400"
                         style={{
                           display: 'flex !important',
                           alignItems: 'center',
                           justifyContent: 'center',
-                          backgroundColor: 'rgba(0,0,0,0.2) !important',
-                          border: '1px solid rgba(255,255,255,0.25) !important',
+                          backgroundColor: 'rgb(37 99 235) !important', // Base blue
+                          border: '1px solid rgb(59 130 246) !important',
                           color: 'white !important',
                           borderRadius: '1rem !important',
                           transition: 'all 0.3s !important',
                         }}
-                        buttonText="Sign in with Farcaster"
-                        showLogo={true}
+                        buttonText="Login with Base App"
+                        showLogo={false} // Không show Farcaster logo, focus vào Base
                       >
                         <Image
-                          src="/logos/farcaster-logo.webp"
-                          alt="Farcaster Logo"
+                          src="/logos/base-logo.png" // Giả sử có logo Base, thay bằng path thực tế
+                          alt="Base Logo"
                           width={20}
                           height={20}
                           className="w-6 h-6 rounded-xl object-contain mr-2"
                         />
-                        Sign in with Farcaster
+                        Login with Base App
                       </SignInButton>
-                    )}
-                    {isWorldMiniApp && (
-                      <button
-                        onClick={handleWorldQuickAuth}
-                        className="w-full px-4 m-2 py-2.5 bg-black/20 border border-white/25 rounded-2xl text-white text-sm font-semibold flex items-center justify-center gap-3 transition-all duration-300 hover:bg-gray-800/30 hover:border-white/40"
+                      <motion.p
+                        initial={{ opacity: 0, y: 10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ duration: 0.5, delay: 0.5 }}
+                        className="mt-4 text-[11px] text-gray-500 text-center leading-relaxed"
                       >
-                        <Image src="/logos/worldcoin-logo.png" alt="World Logo" width={20} height={20} />
-                        <MatrixHoverEffect text="Sign in with World" />
-                      </button>
-                    )}
-                    {error && (
-                      <motion.div
+                        By clicking continue, you agree to our{' '}
+                        <button onClick={() => openModal('terms')} className="text-white hover:underline">
+                          Terms of Service
+                        </button>{' '}
+                        và{' '}
+                        <button onClick={() => openModal('privacy')} className="text-white hover:underline">
+                          Privacy Policy
+                        </button>.
+                      </motion.p>
+                    </motion.div>
+                  ) : (
+                    // OLD: Full form cho non-Base App
+                    <motion.div
+                      initial={{ opacity: 0, y: 20 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ duration: 0.5, ease: 'easeOut' }}
+                      className="relative z-20 bg-black/60 backdrop-blur-xs p-6 md:p-10 border border-white/15 rounded-lg max-w-sm w-full mx-4 flex flex-col items-center shadow-2xl shadow-black/50"
+                    >
+                      <motion.h1
                         initial={{ opacity: 0, y: -10 }}
                         animate={{ opacity: 1, y: 0 }}
-                        transition={{ duration: 0.5, delay: 0.4 }}
-                        className="mt-4 text-red-300 text-sm bg-red-500/10 border border-red-500/20 rounded-lg p-2 text-center"
+                        transition={{ duration: 0.5, delay: 0.2 }}
+                        className="text-xl md:text-3xl font-bold text-white uppercase mb-3 text-center tracking-wide"
                       >
-                        Error: {error}
-                      </motion.div>
-                    )}
-                    <motion.p
-                      initial={{ opacity: 0, y: 10 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      transition={{ duration: 0.5, delay: 0.5 }}
-                      className="mt-4 text-[11px] text-gray-500 text-center leading-relaxed"
-                    >
-                      By clicking continue, you agree to our{' '}
-                      <button onClick={() => openModal('terms')} className="text-white hover:underline">
-                        Terms of Service
-                      </button>{' '}
-                      và{' '}
-                      <button onClick={() => openModal('privacy')} className="text-white hover:underline">
-                        Privacy Policy
-                      </button>.
-                    </motion.p>
-                  </motion.div>
+                        Sign In
+                      </motion.h1>
+                      <motion.p
+                        initial={{ opacity: 0, y: -10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ duration: 0.5, delay: 0.3 }}
+                        className="text-[11px] md:text-xs text-gray-500 mb-6 text-center leading-relaxed"
+                      >
+                        Access your dashboard with secure authentication.
+                      </motion.p>
+                      {!isWorldMiniApp && (  // FIXED: Show Email nếu không phải World (hỗ trợ Base/PC)
+                        <>
+                          <form onSubmit={handleEmailSignIn} className="w-full space-y-4">
+                            <input
+                              type="email"
+                              value={email}
+                              onChange={(e) => setEmail(e.target.value)}
+                              placeholder="Enter your email"
+                              className="w-full px-4 py-2.5 bg-black/60 border border-white/15 rounded-2xl text-white text-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-white/30 transition-all duration-300"
+                              required
+                            />
+                            <button
+                              type="submit"
+                              className="w-full px-4 py-2.5 border-2 border-white/15 bg-white/10 text-white rounded-2xl text-sm font-semibold transition-all duration-300 hover:border-white/30 hover:bg-white/20 flex items-center justify-center"
+                            >
+                              <MatrixHoverEffect text="Sign in with Email" hoverColor="#FFFFFF" />
+                            </button>
+                          </form>
+                          <div className="flex items-center justify-center my-4 w-full">
+                            <span className="text-gray-500 text-xs uppercase px-4">OR</span>
+                            <div className="flex-1 h-px bg-white/10"></div>
+                          </div>
+                        </>
+                      )}
+                      {providers?.google && !isWorldMiniApp && (  // FIXED: Show Google nếu không phải World
+                        <button
+                          onClick={handleGoogleSignIn}
+                          className="m-4 w-full px-4 py-2.5 bg-black/20 border border-white/25 rounded-2xl text-white text-sm font-semibold flex items-center justify-center gap-3 transition-all duration-300 hover:bg-gray-800/30 hover:border-white/40"
+                        >
+                          <Image src="/logos/google.webp" alt="Google Logo" width={20} height={20} className="w-5 h-5 object-contain" />
+                          <MatrixHoverEffect text="Sign in with Google" />
+                        </button>
+                      )}
+                      {/* FIXED: Luôn show SignInButton cho Farcaster nếu không phải World (hỗ trợ deeplink ở Base/PC, fallback nếu !isMiniApp) */}
+                      {!isWorldMiniApp && (
+                        <SignInButton
+                          onSuccess={handleFarcasterSuccess}
+                          onError={(error) => {
+                            safeError('AuthKit error:', error);
+                            toast.error(`Farcaster error: ${error.message}`);
+                          }}
+                          className="!w-full !px-4 !m-2 !py-2.5 !bg-black/20 !border !border-white/25 !rounded-2xl !text-white !text-sm !font-semibold !flex !items-center !justify-center !gap-3 !transition-all !duration-300 hover:!bg-gray-800/30 hover:!border-white/40 !bg-purple-600 hover:!bg-purple-700"
+                          style={{
+                            display: 'flex !important',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            backgroundColor: 'rgba(0,0,0,0.2) !important',
+                            border: '1px solid rgba(255,255,255,0.25) !important',
+                            color: 'white !important',
+                            borderRadius: '1rem !important',
+                            transition: 'all 0.3s !important',
+                          }}
+                          buttonText="Sign in with Farcaster"
+                          showLogo={true}
+                        >
+                          <Image
+                            src="/logos/farcaster-logo.webp"
+                            alt="Farcaster Logo"
+                            width={20}
+                            height={20}
+                            className="w-6 h-6 rounded-xl object-contain mr-2"
+                          />
+                          Sign in with Farcaster
+                        </SignInButton>
+                      )}
+                      {isWorldMiniApp && (
+                        <button
+                          onClick={handleWorldQuickAuth}
+                          className="w-full px-4 m-2 py-2.5 bg-black/20 border border-white/25 rounded-2xl text-white text-sm font-semibold flex items-center justify-center gap-3 transition-all duration-300 hover:bg-gray-800/30 hover:border-white/40"
+                        >
+                          <Image src="/logos/worldcoin-logo.png" alt="World Logo" width={20} height={20} />
+                          <MatrixHoverEffect text="Sign in with World" />
+                        </button>
+                      )}
+                      {error && (
+                        <motion.div
+                          initial={{ opacity: 0, y: -10 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          transition={{ duration: 0.5, delay: 0.4 }}
+                          className="mt-4 text-red-300 text-sm bg-red-500/10 border border-red-500/20 rounded-lg p-2 text-center"
+                        >
+                          Error: {error}
+                        </motion.div>
+                      )}
+                      <motion.p
+                        initial={{ opacity: 0, y: 10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ duration: 0.5, delay: 0.5 }}
+                        className="mt-4 text-[11px] text-gray-500 text-center leading-relaxed"
+                      >
+                        By clicking continue, you agree to our{' '}
+                        <button onClick={() => openModal('terms')} className="text-white hover:underline">
+                          Terms of Service
+                        </button>{' '}
+                        và{' '}
+                        <button onClick={() => openModal('privacy')} className="text-white hover:underline">
+                          Privacy Policy
+                        </button>.
+                      </motion.p>
+                    </motion.div>
+                  )}
                 </motion.div>
               ) : (
                 <>
@@ -1133,8 +1204,7 @@ function DashboardInner() {
               size="invisible"
               badge="bottomright"
               onError={() => {
-                safeError('reCAPTCHA initialization failed');
-                toast.error('Failed to initialize reCAPTCHA', { position: 'top-center' });
+                toast.error('Failed please refresh the App', { position: 'top-center' });
               }}
             />
           ) : (
@@ -1153,7 +1223,7 @@ function DashboardInner() {
             </a>{' '}
             of Google.
           </p>
-          <ToastContainer position="top-center" autoClose={3000} hideProgressBar closeOnClick pauseOnHover />
+          <ToastContainer position="top-center" autoClose={2000} hideProgressBar closeOnClick pauseOnHover />
           {/* Modal for Terms and Privacy */}
           {isModalOpen && (
             <div
