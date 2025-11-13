@@ -649,7 +649,7 @@ function DashboardInner() {
     }
   }, [isBaseApp, status, session, baseAuthLoading, handleBaseAutoAuth]);
 
-  // NEW: Manual retry for Base App
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const handleBaseManualAuth = useCallback(() => {
     setBaseAuthFailed(false);
     setBaseAuthLoading(true);
