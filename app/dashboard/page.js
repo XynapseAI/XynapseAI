@@ -418,22 +418,31 @@ function DashboardInner() {
     }
   }, [isMounted, providers, fetchProvidersWithRetry]);
 
-  // FIXED: Conservative detection (revert gần file cũ): Chỉ auto miniapp nếu SDK loaded HOẶC UA Warpcast cụ thể. Base/Coinbase UA → fallback manual (không auto-auth để tránh loop).
+  // FIXED: Conservative detection + MỞ RỘNG cho Base App (thêm 'coinbasewalletsdk' và 'coinbase-wallet' từ docs/GitHub)
   useEffect(() => {
     const userAgent = navigator.userAgent.toLowerCase();
-    const isWarpcastMobile = userAgent.includes('warpcast') || userAgent.includes('farcaster');
-    const isBaseApp = userAgent.includes('coinbasewallet') || userAgent.includes('cbwallet') || userAgent.includes('base') || userAgent.includes('coinbase'); // NEW: Thêm 'coinbase' để catch rộng hơn
+    console.log('FULL UA:', navigator.userAgent); // NEW: Log full UA để debug - copy paste nếu vẫn fail
+
+    const isWarpcastMobile = userAgent.includes('warpcast') || userAgent.includes('farcaster');  // Chỉ Warpcast UA cho auto
+    const isBaseApp = userAgent.includes('coinbasewallet') || userAgent.includes('cbwallet') || userAgent.includes('base') || userAgent.includes('coinbase') || userAgent.includes('coinbasewalletsdk') || userAgent.includes('coinbase-wallet'); // FIXED: Thêm patterns từ SDK docs
     isBaseAppRef.current = isBaseApp;
 
-    const sdkAvailable = typeof sdk !== 'undefined' && !!sdk.quickAuth;
-    const miniAppDetected = (isSDKLoaded && (context === 'miniapp' || !!miniAppUser)) || isWarpcastMobile || sdkAvailable;
+    // NEW: Force mode nếu query param ?base=true (cho test)
+    const forceBase = searchParams.get('base') === 'true';
+    if (forceBase) {
+      isBaseAppRef.current = true;
+      console.log('FORCE Base App mode via query param');
+    }
+
+    const sdkAvailable = typeof sdk !== 'undefined' && !!sdk.quickAuth;  // Check SDK explicit
+    const miniAppDetected = (isSDKLoaded && (context === 'miniapp' || !!miniAppUser)) || isWarpcastMobile || sdkAvailable;  // Remove broad isFarcasterMobile (gây false positive ở Base)
     setIsMiniApp(miniAppDetected && !isBaseApp); // Exclude Base từ auto
 
     if (isBaseApp) {
       setFallbackToManual(true);
     }
 
-    safeLog('Mini App Detection Debug:', { isSDKLoaded, context, miniAppUser, userAgent: userAgent.substring(0, 100) + '...', sdkAvailable, miniAppDetected, isWarpcastMobile, isBaseApp });
+    safeLog('Mini App Detection Debug:', { isSDKLoaded, context, miniAppUser, userAgentPreview: userAgent.substring(0, 100) + '...', sdkAvailable, miniAppDetected, isWarpcastMobile, isBaseApp, forceBase }); // UPDATED: Thêm forceBase log
 
     if (miniAppDetected && miniAppUser) {
       safeLog('Mini App ready! User FID:', miniAppUser?.fid);
@@ -442,12 +451,13 @@ function DashboardInner() {
     if (miniAppDetected && session) {
       if (typeof sdk !== 'undefined') sdk.actions.ready(); // FIXED: Chỉ gọi nếu SDK có
     }
-  }, [isSDKLoaded, context, miniAppUser, session]);
+  }, [isSDKLoaded, context, miniAppUser, session, searchParams]); // ADD: searchParams cho force mode
 
+  // NEW: Watch status để force reset tab khi unauthenticated (trigger showLoginForm)
   useEffect(() => {
     if (status === 'unauthenticated') {
-      setActiveTab('profile'); // Force tab yêu cầu auth để show login form/khung
-      safeLog('Status changed to unauthenticated, reset to profile tab'); // Debug log
+      setActiveTab('profile'); // Force tab yêu cầu auth
+      console.log('Status: unauthenticated, reset to profile tab'); // Debug
     }
   }, [status]);
 
@@ -656,10 +666,11 @@ function DashboardInner() {
     }
   };
 
+  // FIXED: handleSignOut - replace + delay để clean re-render
   const handleSignOut = async () => {
     if (!session || !session.user?.id) {
       toast.error('Session expired. Please sign in again.', { position: 'top-center' });
-      router.replace('/dashboard'); // Thay push bằng replace
+      router.replace('/dashboard');
       return;
     }
 
@@ -732,22 +743,21 @@ function DashboardInner() {
 
       localStorage.removeItem('csrfToken');
       setCsrfToken(null);
-      setAuthSuccess(false);
-      attemptedAuthRef.current = false;
-      setFallbackToManual(false);
+      setAuthSuccess(false); // NEW: Reset auth success on signout
+      attemptedAuthRef.current = false; // Reset cho next session
+      setFallbackToManual(false); // NEW: Reset fallback
       if (isConnected) {
         disconnect();
       }
 
-      // FIXED: Replace thay push để clear browser history/state, + delay cho session propagate
-      await new Promise(resolve => setTimeout(resolve, 500)); // Delay nhỏ để status update
-      router.replace('/dashboard'); // Thay push bằng replace để force clean re-render
-      safeLog('Sign out completed, replacing to /dashboard'); // Debug log
+      // FIXED: Delay + replace để force clean re-render
+      await new Promise(resolve => setTimeout(resolve, 500)); // Delay cho session update
+      router.replace('/dashboard'); // Thay push bằng replace
+      console.log('Sign out: replaced to /dashboard'); // Debug
     } catch (error) {
       safeError('Error during sign out process:', error);
       toast.error(`Failed to sign out: ${error.message}`, { position: 'top-center' });
-      router.refresh();
-      router.push('/dashboard');
+      router.replace('/dashboard'); // Force replace on error
     } finally {
       if (recaptchaRef.current) {
         recaptchaRef.current.reset();
@@ -1015,13 +1025,13 @@ function DashboardInner() {
                         showLogo={true}
                       >
                         <Image
-                          src="/logos/base-logo.webp"
-                          alt="Base Logo"
+                          src="/logos/farcaster-logo.webp"
+                          alt="Farcaster Logo"
                           width={20}
                           height={20}
                           className="w-6 h-6 rounded-xl object-contain mr-2"
                         />
-                        Login with Base App
+                        Login with Base App (via Farcaster)
                       </SignInButton>
                       <motion.p
                         initial={{ opacity: 0, y: 10 }}
