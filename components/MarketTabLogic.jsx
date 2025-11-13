@@ -1045,7 +1045,18 @@ export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initi
                     source: 'JSON',
                   };
                 })
-                .filter(Boolean); // Remove skipped (null) entries
+                .filter(Boolean);
+
+              // Deduplicate by normalized address, keeping only the first non-lowercase (proper structure) entry
+              const seen = new Set();
+              topHolders = topHolders.filter((holder) => {
+                const normalizedAddress = holder.address.toLowerCase();
+                if (seen.has(normalizedAddress)) {
+                  return false;
+                }
+                seen.add(normalizedAddress);
+                return true; // Only include if not seen before (prefers proper case since lowercase skipped earlier)
+              }); // Remove skipped (null) entries
             } else {
               throw new Error(`No JSON data available for ${chain}`);
             }

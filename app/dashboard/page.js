@@ -328,8 +328,7 @@ function DashboardInner() {
   const [worldAppVersionOk, setWorldAppVersionOk] = useState(true); // NEW: Track if version supports walletAuth
   const { userData, loading, error } = useUserData(session, csrfToken, setIsAnalyzing, isWorldMiniApp);  // MODIFIED: Pass isWorldMiniApp
   const [worldAuthLoading, setWorldAuthLoading] = useState(false);  // NEW
-  const [worldAuthFailed, setWorldAuthFailed] = useState(false);  // NEW
-
+  const [worldAuthFailed, setWorldAuthFailed] = useState(false);  // NEW  
   // NEW: Ref để prevent multi-attempt loop
   const attemptedAuthRef = useRef(false);
   const isBaseAppRef = useRef(false); // Track Base detection
@@ -1014,7 +1013,7 @@ function DashboardInner() {
                     {providers?.google && !isWorldMiniApp && (  // FIXED: Show Google nếu không phải World
                       <button
                         onClick={handleGoogleSignIn}
-                        className="w-full px-4 py-2.5 bg-black/20 border border-white/25 rounded-2xl text-white text-sm font-semibold flex items-center justify-center gap-3 transition-all duration-300 hover:bg-gray-800/30 hover:border-white/40"
+                        className="m-4 w-full px-4 py-2.5 bg-black/20 border border-white/25 rounded-2xl text-white text-sm font-semibold flex items-center justify-center gap-3 transition-all duration-300 hover:bg-gray-800/30 hover:border-white/40"
                       >
                         <Image src="/logos/google.webp" alt="Google Logo" width={20} height={20} className="w-5 h-5 object-contain" />
                         <MatrixHoverEffect text="Sign in with Google" />
@@ -1028,11 +1027,16 @@ function DashboardInner() {
                           safeError('AuthKit error:', error);
                           toast.error(`Farcaster error: ${error.message}`);
                         }}
-                        className="w-full px-4 m-2 py-2.5 bg-black/20 border border-white/25 rounded-2xl text-white text-sm font-semibold flex items-center justify-center gap-3 transition-all duration-300 hover:bg-gray-800/30 hover:border-white/40"
+                        className="!w-full !px-4 !m-2 !py-2.5 !bg-black/20 !border !border-white/25 !rounded-2xl !text-white !text-sm !font-semibold !flex !items-center !justify-center !gap-3 !transition-all !duration-300 hover:!bg-gray-800/30 hover:!border-white/40 !bg-purple-600 hover:!bg-purple-700"
                         style={{
-                          display: 'flex',
+                          display: 'flex !important',
                           alignItems: 'center',
                           justifyContent: 'center',
+                          backgroundColor: 'rgba(0,0,0,0.2) !important',
+                          border: '1px solid rgba(255,255,255,0.25) !important',
+                          color: 'white !important',
+                          borderRadius: '1rem !important',
+                          transition: 'all 0.3s !important',
                         }}
                         buttonText="Sign in with Farcaster"
                         showLogo={true}

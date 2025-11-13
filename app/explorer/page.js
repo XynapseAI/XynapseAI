@@ -1,4 +1,4 @@
-// app/explorer/page.js
+// app/explorer/page.js - Updated to pass isStandalone prop
 import ExplorerTab from '../../components/ExplorerTab';
 import { auth } from '@/lib/auth';
 
@@ -48,16 +48,16 @@ export async function generateMetadata({ searchParams }) {
         type: 'website',
         images: [
           {
-            url: `https://assets.coingecko.com/coins/images/${validChain === 'bitcoin' ? 1 : validChain === 'ethereum' ? 279 : validChain === 'bsc' ? 825 : 4128}/small/${validChain}.png`, // Dynamic chain logo
-            width: 1200,
-            height: 630,
-            alt: `${capitalizedChain} Transaction Explorer`,
-          },
-          {
-            url: 'https://xynapseai.net/explorer.png', // Fallback OG image
+            url: 'https://xynapseai.net/explorer.png', // Primary: Always use explorer.png for reliability (social media prefers first image)
             width: 1200,
             height: 630,
             alt: `Xynapse Explorer - ${capitalizedChain} Tx`,
+          },
+          {
+            url: `https://assets.coingecko.com/coins/images/${validChain === 'bitcoin' ? 1 : validChain === 'ethereum' ? 279 : validChain === 'bsc' ? 825 : 4128}/small/${validChain}.png`, // Secondary: Dynamic chain logo
+            width: 1200,
+            height: 630,
+            alt: `${capitalizedChain} Transaction Explorer`,
           },
         ],
       },
@@ -66,8 +66,8 @@ export async function generateMetadata({ searchParams }) {
         title,
         description,
         images: [
-          `https://assets.coingecko.com/coins/images/${validChain === 'bitcoin' ? 1 : validChain === 'ethereum' ? 279 : validChain === 'bsc' ? 825 : 4128}/small/${validChain}.png`,
-          'https://xynapseai.net/explorer.png',
+          'https://xynapseai.net/explorer.png', // Primary
+          `https://assets.coingecko.com/coins/images/${validChain === 'bitcoin' ? 1 : validChain === 'ethereum' ? 279 : validChain === 'bsc' ? 825 : 4128}/small/${validChain}.png`, // Secondary
         ],
       },
     };
@@ -96,16 +96,16 @@ export async function generateMetadata({ searchParams }) {
         type: 'website',
         images: [
           {
-            url: `https://assets.coingecko.com/coins/images/${validChain === 'bitcoin' ? 1 : validChain === 'ethereum' ? 279 : validChain === 'bsc' ? 825 : 4128}/small/${validChain}.png`, // Dynamic chain logo
-            width: 1200,
-            height: 630,
-            alt: `${capitalizedChain} Transaction Explorer`,
-          },
-          {
-            url: 'https://xynapseai.net/explorer.png', // Fallback OG image
+            url: 'https://xynapseai.net/explorer.png', // Primary fallback
             width: 1200,
             height: 630,
             alt: `Xynapse Explorer - ${capitalizedChain} Tx`,
+          },
+          {
+            url: `https://assets.coingecko.com/coins/images/${validChain === 'bitcoin' ? 1 : validChain === 'ethereum' ? 279 : validChain === 'bsc' ? 825 : 4128}/small/${validChain}.png`,
+            width: 1200,
+            height: 630,
+            alt: `${capitalizedChain} Transaction Explorer`,
           },
         ],
       },
@@ -114,8 +114,8 @@ export async function generateMetadata({ searchParams }) {
         title: `Transaction ${truncatedQuery} on ${capitalizedChain} | Xynapse Explorer`,
         description: `Explore transaction ${truncatedQuery} on ${capitalizedChain} blockchain with Xynapse Explorer. View real-time details, token transfers, fees, and nametags for comprehensive blockchain analysis.`,
         images: [
-          `https://assets.coingecko.com/coins/images/${validChain === 'bitcoin' ? 1 : validChain === 'ethereum' ? 279 : validChain === 'bsc' ? 825 : 4128}/small/${validChain}.png`,
           'https://xynapseai.net/explorer.png',
+          `https://assets.coingecko.com/coins/images/${validChain === 'bitcoin' ? 1 : validChain === 'ethereum' ? 279 : validChain === 'bsc' ? 825 : 4128}/small/${validChain}.png`,
         ],
       },
     };
@@ -128,5 +128,5 @@ export default async function ExplorerPage({ searchParams }) {
   console.log('ExplorerPage props:', { params }); // Debug log
   const initialQuery = params?.query || '';
   const initialChain = (params?.chain || 'ethereum').toLowerCase();
-  return <ExplorerTab initialQuery={initialQuery} initialChain={initialChain} />;
+  return <ExplorerTab initialQuery={initialQuery} initialChain={initialChain} isStandalone={true} />;
 }

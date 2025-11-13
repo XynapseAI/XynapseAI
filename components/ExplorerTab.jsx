@@ -7,7 +7,7 @@ import { Search, Clock, Hash as HashIcon, AlertCircle, Wallet, Coins, Activity, 
 import { useSearchParams } from 'next/navigation';
 import { LoadingOverlay } from '../utils/helpers';
 
-export default function ExplorerTab({ initialQuery, initialChain }) {
+export default function ExplorerTab({ initialQuery, initialChain, isStandalone = false }) {  // NEW: Added isStandalone prop
     const searchParams = useSearchParams();
     const router = useRouter();
     const [query, setQuery] = useState(initialQuery || '');
@@ -18,6 +18,10 @@ export default function ExplorerTab({ initialQuery, initialChain }) {
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState(null);
     const [isMobile, setIsMobile] = useState(false);
+
+    // UPDATED: Base path for URLs (respect standalone mode)
+    const basePath = isStandalone ? '/explorer' : '/dashboard?tab=explorer';
+    const origin = typeof window !== 'undefined' ? window.location.origin : 'https://xynapseai.net';
 
     // UPDATED: Expanded chainConfig for more EVM chains (self-detect + fallback)
     const chainConfig = {
@@ -82,9 +86,10 @@ export default function ExplorerTab({ initialQuery, initialChain }) {
             const txHash = results.data.hash || results.data.txid || results.data.signature || 'Unknown';
             const chainName = selectedChain.toUpperCase();
             const status = results.data.status || 'Pending';
-            document.title = `Transaction ${truncateText(txHash, 8, 8)} on ${chainName} - ${status} | Xynapse Explorer`;
+            const truncatedQuery = query.length > 10 ? `${query.slice(0, 8)}...${query.slice(-6)}` : query;
+            document.title = `Transaction ${truncatedQuery} on ${chainName} | Xynapse Explorer`;  // Simplified (no userName for client)
 
-            let metaDesc = `Explore transaction ${truncateText(txHash, 8, 8)} on ${chainName} blockchain. Status: ${status}. View details, token transfers, and more on Xynapse Explorer.`;
+            let metaDesc = `Explore transaction ${truncatedQuery} on ${chainName} blockchain. Status: ${status}. View details, token transfers, and more on Xynapse Explorer.`;
             if (results.data.value || results.data.nativeValue) {
                 const value = results.data.value || results.data.nativeValue || 0;
                 metaDesc += ` Value: ${value.toFixed(6)} ${chainSymbols[selectedChain] || 'Native'}.`;
@@ -100,29 +105,68 @@ export default function ExplorerTab({ initialQuery, initialChain }) {
             const ogDesc = document.querySelector('meta[property="og:description"]');
             if (ogDesc) ogDesc.setAttribute('content', metaDesc);
 
-            const ogImage = document.querySelector('meta[property="og:image"]');
-            if (ogImage) ogImage.setAttribute('content', chainLogos[selectedChain] || 'https://xynapseai.net/explorer.png');
+            // UPDATED: Set primary og:image to explorer.png (reliable), secondary to chain logo
+            const ogImagePrimary = document.querySelector('meta[property="og:image"]') || createMetaTag('property', 'og:image', 'https://xynapseai.net/explorer.png');
+            ogImagePrimary.setAttribute('content', 'https://xynapseai.net/explorer.png');  // Primary: explorer.png
 
+            // Add/update secondary og:image for chain (if not exists)
+            let ogImageSecondary = document.querySelector('meta[property="og:image"][content*="coingecko"]');
+            if (!ogImageSecondary) {
+                ogImageSecondary = createMetaTag('property', 'og:image', chainLogos[selectedChain] || 'https://xynapseai.net/explorer.png');
+            }
+            ogImageSecondary.setAttribute('content', chainLogos[selectedChain] || 'https://xynapseai.net/explorer.png');
+
+            const currentUrl = `${origin}${basePath}?query=${encodeURIComponent(query)}&chain=${selectedChain}`;
             const ogUrl = document.querySelector('meta[property="og:url"]');
-            if (ogUrl) ogUrl.setAttribute('content', `${window.location.origin}/dashboard?tab=explorer&query=${encodeURIComponent(query)}&chain=${selectedChain}`);
+            if (ogUrl) ogUrl.setAttribute('content', currentUrl);
 
-            const canonical = document.querySelector('link[rel="canonical"]');
+            let canonical = document.querySelector('link[rel="canonical"]');
             if (canonical) {
-                canonical.setAttribute('href', `${window.location.origin}/dashboard?tab=explorer&query=${encodeURIComponent(query)}&chain=${selectedChain}`);
+                canonical.setAttribute('href', currentUrl);
             } else {
-                const newCanonical = document.createElement('link');
-                newCanonical.rel = 'canonical';
-                newCanonical.href = `${window.location.origin}/dashboard?tab=explorer&query=${encodeURIComponent(query)}&chain=${selectedChain}`;
-                document.head.appendChild(newCanonical);
+                canonical = document.createElement('link');
+                canonical.rel = 'canonical';
+                canonical.href = currentUrl;
+                document.head.appendChild(canonical);
             }
         } else {
+            // Default for no results
             document.title = 'Blockchain Explorer - Search Transactions | Xynapse';
             const metaTag = document.querySelector('meta[name="description"]');
             if (metaTag) {
                 metaTag.setAttribute('content', 'Xynapse Explorer: Search and analyze transactions on Bitcoin, Ethereum, BSC, and Solana blockchains. Real-time data, nametags, and insights.');
             }
+
+            // Force default og:image to explorer.png (override any og.png)
+            const ogImage = document.querySelector('meta[property="og:image"]') || createMetaTag('property', 'og:image', 'https://xynapseai.net/explorer.png');
+            ogImage.setAttribute('content', 'https://xynapseai.net/explorer.png');
+
+            const defaultUrl = `${origin}${basePath}`;
+            const ogUrl = document.querySelector('meta[property="og:url"]');
+            if (ogUrl) ogUrl.setAttribute('content', defaultUrl);
+
+            let canonical = document.querySelector('link[rel="canonical"]');
+            if (canonical) {
+                canonical.setAttribute('href', defaultUrl);
+            } else {
+                canonical = document.createElement('link');
+                canonical.rel = 'canonical';
+                canonical.href = defaultUrl;
+                document.head.appendChild(canonical);
+            }
         }
-    }, [results, selectedChain, query]);
+    }, [results, selectedChain, query, basePath]);
+
+    const createMetaTag = (attr, value, content) => {
+        let tag = document.querySelector(`meta[${attr}="${value}"]`);
+        if (!tag) {
+            tag = document.createElement('meta');
+            tag.setAttribute(attr, value);
+            document.head.appendChild(tag);
+        }
+        tag.setAttribute('content', content);
+        return tag;
+    };
 
     useEffect(() => {
         const checkMobile = () => setIsMobile(window.innerWidth < 768);
@@ -381,8 +425,8 @@ export default function ExplorerTab({ initialQuery, initialChain }) {
                 src={nativeLogo}
                 alt={symbol}
                 className="w-3 h-3 mr-1 rounded"
-                onError={(e) => { 
-                    e.target.src = `https://via.placeholder.com/16?text=${symbol}`; 
+                onError={(e) => {
+                    e.target.src = `https://via.placeholder.com/16?text=${symbol}`;
                     e.target.alt = `${symbol} Logo`; // FIXED: Ensure alt for accessibility
                 }}
             />
@@ -409,8 +453,8 @@ export default function ExplorerTab({ initialQuery, initialChain }) {
                 src={logo || `https://via.placeholder.com/16?text=${symbol || 'T'}`}
                 alt={`${symbol || 'Token'} Logo`} // FIXED: Better alt
                 className="w-3 h-3 mr-1 rounded"
-                onError={(e) => { 
-                    e.target.src = `https://via.placeholder.com/16?text=${symbol || 'T'}`; 
+                onError={(e) => {
+                    e.target.src = `https://via.placeholder.com/16?text=${symbol || 'T'}`;
                 }}
             />
             {amount} {symbol || ''}
@@ -442,7 +486,7 @@ export default function ExplorerTab({ initialQuery, initialChain }) {
             const blockNumber = transaction.blockNumber ? parseInt(transaction.blockNumber, 16) : null;
             const timestamp = block ? parseInt(block.timestamp || '0x0', 16) * 1000 : Date.now();
             const gasUsed = receipt ? (parseInt(receipt.gasUsed || '0x0', 16) || 0) : 0;
-            const effectiveGasPrice = receipt 
+            const effectiveGasPrice = receipt
                 ? (parseInt(receipt.effectiveGasPrice || transaction.gasPrice || '0x0', 16) || 0)
                 : (parseInt(transaction.gasPrice || '0x0', 16) || 0);
             const fee = (gasUsed * effectiveGasPrice) / 1e18;
