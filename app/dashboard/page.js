@@ -27,7 +27,7 @@ import * as THREE from "three";
 import { TermsOfServiceContent } from '../../components/TermsOfService';
 import { PrivacyPolicyContent } from '../../components/PrivacyPolicy';
 import "@farcaster/auth-kit/styles.css";
-import { AuthKitProvider, SignInButton } from "@farcaster/auth-kit";
+import { AuthKitProvider, SignInButton, useSignIn } from "@farcaster/auth-kit"; // ADDED: useSignIn for manual deeplink trigger
 import { sdk } from '@farcaster/miniapp-sdk';  // Giữ cho miniapp
 import { useMiniApp, MiniAppProvider } from '@neynar/react';
 import { MiniKit } from '@worldcoin/minikit-js';  // FIXED: Import MiniKit từ root, MiniKitProvider từ sub-module
@@ -331,7 +331,11 @@ function DashboardInner() {
   const [worldAuthFailed, setWorldAuthFailed] = useState(false);  // NEW  
   // NEW: Ref để prevent multi-attempt loop
   const attemptedAuthRef = useRef(false);
-  const isBaseAppRef = useRef(false); // Track Base detection
+  const [isBaseApp, setIsBaseApp] = useState(false); // NEW: State for Base App detection (from ref)
+  const [baseAuthLoading, setBaseAuthLoading] = useState(false); // NEW: Loading for Base auto-auth
+  const [baseAuthFailed, setBaseAuthFailed] = useState(false); // NEW: Track if Base auto-auth failed
+  // NEW: Farcaster signIn hook for manual/auto deeplink trigger
+  const { signIn: farcasterSignIn } = useSignIn();
 
   // FIXED: App domain từ env (fix origin mismatch ở preview)
   const appDomain = process.env.NEXT_PUBLIC_APP_DOMAIN || window.location.hostname;
@@ -418,53 +422,22 @@ function DashboardInner() {
     }
   }, [isMounted, providers, fetchProvidersWithRetry]);
 
-  // FIXED: Conservative detection + MỞ RỘNG cho Base App (thêm 'coinbasewalletsdk' và 'coinbase-wallet' từ docs/GitHub)
+  // FIXED: Conservative detection (revert gần file cũ): Chỉ auto miniapp nếu SDK loaded HOẶC UA Warpcast cụ thể. Base/Coinbase UA → fallback manual (không auto-auth để tránh loop).
   useEffect(() => {
     const userAgent = navigator.userAgent.toLowerCase();
-    console.log('FULL UA:', navigator.userAgent); // Debug full UA
+    const isWarpcastMobile = userAgent.includes('warpcast') || userAgent.includes('farcaster');  // Chỉ Warpcast UA cho auto
+    const isBaseAppDetected = userAgent.includes('coinbasewallet') || userAgent.includes('cbwallet') || userAgent.includes('base'); // Detect Base explicit
+    setIsBaseApp(isBaseAppDetected); // NEW: Set state from detection
 
-    const isWarpcastMobile = userAgent.includes('warpcast') || userAgent.includes('farcaster');
+    const sdkAvailable = typeof sdk !== 'undefined' && !!sdk.quickAuth;  // Check SDK explicit
+    const miniAppDetected = (isSDKLoaded && (context === 'miniapp' || !!miniAppUser)) || isWarpcastMobile || sdkAvailable;  // Remove broad isFarcasterMobile (gây false positive ở Base)
+    setIsMiniApp(miniAppDetected && !isBaseAppDetected); // Exclude Base từ auto
 
-    // NEW: Feature detection cho Coinbase Wallet (từ docs: check window.ethereum.isCoinbaseWallet)
-    let isBaseApp = false;
-    if (window.ethereum) {
-      if (window.ethereum.isCoinbaseWallet || window.coinbaseWalletExtension) {
-        isBaseApp = true;
-        console.log('Coinbase Wallet detected via feature: isCoinbaseWallet=true'); // Debug
-      } else if (window.ethereum.providers) {
-        // Multi-provider case (e.g., with MetaMask)
-        const coinbaseProvider = window.ethereum.providers.find(p => p.isCoinbaseWallet);
-        if (coinbaseProvider) {
-          isBaseApp = true;
-          console.log('Coinbase Wallet detected in providers array'); // Debug
-        }
-      }
-    }
-
-    // Fallback UA nếu không detect feature (e.g., no injection yet)
-    if (!isBaseApp) {
-      isBaseApp = userAgent.includes('coinbasewallet') || userAgent.includes('cbwallet') || userAgent.includes('base') || userAgent.includes('coinbase') || userAgent.includes('coinbasewalletsdk') || userAgent.includes('coinbase-wallet');
-      if (isBaseApp) console.log('Coinbase Wallet detected via UA fallback'); // Debug
-    }
-
-    isBaseAppRef.current = isBaseApp;
-
-    // NEW: Force mode query param cho test
-    const forceBase = searchParams.get('base') === 'true';
-    if (forceBase) {
-      isBaseAppRef.current = true;
-      console.log('FORCE Base App mode via query param');
-    }
-
-    const sdkAvailable = typeof sdk !== 'undefined' && !!sdk.quickAuth;
-    const miniAppDetected = (isSDKLoaded && (context === 'miniapp' || !!miniAppUser)) || isWarpcastMobile || sdkAvailable;
-    setIsMiniApp(miniAppDetected && !isBaseApp); // Exclude Base từ auto
-
-    if (isBaseApp) {
+    if (isBaseAppDetected) {
       setFallbackToManual(true);
     }
 
-    safeLog('Detection Debug:', { isSDKLoaded, context, miniAppUser, userAgentPreview: userAgent.substring(0, 100) + '...', sdkAvailable, miniAppDetected, isWarpcastMobile, isBaseApp, forceBase });
+    safeLog('Mini App Detection Debug:', { isSDKLoaded, context, miniAppUser, userAgent, sdkAvailable, miniAppDetected, isWarpcastMobile, isBaseApp: isBaseAppDetected });
 
     if (miniAppDetected && miniAppUser) {
       safeLog('Mini App ready! User FID:', miniAppUser?.fid);
@@ -473,20 +446,12 @@ function DashboardInner() {
     if (miniAppDetected && session) {
       if (typeof sdk !== 'undefined') sdk.actions.ready(); // FIXED: Chỉ gọi nếu SDK có
     }
-  }, [isSDKLoaded, context, miniAppUser, session, searchParams]); // ADD: searchParams cho force mode
-
-  // NEW: Watch status để force reset tab khi unauthenticated (trigger showLoginForm)
-  useEffect(() => {
-    if (status === 'unauthenticated') {
-      setActiveTab('profile'); // Force tab yêu cầu auth
-      console.log('Status: unauthenticated, reset to profile tab'); // Debug
-    }
-  }, [status]);
+  }, [isSDKLoaded, context, miniAppUser, session]);
 
   // FIXED: Thêm status === 'unauthenticated' để tránh trigger trong 'loading' state (prevent loop khi session update).
   // FIXED: Wrap handleMiniAppQuickAuth bằng useCallback và thêm vào deps
   const handleMiniAppQuickAuth = useCallback(async () => {
-    if (status !== 'unauthenticated' || isBaseAppRef.current) return; // Skip nếu Base
+    if (status !== 'unauthenticated' || isBaseApp) return; // Skip nếu Base
     setMiniAppAuthLoading(true);
     setMiniAppAuthFailed(false); // Reset failure state
     try {
@@ -534,7 +499,7 @@ function DashboardInner() {
     } finally {
       setMiniAppAuthLoading(false);
     }
-  }, [status, signIn, update]);
+  }, [status, signIn, update, isBaseApp]);
 
   useEffect(() => {
     if (!isMiniApp || status !== 'unauthenticated' || session || miniAppAuthLoading || attemptedAuthRef.current) {
@@ -654,6 +619,50 @@ function DashboardInner() {
     }
   }, [isWorldMiniApp]);
 
+  // NEW: Auto-login for Base App via Farcaster deeplink
+  const handleBaseAutoAuth = useCallback(async () => {
+    if (status !== 'unauthenticated' || !isBaseApp) return;
+    setBaseAuthLoading(true);
+    setBaseAuthFailed(false);
+    attemptedAuthRef.current = true; // Prevent multi-attempt
+    try {
+      await farcasterSignIn({
+        onSuccess: handleFarcasterSuccess,
+        onError: (err) => {
+          safeError('Base Farcaster deeplink error:', err);
+          setBaseAuthFailed(true);
+          toast.error(`Auto-login failed: ${err.message || 'Deeplink cancelled'}. Please try manual.`);
+        }
+      });
+    } catch (err) {
+      safeError('Base auto-auth trigger error:', err);
+      setBaseAuthFailed(true);
+      toast.error(`Auto-auth error: ${err.message}`);
+    } finally {
+      setBaseAuthLoading(false);
+    }
+  }, [status, isBaseApp, farcasterSignIn]);
+
+  useEffect(() => {
+    if (isBaseApp && status === 'unauthenticated' && !session && !baseAuthLoading && !attemptedAuthRef.current) {
+      handleBaseAutoAuth();
+    }
+  }, [isBaseApp, status, session, baseAuthLoading, handleBaseAutoAuth]);
+
+  // NEW: Manual retry for Base App
+  const handleBaseManualAuth = useCallback(() => {
+    setBaseAuthFailed(false);
+    setBaseAuthLoading(true);
+    farcasterSignIn({
+      onSuccess: handleFarcasterSuccess,
+      onError: (err) => {
+        safeError('Manual Farcaster deeplink error:', err);
+        setBaseAuthFailed(true);
+        toast.error(`Manual login failed: ${err.message || 'Deeplink cancelled'}.`);
+      }
+    }).finally(() => setBaseAuthLoading(false));
+  }, [farcasterSignIn]);
+
   const handleConnectWallet = async () => {
     try {
       if (!session?.user || !isConnected || !address || !recaptchaRef.current) throw new Error('Prerequisites not met');
@@ -688,11 +697,10 @@ function DashboardInner() {
     }
   };
 
-  // FIXED: handleSignOut - replace + delay để clean re-render
   const handleSignOut = async () => {
     if (!session || !session.user?.id) {
       toast.error('Session expired. Please sign in again.', { position: 'top-center' });
-      router.replace('/dashboard');
+      router.push('/dashboard');
       return;
     }
 
@@ -768,18 +776,19 @@ function DashboardInner() {
       setAuthSuccess(false); // NEW: Reset auth success on signout
       attemptedAuthRef.current = false; // Reset cho next session
       setFallbackToManual(false); // NEW: Reset fallback
+      setBaseAuthFailed(false); // NEW: Reset Base failed
       if (isConnected) {
         disconnect();
       }
 
-      // FIXED: Delay + replace để force clean re-render
-      await new Promise(resolve => setTimeout(resolve, 500)); // Delay cho session update
-      router.replace('/dashboard'); // Thay push bằng replace
-      console.log('Sign out: replaced to /dashboard'); // Debug
+      // REMOVED: toast.success('Signed out successfully!', { position: 'top-center' }); // Silent logout
+      router.refresh();
+      router.push('/dashboard');
     } catch (error) {
       safeError('Error during sign out process:', error);
       toast.error(`Failed to sign out: ${error.message}`, { position: 'top-center' });
-      router.replace('/dashboard'); // Force replace on error
+      router.refresh();
+      router.push('/dashboard');
     } finally {
       if (recaptchaRef.current) {
         recaptchaRef.current.reset();
@@ -863,12 +872,12 @@ function DashboardInner() {
   };
 
   // FIXED: Loading state: Thêm authSuccess để hide form ngay sau signIn
-  if (!isMounted || !providers || status === 'loading' || (miniAppAuthLoading && !fallbackToManual) || worldAuthLoading) {
+  if (!isMounted || !providers || status === 'loading' || (miniAppAuthLoading && !fallbackToManual) || worldAuthLoading || baseAuthLoading) {
     return (
       <div className="h-screen w-screen flex items-center justify-center bg-black text-white">
         <LoadingOverlay
           isLoading={true}
-          message={isWorldMiniApp ? "Authenticating with World..." : isMiniApp ? "Authenticating with Farcaster..." : "Loading dashboard..."}
+          message={isWorldMiniApp ? "Authenticating with World..." : isMiniApp ? "Authenticating with Farcaster..." : isBaseApp ? "Authenticating with Base App..." : "Loading dashboard..."}
           isMobile={typeof window !== 'undefined' && window.innerWidth <= 640}
         />
       </div>
@@ -876,7 +885,7 @@ function DashboardInner() {
   }
 
   const requiresAuth = ['profile', 'ai', 'watchlists'].includes(activeTab);
-  const showLoginForm = status === 'unauthenticated' && requiresAuth && !authSuccess && !miniAppAuthFailed && !worldAuthFailed && !(isMiniApp && miniAppAuthFailed && !fallbackToManual); // UPDATED: Hide form if auth failed in Mini App (show retry instead)
+  const showLoginForm = status === 'unauthenticated' && requiresAuth && !authSuccess && !miniAppAuthFailed && !worldAuthFailed && !baseAuthFailed && !(isMiniApp && miniAppAuthFailed && !fallbackToManual); // UPDATED: Hide form if auth failed in Mini App/Base (show retry instead)
 
   return (
     <CurrencyProvider>
@@ -887,6 +896,8 @@ function DashboardInner() {
           relay: 'https://relay.farcaster.xyz', // Default relay
           rpcUrl: 'https://mainnet.optimism.io', // Base RPC
           version: 'v1',
+          // NEW: Conditional deeplink for Base App (from docs: enables deeplink in mobile)
+          deeplinkUrl: isBaseApp ? 'baseapp://wc?uri=' : undefined, // Force deeplink scheme for Base App
         }}
       >
         <div className="h-screen w-screen bg-gradient-to-br from-black to-gray-900 backdrop-blur-xs text-white overflow-x-hidden flex flex-col">
@@ -987,6 +998,72 @@ function DashboardInner() {
                     </button>
                   </motion.div>
                 </motion.div>
+              ) : isBaseApp && baseAuthFailed ? (
+                // NEW: Failed state for Base App auto-auth
+                <motion.div
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.8, ease: 'easeOut' }}
+                  className="w-full h-full p-4 md:p-0 flex items-center justify-center text-white font-saira relative"
+                >
+                  <div className="fixed inset-0 z-0">
+                    <Canvas camera={{ position: [0, 0, 5], fov: 75 }} dpr={[1, 1.5]} performance={{ min: 0.3 }}>
+                      <UniverseBackground />
+                    </Canvas>
+                  </div>
+                  <motion.div
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.5, ease: 'easeOut' }}
+                    className="relative z-20 bg-black/60 backdrop-blur-xs p-6 md:p-10 border border-white/15 rounded-lg max-w-sm w-full mx-4 flex flex-col items-center shadow-2xl shadow-black/50"
+                  >
+                    <motion.h1
+                      initial={{ opacity: 0, y: -10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ duration: 0.5, delay: 0.2 }}
+                      className="text-xl md:text-3xl font-bold text-white uppercase mb-3 text-center tracking-wide"
+                    >
+                      Authentication Failed
+                    </motion.h1>
+                    <motion.p
+                      initial={{ opacity: 0, y: -10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ duration: 0.5, delay: 0.3 }}
+                      className="text-[11px] md:text-xs text-gray-500 mb-6 text-center leading-relaxed"
+                    >
+                      Base App Farcaster deeplink failed. Please try again.
+                    </motion.p>
+                    <SignInButton
+                      onSuccess={handleFarcasterSuccess}
+                      onError={(error) => {
+                        safeError('Manual AuthKit error:', error);
+                        toast.error(`Farcaster error: ${error.message}. Please try again.`);
+                      }}
+                      className="!w-full !px-4 !m-2 !py-2.5 !bg-black/20 !border !border-white/25 !rounded-2xl !text-white !text-sm !font-semibold !flex !items-center !justify-center !gap-3 !transition-all !duration-300 hover:!bg-gray-800/30 hover:!border-white/40 !bg-purple-600 hover:!bg-purple-700"
+                      style={{
+                        display: 'flex !important',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        backgroundColor: 'rgba(0,0,0,0.2) !important',
+                        border: '1px solid rgba(255,255,255,0.25) !important',
+                        color: 'white !important',
+                        borderRadius: '1rem !important',
+                        transition: 'all 0.3s !important',
+                      }}
+                      buttonText="Sign in with Base App"
+                      showLogo={true}
+                    >
+                      <Image
+                        src="/logos/farcaster-logo.webp"
+                        alt="Farcaster Logo"
+                        width={20}
+                        height={20}
+                        className="w-6 h-6 rounded-xl object-contain mr-2"
+                      />
+                      Sign in with Base App (via Farcaster)
+                    </SignInButton>
+                  </motion.div>
+                </motion.div>
               ) : showLoginForm ? (
                 <motion.div
                   initial={{ opacity: 0, y: 20 }}
@@ -995,14 +1072,14 @@ function DashboardInner() {
                   className="w-full h-full p-4 md:p-0 flex items-center justify-center text-white font-saira relative"
                 >
                   <div className="fixed inset-0 z-0">
-                    {!isMiniApp && !isWorldMiniApp && (  // Mới: Chỉ render 3D nếu không phải Mini App (lightweight)
+                    {!isMiniApp && !isWorldMiniApp && !isBaseApp && (  // Mới: Chỉ render 3D nếu không phải Mini App/World/Base (lightweight)
                       <Canvas camera={{ position: [0, 0, 5], fov: 75 }} dpr={[1, 1.5]} performance={{ min: 0.3 }}>
                         <UniverseBackground />
                       </Canvas>
                     )}
                   </div>
-                  {isBaseAppRef.current ? (
-                    // NEW: Special frame for Base App - only show Farcaster button
+                  {isBaseApp ? (
+                    // UPDATED: Special frame for Base App - show Farcaster button with deeplink (auto-triggered, fallback manual)
                     <motion.div
                       initial={{ opacity: 0, y: 20 }}
                       animate={{ opacity: 1, y: 0 }}
@@ -1043,7 +1120,7 @@ function DashboardInner() {
                           borderRadius: '1rem !important',
                           transition: 'all 0.3s !important',
                         }}
-                        buttonText="Login with Base App"
+                        buttonText="Sign in with Base App"
                         showLogo={true}
                       >
                         <Image
@@ -1053,7 +1130,7 @@ function DashboardInner() {
                           height={20}
                           className="w-6 h-6 rounded-xl object-contain mr-2"
                         />
-                        Login with Base App (via Farcaster)
+                        Sign in with Base App (via Farcaster)
                       </SignInButton>
                       <motion.p
                         initial={{ opacity: 0, y: 10 }}
@@ -1129,7 +1206,7 @@ function DashboardInner() {
                         </button>
                       )}
                       {/* FIXED: Luôn show SignInButton cho Farcaster nếu không phải World (hỗ trợ deeplink ở Base/PC, fallback nếu !isMiniApp) */}
-                      {!isWorldMiniApp && (
+                      {!isWorldMiniApp && !isBaseApp && (
                         <SignInButton
                           onSuccess={handleFarcasterSuccess}
                           onError={(error) => {
