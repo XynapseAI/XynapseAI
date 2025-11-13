@@ -421,19 +421,19 @@ function DashboardInner() {
   // FIXED: Conservative detection (revert gần file cũ): Chỉ auto miniapp nếu SDK loaded HOẶC UA Warpcast cụ thể. Base/Coinbase UA → fallback manual (không auto-auth để tránh loop).
   useEffect(() => {
     const userAgent = navigator.userAgent.toLowerCase();
-    const isWarpcastMobile = userAgent.includes('warpcast') || userAgent.includes('farcaster');  // Chỉ Warpcast UA cho auto
-    const isBaseApp = userAgent.includes('coinbasewallet') || userAgent.includes('cbwallet') || userAgent.includes('base'); // Detect Base explicit
+    const isWarpcastMobile = userAgent.includes('warpcast') || userAgent.includes('farcaster');
+    const isBaseApp = userAgent.includes('coinbasewallet') || userAgent.includes('cbwallet') || userAgent.includes('base') || userAgent.includes('coinbase'); // NEW: Thêm 'coinbase' để catch rộng hơn
     isBaseAppRef.current = isBaseApp;
 
-    const sdkAvailable = typeof sdk !== 'undefined' && !!sdk.quickAuth;  // Check SDK explicit
-    const miniAppDetected = (isSDKLoaded && (context === 'miniapp' || !!miniAppUser)) || isWarpcastMobile || sdkAvailable;  // Remove broad isFarcasterMobile (gây false positive ở Base)
+    const sdkAvailable = typeof sdk !== 'undefined' && !!sdk.quickAuth;
+    const miniAppDetected = (isSDKLoaded && (context === 'miniapp' || !!miniAppUser)) || isWarpcastMobile || sdkAvailable;
     setIsMiniApp(miniAppDetected && !isBaseApp); // Exclude Base từ auto
 
     if (isBaseApp) {
       setFallbackToManual(true);
     }
 
-    safeLog('Mini App Detection Debug:', { isSDKLoaded, context, miniAppUser, userAgent, sdkAvailable, miniAppDetected, isWarpcastMobile, isBaseApp });
+    safeLog('Mini App Detection Debug:', { isSDKLoaded, context, miniAppUser, userAgent: userAgent.substring(0, 100) + '...', sdkAvailable, miniAppDetected, isWarpcastMobile, isBaseApp });
 
     if (miniAppDetected && miniAppUser) {
       safeLog('Mini App ready! User FID:', miniAppUser?.fid);
@@ -443,6 +443,13 @@ function DashboardInner() {
       if (typeof sdk !== 'undefined') sdk.actions.ready(); // FIXED: Chỉ gọi nếu SDK có
     }
   }, [isSDKLoaded, context, miniAppUser, session]);
+
+  useEffect(() => {
+    if (status === 'unauthenticated') {
+      setActiveTab('profile'); // Force tab yêu cầu auth để show login form/khung
+      safeLog('Status changed to unauthenticated, reset to profile tab'); // Debug log
+    }
+  }, [status]);
 
   // FIXED: Thêm status === 'unauthenticated' để tránh trigger trong 'loading' state (prevent loop khi session update).
   // FIXED: Wrap handleMiniAppQuickAuth bằng useCallback và thêm vào deps
@@ -652,7 +659,7 @@ function DashboardInner() {
   const handleSignOut = async () => {
     if (!session || !session.user?.id) {
       toast.error('Session expired. Please sign in again.', { position: 'top-center' });
-      router.push('/dashboard');
+      router.replace('/dashboard'); // Thay push bằng replace
       return;
     }
 
@@ -725,16 +732,17 @@ function DashboardInner() {
 
       localStorage.removeItem('csrfToken');
       setCsrfToken(null);
-      setAuthSuccess(false); // NEW: Reset auth success on signout
-      attemptedAuthRef.current = false; // Reset cho next session
-      setFallbackToManual(false); // NEW: Reset fallback
+      setAuthSuccess(false);
+      attemptedAuthRef.current = false;
+      setFallbackToManual(false);
       if (isConnected) {
         disconnect();
       }
 
-      // REMOVED: toast.success('Signed out successfully!', { position: 'top-center' }); // Silent logout
-      router.refresh();
-      router.push('/dashboard');
+      // FIXED: Replace thay push để clear browser history/state, + delay cho session propagate
+      await new Promise(resolve => setTimeout(resolve, 500)); // Delay nhỏ để status update
+      router.replace('/dashboard'); // Thay push bằng replace để force clean re-render
+      safeLog('Sign out completed, replacing to /dashboard'); // Debug log
     } catch (error) {
       safeError('Error during sign out process:', error);
       toast.error(`Failed to sign out: ${error.message}`, { position: 'top-center' });
