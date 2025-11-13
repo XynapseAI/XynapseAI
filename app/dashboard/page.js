@@ -421,28 +421,50 @@ function DashboardInner() {
   // FIXED: Conservative detection + MỞ RỘNG cho Base App (thêm 'coinbasewalletsdk' và 'coinbase-wallet' từ docs/GitHub)
   useEffect(() => {
     const userAgent = navigator.userAgent.toLowerCase();
-    console.log('FULL UA:', navigator.userAgent); // NEW: Log full UA để debug - copy paste nếu vẫn fail
+    console.log('FULL UA:', navigator.userAgent); // Debug full UA
 
-    const isWarpcastMobile = userAgent.includes('warpcast') || userAgent.includes('farcaster');  // Chỉ Warpcast UA cho auto
-    const isBaseApp = userAgent.includes('coinbasewallet') || userAgent.includes('cbwallet') || userAgent.includes('base') || userAgent.includes('coinbase') || userAgent.includes('coinbasewalletsdk') || userAgent.includes('coinbase-wallet'); // FIXED: Thêm patterns từ SDK docs
+    const isWarpcastMobile = userAgent.includes('warpcast') || userAgent.includes('farcaster');
+
+    // NEW: Feature detection cho Coinbase Wallet (từ docs: check window.ethereum.isCoinbaseWallet)
+    let isBaseApp = false;
+    if (window.ethereum) {
+      if (window.ethereum.isCoinbaseWallet || window.coinbaseWalletExtension) {
+        isBaseApp = true;
+        console.log('Coinbase Wallet detected via feature: isCoinbaseWallet=true'); // Debug
+      } else if (window.ethereum.providers) {
+        // Multi-provider case (e.g., with MetaMask)
+        const coinbaseProvider = window.ethereum.providers.find(p => p.isCoinbaseWallet);
+        if (coinbaseProvider) {
+          isBaseApp = true;
+          console.log('Coinbase Wallet detected in providers array'); // Debug
+        }
+      }
+    }
+
+    // Fallback UA nếu không detect feature (e.g., no injection yet)
+    if (!isBaseApp) {
+      isBaseApp = userAgent.includes('coinbasewallet') || userAgent.includes('cbwallet') || userAgent.includes('base') || userAgent.includes('coinbase') || userAgent.includes('coinbasewalletsdk') || userAgent.includes('coinbase-wallet');
+      if (isBaseApp) console.log('Coinbase Wallet detected via UA fallback'); // Debug
+    }
+
     isBaseAppRef.current = isBaseApp;
 
-    // NEW: Force mode nếu query param ?base=true (cho test)
+    // NEW: Force mode query param cho test
     const forceBase = searchParams.get('base') === 'true';
     if (forceBase) {
       isBaseAppRef.current = true;
       console.log('FORCE Base App mode via query param');
     }
 
-    const sdkAvailable = typeof sdk !== 'undefined' && !!sdk.quickAuth;  // Check SDK explicit
-    const miniAppDetected = (isSDKLoaded && (context === 'miniapp' || !!miniAppUser)) || isWarpcastMobile || sdkAvailable;  // Remove broad isFarcasterMobile (gây false positive ở Base)
+    const sdkAvailable = typeof sdk !== 'undefined' && !!sdk.quickAuth;
+    const miniAppDetected = (isSDKLoaded && (context === 'miniapp' || !!miniAppUser)) || isWarpcastMobile || sdkAvailable;
     setIsMiniApp(miniAppDetected && !isBaseApp); // Exclude Base từ auto
 
     if (isBaseApp) {
       setFallbackToManual(true);
     }
 
-    safeLog('Mini App Detection Debug:', { isSDKLoaded, context, miniAppUser, userAgentPreview: userAgent.substring(0, 100) + '...', sdkAvailable, miniAppDetected, isWarpcastMobile, isBaseApp, forceBase }); // UPDATED: Thêm forceBase log
+    safeLog('Detection Debug:', { isSDKLoaded, context, miniAppUser, userAgentPreview: userAgent.substring(0, 100) + '...', sdkAvailable, miniAppDetected, isWarpcastMobile, isBaseApp, forceBase });
 
     if (miniAppDetected && miniAppUser) {
       safeLog('Mini App ready! User FID:', miniAppUser?.fid);
