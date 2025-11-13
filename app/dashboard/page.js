@@ -315,7 +315,7 @@ function DashboardInner() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [isMounted, setIsMounted] = useState(false);
-  const [activeTab, setActiveTab] = useState('market');
+  const [activeTab, setActiveTab] = useState('profile');
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [providers, setProviders] = useState(null);
