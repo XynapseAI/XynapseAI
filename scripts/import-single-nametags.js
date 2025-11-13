@@ -164,7 +164,7 @@ async function importNametagsForFile(filePath) {
  * Main entry
  */
 async function main() {
-  const filePath = path.join(__dirname, '../public/nametags/btc-top-holders.json');
+  const filePath = path.join(__dirname, '../public/nametags/solana.json');
   console.log(`🚀 Starting import from file: ${filePath}`);
   await importNametagsForFile(filePath);
   console.log('✅ Nametag import process completed successfully.');

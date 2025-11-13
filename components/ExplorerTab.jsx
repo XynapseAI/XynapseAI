@@ -209,60 +209,62 @@ export default function ExplorerTab({ initialQuery, initialChain, isStandalone =
     // UPDATED: Generalize for all EVM chains
     const isEVMChain = (chain) => !!nativeSymbols[chain];
 
-    // UPDATED: Extract addresses - generalized for EVM
+    // FIXED: Extract addresses - preserve case for non-EVM (Bitcoin/Solana), lower only for EVM
     const extractAddresses = (txData, chain) => {
         const addresses = new Set();
         let tx = txData;
         if (Array.isArray(txData)) tx = txData[0];
 
-        if (tx.from) addresses.add(tx.from.toLowerCase());
-        if (tx.to) addresses.add(tx.to.toLowerCase());
+        const addAddress = (addr) => {
+            if (addr) {
+                addresses.add(isEVMChain(chain) ? addr.toLowerCase() : addr);
+            }
+        };
+
+        if (tx.from) addAddress(tx.from);
+        if (tx.to) addAddress(tx.to);
 
         if (isEVMChain(chain)) {
             if (tx.tokenTransfers) {
                 tx.tokenTransfers.forEach(t => {
-                    if (t.from) addresses.add(t.from.toLowerCase());
-                    if (t.to) addresses.add(t.to.toLowerCase());
+                    addAddress(t.from);
+                    addAddress(t.to);
                 });
             }
             if (tx.internalTxs && Array.isArray(tx.internalTxs)) {
                 tx.internalTxs.forEach(itx => {
-                    if (itx.from) addresses.add(itx.from.toLowerCase());
-                    if (itx.to) addresses.add(itx.to.toLowerCase());
+                    addAddress(itx.from);
+                    addAddress(itx.to);
                 });
             }
         } else if (chain === 'bitcoin') {
             if (tx.vin && Array.isArray(tx.vin)) {
                 tx.vin.forEach(vin => {
-                    if (vin.prevout?.scriptpubkey_address) {
-                        addresses.add(vin.prevout.scriptpubkey_address.toLowerCase());
-                    }
+                    addAddress(vin.prevout?.scriptpubkey_address);
                 });
             }
             if (tx.vout && Array.isArray(tx.vout)) {
                 tx.vout.forEach(vout => {
-                    if (vout.scriptpubkey_address) {
-                        addresses.add(vout.scriptpubkey_address.toLowerCase());
-                    }
+                    addAddress(vout.scriptpubkey_address);
                 });
             }
         } else if (chain === 'solana') {
-            if (tx.feePayer) addresses.add(tx.feePayer.toLowerCase());
+            if (tx.feePayer) addAddress(tx.feePayer);
             if (tx.nativeTransfers) {
                 tx.nativeTransfers.forEach(t => {
-                    if (t.fromUserAccount) addresses.add(t.fromUserAccount.toLowerCase());
-                    if (t.toUserAccount) addresses.add(t.toUserAccount.toLowerCase());
+                    addAddress(t.fromUserAccount);
+                    addAddress(t.toUserAccount);
                 });
             }
             if (tx.tokenTransfers) {
                 tx.tokenTransfers.forEach(t => {
-                    if (t.fromUserAccount) addresses.add(t.fromUserAccount.toLowerCase());
-                    if (t.toUserAccount) addresses.add(t.toUserAccount.toLowerCase());
+                    addAddress(t.fromUserAccount);
+                    addAddress(t.toUserAccount);
                 });
             }
             if (tx.accountData) {
                 tx.accountData.forEach(acc => {
-                    if (acc.account) addresses.add(acc.account.toLowerCase());
+                    addAddress(acc.account);
                 });
             }
         }
