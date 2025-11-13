@@ -69,11 +69,11 @@ async function hmacSha256(key, data) {
     .join('');
 }
 
-const useUserData = (session, csrfToken, setIsAnalyzing, isWorldMiniApp) => {  // ADDED: isWorldMiniApp param
+const useUserData = (session, csrfToken, setIsAnalyzing, isWorldMiniApp, recaptchaRef) => {  // ADDED: recaptchaRef as param
   const [userData, setUserData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const recaptchaRef = useRef(null);
+  // REMOVED: const recaptchaRef = useRef(null);  // No local ref anymore
 
   const fetchUserData = useCallback(async () => {
     // Enhanced check to prevent fetch when unauthenticated
@@ -87,12 +87,14 @@ const useUserData = (session, csrfToken, setIsAnalyzing, isWorldMiniApp) => {  /
     setLoading(true);
     try {
       let recaptchaToken = null;
-      if (!isWorldMiniApp && !recaptchaRef.current) {  // MODIFIED: Skip reCAPTCHA for World Mini App
-        throw new Error('reCAPTCHA component is not initialized');
+      if (!isWorldMiniApp && !recaptchaRef.current) {  // FIXED: Use passed ref
+        // FIXED: Graceful handle: Warn instead of throw, fallback for dev
+        safeWarn('reCAPTCHA not ready, skipping token');
+        recaptchaToken = process.env.NODE_ENV === 'development' ? 'development-token' : null;
       }
-      if (!isWorldMiniApp) {  // MODIFIED: Only execute if not World Mini App
+      if (!isWorldMiniApp && recaptchaRef.current) {  // FIXED: Only execute if ready
         recaptchaToken = await recaptchaRef.current.executeAsync();
-        if (!recaptchaToken) {
+        if (!recaptchaToken && process.env.NODE_ENV !== 'development') {
           throw new Error('Failed to obtain reCAPTCHA token');
         }
       }
@@ -101,7 +103,7 @@ const useUserData = (session, csrfToken, setIsAnalyzing, isWorldMiniApp) => {  /
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',
-          ...(recaptchaToken && { 'X-Recaptcha-Token': recaptchaToken }),  // MODIFIED: Conditional header
+          ...(recaptchaToken && { 'X-Recaptcha-Token': recaptchaToken }),
           'X-CSRF-Token': csrfToken,
           Authorization: `Bearer ${jwtToken}`,
         },
@@ -122,35 +124,39 @@ const useUserData = (session, csrfToken, setIsAnalyzing, isWorldMiniApp) => {  /
         tweetPoints: result.user.tweet_points,
         aiPoints: result.user.ai_points,
       });
-      // REMOVED: toast.success('User data loaded successfully!', { position: 'top-center' }); // Silent load
       setError(null);
     } catch (err) {
       safeError('Error fetching user data:', err);
       setError(`Failed to fetch user data: ${err.message}`);
-      toast.error(`Error: ${err.message}`, { position: 'top-center' });
+      // FIXED: Only toast if not reCAPTCHA init issue (avoid noise during mount/signout)
+      if (!err.message.includes('reCAPTCHA')) {
+        toast.error(`Error: ${err.message}`, { position: 'top-center' });
+      }
     } finally {
       setLoading(false);
-      if (recaptchaRef.current && !isWorldMiniApp) {  // MODIFIED: Reset only if used
+      if (recaptchaRef.current && !isWorldMiniApp) {  // FIXED: Use passed ref
         recaptchaRef.current.reset();
       }
     }
-  }, [session, csrfToken, isWorldMiniApp]);  // ADDED: isWorldMiniApp to deps
+  }, [session, csrfToken, isWorldMiniApp, recaptchaRef]);   // ADDED: isWorldMiniApp to deps
 
   const handleAnalyzeTweets = useCallback(async () => {
     setIsAnalyzing(true);
     try {
       if (!session?.user || !csrfToken) throw new Error('Authentication or CSRF token missing');
-      const recaptchaToken = process.env.NODE_ENV === 'development' ? 'development-token' : await recaptchaRef.current?.executeAsync();
+      const recaptchaToken = process.env.NODE_ENV === 'development' ? 'development-token' : await recaptchaRef.current?.executeAsync();  // FIXED: Use passed ref, fallback dev
+      if (!recaptchaToken && process.env.NODE_ENV !== 'development') {
+        throw new Error('Failed to obtain reCAPTCHA token');
+      }
       const jwtToken = session?.accessToken;
       const payload = { uid: session.user.id };
-      // Sử dụng polyfill HMAC (tương thích browser/server)
       const sortedPayload = JSON.stringify(payload, Object.keys(payload).sort());
       const signature = await hmacSha256(process.env.HMAC_SECRET || "default-secret", sortedPayload);
       const response = await fetch(`${API_BASE_URL}/api/analyze-tweets`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'X-Recaptcha-Token': recaptchaToken,
+          ...(recaptchaToken && { 'X-Recaptcha-Token': recaptchaToken }),
           'X-CSRF-Token': csrfToken,
           Authorization: `Bearer ${jwtToken}`,
           'X-HMAC-Signature': signature,
@@ -173,15 +179,15 @@ const useUserData = (session, csrfToken, setIsAnalyzing, isWorldMiniApp) => {  /
       toast.error(`Tweet analysis error: ${err.message}`, { position: 'top-center' });
     } finally {
       setIsAnalyzing(false);
-      if (recaptchaRef.current) recaptchaRef.current.reset();
+      if (recaptchaRef.current) recaptchaRef.current.reset();  // FIXED: Use passed ref
     }
-  }, [session, csrfToken, setIsAnalyzing]);
+  }, [session, csrfToken, setIsAnalyzing, recaptchaRef]);
 
   useEffect(() => {
     fetchUserData();
   }, [fetchUserData]);
 
-  return { userData, loading, error, handleAnalyzeTweets, recaptchaRef };
+  return { userData, loading, error, handleAnalyzeTweets };
 };
 
 function UniverseBackground() {
@@ -309,7 +315,7 @@ function DashboardInner() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [isMounted, setIsMounted] = useState(false);
-  const [activeTab, setActiveTab] = useState('profile');
+  const [activeTab, setActiveTab] = useState('market');
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [providers, setProviders] = useState(null);
@@ -326,7 +332,7 @@ function DashboardInner() {
   const [fallbackToManual, setFallbackToManual] = useState(false); // NEW: Fallback to manual if SDK unavailable (e.g., Base App)
   const [isWorldMiniApp, setIsWorldMiniApp] = useState(false);  // NEW
   const [worldAppVersionOk, setWorldAppVersionOk] = useState(true); // NEW: Track if version supports walletAuth
-  const { userData, loading, error } = useUserData(session, csrfToken, setIsAnalyzing, isWorldMiniApp);  // MODIFIED: Pass isWorldMiniApp
+  const { userData, loading, error } = useUserData(session, csrfToken, setIsAnalyzing, isWorldMiniApp, recaptchaRef);  // MODIFIED: Pass isWorldMiniApp
   const [worldAuthLoading, setWorldAuthLoading] = useState(false);  // NEW
   const [worldAuthFailed, setWorldAuthFailed] = useState(false);  // NEW  
   // NEW: Ref để prevent multi-attempt loop
@@ -431,7 +437,6 @@ function DashboardInner() {
 
     if (isBaseApp) {
       setFallbackToManual(true);
-      safeLog('Detected Base App: Forcing manual Farcaster deeplink (no QuickAuth)');
     }
 
     safeLog('Mini App Detection Debug:', { isSDKLoaded, context, miniAppUser, userAgent, sdkAvailable, miniAppDetected, isWarpcastMobile, isBaseApp });
@@ -707,35 +712,40 @@ function DashboardInner() {
         }
       }
 
-      try {
-        const token = await recaptchaRef.current?.executeAsync();
-        const response = await fetch(`${API_BASE_URL}/api/clear-cache`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'x-csrf-token': currentCsrfToken,
-            'X-Recaptcha-Token': token,
-          },
-          body: JSON.stringify({ cacheKeys: [`user:${session.user.id}`] }),
-          credentials: 'include',
-        });
-        if (!response.ok) {
-          safeWarn('Failed to clear server-side cache:', response.statusText);
+      // FIXED: Skip clear-cache if no session/token after signout (avoid 401 noise)
+      if (session?.accessToken) {
+        try {
+          const token = await recaptchaRef.current?.executeAsync();
+          const response = await fetch(`${API_BASE_URL}/api/clear-cache`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'x-csrf-token': currentCsrfToken,
+              ...(token && { 'X-Recaptcha-Token': token }),
+              Authorization: `Bearer ${session.accessToken}`,  // Use old token
+            },
+            body: JSON.stringify({ cacheKeys: [`user:${session.user.id}`] }),
+            credentials: 'include',
+          });
+          if (!response.ok) {
+            safeWarn('Failed to clear server-side cache:', response.statusText);
+          }
+        } catch (cacheErr) {
+          safeWarn('Failed to clear server-side cache:', cacheErr.message);
         }
-      } catch (cacheErr) {
-        safeWarn('Failed to clear server-side cache:', cacheErr.message);
+      } else {
+        safeLog('Skipping clear-cache: session cleared');
       }
 
       localStorage.removeItem('csrfToken');
       setCsrfToken(null);
-      setAuthSuccess(false); // NEW: Reset auth success on signout
-      attemptedAuthRef.current = false; // Reset cho next session
-      setFallbackToManual(false); // NEW: Reset fallback
+      setAuthSuccess(false);
+      attemptedAuthRef.current = false;
+      setFallbackToManual(false);
       if (isConnected) {
         disconnect();
       }
 
-      // REMOVED: toast.success('Signed out successfully!', { position: 'top-center' }); // Silent logout
       router.refresh();
       router.push('/dashboard');
     } catch (error) {

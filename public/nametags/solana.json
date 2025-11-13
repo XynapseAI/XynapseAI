@@ -1,0 +1,46 @@
+{
+    "AC5RDfQFmDS1deWZos921JfqscXdByf8BKHs5ACWjtW2": {
+    "Address": "AC5RDfQFmDS1deWZos921JfqscXdByf8BKHs5ACWjtW2",
+    "Labels": {
+      "bitcoin": {
+        "Name Tag": "Bybit Hot Wallet",
+        "Description": "An unidentified Bitcoin wallet (Bech32 format).",
+        "Subcategory": "Others",
+        "image": "/icons/bybit.webp"
+      }
+    }
+  },
+  "42brAgAVNzMBP7aaktPvAmBSPEkehnFQejiZc53EpJFd": {
+    "Address": "42brAgAVNzMBP7aaktPvAmBSPEkehnFQejiZc53EpJFd",
+    "Labels": {
+      "bitcoin": {
+        "Name Tag": "Bybit Cold Wallet",
+        "Description": "An unidentified Bitcoin wallet (Bech32 format).",
+        "Subcategory": "Others",
+        "image": "/icons/bybit.webp"
+      }
+    }
+  },
+  "CBEADkb8TZAXHjVE3zwad4L995GZE7rJcacJ7asebkVG": {
+    "Address": "CBEADkb8TZAXHjVE3zwad4L995GZE7rJcacJ7asebkVG",
+    "Labels": {
+      "bitcoin": {
+        "Name Tag": "OKX Cold Wallet",
+        "Description": "An unidentified Bitcoin wallet (Bech32 format).",
+        "Subcategory": "Others",
+        "image": "/icons/okx.webp"
+      }
+    }
+  },
+  "9WzDXwBbmkg8ZTbNMqUxvQRAyrZzDsGYdLVL9zYtAWWM": {
+    "Address": "9WzDXwBbmkg8ZTbNMqUxvQRAyrZzDsGYdLVL9zYtAWWM",
+    "Labels": {
+      "bitcoin": {
+        "Name Tag": "Binance Cold Wallet",
+        "Description": "An unidentified Bitcoin wallet (Bech32 format).",
+        "Subcategory": "Others",
+        "image": "/icons/binance.webp"
+      }
+    }
+  }
+}

@@ -111,10 +111,10 @@
     "Balance": 54791,
     "Labels": {
       "bitcoin": {
-        "Name Tag": "Mr.100",
+        "Name Tag": "Upbit Cold Wallet",
         "Description": null,
         "Subcategory": "Others",
-        "image": "/icons/default.webp"
+        "image": "/icons/upbit.webp"
       }
     }
   },
@@ -123,10 +123,10 @@
     "Balance": 44194,
     "Labels": {
       "bitcoin": {
-        "Name Tag": null,
+        "Name Tag": "Bybit Cold Wallet",
         "Description": null,
         "Subcategory": "Others",
-        "image": null
+        "image": "/icons/bybit.webp"
       }
     }
   },
@@ -4721,6 +4721,17 @@
         "Description": null,
         "Subcategory": "Others",
         "image": null
+      }
+    }
+  },
+  "12XZMdaAGmcHf4ocFSqpd8jFd1WH7RHUPs": {
+    "Address": "12XZMdaAGmcHf4ocFSqpd8jFd1WH7RHUPs",
+    "Labels": {
+      "bitcoin": {
+        "Name Tag": "Bybit Hot Wallet",
+        "Description": "An unidentified Bitcoin wallet (Bech32 format).",
+        "Subcategory": "Others",
+        "image": "/icons/bybit.webp"
       }
     }
   }

@@ -938,8 +938,8 @@ export default function ExplorerTab({ initialQuery, initialChain, isStandalone =
 
     return (
         <div className="font-saira w-full max-w-9xl mx-auto p-2 sm:p-3 bg-gradient-to-br from-black/80 to-gray-900/80 backdrop-blur-xs flex flex-col h-full overflow-y-auto hide-scrollbar relative">
-            <div className="border-b border-white/10 mb-4 relative z-10 bg-inherit">
-                <h1 className="text-xl font-bold flex items-center gap-2 m-4">
+            <div className="mb-4 relative z-10 bg-inherit">
+                <h1 className="text-lg font-bold flex items-center gap-2 mb-2 uppercase">
                     <img src="/logos/logo.webp" alt="Project Logo" className="w-8 h-8" />
                     Xynapse Explorer
                 </h1>
@@ -948,18 +948,18 @@ export default function ExplorerTab({ initialQuery, initialChain, isStandalone =
                         <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-white/50" />
                         <input
                             type="text"
-                            placeholder="Enter transaction hash... (Auto-detects chain)"
+                            placeholder="Enter transaction hash..."
                             value={query}
                             onChange={(e) => setQuery(e.target.value)}
-                            className="w-full h-[5vh] pl-10 pr-4 py-2 text-gray-500 border border-white/20 bg-black/50 backdrop-blur-sm focus:outline-none focus:ring-2 focus:ring-neon-blue/50 shadow-sm text-sm"
+                            className="w-full h-[4.5vh] pl-10 pr-4 py-2 text-white/50 border border-white/40 rounded-lg bg-black/50 backdrop-blur-sm focus:outline-none focus:ring-2 focus:ring-neon-blue/50 shadow-sm text-xs"
                             onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
                         />
                     </div>
                     <button
                         onClick={handleSearch}
-                        className="h-[5vh] px-4 py-1 bg-transparent border border-white/70 text-white rounded-lg hover:bg-white/10 transition-colors font-medium shadow-sm flex items-center justify-center"
+                        className="h-[4.5vh] px-4 py-1 bg-transparent border border-white/40 text-white rounded-lg hover:bg-white/10 transition-colors font-medium shadow-sm flex items-center justify-center"
                     >
-                        <Search className="w-5 h-5" />
+                        <Search className="w-4 h-4" />
                     </button>
                 </div>
             </div>
