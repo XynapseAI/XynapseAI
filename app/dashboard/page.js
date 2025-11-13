@@ -332,6 +332,9 @@ function DashboardInner() {
   // NEW: Ref để prevent multi-attempt loop
   const attemptedAuthRef = useRef(false);
   const isBaseAppRef = useRef(false); // Track Base detection
+  // NEW: Cho auto-trigger SignInButton ở Base App
+  const baseSignInRef = useRef(null);
+  const [shouldAutoTrigger, setShouldAutoTrigger] = useState(false); // Flag để trigger auto click
 
   // FIXED: App domain từ env (fix origin mismatch ở preview)
   const appDomain = process.env.NEXT_PUBLIC_APP_DOMAIN || window.location.hostname;
@@ -427,10 +430,11 @@ function DashboardInner() {
 
     const sdkAvailable = typeof sdk !== 'undefined' && !!sdk.quickAuth;  // Check SDK explicit
     const miniAppDetected = (isSDKLoaded && (context === 'miniapp' || !!miniAppUser)) || isWarpcastMobile || sdkAvailable;  // Remove broad isFarcasterMobile (gây false positive ở Base)
-    setIsMiniApp(miniAppDetected && !isBaseApp); // Exclude Base từ auto
+    setIsMiniApp(miniAppDetected && !isBaseApp); // Exclude Base từ auto QuickAuth
 
     if (isBaseApp) {
       setFallbackToManual(true);
+      setShouldAutoTrigger(true); // NEW: Set flag để auto-trigger SignInButton sau
     }
 
     safeLog('Mini App Detection Debug:', { isSDKLoaded, context, miniAppUser, userAgent, sdkAvailable, miniAppDetected, isWarpcastMobile, isBaseApp });
@@ -447,7 +451,7 @@ function DashboardInner() {
   // FIXED: Thêm status === 'unauthenticated' để tránh trigger trong 'loading' state (prevent loop khi session update).
   // FIXED: Wrap handleMiniAppQuickAuth bằng useCallback và thêm vào deps
   const handleMiniAppQuickAuth = useCallback(async () => {
-    if (status !== 'unauthenticated' || isBaseAppRef.current) return; // Skip nếu Base
+    if (status !== 'unauthenticated' || isBaseAppRef.current) return; // Skip nếu Base (sử dụng manual/auto SignInButton thay)
     setMiniAppAuthLoading(true);
     setMiniAppAuthFailed(false); // Reset failure state
     try {
@@ -614,6 +618,15 @@ function DashboardInner() {
       return () => clearInterval(checkReady);
     }
   }, [isWorldMiniApp]);
+
+  // NEW: Auto-trigger SignInButton cho Base App sau khi mount
+  useEffect(() => {
+    if (shouldAutoTrigger && baseSignInRef.current && status === 'unauthenticated' && isBaseAppRef.current) {
+      safeLog('Auto-triggering Farcaster sign-in for Base App');
+      baseSignInRef.current.click();
+      setShouldAutoTrigger(false); // One-time trigger
+    }
+  }, [shouldAutoTrigger, status]); // Trigger khi flag set và status ready
 
   const handleConnectWallet = async () => {
     try {
@@ -955,14 +968,14 @@ function DashboardInner() {
                   className="w-full h-full p-4 md:p-0 flex items-center justify-center text-white font-saira relative"
                 >
                   <div className="fixed inset-0 z-0">
-                    {!isMiniApp && !isWorldMiniApp && isBaseAppRef.current ? null : (  // MODIFIED: Không render 3D nếu là Base App (lightweight, chỉ button)
+                    {!isMiniApp && !isWorldMiniApp && !isBaseAppRef.current && (  // FIXED: Không render 3D nếu Mini/World/Base (lightweight)
                       <Canvas camera={{ position: [0, 0, 5], fov: 75 }} dpr={[1, 1.5]} performance={{ min: 0.3 }}>
                         <UniverseBackground />
                       </Canvas>
                     )}
                   </div>
                   {isBaseAppRef.current ? (
-                    // NEW: Khung đặc biệt cho Base App - chỉ button "Login with Base App" (trigger Farcaster)
+                    // FIXED: Khung đặc biệt cho Base App - auto-trigger SignInButton để direct modal Farcaster
                     <motion.div
                       initial={{ opacity: 0, y: 20 }}
                       animate={{ opacity: 1, y: 0 }}
@@ -983,14 +996,18 @@ function DashboardInner() {
                         transition={{ duration: 0.5, delay: 0.3 }}
                         className="text-[11px] md:text-xs text-gray-500 mb-6 text-center leading-relaxed"
                       >
-                        Sign in securely with your Base account via Farcaster.
+                        Signing in with your Base account via Farcaster...
                       </motion.p>
+                      <button
+                        ref={baseSignInRef} // NEW: Ref để auto-click
+                        className="hidden" // HIDE button vì auto-trigger, nhưng cần cho ref
+                      />
                       <SignInButton
                         onSuccess={handleFarcasterSuccess}
                         onError={(error) => {
                           safeError('AuthKit error in Base App:', error);
                           toast.error(`Farcaster error: ${error.message}`);
-                          // onError: Không thay đổi UI, giữ nguyên khung button (user "bấm ra ngoài" sẽ back về đây)
+                          // onError: Không thay đổi UI, back về khung button nếu cancel (đóng modal)
                         }}
                         className="!w-full !px-4 !m-2 !py-2.5 !bg-blue-600 !border !border-blue-500 !rounded-2xl !text-white !text-sm !font-semibold !flex !items-center !justify-center !gap-3 !transition-all !duration-300 hover:!bg-blue-700 hover:!border-blue-400"
                         style={{
@@ -1007,7 +1024,7 @@ function DashboardInner() {
                         showLogo={false} // Không show Farcaster logo, focus vào Base
                       >
                         <Image
-                          src="/logos/base-logo.png" // Giả sử có logo Base, thay bằng path thực tế
+                          src="/logos/base-logo.png" // Giả sử có logo Base
                           alt="Base Logo"
                           width={20}
                           height={20}
@@ -1055,7 +1072,7 @@ function DashboardInner() {
                       >
                         Access your dashboard with secure authentication.
                       </motion.p>
-                      {!isWorldMiniApp && (  // FIXED: Show Email nếu không phải World (hỗ trợ Base/PC)
+                      {!isWorldMiniApp && (  // FIXED: Show Email nếu không phải World (hỗ trợ PC)
                         <>
                           <form onSubmit={handleEmailSignIn} className="w-full space-y-4">
                             <input
@@ -1088,7 +1105,7 @@ function DashboardInner() {
                           <MatrixHoverEffect text="Sign in with Google" />
                         </button>
                       )}
-                      {/* FIXED: Luôn show SignInButton cho Farcaster nếu không phải World (hỗ trợ deeplink ở Base/PC, fallback nếu !isMiniApp) */}
+                      {/* FIXED: Luôn show SignInButton cho Farcaster nếu không phải World (hỗ trợ deeplink ở PC, fallback nếu !isMiniApp) */}
                       {!isWorldMiniApp && (
                         <SignInButton
                           onSuccess={handleFarcasterSuccess}
