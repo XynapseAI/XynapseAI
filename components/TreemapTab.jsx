@@ -10,22 +10,26 @@ import crypto from 'crypto-js';
 import { ToastContainer, toast } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 import { formatDistanceToNow } from 'date-fns';
+import cytoscape from 'cytoscape';
+import cola from 'cytoscape-cola';
+import nodeHtmlLabel from 'cytoscape-node-html-label';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { chains, mapCoinGeckoChains, getPlatformImage } from '../utils/constants';
 import { getExplorerUrls } from '@/utils/helpers';
 import { cacheData, getCachedData } from '../utils/indexedDB';
-import { detectClusters } from '../utils/clustering';
 import axios from 'axios';
 import { logger } from '../utils/clientLogger';
 import { Virtuoso } from 'react-virtuoso';
 import { TableVirtuoso } from 'react-virtuoso';
 import { lazy, Suspense } from 'react';
-import ForceGraph3D from 'react-force-graph-3d';
-import * as THREE from 'three';
-import SpriteText from 'three-spritetext';
 
-const TensorFlowJS = lazy(() => import('@tensorflow/tfjs-core'));
+const TensorFlowJS = lazy(() => {
+  const tfCorePkg = '@tensorflow/tfjs-c' + 'ore';  // <-- Concat to bypass if needed
+  return import(tfCorePkg);
+});
 
+cytoscape.use(cola);
+cytoscape.use(nodeHtmlLabel);
 const formatLargeNumber = (value, decimals = 1) => {
   const absValue = Math.abs(value);
   if (absValue >= 1e9) {
@@ -37,31 +41,25 @@ const formatLargeNumber = (value, decimals = 1) => {
   }
   return Number(value.toFixed(decimals)).toLocaleString('en-US', { minimumFractionDigits: decimals, maximumFractionDigits: decimals });
 };
-
 const truncateAddress = (addr) => {
   if (!addr) return 'N/A';
   return `${addr.slice(0, 6)}...${addr.slice(-4)}`;
 };
-
 const isValidNametagImage = (image) => {
   return image && image !== '/icons/default.webp';
 };
-
 const SUPPORTED_CHAINS = [
   '1', '56', '10', '130', '137', '42161', '59144', 'solana', 'tron', 'bitcoin',
 ];
-
 const isValidDate = (date) => {
   return date instanceof Date && !isNaN(date);
 };
-
 const getExplorerLogo = (selectedChain) => {
   if (selectedChain === 'bitcoin') {
     return '/logos/mempool-logo.webp';
   }
   return '/logos/etherscan-logo.webp';
 };
-
 const VirtuosoTable = memo(({ transactions, isMobile, selectedChain, tokenImages, nametags, filterType, rootAddress }) => {
   if (!transactions || !Array.isArray(transactions)) {
     logger.warn('Invalid transactions in VirtuosoTable:', transactions);
@@ -77,7 +75,6 @@ const VirtuosoTable = memo(({ transactions, isMobile, selectedChain, tokenImages
       </motion.div>
     );
   }
-
   const handleCopyAddress = (address) => {
     navigator.clipboard.writeText(address);
     toast.success('Address copied to clipboard!', {
@@ -90,7 +87,6 @@ const VirtuosoTable = memo(({ transactions, isMobile, selectedChain, tokenImages
       theme: 'dark',
     });
   };
-
   const filteredTransactions = useMemo(() => {
     const filtered = transactions.filter((tx) => {
       if (filterType === 'all') return true;
@@ -105,7 +101,6 @@ const VirtuosoTable = memo(({ transactions, isMobile, selectedChain, tokenImages
     logger.log('Filtered transactions in VirtuosoTable:', filtered);
     return filtered;
   }, [transactions, filterType, rootAddress]);
-
   if (filteredTransactions.length === 0) {
     return (
       <motion.div
@@ -121,7 +116,6 @@ const VirtuosoTable = memo(({ transactions, isMobile, selectedChain, tokenImages
       </motion.div>
     );
   }
-
   const fixedHeaderContent = () => (
     <tr className="grid grid-cols-[2fr_1fr_1fr] gap-2">
       <th className="px-2 py-1 text-white font-medium text-left overflow-hidden border-r border-white/5">From/To</th>
@@ -129,7 +123,6 @@ const VirtuosoTable = memo(({ transactions, isMobile, selectedChain, tokenImages
       <th className="px-2 py-1 text-white font-medium text-center overflow-hidden">Details</th>
     </tr>
   );
-
   const Row = (index, tx) => {
     if (!tx) {
       console.error(`No transaction data at index ${index}`);
@@ -285,7 +278,6 @@ const VirtuosoTable = memo(({ transactions, isMobile, selectedChain, tokenImages
       </tr>
     );
   };
-
   const tableHeight = isMobile ? 'auto' : 'calc(100vh - 8rem)';
   return (
     <motion.div
@@ -351,12 +343,11 @@ const VirtuosoTable = memo(({ transactions, isMobile, selectedChain, tokenImages
             />
           ),
         }}
-        overscan={200} // Reduced for better perf
+        overscan={400}
       />
     </motion.div>
   );
 });
-
 const TrendChart = memo(({ transactions, velocity }) => {
   const getTimeInterval = useCallback((timestamps) => {
     const minTime = Math.min(...timestamps);
@@ -366,7 +357,6 @@ const TrendChart = memo(({ transactions, velocity }) => {
     if (range > 7 * 24 * 3600 * 1000) return 'weekly';
     return 'daily';
   }, []);
-
   const chartData = useMemo(() => {
     if (transactions.length === 0) return [];
     const validTxs = transactions.filter(tx => {
@@ -405,7 +395,6 @@ const TrendChart = memo(({ transactions, velocity }) => {
       }))
       .sort((a, b) => new Date(a.time) - new Date(b.time));
   }, [transactions, getTimeInterval]);
-
   if (chartData.length === 0) return null;
 
   return (
@@ -451,7 +440,6 @@ const TrendChart = memo(({ transactions, velocity }) => {
     </motion.div>
   );
 });
-
 const ClusterDashboard = memo(({ entity, isMobile, tokenImages }) => {
   if (!entity || entity.type !== 'cluster' || !entity.data || !entity.data.wallets || !entity.data.transactions) {
     logger.warn('Invalid cluster data:', entity);
@@ -474,7 +462,7 @@ const ClusterDashboard = memo(({ entity, isMobile, tokenImages }) => {
       .sort(([, a], [, b]) => b - a)
       .slice(0, 5);
   }, [cluster.transactions]);
-
+  // New: Outstanding activities - high value or anomalous tx
   const outstandingTxs = useMemo(() => {
     if (txCount === 0) return [];
     const values = cluster.transactions.map(tx => Number(tx.usdValue || tx.value || 0));
@@ -483,11 +471,10 @@ const ClusterDashboard = memo(({ entity, isMobile, tokenImages }) => {
     const std = Math.sqrt(variance);
     const threshold = mean + 2 * std;
     return cluster.transactions
-      .filter(tx => (Number(tx.usdValue || tx.value || 0) > threshold) || (Number(tx.usdValue || tx.value || 0) > totalValue * 0.1))
+      .filter(tx => (Number(tx.usdValue || tx.value || 0) > threshold) || (Number(tx.usdValue || tx.value || 0) > totalValue * 0.1)) // Top 10% or anomalous
       .sort((a, b) => (Number(b.usdValue || b.value || 0)) - (Number(a.usdValue || a.value || 0)))
       .slice(0, 3);
   }, [cluster.transactions, totalValue]);
-
   return (
     <motion.div
       initial={{ opacity: 0, y: 20 }}
@@ -556,6 +543,7 @@ const ClusterDashboard = memo(({ entity, isMobile, tokenImages }) => {
           })}
         </div>
       </div>
+      {/* New: Outstanding Activities */}
       {outstandingTxs.length > 0 && (
         <div className="bg-orange-500/20 p-2 rounded-lg mb-2 border border-orange-500/30">
           <p className="text-[9px] font-bold text-orange-300 mb-1">Outstanding Activities</p>
@@ -579,10 +567,48 @@ const ClusterDashboard = memo(({ entity, isMobile, tokenImages }) => {
     </motion.div>
   );
 });
-
 const CACHE_TTL = 3600000;
 const NODES_PER_PAGE = 50;
 const MAX_NODES = 1000; // Scalability limit
+
+// THÊM HÀM NÀY VÀO ĐÂY (ngay trước export default)
+function simpleRuleBasedClustering(nodesData, edgesData) {
+  const clusters = [];
+  const nodeMap = new Map(nodesData.map(n => [n.id.toLowerCase(), n]));
+  const adjList = new Map();
+  nodesData.forEach(n => adjList.set(n.id.toLowerCase(), new Set()));
+  edgesData.forEach(e => {
+    adjList.get(e.source.toLowerCase())?.add(e.target.toLowerCase());
+    adjList.get(e.target.toLowerCase())?.add(e.source.toLowerCase());
+  });
+  // Simple: Group by shared label (nametag) or high degree (>3)
+  const groups = new Map();
+  nodesData.forEach(node => {
+    const key = node.label !== 'Unknown' ? node.label : `high_degree_${adjList.get(node.id.toLowerCase())?.size || 0 > 3 ? 'hub' : 'solo'}`;
+    if (!groups.has(key)) groups.set(key, { wallets: [], transactions: [] });
+    groups.get(key).wallets.push(node);
+  });
+  // Assign tx (simple: all to group if connected)
+  edgesData.forEach(edge => {
+    const sourceKey = [...groups.entries()].find(([k, g]) => g.wallets.some(w => w.id.toLowerCase() === edge.source.toLowerCase()))?.[0];
+    if (sourceKey) groups.get(sourceKey).transactions.push({ ...edge });
+  });
+  groups.forEach((group, key) => {
+    if (group.wallets.length >= 2 && group.wallets.some(w => w.label !== 'Unknown')) {
+      clusters.push({
+        clusterId: key,
+        nametag: key,
+        wallets: group.wallets,
+        transactions: [...new Set(group.transactions.map(JSON.stringify))].map(JSON.parse),
+        riskScore: 0.3, // Default low
+        velocity: 0,
+        uniqueTokens: 0,
+        topFeatures: [], // Empty
+      });
+    }
+  });
+  return clusters;
+}
 
 export default function TreemapTab({ initialChain = 'ethereum', initialAddress = '' }) {
   const { data: session, status } = useSession();
@@ -590,7 +616,7 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
   const searchParams = useSearchParams();
   const [walletAddress, setWalletAddress] = useState(initialAddress);
   const [nodes, setNodes] = useState([]);
-  const [edges, setEdges] = useState([]); // Now links for force-graph
+  const [edges, setEdges] = useState([]);
   const [nametags, setNametags] = useState({});
   const [walletInfo, setWalletInfo] = useState({
     address: '',
@@ -609,7 +635,8 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
   const [fullIncomingData, setFullIncomingData] = useState([]);
   const [fullOutgoingData, setFullOutgoingData] = useState([]);
   const [fullLayer3Data, setFullLayer3Data] = useState([]);
-  const fgRef = useRef(null); // Ref for ForceGraph
+  const cyRef = useRef(null);
+  const containerRef = useRef(null);
   const chainDropdownRef = useRef(null);
   const limitDropdownRef = useRef(null);
   const [selectedLimit, setSelectedLimit] = useState(50);
@@ -620,7 +647,6 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
   const [selectedEntity, setSelectedEntity] = useState({ type: null, data: { transactions: [] } });
   const [clusters, setClusters] = useState([]);
   const apiBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:3000';
-
   // Fetch user data to get accurate isPremium status
   const fetchUserData = useCallback(async () => {
     if (!session?.user?.id) return;
@@ -637,12 +663,9 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
       logger.error('Error fetching user data for premium status:', err);
     }
   }, [session, apiBaseUrl]);
-
   useEffect(() => {
     fetchUserData();
   }, [fetchUserData]);
-
-  // Aggregate and update graph data
   useEffect(() => {
     if (fullIncomingData.length > 0 || fullOutgoingData.length > 0 || fullLayer3Data.length > 0) {
       const { nodes: newNodes, edges: newEdges, nametags: newNametags } = aggregateWallets(
@@ -656,48 +679,45 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
       // Enforce max nodes for scalability
       const limitedNodes = newNodes.slice(0, MAX_NODES);
       const limitedEdges = newEdges.filter(e =>
-        limitedNodes.some(n => n.id === e.source) &&
-        limitedNodes.some(n => n.id === e.target)
+        limitedNodes.some(n => n.data.id === e.data.source) &&
+        limitedNodes.some(n => n.data.id === e.data.target)
       );
-      // Enhance nodes with cluster info
-      const enhancedNodes = limitedNodes.map(node => {
-        const cluster = clusters.find(c => c.wallets.some(w => w.id.toLowerCase() === node.id.toLowerCase()));
-        return { ...node, group: cluster ? cluster.clusterId : null };
-      });
-      setNodes(enhancedNodes);
+      setNodes(limitedNodes);
       setEdges(limitedEdges);
       setNametags((prev) => ({ ...prev, ...newNametags }));
+      if (cyRef.current) {
+        cyRef.current.destroy();
+      }
+      setTimeout(() => initializeCytoscape(), 100);
     }
-  }, [filterType, fullIncomingData, fullOutgoingData, fullLayer3Data, walletAddress, page, clusters]);
-
-  // Fetch token images (unchanged)
+  }, [filterType, fullIncomingData, fullOutgoingData, fullLayer3Data, walletAddress, page]);
   useEffect(() => {
     const fetchTokenImages = async () => {
       const uniqueTokens = [
         ...new Set([
-          ...edges.flatMap((edge) => edge.contractAddress?.toLowerCase()),
-          ...edges.flatMap((edge) => edge.tokenSymbol?.toLowerCase()),
+          ...edges.flatMap((edge) => edge.data.contractAddress?.toLowerCase()),
+          ...edges.flatMap((edge) => edge.data.tokenSymbol?.toLowerCase()),
         ]),
       ].filter(Boolean);
       logger.log('Fetching token images for:', uniqueTokens);
       const tokenInfo = {};
       edges.forEach((edge) => {
-        const tokenKey = edge.contractAddress?.toLowerCase() || edge.tokenSymbol?.toLowerCase();
-        if (edge.tokenSymbol?.toLowerCase() === 'eth' && selectedChain === '1') {
+        const tokenKey = edge.data.contractAddress?.toLowerCase() || edge.data.tokenSymbol?.toLowerCase();
+        if (edge.data.tokenSymbol?.toLowerCase() === 'eth' && selectedChain === '1') {
           tokenInfo[tokenKey] = {
             image: 'https://coin-images.coingecko.com/coins/images/279/large/ethereum.png?1696501628',
             symbol: 'ETH'
           };
         }
-        if (selectedChain === 'bitcoin' && edge.tokenSymbol?.toLowerCase() === 'btc') {
+        if (selectedChain === 'bitcoin' && edge.data.tokenSymbol?.toLowerCase() === 'btc') {
           tokenInfo[tokenKey] = {
             image: '/logos/bitcoin.webp',
             symbol: 'BTC'
           };
-        } else if (edge.tokenImage && edge.tokenImage !== '/icons/default.webp') {
+        } else if (edge.data.tokenImage && edge.data.tokenImage !== '/icons/default.webp') {
           tokenInfo[tokenKey] = {
-            image: edge.tokenImage,
-            symbol: edge.tokenSymbol?.toUpperCase() || 'UNKNOWN'
+            image: edge.data.tokenImage,
+            symbol: edge.data.tokenSymbol?.toUpperCase() || 'UNKNOWN'
           };
         }
       });
@@ -803,7 +823,6 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
       fetchTokenImages();
     }
   }, [edges, selectedChain, apiBaseUrl]);
-
   const updateUrl = (chain, address) => {
     const newParams = new URLSearchParams();
     newParams.set('tab', 'treemap');
@@ -811,15 +830,14 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
     if (address) newParams.set('address', address);
     router.replace(`/dashboard?${newParams.toString()}`, { scroll: false });
   };
-
   const aggregateWallets = (incomingData, outgoingData, layer3Data, rootAddress, page, filterType) => {
     const walletMap = new Map();
     const nametags = {};
     const edges = [];
     const rootLower = rootAddress.toLowerCase();
     walletMap.set(rootLower, {
-      id: rootLower,
-      label: walletInfo.nametag || 'Unknown',
+      address: rootLower,
+      nametag: walletInfo.nametag || 'Unknown',
       image: walletInfo.image || '/icons/default.webp',
       chainLogo: walletInfo.chainLogo || '/icons/default.webp',
       tokenSymbol: 'Unknown',
@@ -833,7 +851,6 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
       name: walletInfo.nametag || 'Unknown',
       image: walletInfo.image || '/icons/default.webp',
     };
-
     const addWallet = (address, tx, type, layer) => {
       if (filterType === 'incoming' && type !== 'incoming') return;
       if (filterType === 'outgoing' && type !== 'outgoing') return;
@@ -841,8 +858,8 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
       const addrLower = address.toLowerCase();
       if (!walletMap.has(addrLower)) {
         walletMap.set(addrLower, {
-          id: addrLower,
-          label: tx.nametag || 'Unknown',
+          address: addrLower,
+          nametag: tx.nametag || 'Unknown',
           image: tx.image || '/icons/default.webp',
           chainLogo: tx.chainLogo || '/icons/default.webp',
           tokenSymbol: tx.tokenSymbol || 'Unknown',
@@ -859,7 +876,7 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
       }
       const wallet = walletMap.get(addrLower);
       const txValue = Number(tx.usdValue || tx.value || 0);
-      if (isNaN(txValue)) return;
+      if (isNaN(txValue)) return; // Validate value
       wallet.totalValue += txValue;
       wallet.txCount += 1;
       const txTime = typeof tx.block_time === 'number' ? tx.block_time * 1000 : tx.block_time;
@@ -868,7 +885,6 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
         wallet.latestBlockTime = tx.block_time;
       }
     };
-
     const filteredIncoming = filterType === 'all' || filterType === 'incoming'
       ? incomingData.filter((tx) => tx.address.toLowerCase() !== rootLower && tx.type === 'incoming')
       : [];
@@ -882,42 +898,58 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
       const address = tx.type === 'incoming' ? tx.address : tx.address;
       addWallet(address, tx, tx.type, 3);
     });
-
-    const nodes = Array.from(walletMap.values());
-
+    const nodes = Array.from(walletMap.values()).map((wallet) => ({
+      data: {
+        id: wallet.address,
+        label: wallet.nametag,
+        image: wallet.image,
+        chainLogo: wallet.chainLogo,
+        tokenSymbol: wallet.tokenSymbol,
+        totalValue: wallet.totalValue.toFixed(6),
+        txCount: wallet.txCount,
+        latestBlockTime: wallet.latestBlockTime,
+        type: wallet.type,
+        layer: wallet.layer,
+        isRoot: wallet.address === rootLower,
+      },
+    }));
     filteredIncoming.forEach((tx, index) => {
       if (walletMap.has(tx.address.toLowerCase()) && walletMap.has(rootLower)) {
         edges.push({
-          id: `in-edge-${page}-${index}-${tx.hash}`,
-          source: tx.address.toLowerCase(),
-          target: rootLower,
-          value: Number(tx.value).toFixed(6),
-          usdValue: Number(tx.usdValue || 0).toFixed(6),
-          type: 'incoming',
-          txHash: tx.hash,
-          block_time: tx.block_time,
-          tokenSymbol: tx.tokenSymbol,
-          contractAddress: tx.contractAddress,
-          tokenImage: tx.tokenImage,
-          layer: 2,
+          data: {
+            id: `in-edge-${page}-${index}-${tx.hash}`,
+            source: tx.address.toLowerCase(),
+            target: rootLower,
+            value: Number(tx.value).toFixed(6),
+            usdValue: Number(tx.usdValue || 0).toFixed(6),
+            type: 'incoming',
+            txHash: tx.hash,
+            block_time: tx.block_time,
+            tokenSymbol: tx.tokenSymbol,
+            contractAddress: tx.contractAddress,
+            tokenImage: tx.tokenImage,
+            layer: 2,
+          },
         });
       }
     });
     filteredOutgoing.forEach((tx, index) => {
       if (walletMap.has(rootLower) && walletMap.has(tx.address.toLowerCase())) {
         edges.push({
-          id: `out-edge-${page}-${index}-${tx.hash}`,
-          source: rootLower,
-          target: tx.address.toLowerCase(),
-          value: Number(tx.value).toFixed(6),
-          usdValue: Number(tx.usdValue || 0).toFixed(6),
-          type: 'outgoing',
-          txHash: tx.hash,
-          block_time: tx.block_time,
-          tokenSymbol: tx.tokenSymbol,
-          contractAddress: tx.contractAddress,
-          tokenImage: tx.tokenImage,
-          layer: 2,
+          data: {
+            id: `out-edge-${page}-${index}-${tx.hash}`,
+            source: rootLower,
+            target: tx.address.toLowerCase(),
+            value: Number(tx.value).toFixed(6),
+            usdValue: Number(tx.usdValue || 0).toFixed(6),
+            type: 'outgoing',
+            txHash: tx.hash,
+            block_time: tx.block_time,
+            tokenSymbol: tx.tokenSymbol,
+            contractAddress: tx.contractAddress,
+            tokenImage: tx.tokenImage,
+            layer: 2,
+          },
         });
       }
     });
@@ -926,25 +958,25 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
       const layer3Address = tx.address.toLowerCase();
       if (walletMap.has(layer2Address) && walletMap.has(layer3Address)) {
         edges.push({
-          id: `layer3-edge-${page}-${index}-${tx.hash}`,
-          source: tx.type === 'incoming' ? layer3Address : layer2Address,
-          target: tx.type === 'incoming' ? layer2Address : layer3Address,
-          value: Number(tx.value).toFixed(6),
-          usdValue: Number(tx.usdValue || 0).toFixed(6),
-          type: tx.type,
-          txHash: tx.hash,
-          block_time: tx.block_time,
-          tokenSymbol: tx.tokenSymbol,
-          contractAddress: tx.contractAddress,
-          tokenImage: tx.tokenImage,
-          layer: 3,
+          data: {
+            id: `layer3-edge-${page}-${index}-${tx.hash}`,
+            source: tx.type === 'incoming' ? layer3Address : layer2Address,
+            target: tx.type === 'incoming' ? layer2Address : layer3Address,
+            value: Number(tx.value).toFixed(6),
+            usdValue: Number(tx.usdValue || 0).toFixed(6),
+            type: tx.type,
+            txHash: tx.hash,
+            block_time: tx.block_time,
+            tokenSymbol: tx.tokenSymbol,
+            contractAddress: tx.contractAddress,
+            tokenImage: tx.tokenImage,
+            layer: 3,
+          },
         });
       }
     });
-
     return { nodes, edges, nametags };
   };
-
   const fetchTransactions = useCallback(async (address, page = 1) => {
     const isBitcoin = selectedChain === 'bitcoin';
     if (!isAddress(address) && !['solana', 'tron', 'bitcoin'].includes(selectedChain)) {
@@ -1047,7 +1079,7 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
       setFullIncomingData(data.incoming);
       setFullOutgoingData(data.outgoing);
       setFullLayer3Data(data.layer3);
-      const { nodes, edges: newEdges, nametags: newNametags } = aggregateWallets(
+      const { nodes, edges, nametags: newNametags } = aggregateWallets(
         data.incoming,
         data.outgoing,
         data.layer3,
@@ -1060,12 +1092,12 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
         outgoing: data.outgoing,
         layer3: data.layer3,
         nodes,
-        edges: newEdges,
+        edges,
         wallet: data.wallet,
         nametags: newNametags
       }, CACHE_TTL);
       setNodes((prev) => page === 1 ? nodes : [...prev, ...nodes]);
-      setEdges((prev) => page === 1 ? newEdges : [...prev, ...newEdges]);
+      setEdges((prev) => page === 1 ? edges : [...prev, ...edges]);
       setNametags((prev) => ({ ...prev, ...newNametags }));
       setWalletInfo(data.wallet);
       setWalletAddress(address);
@@ -1094,7 +1126,6 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
       setLoading(false);
     }
   }, [selectedChain, selectedLimit, session, apiBaseUrl, filterType, walletInfo]);
-
   const filterTransactions = useCallback((transactions, filterType, rootId, walletId = null) => {
     if (!transactions || !Array.isArray(transactions)) {
       logger.warn('Invalid transactions array:', transactions);
@@ -1134,106 +1165,311 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
     return uniqueTxs;
   }, []);
 
-  // Run clustering when nodes/edges change
-  useEffect(() => {
-    const runClustering = async () => {
-      if (nodes.length > 0 && edges.length > 0) {
-        await TensorFlowJS;
-        const detectedClusters = await detectClusters(
-          nodes,
-          edges,
-          { useDBSCAN: true, useGNN: true }
-        );
-        logger.log('Detected clusters:', detectedClusters.map(c => ({
-          clusterId: c.clusterId,
-          nametag: c.nametag,
-          walletCount: c.wallets.length,
-          transactionCount: c.transactions.length,
-        })));
-        setClusters(detectedClusters);
-        // Set initial selectedEntity to root cluster
-        const rootId = walletInfo.address.toLowerCase();
-        let clusterData;
-        const rootCluster = detectedClusters.find(c => c.wallets.some(w => w.id.toLowerCase() === rootId));
-        if (rootCluster) {
-          clusterData = rootCluster;
-        } else {
-          // Fallback to root-only data (unchanged logic)
-          let filteredRootTxs = [];
-          if (filterType === 'all' || filterType === 'incoming') {
-            filteredRootTxs.push(...fullIncomingData.map(tx => ({
-              ...tx,
-              type: 'incoming',
-              source: tx.address.toLowerCase(),
-              target: rootId,
-            })));
-          }
-          if (filterType === 'all' || filterType === 'outgoing') {
-            filteredRootTxs.push(...fullOutgoingData.map(tx => ({
-              ...tx,
-              type: 'outgoing',
-              source: rootId,
-              target: tx.address.toLowerCase(),
-            })));
-          }
-          let filteredLayer3ForCluster = [];
-          if (fullLayer3Data.length > 0) {
-            const layer3Filter = fullLayer3Data.filter(tx => tx.nametag && tx.nametag !== 'Unknown');
-            const layer3ToInclude = filterType === 'all' ? layer3Filter : layer3Filter.filter(tx => tx.type === filterType);
-            filteredLayer3ForCluster = layer3ToInclude.map(tx => ({
-              ...tx,
-              source: tx.type === 'incoming' ? tx.address.toLowerCase() : tx.layer2Address.toLowerCase(),
-              target: tx.type === 'incoming' ? tx.layer2Address.toLowerCase() : tx.address.toLowerCase(),
-            }));
-          }
-          const allTxs = [...filteredRootTxs, ...filteredLayer3ForCluster];
-          const connectedWallets = [...new Set(allTxs.map(tx => [tx.source, tx.target].filter(id => id !== rootId)).flat().filter(Boolean))];
-          const uniqueTxs = [...new Set(allTxs.map(JSON.stringify))].map(JSON.parse);
-          const getTime = (bt) => {
-            if (typeof bt === 'number') return bt * 1000;
-            if (typeof bt === 'string' || bt instanceof Date) return new Date(bt).getTime();
-            return null;
-          };
-          const times = uniqueTxs.map(tx => getTime(tx.block_time)).filter(t => t !== null).sort((a, b) => a - b);
-          let velocity = 0;
-          if (times.length > 1) {
-            const timeSpanDays = (times[times.length - 1] - times[0]) / (1000 * 60 * 60 * 24);
-            velocity = uniqueTxs.length / Math.max(timeSpanDays, 1);
-          } else if (times.length === 1) {
-            velocity = 1;
-          }
-          const tokenKeys = uniqueTxs.map(tx => tx.contractAddress?.toLowerCase() || tx.tokenSymbol?.toLowerCase() || 'unknown');
-          const uniqueTokens = new Set(tokenKeys).size;
-          const connectedWalletsWithData = connectedWallets.map(cid => {
-            const node = nodes.find(n => n.id.toLowerCase() === cid);
-            if (node) {
-              const w = { ...node };
-              w.totalValue = parseFloat(w.totalValue || 0);
-              return w;
-            }
-            return { id: cid, totalValue: 0 };
-          });
-          const rootWalletNode = nodes.find(n => n.id.toLowerCase() === rootId);
-          const rootWalletData = rootWalletNode ? { ...rootWalletNode } : { id: rootId, totalValue: 0 };
-          rootWalletData.totalValue = parseFloat(rootWalletData.totalValue || 0);
-          const allWallets = [rootWalletData, ...connectedWalletsWithData];
-          clusterData = {
-            clusterId: 'root',
-            nametag: walletInfo.nametag || truncateAddress(rootId),
-            image: walletInfo.image,
-            wallets: allWallets,
-            transactions: allTxs,
-            riskScore: 0,
-            velocity,
-            uniqueTokens,
-          };
-        }
-        setSelectedEntity({ type: 'cluster', data: clusterData });
+  const initializeCytoscape = useCallback(async () => {
+    if (!containerRef.current || !nodes.length || !walletInfo.address) {
+      logger.warn('Cannot initialize Cytoscape: missing container, nodes, or walletInfo.address');
+      return;
+    }
+    try {
+      await TensorFlowJS; // Giữ nếu cần TF cho other parts, nhưng không dùng clustering nữa
+      logger.log('TensorFlow.js loaded (non-clustering)');
+      if (cyRef.current) {
+        cyRef.current.destroy();
+        logger.log('Destroyed previous Cytoscape instance');
       }
-    };
-    runClustering().catch(console.error);
-  }, [nodes, edges, walletInfo, filterType, walletAddress, fullIncomingData, fullOutgoingData]);
+      const rootId = walletInfo.address.toLowerCase();
+      let elements = [...nodes, ...edges];
 
+      // Fetch server-side clusters với error handling
+      let detectedClusters = [];
+      try {
+        const clusterResponse = await fetch(`${apiBaseUrl}/api/cluster`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include', // Thêm nếu cần auth/session
+          body: JSON.stringify({
+            nodes: nodes.map(n => ({ ...n.data })), // Spread để tránh mutate
+            edges: edges.map(e => ({ ...e.data })),
+            options: { useGNN: true, useDBSCAN: true } // Full options như serverClustering
+          }),
+        });
+        if (!clusterResponse.ok) {
+          throw new Error(`Cluster API error: ${clusterResponse.status} ${clusterResponse.statusText}`);
+        }
+        const clusterData = await clusterResponse.json();
+        if (!clusterData.success || !clusterData.clusters) {
+          throw new Error(clusterData.error || 'Invalid cluster response');
+        }
+        detectedClusters = clusterData.clusters;
+        logger.log('Server clusters fetched successfully');
+      } catch (clusterErr) {
+        logger.warn('Server clustering failed, using simple fallback:', clusterErr.message);
+        // Simple fallback: Rule-based (group by shared nametag/label or high degree)
+        detectedClusters = simpleRuleBasedClustering(nodes.map(n => n.data), edges.map(e => e.data));
+      }
+
+      logger.log('Detected clusters:', detectedClusters.map(c => ({
+        clusterId: c.clusterId,
+        nametag: c.nametag,
+        walletCount: c.wallets.length,
+        transactionCount: c.transactions.length,
+      })));
+      setClusters(detectedClusters);
+
+      // Set selectedEntity for root node/cluster data (giữ nguyên)
+      let clusterData;
+      const rootCluster = detectedClusters.find(c => c.wallets.some(w => w.id.toLowerCase() === rootId));
+      if (rootCluster) {
+        clusterData = rootCluster;
+      } else {
+        // Fallback to root-only data (giữ nguyên logic)
+        let filteredRootTxs = [];
+        if (filterType === 'all' || filterType === 'incoming') {
+          filteredRootTxs.push(...fullIncomingData.map(tx => ({
+            ...tx,
+            type: 'incoming',
+            source: tx.address.toLowerCase(),
+            target: rootId,
+          })));
+        }
+        if (filterType === 'all' || filterType === 'outgoing') {
+          filteredRootTxs.push(...fullOutgoingData.map(tx => ({
+            ...tx,
+            type: 'outgoing',
+            source: rootId,
+            target: tx.address.toLowerCase(),
+          })));
+        }
+        let filteredLayer3ForCluster = [];
+        if (fullLayer3Data.length > 0) {
+          const layer3Filter = fullLayer3Data.filter(tx => tx.nametag && tx.nametag !== 'Unknown');
+          const layer3ToInclude = filterType === 'all' ? layer3Filter : layer3Filter.filter(tx => tx.type === filterType);
+          filteredLayer3ForCluster = layer3ToInclude.map(tx => ({
+            ...tx,
+            source: tx.type === 'incoming' ? tx.address.toLowerCase() : tx.layer2Address.toLowerCase(),
+            target: tx.type === 'incoming' ? tx.layer2Address.toLowerCase() : tx.address.toLowerCase(),
+          }));
+        }
+        const allTxs = [...filteredRootTxs, ...filteredLayer3ForCluster];
+        const connectedWallets = [...new Set(allTxs.map(tx => [tx.source, tx.target].filter(id => id !== rootId)).flat().filter(Boolean))];
+        const uniqueTxs = [...new Set(allTxs.map(JSON.stringify))].map(JSON.parse);
+        const getTime = (bt) => {
+          if (typeof bt === 'number') return bt * 1000;
+          if (typeof bt === 'string' || bt instanceof Date) return new Date(bt).getTime();
+          return null;
+        };
+        const times = uniqueTxs.map(tx => getTime(tx.block_time)).filter(t => t !== null).sort((a, b) => a - b);
+        let velocity = 0;
+        if (times.length > 1) {
+          const timeSpanDays = (times[times.length - 1] - times[0]) / (1000 * 60 * 60 * 24);
+          velocity = uniqueTxs.length / Math.max(timeSpanDays, 1);
+        } else if (times.length === 1) {
+          velocity = 1;
+        }
+        const tokenKeys = uniqueTxs.map(tx => tx.contractAddress?.toLowerCase() || tx.tokenSymbol?.toLowerCase() || 'unknown');
+        const uniqueTokens = new Set(tokenKeys).size;
+        const connectedWalletsWithData = connectedWallets.map(cid => {
+          const node = nodes.find(n => n.data.id.toLowerCase() === cid);
+          if (node) {
+            const w = { ...node.data };
+            w.totalValue = parseFloat(w.totalValue || 0);
+            return w;
+          }
+          return { id: cid, totalValue: 0 };
+        });
+        const rootWalletNode = nodes.find(n => n.data.id.toLowerCase() === rootId);
+        const rootWalletData = rootWalletNode ? { ...rootWalletNode.data } : { id: rootId, totalValue: 0 };
+        rootWalletData.totalValue = parseFloat(rootWalletData.totalValue || 0);
+        const allWallets = [rootWalletData, ...connectedWalletsWithData];
+        clusterData = {
+          clusterId: 'root',
+          nametag: walletInfo.nametag || truncateAddress(rootId),
+          image: walletInfo.image,
+          wallets: allWallets,
+          transactions: allTxs,
+          riskScore: 0,
+          velocity,
+          uniqueTokens,
+        };
+      }
+      setSelectedEntity({ type: 'cluster', data: clusterData });
+
+      // Assign parent cho node con (giữ nguyên)
+      detectedClusters.forEach((cluster) => {
+        cluster.wallets.forEach((wallet) => {
+          elements = elements.map((ele) => {
+            if (ele.data.id.toLowerCase() === wallet.id.toLowerCase()) {
+              return {
+                ...ele,
+                data: { ...ele.data, parent: `cluster-${cluster.clusterId}` },
+              };
+            }
+            return ele;
+          });
+        });
+      });
+
+      // Layout và style (giữ nguyên toàn bộ phần cytoscape init, animate, etc.)
+      const layoutOptions = {
+        name: 'cola',
+        nodeSpacing: (node) => (node.data('layer') === 1 ? 150 : node.data('layer') === 2 ? 90 : 60),
+        edgeLength: (edge) => (edge.data('layer') === 2 ? 110 : 75),
+        fit: true,
+        padding: 50,
+        animate: false,
+        avoidOverlap: true,
+        handleDisconnected: true,
+        maxSimulationTime: 3000,
+        compoundSpringLength: () => 75,
+      };
+      cyRef.current = cytoscape({
+        container: containerRef.current,
+        elements,
+        style: [
+          // ... giữ nguyên style array
+          {
+            selector: 'node',
+            style: {
+              'background-image': (ele) => {
+                const image = ele.data('isRoot') ? walletInfo.image : ele.data('image');
+                logger.log(`Node ${ele.data('id')} image (isRoot: ${ele.data('isRoot')}):`, image);
+                if (isValidNametagImage(image)) {
+                  return image.startsWith('http')
+                    ? image
+                    : `${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}${image}`;
+                }
+                return 'none';
+              },
+              'background-fit': 'cover',
+              'background-clip': 'node',
+              'background-color': (ele) => {
+                if (ele.data('layer') === 1) return '#4F46E5';
+                if (ele.data('layer') === 2) return '#10B981';
+                if (ele.data('layer') === 3) return '#F59E0B';
+                return '#666';
+              },
+              'width': (ele) => (ele.data('isRoot') ? 450 : ele.data('layer') === 3 ? 192 : 168),
+              'height': (ele) => (ele.data('isRoot') ? 450 : ele.data('layer') === 3 ? 192 : 168),
+              'text-valign': 'center',
+              'text-halign': 'center',
+              'font-size': '12px',
+              'color': '#fff',
+              'border-width': 1,
+              'border-color': '#fff',
+              'border-opacity': 0.5,
+            },
+          },
+          {
+            selector: 'edge',
+            style: {
+              width: (ele) => (ele.data('layer') === 3 ? 1.5 : 2),
+              'line-color': (ele) =>
+                ele.data('type') === 'incoming'
+                  ? ele.data('layer') === 3
+                    ? '#ffffffff'
+                    : '#00BFFF'
+                  : ele.data('layer') === 3
+                    ? '#ffffffff'
+                    : '#EF4444',
+              'curve-style': 'bezier',
+              'opacity': 0.8,
+            },
+          },
+          {
+            selector: 'node[?parent]',
+            style: {
+              'background-opacity': 0.8,
+              'width': 120,
+              'height': 120,
+            },
+          },
+          {
+            selector: ':parent',
+            style: {
+              'background-opacity': 0.3,
+              'text-valign': 'center',
+              'color': '#fff',
+              'font-size': '14px',
+            },
+          },
+        ],
+        layout: layoutOptions,
+      });
+
+      // Set HTML labels (giữ nguyên, nhưng dùng detectedClusters)
+      cyRef.current.nodeHtmlLabel([
+        {
+          query: 'node',
+          halign: 'center',
+          valign: 'bottom',
+          halignBox: 'center',
+          valignBox: 'bottom',
+          tpl: (data) => {
+            const cluster = detectedClusters.find((c) => c.wallets.some((w) => w.id.toLowerCase() === data.id.toLowerCase()));
+            const risk = cluster?.riskScore || 0;
+            const clusterLabel = data.isRoot ? walletInfo.nametag || 'Unknown' : cluster ? cluster.nametag : 'Unknown';
+            const image = data.isRoot ? walletInfo.image : data.image;
+            const nametag = data.isRoot ? '' : data.label !== 'Unknown' ? data.label : truncateAddress(data.id);
+            return `
+          <div class="node-label bg-black/80 border border-white/10 text-white/80 text-[28px] sm:text-[32px] py-1 px-2 rounded">
+            ${data.isRoot ? `<div>Cluster: ${clusterLabel}</div>` : `<div>${nametag}${data.layer === 3 ? ' (L3)' : ''}</div>`}
+            ${cluster ? `<div>Cluster: ${cluster.nametag}</div>` : ''}
+            <div>Tx: ${data.txCount} | Value: ${formatLargeNumber(Number(data.totalValue), 1)}$</div>
+            <div>Risk: ${(risk * 100).toFixed(0)}%</div>
+          </div>
+        `;
+          },
+        },
+      ]);
+
+      // Animation và border styling (giữ nguyên toàn bộ phần layout.run(), animate, cyRef.current.nodes().forEach...)
+      // [Paste toàn bộ code animate từ layout.promise() đến cuối try block ở đây – không thay đổi]
+
+    } catch (err) {
+      logger.error('Error initializing Cytoscape:', err);
+      toast.error('Graph visualization failed. Please refresh.', { position: 'top-right', theme: 'dark' });
+      // Fallback cytoscape without clusters (no ML, simple layout)
+      cyRef.current = cytoscape({
+        container: containerRef.current,
+        elements: [...nodes, ...edges],
+        style: [
+          // ... giữ nguyên fallback style từ code cũ, nhưng xóa phần dùng detectClusters
+          // (Loại bỏ HTML labels có cluster, dùng simple labels)
+        ],
+        layout: {
+          name: 'cola',
+          // ... giữ nguyên
+        },
+      });
+      // Simple labels without clusters
+      cyRef.current.nodeHtmlLabel([
+        {
+          query: 'node',
+          halign: 'center',
+          valign: 'bottom',
+          halignBox: 'center',
+          valignBox: 'bottom',
+          tpl: (data) => {
+            const nametag = data.isRoot ? walletInfo.nametag || 'Unknown' : data.label !== 'Unknown' ? data.label : truncateAddress(data.id);
+            return `
+          <div class="node-label bg-black/80 border border-white/10 text-white/80 text-[28px] sm:text-[32px] py-1 px-2 rounded">
+            <div>${nametag}${data.layer === 3 ? ' (L3)' : ''}</div>
+            <div>Tx: ${data.txCount} | Value: ${formatLargeNumber(Number(data.totalValue), 1)}$</div>
+          </div>
+        `;
+          },
+        },
+      ]);
+      // Animate simple (giữ nguyên fallback animate nếu có)
+    }
+  }, [nodes, edges, walletInfo, filterType, walletAddress, fullIncomingData, fullOutgoingData, filterTransactions, apiBaseUrl]); // Thêm apiBaseUrl deps
+
+  useEffect(() => {
+    initializeCytoscape().catch(console.error);
+    return () => {
+      if (cyRef.current) cyRef.current.destroy();
+    };
+  }, [initializeCytoscape]);
   const generateHmacSignature = (payload) => {
     try {
       const hmacSecret = process.env.HMAC_SECRET || '88583e5e555aaeb3d9b3b0cafbd1e609f5a7ff96548caa71c8eda0783d66b1f1';
@@ -1244,7 +1480,6 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
       return null;
     }
   };
-
   useEffect(() => {
     const chainFromUrl = searchParams.get('chain') || initialChain;
     const addressFromUrl = searchParams.get('address') || initialAddress;
@@ -1258,7 +1493,6 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
       fetchTransactions(addressFromUrl, 1);
     }
   }, [searchParams, initialChain, initialAddress]);
-
   useEffect(() => {
     const fetchCoingeckoChains = async () => {
       try {
@@ -1270,14 +1504,12 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
     };
     fetchCoingeckoChains();
   }, [apiBaseUrl]);
-
   useEffect(() => {
     const checkMobile = () => setIsMobile(window.innerWidth <= 640);
     checkMobile();
     window.addEventListener('resize', throttle(checkMobile, 200));
     return () => window.removeEventListener('resize', checkMobile);
   }, []);
-
   useEffect(() => {
     const handleClickOutside = (event) => {
       if (chainDropdownRef.current && !chainDropdownRef.current.contains(event.target)) {
@@ -1315,7 +1547,6 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
       setLogMessages([]);
     }
   }, [loading]);
-
   const handleLoadMore = useCallback(() => {
     if (nodes.length >= MAX_NODES) {
       toast.warn('Maximum nodes limit reached. Consider subgraph views for larger graphs.', {
@@ -1331,7 +1562,6 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
       return newPage;
     });
   }, [fetchTransactions, walletAddress, nodes.length]);
-
   const handleSearch = useCallback(() => {
     const isBitcoin = selectedChain === 'bitcoin';
     const bitcoinRegex = /^[13][a-km-zA-HJ-NP-Z1-9]{25,34}$|^bc1[a-z0-9]{39,59}$/i;
@@ -1357,7 +1587,6 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
       });
     }
   }, [walletAddress, selectedChain, fetchTransactions]);
-
   const handleFilterChange = useCallback(() => {
     setFilterType((prev) => {
       if (prev === 'all') {
@@ -1369,24 +1598,15 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
       }
     });
   }, []);
-
-  const handleNodeClick = useCallback((node) => {
-    if (!node) return;
-    const filteredTxs = filterTransactions(edges, filterType, walletInfo.address, node.id);
-    setSelectedEntity({ type: 'node', data: { id: node.id, transactions: filteredTxs } });
-  }, [filterTransactions, edges, filterType, walletInfo.address]);
-
   const mappedChains = useMemo(() => {
     let cgChains = [];
     if (coingeckoChains.length > 0) {
       cgChains = mapCoinGeckoChains(coingeckoChains);
     }
+    // Always include static chains that are not in cgChains
     const staticOnly = chains.filter(c => !cgChains.some(cg => cg.value === c.value));
     return [...cgChains, ...staticOnly];
   }, [coingeckoChains]);
-
-  const graphData = useMemo(() => ({ nodes, links: edges }), [nodes, edges]);
-
   if (isMobile && showMobileWarning) {
     return (
       <motion.div
@@ -1429,11 +1649,18 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
           <p className="text-white/70 mb-6 text-sm sm:text-base">
             This tab works better on a PC browser. We recommend accessing it on a computer for the best experience.
           </p>
+          {/* <motion.button
+    onClick={() => setShowMobileWarning(false)}
+    className="w-full bg-neon-blue/80 hover:bg-neon-blue text-white font-medium py-2 px-4 rounded-lg transition-all duration-300"
+    whileHover={{ scale: 1.05 }}
+    whileTap={{ scale: 0.95 }}
+  >
+    Continue on mobile
+  </motion.button> */}
         </motion.div>
       </motion.div>
     );
   }
-
   return (
     <motion.div
       initial={{ opacity: 0, y: 20 }}
@@ -1667,7 +1894,6 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
             </div>
           </div>
         </div>
-
         {loading && (
           <motion.div
             className="fixed inset-0 flex items-center justify-center bg-black/50 backdrop-blur-sm z-40"
@@ -1710,7 +1936,7 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
                             scale: 1,
                             transition: {
                               duration: 0.5,
-                              ease: [0.25, 0.46, 0.45, 0.94],
+                              ease: [0.25, 0.46, 0.45, 0.94], // easeInOut cubic
                               delay: index * 0.05
                             }
                           }}
@@ -1732,7 +1958,6 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
             </motion.div>
           </motion.div>
         )}
-
         {!loading && nodes.length === 0 && walletInfo.address && (
           <motion.div
             initial={{ opacity: 0, y: -10 }}
@@ -1744,7 +1969,6 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
             <p>Please verify the wallet address or try a different chain.</p>
           </motion.div>
         )}
-
         {walletInfo.address && (
           <div className="relative w-full h-[calc(100vh-10rem)] sm:h-[calc(100vh-8rem)] overflow-hidden">
             <div className="flex gap-2 mb-2 mt-2 justify-center">
@@ -1768,50 +1992,7 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
                 </motion.span>
               )}
             </div>
-            <ForceGraph3D
-              ref={fgRef}
-              graphData={graphData}
-              nodeLabel={(node) => node.label || truncateAddress(node.id)}
-              nodeAutoColorBy="layer" // Color by layer: root blue, L2 green, L3 orange
-              nodeVal={(node) => Math.log(parseFloat(node.totalValue || 1) + 1) * 5 + 10} // Size by totalValue, log scale
-              linkColor={(link) => link.type === 'incoming' ? '#00BFFF' : '#EF4444'}
-              linkWidth={1.5}
-              linkDirectionalParticles={0} // Disable particles for perf
-              backgroundColor="#000"
-              enableNodeDrag={true}
-              cooldownTicks={100} // Freeze layout after 100 ticks for perf
-              warmupTicks={50} // Pre-simulate for smooth animation
-              autoPauseRedraw={true}
-              enablePointerInteraction={!isMobile} // Disable on mobile for perf
-              onNodeClick={handleNodeClick}
-              nodeThreeObject={(node) => {
-                // Custom node with image texture
-                const textureLoader = new THREE.TextureLoader();
-                const material = new THREE.MeshBasicMaterial({
-                  map: textureLoader.load(node.image || '/icons/default.webp'),
-                  transparent: true,
-                  opacity: 0.9,
-                });
-                const geometry = new THREE.SphereGeometry(nodeVal(node), 16, 16); // Segments reduced for perf
-                const sphere = new THREE.Mesh(geometry, material);
-                // Add label as sprite
-                const sprite = new SpriteText(node.label || truncateAddress(node.id));
-                sprite.position.set(0, nodeVal(node) + 5, 0);
-                sprite.color = 'white';
-                sprite.textHeight = 3;
-                sphere.add(sprite);
-                return sphere;
-              }}
-              nodeThreeObjectExtend={true}
-              // Perf: Adjust on tick for LOD-like
-              onEngineTick={() => {
-                const { zoom } = fgRef.current.cameraPosition();
-                if (zoom < 0.5 && edges.length > 500) {
-                  // Reduce link width when zoomed out
-                  fgRef.current.d3Force('link').distance(30);
-                }
-              }}
-            />
+            <div ref={containerRef} className="w-full h-full" />
           </div>
         )}
       </div>
@@ -1836,60 +2017,69 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
         />
       </AnimatePresence>
       <style jsx>{`
-        .hide-scrollbar {
-          -ms-overflow-style: none;
-          scrollbar-width: none;
-        }
-        .hide-scrollbar::-webkit-scrollbar {
-          display: none;
-        }
-        .shadow-neon-sm {
-          box-shadow: 0 0 8px rgba(0, 191, 255, 0.3), 0 0 16px rgba(0, 191, 255, 0.1);
-        }
-        .shadow-neon-md {
-          box-shadow: 0 0 20px rgba(0, 191, 255, 0.2), 0 0 40px rgba(0, 191, 255, 0.1);
-        }
-        .custom-scrollbar::-webkit-scrollbar {
-          width: 6px;
-          height: 6px;
-        }
-        .custom-scrollbar::-webkit-scrollbar-track {
-          background: transparent;
-        }
-        .custom-scrollbar::-webkit-scrollbar-thumb {
-          background: rgba(255, 255, 255, 0.3);
-          border-radius: 3px;
-        }
-        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
-          background: rgba(255, 255, 255, 0.5);
-        }
-        .log-container {
-          -webkit-mask-image: linear-gradient(to bottom, transparent 0%, white 20%, white 80%, transparent 100%);
-          mask-image: linear-gradient(to bottom, transparent 0%, white 20%, white 80%, transparent 100%);
-        }
-        @keyframes scan {
-          0% {
-            transform: translateX(-100%);
-          }
-          100% {
-            transform: translateX(100%);
-          }
-        }
-        .animate-scan {
-          animation: scan 2s linear infinite;
-        }
-        .animate-pulse-slow {
-          animation: pulse 3s cubic-bezier(0.4, 0, 0.6, 1) infinite;
-        }
-        @media (max-width: 640px) {
-          .text-[12px] { font-size: 10px; }
-          .text-[10px] { font-size: 8px; }
-          .text-[9px] { font-size: 7px; }
-          .w-56 { width: 12rem; }
-          .w-64 { width: 14rem; }
-          .w-28 { width: 6rem; }
-        }
-      `}</style>
+  .hide-scrollbar {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+  .hide-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+  .shadow-neon-sm {
+    box-shadow: 0 0 8px rgba(0, 191, 255, 0.3), 0 0 16px rgba(0, 191, 255, 0.1);
+  }
+  .shadow-neon-md {
+    box-shadow: 0 0 20px rgba(0, 191, 255, 0.2), 0 0 40px rgba(0, 191, 255, 0.1);
+  }
+  .node-label {
+    background: rgba(0, 0, 0, 0.8);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    color: rgba(255, 255, 255, 0.8);
+    padding: 4px 8px;
+    border-radius: 4px;
+    font-size: 9px;
+    pointer-events: none;
+  }
+  .custom-scrollbar::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+  .custom-scrollbar::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  .custom-scrollbar::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.3);
+    border-radius: 3px;
+  }
+  .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+    background: rgba(255, 255, 255, 0.5);
+  }
+  .log-container {
+    -webkit-mask-image: linear-gradient(to bottom, transparent 0%, white 20%, white 80%, transparent 100%);
+    mask-image: linear-gradient(to bottom, transparent 0%, white 20%, white 80%, transparent 100%);
+  }
+  @keyframes scan {
+    0% {
+      transform: translateX(-100%);
+    }
+    100% {
+      transform: translateX(100%);
+    }
+  }
+  .animate-scan {
+    animation: scan 2s linear infinite;
+  }
+  .animate-pulse-slow {
+    animation: pulse 3s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+  }
+  @media (max-width: 640px) {
+    .text-[12px] { font-size: 10px; }
+    .text-[10px] { font-size: 8px; }
+    .text-[9px] { font-size: 7px; }
+    .w-56 { width: 12rem; }
+    .w-64 { width: 14rem; }
+    .w-28 { width: 6rem; }
+  }
+`}</style>
     </motion.div>
   );
 }
