@@ -1,4 +1,3 @@
-// app\dashboard\page.js
 'use client';
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
@@ -310,7 +309,7 @@ function DashboardInner() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [isMounted, setIsMounted] = useState(false);
-  const [activeTab, setActiveTab] = useState('market');
+  const [activeTab, setActiveTab] = useState('market'); // FIXED: Revert to 'profile' like old file for consistency on unauth
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [providers, setProviders] = useState(null);
@@ -424,21 +423,25 @@ function DashboardInner() {
   }, [isMounted, providers, fetchProvidersWithRetry]);
 
   // FIXED: Improved Base App detection - Add ethereum.isCoinbaseWallet check + log UA for debug + FORCE via ?base=true for dev test
+  // FIX FOR PC: Only apply isCoinbaseWallet if isMobile (prevent false positive on desktop with extension)
   useEffect(() => {
     if (typeof window === 'undefined') return;
     const userAgent = navigator.userAgent.toLowerCase();
     safeLog('Full UserAgent (debug):', navigator.userAgent); // NEW: Log full UA for testing
 
+    const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent); // NEW: Mobile check to avoid PC extension false positive
     const isWarpcastMobile = userAgent.includes('warpcast') || userAgent.includes('farcaster');  // Only Warpcast UA for auto
     const isBaseUADetected = userAgent.includes('coinbasewallet') || userAgent.includes('cbwallet') || userAgent.includes('base') || userAgent.includes('coinbase'); // Detect Base explicit + coinbase
     const isCoinbaseWallet = !!window.ethereum && window.ethereum.isCoinbaseWallet; // NEW: Standard Web3 detection for Coinbase Wallet/Base App webview
 
     // NEW: Force detection for dev testing via ?base=true
     const forceBase = searchParams.get('base') === 'true';
-    const isBaseAppDetected = forceBase || isBaseUADetected || isCoinbaseWallet;
-    setIsBaseApp(isBaseAppDetected); // UPDATED: Include ethereum check + force
+    // FIXED: Only include isCoinbaseWallet if mobile (desktop extension -> false)
+    const isBaseAppDetected = forceBase || isBaseUADetected || (isCoinbaseWallet && isMobile);
+    setIsBaseApp(isBaseAppDetected); // UPDATED: Include ethereum check + force + mobile guard
     safeLog('Base App Detection Debug:', { 
       userAgentSnippet: userAgent.substring(0, 100), 
+      isMobile, // NEW: Log mobile flag
       isBaseUADetected, 
       isCoinbaseWallet, 
       forceBase,  // NEW: Log force flag
@@ -510,24 +513,27 @@ function DashboardInner() {
         toast.error('Warpcast app is required for verification. Please install and try again.', { position: 'top-center' });
         setFallbackToManual(true);
         setMiniAppAuthFailed(false);
-        setBaseAuthFailed(true); // NEW: Trigger retry UI for Base
+        if (isBaseApp) {  // FIXED: Only set for Base App, not PC (prevent hiding form)
+          setBaseAuthFailed(true); // NEW: Trigger retry UI only for Base
+        }
       } else {
         toast.error(`QuickAuth error: ${errorMsg}`);
         setMiniAppAuthFailed(true); // Only fail if not SDK issue
-        setBaseAuthFailed(true); // NEW: For Base
+        if (isBaseApp) setBaseAuthFailed(true); // FIXED: Conditional for Base
       }
     } finally {
       setMiniAppAuthLoading(false);
     }
-  }, [status, signIn, update]);
+  }, [status, signIn, update, isBaseApp]);  // ADD: isBaseApp to deps
 
+  // FIXED: Add guard for real miniapp context to prevent PC false trigger
   useEffect(() => {
-    if (!isMiniApp || status !== 'unauthenticated' || session || miniAppAuthLoading || attemptedAuthRef.current) {
+    if (!isMiniApp || status !== 'unauthenticated' || session || miniAppAuthLoading || attemptedAuthRef.current || (context !== 'miniapp' && !miniAppUser)) {
       return;
     }
     attemptedAuthRef.current = true; // One-time
     handleMiniAppQuickAuth();
-  }, [isMiniApp, status, session, miniAppAuthLoading, handleMiniAppQuickAuth]);  // ADD: handleMiniAppQuickAuth to deps
+  }, [isMiniApp, status, session, miniAppAuthLoading, handleMiniAppQuickAuth, context, miniAppUser]);  // ADD: context, miniAppUser to deps
 
   // NEW: Detect World Mini App
   useEffect(() => {
@@ -1062,7 +1068,7 @@ function DashboardInner() {
                         transition={{ duration: 0.5, delay: 0.3 }}
                         className="text-[11px] md:text-xs text-gray-500 mb-6 text-center leading-relaxed"
                       >
-                        Click the button below to start a secure login via Farcaster deeplink in the Base App. The process will redirect to Warpcast for verification.
+                        Click the button below to start a secure login via Farcaster deeplink in the Base App.
                       </motion.p>
                       <button
                         onClick={handleMiniAppQuickAuth}  // UPDATED: Call SDK quickAuth → Deeplink to Warpcast like old auto

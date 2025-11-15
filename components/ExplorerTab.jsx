@@ -5,7 +5,6 @@ import { useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Search, Clock, Hash as HashIcon, AlertCircle, Wallet, Coins, Activity, Check, Copy, X, DollarSign } from 'lucide-react';
 import { useSearchParams } from 'next/navigation';
-import { LoadingOverlay } from '../utils/helpers';
 
 export default function ExplorerTab({ initialQuery, initialChain, isStandalone = false }) {
     const searchParams = useSearchParams();
@@ -18,6 +17,7 @@ export default function ExplorerTab({ initialQuery, initialChain, isStandalone =
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState(null);
     const [isMobile, setIsMobile] = useState(false);
+    const [logMessages, setLogMessages] = useState([]);
 
     const basePath = isStandalone ? '/explorer' : '/dashboard?tab=explorer';
     const origin = typeof window !== 'undefined' ? window.location.origin : 'https://xynapseai.net';
@@ -184,6 +184,33 @@ export default function ExplorerTab({ initialQuery, initialChain, isStandalone =
             setSelectedChain(initialChain);
         }
     }, [initialQuery, initialChain]);
+
+    useEffect(() => {
+        let interval;
+        if (loading || nametagsLoading) {
+            const messages = nametagsLoading ? [
+                'Loading nametags...',
+                'Resolving addresses...',
+                'Fetching labels...',
+            ] : [
+                'Searching transaction...',
+                'Fetching from chain...',
+                'Verifying across chains...',
+                'Loading details...',
+            ];
+            interval = setInterval(() => {
+                setLogMessages((prev) => {
+                    const nextIndex = prev.length % messages.length;
+                    return [...prev, { text: messages[nextIndex], id: Date.now() + Math.random() }].slice(-5);
+                });
+            }, 1500);
+        } else if (logMessages.length > 0) {
+            setLogMessages([]);
+        }
+        return () => {
+            if (interval) clearInterval(interval);
+        };
+    }, [loading, nametagsLoading]);
 
     const truncateText = (text, start = 5, end = 5) => {
         if (!text || text.length <= start + end) return text;
@@ -960,11 +987,59 @@ export default function ExplorerTab({ initialQuery, initialChain, isStandalone =
                 </div>
             </div>
 
-            <LoadingOverlay
-                isLoading={isOverallLoading}
-                message={nametagsLoading ? "Loading nametags..." : "Fetching transaction data..."}
-                className="absolute inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm pointer-events-none"
-            />
+            {isOverallLoading && (
+                <motion.div
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: 20 }}
+                    transition={{ duration: 0.3 }}
+                    className="absolute inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm pointer-events-none"
+                >
+                    <div className="w-[80%] max-w-lg h-64 bg-black/10 backdrop-blur-xl border border-white/20 rounded-xl p-6 relative overflow-hidden shadow-2xl animate-pulse">
+                        <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-transparent via-emerald-400 to-transparent animate-scan" />
+                        <div className="absolute inset-0 bg-black/10 backdrop-blur-sm animate-pulse opacity-50" />
+                        <div className="flex items-center gap-2 mb-4">
+                            <div className="w-2 h-2 bg-blue-500 rounded-full animate-pulse" />
+                            <h3 className="text-white text-sm sm:text-base font-semibold">
+                                {nametagsLoading ? 'Loading Nametags' : 'Searching Transaction'}
+                            </h3>
+                        </div>
+                        <div className="h-32 overflow-y-hidden custom-scrollbar log-container relative">
+                            <AnimatePresence>
+                                {logMessages.map((log, index) => (
+                                    <motion.p
+                                        key={log.id}
+                                        className={`text-white/80 text-xs font-saira mb-2 ${index === logMessages.length - 1
+                                            ? 'text-blue-400 font-semibold animate-pulse'
+                                            : 'text-white/60'
+                                            }`}
+                                        initial={{ opacity: 0, y: 10 }}
+                                        animate={{
+                                            opacity: 1,
+                                            y: 0,
+                                            scale: 1,
+                                            transition: {
+                                                duration: 0.5,
+                                                ease: [0.25, 0.46, 0.45, 0.94], // easeInOut cubic
+                                                delay: index * 0.05
+                                            }
+                                        }}
+                                        exit={{
+                                            opacity: 0,
+                                            y: -20,
+                                            scale: 0.95,
+                                            transition: { duration: 0.3, ease: 'easeInOut' }
+                                        }}
+                                        transition={{ duration: 0.3 }}
+                                    >
+                                        <span className="text-blue-500">&gt;</span> {log.text}
+                                    </motion.p>
+                                ))}
+                            </AnimatePresence>
+                        </div>
+                    </div>
+                </motion.div>
+            )}
 
             {error && (
                 <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="text-red-400 flex items-center gap-2 p-4 bg-red-500/10 rounded border border-red-500/20 relative z-10">
@@ -1000,6 +1075,21 @@ export default function ExplorerTab({ initialQuery, initialChain, isStandalone =
                 .hide-scrollbar {
                   -ms-overflow-style: none;
                   scrollbar-width: none;
+                }
+                .log-container {
+                  -webkit-mask-image: linear-gradient(to bottom, transparent 0%, white 20%, white 80%, transparent 100%);
+                  mask-image: linear-gradient(to bottom, transparent 0%, white 20%, white 80%, transparent 100%);
+                }
+                @keyframes scan {
+                  0% {
+                    transform: translateX(-100%);
+                  }
+                  100% {
+                    transform: translateX(100%);
+                  }
+                }
+                .animate-scan {
+                  animation: scan 2s linear infinite;
                 }
             `}</style>
         </div>
