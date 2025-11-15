@@ -612,7 +612,7 @@ export default function ExplorerTab({ initialQuery, initialChain, isStandalone =
                                                     <img
                                                         src={t.logo || `https://via.placeholder.com/16?text=${t.symbol || 'T'}`}
                                                         alt={`${t.symbol || t.name || 'Token'} Logo`}
-                                                        className="w-4 h-4 mr-1 rounded"
+                                                        className="w-6 h-6 mr-1 rounded"
                                                         onError={(e) => { e.target.src = `https://via.placeholder.com/16?text=${t.symbol || 'T'}`; }}
                                                     />
                                                     {t.symbol || t.name || (t.type === 'ERC721' ? `${t.name} (ID: ${t.tokenId})` : t.tokenAddress?.slice(0, 2) + '...')}
@@ -638,7 +638,6 @@ export default function ExplorerTab({ initialQuery, initialChain, isStandalone =
                         </div>
                     )}
 
-                    <h3 className="text-md font-semibold flex items-center mt-4 uppercase"><Activity className="w-4 h-4 mr-2 text-neon-blue" />Inputs/Outputs</h3>
                     {tx.input && (
                         <div>
                             <h4 className="flex items-center"><Activity className="w-4 h-4 mr-1" />Input Data</h4>
@@ -755,7 +754,6 @@ export default function ExplorerTab({ initialQuery, initialChain, isStandalone =
                         </div>
                     </div>
 
-                    <h3 className="text-md font-semibold flex items-center mt-4"><Activity className="w-4 h-4 mr-2 text-neon-blue" />Inputs/Outputs</h3>
                     {tx.vin && tx.vin.length > 0 && (
                         <div>
                             <h4 className="flex items-center"><Wallet className="w-4 h-4 mr-1" />Inputs</h4>
@@ -899,7 +897,7 @@ export default function ExplorerTab({ initialQuery, initialChain, isStandalone =
                                                 <img
                                                     src={t.logo || `https://via.placeholder.com/16?text=${t.symbol || 'T'}`}
                                                     alt={`${t.symbol || t.name || 'Token'} Logo`} // FIXED: Better alt
-                                                    className="w-4 h-4 mr-1 rounded"
+                                                    className="w-6 h-6 mr-1 rounded"
                                                     onError={(e) => { e.target.src = `https://via.placeholder.com/16?text=${t.symbol || 'T'}`; }}
                                                 />
                                                 {t.symbol || t.name || t.mint?.slice(0, 4) + '...'}

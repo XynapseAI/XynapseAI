@@ -875,8 +875,10 @@ function DashboardInner() {
     );
   }
 
-  // UPDATED: Adjust condition - Force show login UI for Base App (even if !requiresAuth), but hide if authSuccess
-  const showLoginForm = status === 'unauthenticated' && (!authSuccess && !miniAppAuthFailed && !worldAuthFailed && !baseAuthFailed && !(isMiniApp && miniAppAuthFailed && !fallbackToManual)) || (isBaseApp && status === 'unauthenticated' && !authSuccess);
+  // FIXED: Revert requiresAuth from old file (only show form for specific tabs on non-Base)
+  const requiresAuth = ['profile', 'ai', 'watchlists'].includes(activeTab);
+  // FIXED: Integrate requiresAuth into showLoginForm (like old), but OR for Base App force
+  const showLoginForm = (status === 'unauthenticated' && requiresAuth && !authSuccess && !miniAppAuthFailed && !worldAuthFailed && !baseAuthFailed && !(isMiniApp && miniAppAuthFailed && !fallbackToManual)) || (isBaseApp && status === 'unauthenticated' && !authSuccess);
 
   return (
     <CurrencyProvider>
@@ -886,7 +888,7 @@ function DashboardInner() {
           siweUri: `${window.location.origin}/api/auth/signin/farcaster`, // Callback for NextAuth
           relay: 'https://relay.farcaster.xyz', // Default relay
           rpcUrl: 'https://mainnet.optimism.io', // Base RPC
-          version: 'v1',
+          version: '1',
           // REMOVED: deeplinkUrl (not standard in AuthKit, SignInButton handles auto in Base App)
         }}
       >
@@ -1084,7 +1086,7 @@ function DashboardInner() {
                               alt="Base Logo"
                               width={20}
                               height={20}
-                              className="w-6 h-6 rounded-xl object-contain mr-2"
+                              className="w-6 h-6 rounded-sm object-contain mr-2"
                             />
                             Login With Base App
                           </>
