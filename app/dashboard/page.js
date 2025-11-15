@@ -857,7 +857,6 @@ function DashboardInner() {
     );
   }
 
-  const requiresAuth = ['profile', 'ai', 'watchlists'].includes(activeTab);
   // UPDATED: Adjust condition - Force show login UI for Base App (even if !requiresAuth), but hide if authSuccess
   const showLoginForm = status === 'unauthenticated' && (!authSuccess && !miniAppAuthFailed && !worldAuthFailed && !baseAuthFailed && !(isMiniApp && miniAppAuthFailed && !fallbackToManual)) || (isBaseApp && status === 'unauthenticated' && !authSuccess);
 
