@@ -1,3 +1,4 @@
+// app\dashboard\page.js
 'use client';
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
@@ -332,9 +333,8 @@ function DashboardInner() {
   // NEW: Ref để prevent multi-attempt loop
   const attemptedAuthRef = useRef(false);
   const [isBaseApp, setIsBaseApp] = useState(false); // NEW: State for Base App detection (from ref)
-  const [baseAuthLoading, setBaseAuthLoading] = useState(false); // NEW: Loading for Base auto-auth
-  const [baseAuthFailed, setBaseAuthFailed] = useState(false); // NEW: Track if Base auto-auth failed
-  // NEW: Farcaster signIn hook for manual/auto deeplink trigger
+  const [baseAuthFailed, setBaseAuthFailed] = useState(false); // NEW: Track if Base manual-auth failed (auto removed)
+  // NEW: Farcaster signIn hook for manual deeplink trigger
   const { signIn: farcasterSignIn } = useSignIn();
 
   // FIXED: App domain từ env (fix origin mismatch ở preview)
@@ -619,49 +619,13 @@ function DashboardInner() {
     }
   }, [isWorldMiniApp]);
 
-  // NEW: Auto-login for Base App via Farcaster deeplink
-  const handleBaseAutoAuth = useCallback(async () => {
-    if (status !== 'unauthenticated' || !isBaseApp) return;
-    setBaseAuthLoading(true);
-    setBaseAuthFailed(false);
-    attemptedAuthRef.current = true; // Prevent multi-attempt
-    try {
-      await farcasterSignIn({
-        onSuccess: handleFarcasterSuccess,
-        onError: (err) => {
-          safeError('Base Farcaster deeplink error:', err);
-          setBaseAuthFailed(true);
-          toast.error(`Auto-login failed: ${err.message || 'Deeplink cancelled'}. Please try manual.`);
-        }
-      });
-    } catch (err) {
-      safeError('Base auto-auth trigger error:', err);
-      setBaseAuthFailed(true);
-      toast.error(`Auto-auth error: ${err.message}`);
-    } finally {
-      setBaseAuthLoading(false);
-    }
-  }, [status, isBaseApp, farcasterSignIn]);
-
-  useEffect(() => {
-    if (isBaseApp && status === 'unauthenticated' && !session && !baseAuthLoading && !attemptedAuthRef.current) {
-      handleBaseAutoAuth();
-    }
-  }, [isBaseApp, status, session, baseAuthLoading, handleBaseAutoAuth]);
+  // REMOVED: Auto-login for Base App via Farcaster deeplink - Bây giờ chỉ manual qua button click (theo yêu cầu: hiển thị DeeplinkButton trước, click mới trigger)
+  // Giữ handleBaseManualAuth cho manual trigger nếu cần (nhưng hiện tại dùng trực tiếp SignInButton onSuccess/onError)
 
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const handleBaseManualAuth = useCallback(() => {
-    setBaseAuthFailed(false);
-    setBaseAuthLoading(true);
-    farcasterSignIn({
-      onSuccess: handleFarcasterSuccess,
-      onError: (err) => {
-        safeError('Manual Farcaster deeplink error:', err);
-        setBaseAuthFailed(true);
-        toast.error(`Manual login failed: ${err.message || 'Deeplink cancelled'}.`);
-      }
-    }).finally(() => setBaseAuthLoading(false));
-  }, [farcasterSignIn]);
+    // Không cần nữa vì SignInButton handle direct
+  }, []);
 
   const handleConnectWallet = async () => {
     try {
@@ -871,13 +835,13 @@ function DashboardInner() {
     }
   };
 
-  // FIXED: Loading state: Thêm authSuccess để hide form ngay sau signIn
-  if (!isMounted || !providers || status === 'loading' || (miniAppAuthLoading && !fallbackToManual) || worldAuthLoading || baseAuthLoading) {
+  // FIXED: Loading state: Thêm authSuccess để hide form ngay sau signIn. REMOVED: baseAuthLoading vì không auto nữa
+  if (!isMounted || !providers || status === 'loading' || (miniAppAuthLoading && !fallbackToManual) || worldAuthLoading) {
     return (
       <div className="h-screen w-screen flex items-center justify-center bg-black text-white">
         <LoadingOverlay
           isLoading={true}
-          message={isWorldMiniApp ? "Authenticating with World..." : isMiniApp ? "Authenticating with Farcaster..." : isBaseApp ? "Authenticating with Base App..." : "Loading dashboard..."}
+          message={isWorldMiniApp ? "Authenticating with World..." : isMiniApp ? "Authenticating with Farcaster..." : "Loading dashboard..."}
           isMobile={typeof window !== 'undefined' && window.innerWidth <= 640}
         />
       </div>
@@ -999,7 +963,7 @@ function DashboardInner() {
                   </motion.div>
                 </motion.div>
               ) : isBaseApp && baseAuthFailed ? (
-                // NEW: Failed state for Base App auto-auth
+                // UPDATED: Failed state for Base App manual-auth (hiển thị lại DeeplinkButton)
                 <motion.div
                   initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: 1, y: 0 }}
@@ -1037,6 +1001,7 @@ function DashboardInner() {
                       onSuccess={handleFarcasterSuccess}
                       onError={(error) => {
                         safeError('Manual AuthKit error:', error);
+                        setBaseAuthFailed(true);
                         toast.error(`Farcaster error: ${error.message}. Please try again.`);
                       }}
                       className="!w-full !px-4 !m-2 !py-2.5 !bg-black/20 !border !border-white/25 !rounded-2xl !text-white !text-sm !font-semibold !flex !items-center !justify-center !gap-3 !transition-all !duration-300 hover:!bg-gray-800/30 hover:!border-white/40 !bg-purple-600 hover:!bg-purple-700"
@@ -1079,7 +1044,7 @@ function DashboardInner() {
                     )}
                   </div>
                   {isBaseApp ? (
-                    // UPDATED: Special frame for Base App - show Farcaster button with deeplink (auto-triggered, fallback manual)
+                    // UPDATED: Special frame for Base App - show DeeplinkButton (SignInButton) manual (không auto-trigger, chỉ click mới login via deeplink)
                     <motion.div
                       initial={{ opacity: 0, y: 20 }}
                       animate={{ opacity: 1, y: 0 }}
@@ -1100,14 +1065,14 @@ function DashboardInner() {
                         transition={{ duration: 0.5, delay: 0.3 }}
                         className="text-[11px] md:text-xs text-gray-500 mb-6 text-center leading-relaxed"
                       >
-                        Sign in securely via Farcaster integration in Base App.
+                        Nhấp vào nút bên dưới để bắt đầu đăng nhập an toàn qua Farcaster deeplink trong Base App.
                       </motion.p>
                       <SignInButton
                         onSuccess={handleFarcasterSuccess}
                         onError={(error) => {
                           safeError('AuthKit error:', error);
-                          toast.error(`Farcaster error: ${error.message}. Please try again.`);
-                          // Note: On error (e.g., user closes deeplink), UI naturally returns to this button frame
+                          setBaseAuthFailed(true);
+                          toast.error(`Farcaster error: ${error.message || 'Deeplink cancelled'}. Vui lòng thử lại.`);
                         }}
                         className="!w-full !px-4 !m-2 !py-2.5 !bg-black/20 !border !border-white/25 !rounded-2xl !text-white !text-sm !font-semibold !flex !items-center !justify-center !gap-3 !transition-all !duration-300 hover:!bg-gray-800/30 hover:!border-white/40 !bg-purple-600 hover:!bg-purple-700"
                         style={{
@@ -1120,7 +1085,7 @@ function DashboardInner() {
                           borderRadius: '1rem !important',
                           transition: 'all 0.3s !important',
                         }}
-                        buttonText="Sign in with Base App"
+                        buttonText="Bắt đầu đăng nhập"
                         showLogo={true}
                       >
                         <Image
@@ -1130,7 +1095,7 @@ function DashboardInner() {
                           height={20}
                           className="w-6 h-6 rounded-xl object-contain mr-2"
                         />
-                        Sign in with Base App (via Farcaster)
+                        Đăng nhập qua Base App (Farcaster Deeplink)
                       </SignInButton>
                       <motion.p
                         initial={{ opacity: 0, y: 10 }}
@@ -1138,13 +1103,13 @@ function DashboardInner() {
                         transition={{ duration: 0.5, delay: 0.5 }}
                         className="mt-4 text-[11px] text-gray-500 text-center leading-relaxed"
                       >
-                        By clicking continue, you agree to our{' '}
+                        Bằng cách nhấp tiếp tục, bạn đồng ý với{' '}
                         <button onClick={() => openModal('terms')} className="text-white hover:underline">
-                          Terms of Service
+                          Điều khoản Dịch vụ
                         </button>{' '}
                         và{' '}
                         <button onClick={() => openModal('privacy')} className="text-white hover:underline">
-                          Privacy Policy
+                          Chính sách Bảo mật
                         </button>.
                       </motion.p>
                     </motion.div>

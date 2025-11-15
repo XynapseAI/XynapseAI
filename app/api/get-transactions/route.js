@@ -9,6 +9,7 @@ import axios from 'axios';
 import axiosRetry from 'axios-retry';
 import Bottleneck from 'bottleneck';
 import { BLOCKED_TOKEN_ADDRESSES } from '../../../utils/constants';
+import { autoLabelWallets } from '../../../utils/serverClustering';
 
 let redisClient;
 async function getRedisClient() {
@@ -34,18 +35,24 @@ const securityHeaders = {
 };
 
 async function banIP(ip, durationSeconds = 3600) {
+  if (ip === '::1' || ip === '127.0.0.1') return;
   const redisClient = await getRedisClient();
   await redisClient.setEx(`banned_ip:${ip}`, durationSeconds, 'banned');
   logger.info(`IP banned: ${ip} for ${durationSeconds} seconds`);
 }
 
 async function checkIPBan(ip) {
+  if (ip === '::1' || ip === '127.0.0.1') return;
   const redisClient = await getRedisClient();
   const isBanned = await redisClient.get(`banned_ip:${ip}`);
   if (isBanned) throw new Error('IP temporarily banned.');
 }
 
 async function trackViolation(ip, reason = '') {
+  if (ip === '::1' || ip === '127.0.0.1') {
+    logger.warn(`Localhost violation skipped: ${reason}`);
+    return;
+  }
   const redisClient = await getRedisClient();
   const key = `violations:${ip}`;
   const maxViolations = 50;
@@ -62,6 +69,7 @@ async function trackViolation(ip, reason = '') {
 }
 
 async function checkRateLimit(ip) {
+  if (ip === '::1' || ip === '127.0.0.1') return;
   const redisClient = await getRedisClient();
   const key = `rate_limit:get_transactions:ip:${ip}`;
   const maxRequests = 300;
@@ -97,10 +105,9 @@ async function fetchWithRateLimit(url, config) {
   }
 }
 
-// Optimized Bottleneck for Etherscan's 5 calls/second
 const limiterBottleneck = new Bottleneck({
   maxConcurrent: process.env.NODE_ENV === 'production' ? 10 : 2,
-  minTime: 300, // 200ms per call for 5 calls/second
+  minTime: 300,
   reservoir: 100,
   reservoirRefreshAmount: 100,
   reservoirRefreshInterval: 60 * 1000,
@@ -192,7 +199,7 @@ async function getChainLogo(coingeckoId) {
     });
     const chain = response.data.find((c) => c.id === coingeckoId);
     const logo = chain?.image?.thumb || '/icons/default.webp';
-    await redisClient.setEx(cacheKey, 30 * 24 * 60 * 60, logo); // Cache 30 days
+    await redisClient.setEx(cacheKey, 30 * 24 * 60 * 60, logo);
     return logo;
   } catch {
     return '/icons/default.webp';
@@ -270,7 +277,7 @@ async function getNametagsBatch(addresses) {
     const result = await query(
       `SELECT address, nametag, image, description, subcategory 
        FROM nametags 
-       WHERE LOWER(address) = ANY($1) /*+ PARALLEL(4) */`,
+       WHERE LOWER(address) = ANY($1)`,
       [addressesToQuery]
     );
 
@@ -430,7 +437,7 @@ async function getTokenImage(tokenAddress, chain) {
     const result = await query(
       `SELECT image 
        FROM tokens 
-       WHERE detail_platforms->'${chainIdToName[chain]}'->>'contract_address' = $1 /*+ PARALLEL(4) */`,
+       WHERE detail_platforms->'${chainIdToName[chain]}'->>'contract_address' = $1`,
       [tokenAddress.toLowerCase()]
     );
     if (result.rows.length > 0 && result.rows[0].image) {
@@ -471,7 +478,7 @@ async function fetchLayer3Transactions(layer2Addresses, chain, limit, page) {
   logger.info(`Fetching Layer 3 transactions for ${validLayer2Addresses.length} valid Layer 2 addresses`);
 
   const layer3Limit = 50;
-  const batchSize = 5; // Reduced batch size for Etherscan rate limit
+  const batchSize = 5;
   const batches = [];
   for (let i = 0; i < validLayer2Addresses.length; i += batchSize) {
     batches.push(validLayer2Addresses.slice(i, i + batchSize));
@@ -628,8 +635,55 @@ async function fetchLayer3Transactions(layer2Addresses, chain, limit, page) {
     }));
 }
 
+async function hasConfidenceColumn() {
+  try {
+    const result = await query(
+      `SELECT column_name 
+       FROM information_schema.columns 
+       WHERE table_name = 'nametags' AND column_name = 'confidence'`
+    );
+    return result.rows.length > 0;
+  } catch (err) {
+    console.warn('Error checking confidence column:', err.message);
+    return false;
+  }
+}
+
+async function saveAutoLabelsToDB(addressesWithLabels) {
+  const redisClient = await getRedisClient();
+  const hasConf = await hasConfidenceColumn();
+  const confParam = hasConf ? ', confidence' : '';
+  const confValue = hasConf ? ', $6' : '';
+  const confUpdate = hasConf ? ', confidence = $6' : '';
+
+  for (const [address, { label, confidence }] of Object.entries(addressesWithLabels)) {
+    const image = '/icons/default.webp';
+    const description = `Auto-labeled by ML (conf: ${confidence})`;
+    const subcategory = 'ML Auto';
+    const params = [address.toLowerCase(), label, image, description, subcategory];
+    if (hasConf) params.push(parseFloat(confidence));
+
+    try {
+      await query(
+        `INSERT INTO nametags (address, nametag, image, description, subcategory${confParam}) 
+         VALUES (LOWER($1), $2, $3, $4, $5${confValue}) 
+         ON CONFLICT (address) 
+         DO UPDATE SET 
+         nametag = $2, image = $3, description = $4, subcategory = $5${confUpdate}`,
+        params
+      );
+      const ntagObj = { address: address.toLowerCase(), name: label, image, description, subcategory };
+      if (hasConf) ntagObj.confidence = confidence;
+      await redisClient.setEx(`nametag_${address.toLowerCase()}`, 30 * 24 * 60 * 60, JSON.stringify(ntagObj));
+      logger.info(`Auto-saved label for ${address}: ${label} (conf: ${confidence})`);
+    } catch (dbErr) {
+      logger.error(`Failed to save auto-label for ${address}:`, dbErr.message);
+    }
+  }
+}
+
 export async function POST(request) {
-  const ip = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown';
+  const ip = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || '::1';
   const origin = request.headers.get('origin');
   const referer = request.headers.get('referer');
 
@@ -1025,6 +1079,50 @@ export async function POST(request) {
       },
     };
 
+    // Auto-label & DB save (with column check)
+    const allAddresses = [...new Set([...addresses, wallet_address.toLowerCase()])];
+    const unknownAddresses = allAddresses.filter(addr => !nametags[addr] || nametags[addr].name === 'Unknown');
+    if (unknownAddresses.length > 0) {
+      const mockNodes = unknownAddresses.map(addr => {
+        const addrTxs = [...incoming, ...outgoing].filter(tx => tx.address.toLowerCase() === addr);
+        const totalValue = addrTxs.reduce((sum, tx) => sum + parseFloat(tx.usdValue || 0), 0);
+        const txCount = addrTxs.length;
+        const uniqueTokens = new Set(addrTxs.map(tx => tx.tokenSymbol)).size;
+        const velocity = txCount > 0 ? txCount / 30 : 0;
+        return {
+          id: addr,
+          totalValue,
+          txCount,
+          degree: 1, // Simplified from connections
+          uniqueTokens,
+          velocity,
+        };
+      });
+      const autoLabels = await autoLabelWallets(mockNodes);
+      await saveAutoLabelsToDB(autoLabels); // Handles column check
+      // Merge
+      Object.entries(autoLabels).forEach(([addr, { label }]) => {
+        if (!nametags[addr]) {
+          nametags[addr] = { name: label, image: '/icons/default.webp', description: '', subcategory: 'ML Auto' };
+        }
+      });
+      // Re-process with new labels
+      processedIncoming.forEach(tx => {
+        const ntag = nametags[tx.address.toLowerCase()];
+        if (ntag) {
+          tx.nametag = ntag.name;
+          tx.image = ntag.image;
+        }
+      });
+      processedOutgoing.forEach(tx => {
+        const ntag = nametags[tx.address.toLowerCase()];
+        if (ntag) {
+          tx.nametag = ntag.name;
+          tx.image = ntag.image;
+        }
+      });
+    }
+
     const calculateServerRisk = (txs) => {
       return txs.map(tx => ({
         ...tx,
@@ -1034,9 +1132,9 @@ export async function POST(request) {
 
     const resultWithRisk = {
       ...result,
-      incoming: calculateServerRisk(result.incoming),
-      outgoing: calculateServerRisk(result.outgoing),
-      layer3: calculateServerRisk(result.layer3),
+      incoming: calculateServerRisk(processedIncoming),
+      outgoing: calculateServerRisk(processedOutgoing),
+      layer3: calculateServerRisk(layer3Transactions),
     };
 
     await redisClient.setEx(cacheKey, 3600, JSON.stringify(resultWithRisk));

@@ -1,13 +1,7 @@
-// utils/serverClustering.js
-// Fully dynamic: No static imports. All TF.js loaded at runtime inside function.
-// This avoids Next.js bundling conflicts with native deps like tfjs-node.
-// Fallback: Pure JS tfjs if native fails.
+// utils/serverClustering.js (Pure JS primary, no TF import attempt unless env, fix logger to console for strings)
+import { logger } from './serverLogger';
 
-import { logger } from './serverLogger'; // Optional; fallback to console
-
-// No static TF import – all dynamic in function
-
-// DBSCAN (pure JS, no TF)
+// DBSCAN (pure JS)
 function dbscan(data, eps, minPts) {
   const n = data.length;
   const labels = new Array(n).fill(-2);
@@ -127,69 +121,76 @@ function louvainClustering(clusterableNodes, adjacencyList, edges) {
   return communities;
 }
 
-// Isolation Forest (dynamic TF inside)
-async function isolationForestAnomaly(allNodes, nodeIdx, tf) {
+// Isolation Forest (pure JS fallback primary, TF optional)
+async function isolationForestAnomaly(allNodes, nodeIdx, tf = null) {
   if (allNodes.length <= 1) return 0;
-  const n = allNodes.length;
-  const trees = 10;
-  let avgPath = 0;
-  try {
-    const featMatrix = tf.tensor2d(allNodes.map(n => [
-      Math.log1p(parseFloat(n.totalValue) || 0),
-      Math.log1p(parseFloat(n.txCount) || 0),
-      (n.degree || 0)
-    ]));
-
-    for (let t = 0; t < trees; t++) {
-      let pathLen = 0;
-      let current = featMatrix.clone();
-      let currIdx = nodeIdx;
-      for (let depth = 0; depth < Math.log2(n); depth++) {
-        const splitFeat = Math.floor(Math.random() * 3);
-        const splitVal = tf.tidy(() => tf.mean(current.gather(splitFeat, 1), 0).dataSync()[0]);
-        const nodeVal = current.gather([currIdx], 0).gather([splitFeat], 1).dataSync()[0];
-        pathLen++;
-        if (pathLen >= n - 1) break;
-      }
-      avgPath += pathLen;
-      current.dispose();
-    }
-    featMatrix.dispose();
-    const anomalyScore = 2 ** (-avgPath / trees / Math.log2(n + 1e-8));
-    return Math.min(1, anomalyScore);
-  } catch (ifErr) {
-    logger.warn('Isolation Forest failed (heuristic fallback):', ifErr.message);
-    return 0.5;
-  }
+  // Pure JS primary (z-score)
+  const features = allNodes.map(n => [
+    Math.log1p(parseFloat(n.totalValue || 0)),
+    Math.log1p(parseFloat(n.txCount || 0)),
+    (n.degree || 0)
+  ]);
+  const mean = features.reduce((sum, f) => sum.map((v, i) => v + f[i]), [0,0,0]).map(v => v / features.length);
+  const variance = features.reduce((sum, f) => sum.map((v, i) => v + Math.pow(f[i] - mean[i], 2)), [0,0,0]).map(v => Math.sqrt(v / features.length));
+  const nodeFeat = features[nodeIdx];
+  const zScores = nodeFeat.map((val, i) => Math.abs((val - mean[i]) / (variance[i] + 1e-8)));
+  const anomalyScore = Math.max(...zScores) / 3; // Normalize [0,1]
+  return Math.min(1, anomalyScore);
 }
 
-// Main function: Fully dynamic TF load here
-export async function detectClustersServer(nodes, edges, options = { useML: true, useDBSCAN: true, useGNN: true }, tfInstance = null) {
-  // Dynamic load TF if not provided
-  let tf;
-  if (!tfInstance) {
-    try {
-      const tfNodePkg = '@tensorflow/tfjs-n' + 'ode';  // <-- Concat to bypass Webpack
-      const tfModule = await import(tfNodePkg);
-      tf = tfModule;
-      await tf.setBackend('cpu');
-      await tf.ready();
-      logger.log('Dynamic tfjs-node loaded in clustering');
-    } catch (nativeErr) {
-      logger.warn('Dynamic tfjs-node failed, pure JS:', nativeErr.message);
-      const pureTfPkg = '@tensorflow/tf' + 'js';  // <-- Concat to bypass Webpack
-      const pureTf = await import(pureTfPkg);
-      tf = pureTf;
-      await tf.setBackend('cpu');
-      await tf.ready();
-      options.useGNN = false; // Lighter in pure JS
-    }
-  } else {
-    tf = tfInstance;
-  }
+// Auto-label (pure JS rule-based primary, TF optional)
+async function autoLabelWallets(wallets, tf = null) {
+  const labels = {};
+  for (const wallet of wallets) {
+    const features = [
+      Math.log1p(parseFloat(wallet.totalValue || 0)),
+      Math.log1p(parseFloat(wallet.txCount || 0)),
+      wallet.degree || 0,
+      wallet.velocity || 0,
+      wallet.uniqueTokens || 0,
+    ];
+    let predictedLabel = 'Unknown';
+    let confidence = 0.5;
 
-  if (!tf) {
-    throw new Error('TensorFlow.js load failed');
+    if (tf) {
+      // TF simple classifier (if available)
+      try {
+        const weights = tf.tensor2d([[0.5, 0.3, 1.2, 0.8, 0.4], [1.0, 2.0, 0.5, 1.5, 3.0]]);
+        const featTensor = tf.tensor2d([features]);
+        const scores = tf.softmax(tf.matMul(featTensor, weights.transpose())).dataSync();
+        const maxScore = Math.max(...scores);
+        predictedLabel = maxScore > 0.6 ? (scores[0] > scores[1] ? 'Exchange' : 'Whale') : 'DeFi User';
+        confidence = maxScore;
+        weights.dispose();
+        featTensor.dispose();
+      } catch (tfErr) {
+        console.warn('TF auto-label failed:', tfErr.message);
+      }
+    }
+    // Rule-based fallback (always)
+    const volume = parseFloat(wallet.totalValue || 0);
+    const txCount = parseFloat(wallet.txCount || 0);
+    const degree = wallet.degree || 0;
+    if (txCount > 100 && degree > 10) predictedLabel = 'Exchange';
+    else if (volume > 100000) predictedLabel = 'Whale';
+    else if (wallet.uniqueTokens > 20) predictedLabel = 'NFT Collector';
+    else predictedLabel = 'DeFi User';
+    confidence = Math.min(0.9, confidence + 0.2); // Boost rule conf
+    labels[wallet.id.toLowerCase()] = { label: predictedLabel, confidence: confidence.toFixed(2) };
+  }
+  return labels;
+}
+
+// Main function (no TF import, pure JS)
+export async function detectClustersServer(nodes, edges, options = { useML: true, useDBSCAN: true, useGNN: false }, tfInstance = null) {
+  let tf = tfInstance || null; // No auto-load, pass if needed
+  const useTF = !!tf && process.env.USE_TFJS_NODE === 'true';
+
+  if (useTF && options.useGNN) {
+    console.log('Using TF for GNN (env enabled)');
+  } else {
+    options.useGNN = false; // Disable if no TF
+    console.log('Pure JS clustering (no TF)');
   }
 
   const clusters = [];
@@ -228,6 +229,16 @@ export async function detectClustersServer(nodes, edges, options = { useML: true
     }
     node.burstScore = Math.min(burstScore / Math.max(node.txCount || 1, 1), 1);
     node.degree = adjacencyList.get(node.id.toLowerCase())?.size || 0;
+  });
+
+  // Auto-label (always pure JS capable)
+  const autoLabels = await autoLabelWallets(nodes, tf);
+  nodes.forEach(node => {
+    const label = autoLabels[node.id.toLowerCase()];
+    if (label) {
+      node.autoLabel = label.label;
+      node.confidence = label.confidence;
+    }
   });
 
   let communities = new Map();
@@ -283,12 +294,14 @@ export async function detectClustersServer(nodes, edges, options = { useML: true
         throw new Error('Insufficient nodes for ML clustering');
       }
 
-      let embeddings = tf.tensor2d(features);
+      let embeddings = features; // Pure JS array
+
       const numFeatures = features[0].length;
 
-      // GNN with try-catch
-      if (options.useGNN) {
+      // GNN only if TF
+      if (useTF && options.useGNN) {
         try {
+          embeddings = tf.tensor2d(features);
           const n = features.length;
           const indices = [];
           const values = [];
@@ -319,76 +332,92 @@ export async function detectClustersServer(nodes, edges, options = { useML: true
           h.dispose();
           agg1.dispose();
           adjSparse.dispose();
-          logger.log('GraphSAGE embeddings generated');
+          console.log('GraphSAGE embeddings generated');
         } catch (gnnErr) {
-          logger.warn('GNN failed, using raw features:', gnnErr.message);
+          console.warn('GNN failed, using raw features:', gnnErr.message);
+          embeddings = tf ? tf.tensor2d(features) : features;
         }
       }
 
-      // Normalize
-      const mean = tf.mean(embeddings, 0, true);
-      const std = tf.sqrt(tf.variance(embeddings, 0, true));
-      const normalized = embeddings.sub(mean).div(std.add(1e-8));
+      // Normalize (pure JS if no TF)
+      let normalized;
+      if (useTF && tf) {
+        const mean = tf.mean(embeddings, 0, true);
+        const std = tf.sqrt(tf.variance(embeddings, 0, true));
+        normalized = embeddings.sub(mean).div(std.add(1e-8));
+        mean.dispose();
+        std.dispose();
+      } else {
+        const featArray = Array.isArray(embeddings) ? embeddings : embeddings.arraySync() || features;
+        const mean = featArray[0].map((_, i) => featArray.reduce((sum, row) => sum + row[i], 0) / featArray.length);
+        const std = featArray[0].map((_, i) => {
+          const varSum = featArray.reduce((sum, row) => sum + Math.pow(row[i] - mean[i], 2), 0);
+          return Math.sqrt(varSum / featArray.length) || 1;
+        });
+        normalized = featArray.map(row => row.map((val, i) => (val - mean[i]) / std[i]));
+      }
 
-      // Clustering
+      // Clustering (DBSCAN pure JS)
       if (options.useDBSCAN) {
         try {
-          const data = normalized.arraySync();
-          const distMatrix = tf.tidy(() => {
-            const sqDists = tf.sum(tf.pow(normalized.sub(normalized.expandDims(0)), 2), 2);
-            return tf.sqrt(sqDists);
-          });
-          const avgDist = tf.mean(distMatrix).arraySync()[0];
+          const data = Array.isArray(normalized) ? normalized : normalized.arraySync();
+          const avgDist = data.reduce((sum, row, i) => {
+            return sum + (row.reduce((s, val, j) => {
+              if (i === j) return s;
+              const d = Math.sqrt(row.reduce((sd, v, k) => sd + Math.pow(v - data[j][k], 2), 0));
+              return s + d;
+            }, 0) / (data.length - 1));
+          }, 0) / data.length;
           const eps = Math.max(0.3, Math.min(0.8, avgDist / Math.sqrt(numFeatures)));
-          distMatrix.dispose();
           const labels = dbscan(data, eps, Math.max(2, Math.floor(features.length / 10)));
           nodeIds.forEach((id, idx) => {
             if (labels[idx] !== -1) {
               communities.set(id, labels[idx]);
             }
           });
-          logger.log(`DBSCAN completed (eps=${eps.toFixed(2)})`);
+          console.log(`DBSCAN completed (eps=${eps.toFixed(2)})`);
         } catch (dbErr) {
-          logger.warn('DBSCAN failed, fallback KMeans:', dbErr.message);
+          console.warn('DBSCAN failed, fallback KMeans:', dbErr.message);
         }
       }
 
       if (communities.size === 0) {
-        // KMeans fallback
+        // KMeans pure JS fallback
         try {
           const n = features.length;
           let bestK = Math.max(2, Math.floor(Math.sqrt(n)));
           let bestModularity = -Infinity;
           let bestAssignments = null;
           for (let k = 2; k <= Math.min(20, n); k++) {
-            let centroids = tf.tidy(() => tf.randomNormal([k, numFeatures]).mul(0.1).add(tf.mean(normalized, 0)));
+            let centroids = normalized.map(() => Array(numFeatures).fill(0).map(() => (Math.random() - 0.5) * 2)); // Random init
             const maxIter = 50;
             let assignments = new Array(n).fill(0);
             for (let iter = 0; iter < maxIter; iter++) {
-              const dist = tf.tidy(() => {
-                const XX = tf.sum(tf.pow(normalized, 2), 1, true);
-                const CC = tf.sum(tf.pow(centroids, 2), 1, false);
-                const XC = tf.matMul(normalized, centroids, false, true);
-                return XX.add(CC).sub(tf.mul(XC, 2));
+              // Assign
+              assignments = normalized.map(point => {
+                let minDist = Infinity;
+                let assign = 0;
+                centroids.forEach((cent, cIdx) => {
+                  const d = Math.sqrt(cent.reduce((sum, val, i) => sum + Math.pow(val - point[i], 2), 0));
+                  if (d < minDist) {
+                    minDist = d;
+                    assign = cIdx;
+                  }
+                });
+                return assign;
               });
-              const newAssignments = tf.argMin(dist, 1).arraySync();
-              dist.dispose();
-              if (JSON.stringify(newAssignments) === JSON.stringify(assignments)) break;
-              assignments = newAssignments;
-              const sums = tf.zeros([k, numFeatures]);
-              const counts = tf.zeros([k]);
-              for (let i = 0; i < n; i++) {
+              // Update centroids
+              const sums = Array(k).fill(0).map(() => Array(numFeatures).fill(0));
+              const counts = Array(k).fill(0);
+              normalized.forEach((point, i) => {
                 const c = assignments[i];
-                counts.assign(counts.gather([c], 0).add(tf.scalar(1)), [c], [1]);
-                const row = normalized.slice([i, 0], [1, -1]);
-                sums.assign(sums.slice([c, 0], [1, -1]).add(row), [c, 0], [1, -1]);
-                row.dispose();
-              }
-              const validCounts = counts.add(1e-8);
-              centroids = sums.div(validCounts.expandDims(1));
-              sums.dispose();
-              counts.dispose();
-              validCounts.dispose();
+                counts[c]++;
+                point.forEach((val, j) => sums[c][j] += val);
+              });
+              centroids = sums.map((sumRow, c) => sumRow.map(val => val / Math.max(counts[c], 1)));
+              // Check convergence
+              const prevAssignments = [...assignments];
+              if (JSON.stringify(assignments) === JSON.stringify(prevAssignments)) break;
             }
             const modularity = calculateModularity(assignments, adjacencyList, nodeIds);
             if (modularity > bestModularity) {
@@ -396,24 +425,23 @@ export async function detectClustersServer(nodes, edges, options = { useML: true
               bestAssignments = [...assignments];
               bestK = k;
             }
-            centroids.dispose();
           }
           nodeIds.forEach((id, idx) => {
             communities.set(id, bestAssignments[idx]);
           });
-          logger.log(`KMeans completed (k=${bestK})`);
+          console.log(`KMeans completed (k=${bestK})`);
         } catch (kmErr) {
-          logger.warn('KMeans failed, fallback Louvain:', kmErr.message);
+          console.warn('KMeans failed, fallback Louvain:', kmErr.message);
           communities = louvainClustering(clusterableNodes, adjacencyList, edges);
         }
       }
 
-      normalized.dispose();
-      mean.dispose();
-      std.dispose();
-      embeddings.dispose();
+      // Cleanup TF if used
+      if (useTF && tf && normalized && typeof normalized.dispose === 'function') {
+        normalized.dispose();
+      }
     } catch (mlErr) {
-      logger.warn('ML clustering failed, fallback Louvain:', mlErr.message);
+      console.warn('ML clustering failed, fallback Louvain:', mlErr.message);
       communities = louvainClustering(clusterableNodes, adjacencyList, edges);
     }
   } else {
@@ -427,16 +455,12 @@ export async function detectClustersServer(nodes, edges, options = { useML: true
     const timeScore = node.latestBlockTime
       ? (now - new Date(typeof node.latestBlockTime === 'number' ? node.latestBlockTime * 1000 : node.latestBlockTime).getTime()) / (1000 * 60 * 60 * 24 * 30) > 6
         ? 0.4 : 0 : 0.2;
-    let anomalyScore = 0;
-    try {
-      anomalyScore = await isolationForestAnomaly(allNodesInGroup, allNodesInGroup.findIndex(n => n.id.toLowerCase() === node.id.toLowerCase()), tf);
-    } catch (ifErr) {
-      logger.warn('Anomaly score failed:', ifErr.message);
-    }
+    let anomalyScore = await isolationForestAnomaly(allNodesInGroup, allNodesInGroup.findIndex(n => n.id.toLowerCase() === node.id.toLowerCase()), tf);
     const nodeTxs = edges.filter(e => e.source.toLowerCase() === node.id.toLowerCase() || e.target.toLowerCase() === node.id.toLowerCase());
     const roundTrips = nodeTxs.filter(e => Math.abs(parseFloat(e.value || 0) - parseFloat(node.totalValue || 0)) < 0.2 * parseFloat(node.totalValue || 0));
     const ruleScore = roundTrips.length / Math.max(parseFloat(node.txCount || 1), 1);
-    return Math.min(1, 0.25 * valueScore + 0.2 * txScore + 0.2 * timeScore + 0.25 * anomalyScore + 0.1 * ruleScore);
+    const labelConf = parseFloat(node.confidence || 0.5);
+    return Math.min(1, 0.25 * valueScore + 0.2 * txScore + 0.2 * timeScore + 0.25 * anomalyScore + 0.1 * ruleScore + 0.1 * (1 - labelConf));
   };
 
   const communityGroups = new Map();
@@ -501,7 +525,9 @@ export async function detectClustersServer(nodes, edges, options = { useML: true
       return avgB - avgA;
     }).slice(0, 3);
 
-    logger.log(`Cluster ${commId}:`, { nametag: clusterNametag, wallets: group.wallets.length, tx: uniqueTxs.length, risk: clusterRisk.toFixed(3) });
+    const clusterAutoLabel = group.wallets[0]?.autoLabel || 'Cluster';
+
+    console.log(`Cluster ${commId}:`, { nametag: clusterNametag, autoLabel: clusterAutoLabel, wallets: group.wallets.length, tx: uniqueTxs.length, risk: clusterRisk.toFixed(3) });
 
     clusters.push({
       clusterId: commId,
@@ -512,7 +538,8 @@ export async function detectClustersServer(nodes, edges, options = { useML: true
       riskScore: clusterRisk,
       velocity,
       uniqueTokens,
-      topFeatures
+      topFeatures,
+      autoLabel: clusterAutoLabel
     });
   }
 
@@ -522,9 +549,10 @@ export async function detectClustersServer(nodes, edges, options = { useML: true
     return sumB - sumA;
   });
 
-  logger.log(`Detected ${clusters.length} clusters`);
+  console.log(`Detected ${clusters.length} clusters`); // Fix: console.log instead of logger.log(string)
+
   return clusters;
 }
 
-// Export pure JS functions for fallback
-export { dbscan, calculateModularity, louvainClustering };
+// Export
+export { dbscan, calculateModularity, louvainClustering, autoLabelWallets };

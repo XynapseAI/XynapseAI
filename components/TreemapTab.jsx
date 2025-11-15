@@ -23,13 +23,12 @@ import { Virtuoso } from 'react-virtuoso';
 import { TableVirtuoso } from 'react-virtuoso';
 import { lazy, Suspense } from 'react';
 
-const TensorFlowJS = lazy(() => {
-  const tfCorePkg = '@tensorflow/tfjs-c' + 'ore';  // <-- Concat to bypass if needed
-  return import(tfCorePkg);
-});
+// Fixed: Lazy load pure TF.js only (no node backend in client)
+const TensorFlowJS = lazy(() => import('@tensorflow/tfjs')); // Direct import, no concat needed in client
 
 cytoscape.use(cola);
 cytoscape.use(nodeHtmlLabel);
+
 const formatLargeNumber = (value, decimals = 1) => {
   const absValue = Math.abs(value);
   if (absValue >= 1e9) {
@@ -581,12 +580,16 @@ function simpleRuleBasedClustering(nodesData, edgesData) {
     adjList.get(e.source.toLowerCase())?.add(e.target.toLowerCase());
     adjList.get(e.target.toLowerCase())?.add(e.source.toLowerCase());
   });
-  // Simple: Group by shared label (nametag) or high degree (>3)
+  // Simple: Group by shared label (nametag) or high degree (>3), add auto-label preview
   const groups = new Map();
   nodesData.forEach(node => {
-    const key = node.label !== 'Unknown' ? node.label : `high_degree_${adjList.get(node.id.toLowerCase())?.size || 0 > 3 ? 'hub' : 'solo'}`;
-    if (!groups.has(key)) groups.set(key, { wallets: [], transactions: [] });
-    groups.get(key).wallets.push(node);
+    let autoLabel = 'Unknown'; // Simple rule: high degree → Exchange-like
+    const degree = adjList.get(node.id.toLowerCase())?.size || 0;
+    if (degree > 5) autoLabel = 'Exchange';
+    else if (parseFloat(node.totalValue || 0) > 10000) autoLabel = 'Whale';
+    const key = node.label !== 'Unknown' ? node.label : `auto_${autoLabel}_${degree > 3 ? 'hub' : 'solo'}`;
+    if (!groups.has(key)) groups.set(key, { wallets: [], transactions: [], autoLabel });
+    groups.get(key).wallets.push({ ...node, autoLabel }); // Add to node
   });
   // Assign tx (simple: all to group if connected)
   edgesData.forEach(edge => {
@@ -594,7 +597,7 @@ function simpleRuleBasedClustering(nodesData, edgesData) {
     if (sourceKey) groups.get(sourceKey).transactions.push({ ...edge });
   });
   groups.forEach((group, key) => {
-    if (group.wallets.length >= 2 && group.wallets.some(w => w.label !== 'Unknown')) {
+    if (group.wallets.length >= 2 && group.wallets.some(w => w.label !== 'Unknown' || w.autoLabel !== 'Unknown')) {
       clusters.push({
         clusterId: key,
         nametag: key,
@@ -604,6 +607,7 @@ function simpleRuleBasedClustering(nodesData, edgesData) {
         velocity: 0,
         uniqueTokens: 0,
         topFeatures: [], // Empty
+        autoLabel: group.autoLabel || 'Cluster', // Preview
       });
     }
   });
@@ -1171,8 +1175,8 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
       return;
     }
     try {
-      await TensorFlowJS; // Giữ nếu cần TF cho other parts, nhưng không dùng clustering nữa
-      logger.log('TensorFlow.js loaded (non-clustering)');
+      await TensorFlowJS; // Load pure TF for client-side if needed (non-clustering)
+      logger.log('TensorFlow.js loaded (client)');
       if (cyRef.current) {
         cyRef.current.destroy();
         logger.log('Destroyed previous Cytoscape instance');
@@ -1180,17 +1184,17 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
       const rootId = walletInfo.address.toLowerCase();
       let elements = [...nodes, ...edges];
 
-      // Fetch server-side clusters với error handling
+      // Fetch server-side clusters với error handling & auto-label
       let detectedClusters = [];
       try {
         const clusterResponse = await fetch(`${apiBaseUrl}/api/cluster`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          credentials: 'include', // Thêm nếu cần auth/session
+          credentials: 'include',
           body: JSON.stringify({
-            nodes: nodes.map(n => ({ ...n.data })), // Spread để tránh mutate
+            nodes: nodes.map(n => ({ ...n.data })),
             edges: edges.map(e => ({ ...e.data })),
-            options: { useGNN: true, useDBSCAN: true } // Full options như serverClustering
+            options: { useGNN: false, useDBSCAN: true } // Stable options
           }),
         });
         if (!clusterResponse.ok) {
@@ -1204,13 +1208,13 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
         logger.log('Server clusters fetched successfully');
       } catch (clusterErr) {
         logger.warn('Server clustering failed, using simple fallback:', clusterErr.message);
-        // Simple fallback: Rule-based (group by shared nametag/label or high degree)
         detectedClusters = simpleRuleBasedClustering(nodes.map(n => n.data), edges.map(e => e.data));
       }
 
       logger.log('Detected clusters:', detectedClusters.map(c => ({
         clusterId: c.clusterId,
         nametag: c.nametag,
+        autoLabel: c.autoLabel, // New
         walletCount: c.wallets.length,
         transactionCount: c.transactions.length,
       })));
@@ -1326,13 +1330,12 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
         container: containerRef.current,
         elements,
         style: [
-          // ... giữ nguyên style array
+          // ... (Giữ nguyên style array)
           {
             selector: 'node',
             style: {
               'background-image': (ele) => {
                 const image = ele.data('isRoot') ? walletInfo.image : ele.data('image');
-                logger.log(`Node ${ele.data('id')} image (isRoot: ${ele.data('isRoot')}):`, image);
                 if (isValidNametagImage(image)) {
                   return image.startsWith('http')
                     ? image
@@ -1408,16 +1411,18 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
             const cluster = detectedClusters.find((c) => c.wallets.some((w) => w.id.toLowerCase() === data.id.toLowerCase()));
             const risk = cluster?.riskScore || 0;
             const clusterLabel = data.isRoot ? walletInfo.nametag || 'Unknown' : cluster ? cluster.nametag : 'Unknown';
+            const autoLabel = data.autoLabel || cluster?.autoLabel || ''; // New: Show auto-label
             const image = data.isRoot ? walletInfo.image : data.image;
             const nametag = data.isRoot ? '' : data.label !== 'Unknown' ? data.label : truncateAddress(data.id);
             return `
-          <div class="node-label bg-black/80 border border-white/10 text-white/80 text-[28px] sm:text-[32px] py-1 px-2 rounded">
-            ${data.isRoot ? `<div>Cluster: ${clusterLabel}</div>` : `<div>${nametag}${data.layer === 3 ? ' (L3)' : ''}</div>`}
-            ${cluster ? `<div>Cluster: ${cluster.nametag}</div>` : ''}
-            <div>Tx: ${data.txCount} | Value: ${formatLargeNumber(Number(data.totalValue), 1)}$</div>
-            <div>Risk: ${(risk * 100).toFixed(0)}%</div>
-          </div>
-        `;
+              <div class="node-label bg-black/80 border border-white/10 text-white/80 text-[28px] sm:text-[32px] py-1 px-2 rounded">
+                ${data.isRoot ? `<div>Cluster: ${clusterLabel}</div>` : `<div>${nametag}${data.layer === 3 ? ' (L3)' : ''}</div>`}
+                ${autoLabel ? `<div>Auto: ${autoLabel}</div>` : ''}
+                ${cluster ? `<div>Cluster: ${cluster.nametag}</div>` : ''}
+                <div>Tx: ${data.txCount} | Value: ${formatLargeNumber(Number(data.totalValue), 1)}$</div>
+                <div>Risk: ${(risk * 100).toFixed(0)}%</div>
+              </div>
+            `;
           },
         },
       ]);
