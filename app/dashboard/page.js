@@ -423,19 +423,25 @@ function DashboardInner() {
     }
   }, [isMounted, providers, fetchProvidersWithRetry]);
 
-  // FIXED: Conservative detection (revert gần file cũ): Chỉ auto miniapp nếu SDK loaded HOẶC UA Warpcast cụ thể. Base/Coinbase UA → fallback manual (không auto-auth để tránh loop).
+  // FIXED: Improved Base App detection - Add ethereum.isCoinbaseWallet check + log UA for debug
   useEffect(() => {
+    if (typeof window === 'undefined') return;
     const userAgent = navigator.userAgent.toLowerCase();
+    safeLog('Full UserAgent (debug):', navigator.userAgent); // NEW: Log full UA for testing
+
     const isWarpcastMobile = userAgent.includes('warpcast') || userAgent.includes('farcaster');  // Chỉ Warpcast UA cho auto
-    const isBaseAppDetected = userAgent.includes('coinbasewallet') || userAgent.includes('cbwallet') || userAgent.includes('base'); // Detect Base explicit
-    setIsBaseApp(isBaseAppDetected); // NEW: Set state from detection
+    const isBaseUADetected = userAgent.includes('coinbasewallet') || userAgent.includes('cbwallet') || userAgent.includes('base'); // Detect Base explicit
+    const isCoinbaseWallet = !!window.ethereum && window.ethereum.isCoinbaseWallet; // NEW: Standard Web3 detection for Coinbase Wallet/Base App webview
+    const isBaseAppDetected = isBaseUADetected || isCoinbaseWallet;
+    setIsBaseApp(isBaseAppDetected); // UPDATED: Include ethereum check
+    safeLog('Base App Detection Debug:', { userAgentSnippet: userAgent.substring(0, 100), isBaseUADetected, isCoinbaseWallet, isBaseAppDetected }); // NEW: Debug log
 
     const sdkAvailable = typeof sdk !== 'undefined' && !!sdk.quickAuth;  // Check SDK explicit
     const miniAppDetected = (isSDKLoaded && (context === 'miniapp' || !!miniAppUser)) || isWarpcastMobile || sdkAvailable;  // Remove broad isFarcasterMobile (gây false positive ở Base)
-    setIsMiniApp(miniAppDetected && !isBaseAppDetected); // Exclude Base từ auto
+    setIsMiniApp(miniAppDetected && !isBaseAppDetected); // Exclude Base từ auto - FIXED: Use new detected flag
 
     if (isBaseAppDetected) {
-      setFallbackToManual(true);
+      setFallbackToManual(true); // Force manual for Base App
     }
 
     safeLog('Mini App Detection Debug:', { isSDKLoaded, context, miniAppUser, userAgent, sdkAvailable, miniAppDetected, isWarpcastMobile, isBaseApp: isBaseAppDetected });
@@ -449,10 +455,11 @@ function DashboardInner() {
     }
   }, [isSDKLoaded, context, miniAppUser, session]);
 
+  // FIXED: Conservative detection (revert gần file cũ): Chỉ auto miniapp nếu SDK loaded HOẶC UA Warpcast cụ thể. Base/Coinbase UA → fallback manual (không auto-auth để tránh loop).
   // FIXED: Thêm status === 'unauthenticated' để tránh trigger trong 'loading' state (prevent loop khi session update).
   // FIXED: Wrap handleMiniAppQuickAuth bằng useCallback và thêm vào deps
   const handleMiniAppQuickAuth = useCallback(async () => {
-    if (status !== 'unauthenticated' || isBaseApp) return; // Skip nếu Base
+    if (status !== 'unauthenticated' || isBaseApp) return; // Skip nếu Base - FIXED: Use new isBaseApp
     setMiniAppAuthLoading(true);
     setMiniAppAuthFailed(false); // Reset failure state
     try {
@@ -837,6 +844,7 @@ function DashboardInner() {
   };
 
   // FIXED: Loading state: Thêm authSuccess để hide form ngay sau signIn. REMOVED: baseAuthLoading vì không auto nữa
+  // UPDATED: Force show Base UI even if !requiresAuth (to always show DeeplinkButton when opening in Base App)
   if (!isMounted || !providers || status === 'loading' || (miniAppAuthLoading && !fallbackToManual) || worldAuthLoading) {
     return (
       <div className="h-screen w-screen flex items-center justify-center bg-black text-white">
@@ -850,7 +858,8 @@ function DashboardInner() {
   }
 
   const requiresAuth = ['profile', 'ai', 'watchlists'].includes(activeTab);
-  const showLoginForm = status === 'unauthenticated' && requiresAuth && !authSuccess && !miniAppAuthFailed && !worldAuthFailed && !baseAuthFailed && !(isMiniApp && miniAppAuthFailed && !fallbackToManual); // UPDATED: Hide form if auth failed in Mini App/Base (show retry instead)
+  // UPDATED: Adjust condition - Force show login UI for Base App (even if !requiresAuth), but hide if authSuccess
+  const showLoginForm = status === 'unauthenticated' && (!authSuccess && !miniAppAuthFailed && !worldAuthFailed && !baseAuthFailed && !(isMiniApp && miniAppAuthFailed && !fallbackToManual)) || (isBaseApp && status === 'unauthenticated' && !authSuccess);
 
   return (
     <CurrencyProvider>
@@ -861,8 +870,7 @@ function DashboardInner() {
           relay: 'https://relay.farcaster.xyz', // Default relay
           rpcUrl: 'https://mainnet.optimism.io', // Base RPC
           version: 'v1',
-          // NEW: Conditional deeplink for Base App (from docs: enables deeplink in mobile)
-          deeplinkUrl: isBaseApp ? 'baseapp://wc?uri=' : undefined, // Force deeplink scheme for Base App
+          // REMOVED: deeplinkUrl (not standard in AuthKit, SignInButton handles auto in Base App)
         }}
       >
         <div className="h-screen w-screen bg-gradient-to-br from-black to-gray-900 backdrop-blur-xs text-white overflow-x-hidden flex flex-col">
@@ -1046,6 +1054,7 @@ function DashboardInner() {
                   </div>
                   {isBaseApp ? (
                     // UPDATED: Special frame for Base App - show DeeplinkButton (SignInButton) manual (không auto-trigger, chỉ click mới login via deeplink)
+                    // Force show this UI when unauthenticated in Base App
                     <motion.div
                       initial={{ opacity: 0, y: 20 }}
                       animate={{ opacity: 1, y: 0 }}
