@@ -15,6 +15,7 @@
     "@base-org/account": "^2.4.2",
     "@base-org/account-ui": "^1.0.1",
     "@farcaster/auth-kit": "^0.8.1",
+    "@farcaster/miniapp-node": "^0.1.11",
     "@farcaster/miniapp-sdk": "^0.2.1",
     "@farcaster/miniapp-wagmi-connector": "^1.1.0",
     "@farcaster/quick-auth": "^0.0.8",

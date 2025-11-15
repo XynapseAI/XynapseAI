@@ -1919,7 +1919,7 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
                 <div className="absolute inset-0 bg-black/10 backdrop-blur-sm animate-pulse opacity-50" />
                 <div className="flex items-center gap-2 mb-4">
                   <div className="w-2 h-2 bg-neon-blue rounded-full animate-pulse" />
-                  <h3 className="text-white text-sm sm:text-base font-semibold">Analyzing</h3>
+                  <h3 className="text-white text-sm sm:text-base font-semibold">Processing</h3>
                 </div>
                 <div className="h-22 sm:h-28 overflow-y-auto custom-scrollbar log-container relative">
                   <motion.ul
