@@ -335,6 +335,7 @@ function DashboardInner() {
   const [isBaseApp, setIsBaseApp] = useState(false); // NEW: State for Base App detection (from ref)
   const [baseAuthFailed, setBaseAuthFailed] = useState(false); // NEW: Track if Base manual-auth failed (auto removed)
   // NEW: Farcaster signIn hook for manual deeplink trigger
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const { signIn: farcasterSignIn } = useSignIn();
 
   // FIXED: App domain từ env (fix origin mismatch ở preview)
