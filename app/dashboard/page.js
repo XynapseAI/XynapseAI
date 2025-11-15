@@ -423,18 +423,27 @@ function DashboardInner() {
     }
   }, [isMounted, providers, fetchProvidersWithRetry]);
 
-  // FIXED: Improved Base App detection - Add ethereum.isCoinbaseWallet check + log UA for debug
+  // FIXED: Improved Base App detection - Add ethereum.isCoinbaseWallet check + log UA for debug + FORCE via ?base=true for dev test
   useEffect(() => {
     if (typeof window === 'undefined') return;
     const userAgent = navigator.userAgent.toLowerCase();
     safeLog('Full UserAgent (debug):', navigator.userAgent); // NEW: Log full UA for testing
 
     const isWarpcastMobile = userAgent.includes('warpcast') || userAgent.includes('farcaster');  // Chỉ Warpcast UA cho auto
-    const isBaseUADetected = userAgent.includes('coinbasewallet') || userAgent.includes('cbwallet') || userAgent.includes('base'); // Detect Base explicit
+    const isBaseUADetected = userAgent.includes('coinbasewallet') || userAgent.includes('cbwallet') || userAgent.includes('base') || userAgent.includes('coinbase'); // Detect Base explicit + coinbase
     const isCoinbaseWallet = !!window.ethereum && window.ethereum.isCoinbaseWallet; // NEW: Standard Web3 detection for Coinbase Wallet/Base App webview
-    const isBaseAppDetected = isBaseUADetected || isCoinbaseWallet;
-    setIsBaseApp(isBaseAppDetected); // UPDATED: Include ethereum check
-    safeLog('Base App Detection Debug:', { userAgentSnippet: userAgent.substring(0, 100), isBaseUADetected, isCoinbaseWallet, isBaseAppDetected }); // NEW: Debug log
+
+    // NEW: Force detection for dev testing via ?base=true
+    const forceBase = searchParams.get('base') === 'true';
+    const isBaseAppDetected = forceBase || isBaseUADetected || isCoinbaseWallet;
+    setIsBaseApp(isBaseAppDetected); // UPDATED: Include ethereum check + force
+    safeLog('Base App Detection Debug:', {
+      userAgentSnippet: userAgent.substring(0, 100),
+      isBaseUADetected,
+      isCoinbaseWallet,
+      forceBase,  // NEW: Log force flag
+      isBaseAppDetected
+    }); // NEW: Debug log
 
     const sdkAvailable = typeof sdk !== 'undefined' && !!sdk.quickAuth;  // Check SDK explicit
     const miniAppDetected = (isSDKLoaded && (context === 'miniapp' || !!miniAppUser)) || isWarpcastMobile || sdkAvailable;  // Remove broad isFarcasterMobile (gây false positive ở Base)
@@ -453,19 +462,18 @@ function DashboardInner() {
     if (miniAppDetected && session) {
       if (typeof sdk !== 'undefined') sdk.actions.ready(); // FIXED: Chỉ gọi nếu SDK có
     }
-  }, [isSDKLoaded, context, miniAppUser, session]);
+  }, [isSDKLoaded, context, miniAppUser, session, searchParams]); // ADD: searchParams to deps for force check
 
-  // FIXED: Conservative detection (revert gần file cũ): Chỉ auto miniapp nếu SDK loaded HOẶC UA Warpcast cụ thể. Base/Coinbase UA → fallback manual (không auto-auth để tránh loop).
-  // FIXED: Thêm status === 'unauthenticated' để tránh trigger trong 'loading' state (prevent loop khi session update).
-  // FIXED: Wrap handleMiniAppQuickAuth bằng useCallback và thêm vào deps
+  // UPDATED: Adjust handleMiniAppQuickAuth - Remove skip for isBaseApp (allow manual trigger in Base), add fallback toast
   const handleMiniAppQuickAuth = useCallback(async () => {
-    if (status !== 'unauthenticated' || isBaseApp) return; // Skip nếu Base - FIXED: Use new isBaseApp
+    if (status !== 'unauthenticated') return; // Giữ guard cho status
     setMiniAppAuthLoading(true);
     setMiniAppAuthFailed(false); // Reset failure state
+    setBaseAuthFailed(false); // NEW: Reset Base failed cho manual retry
     try {
-      // Double-check SDK
+      // Double-check SDK (available in Base App partial)
       if (typeof sdk === 'undefined' || !sdk.quickAuth || typeof sdk.quickAuth.getToken !== 'function') {
-        throw new Error('SDK getToken not available');
+        throw new Error('SDK getToken not available - Ensure running in Farcaster client (Warpcast/Base)');
       }
 
       // Wrap getToken với explicit catch để suppress uncaught
@@ -493,21 +501,25 @@ function DashboardInner() {
       setAuthSuccess(true); // NEW: Fix loop
       await update();  // FIXED: Chỉ update session, không push (let re-render tự handle)
       if (typeof sdk !== 'undefined') sdk.actions.ready(); // FIXED: Hide splash nếu có
+      toast.success('Đăng nhập thành công qua Farcaster!', { position: 'top-center' }); // NEW: Success toast cho manual
     } catch (err) {
       safeError('Mini App quickauth fail:', err);
       const errorMsg = err.message || err.toString();
-      if (errorMsg.includes('SDK') || errorMsg.includes('origins') || errorMsg.includes('result')) {
-        // Fallback cho origin/partial SDK (e.g., Base preview)
+      if (errorMsg.includes('SDK') || errorMsg.includes('origins') || errorMsg.includes('result') || errorMsg.includes('not available')) {
+        // Fallback cho origin/partial SDK (e.g., Base preview hoặc no Warpcast)
+        toast.error('Cần Warpcast app để xác thực. Hãy cài đặt và thử lại.', { position: 'top-center' });
         setFallbackToManual(true);
         setMiniAppAuthFailed(false);
+        setBaseAuthFailed(true); // NEW: Trigger retry UI cho Base
       } else {
         toast.error(`QuickAuth error: ${errorMsg}`);
         setMiniAppAuthFailed(true); // Chỉ fail nếu không phải SDK issue
+        setBaseAuthFailed(true); // NEW: Cho Base
       }
     } finally {
       setMiniAppAuthLoading(false);
     }
-  }, [status, signIn, update, isBaseApp]);
+  }, [status, signIn, update]);
 
   useEffect(() => {
     if (!isMiniApp || status !== 'unauthenticated' || session || miniAppAuthLoading || attemptedAuthRef.current) {
@@ -1005,36 +1017,12 @@ function DashboardInner() {
                     >
                       Base App Farcaster deeplink failed. Please try again.
                     </motion.p>
-                    <SignInButton
-                      onSuccess={handleFarcasterSuccess}
-                      onError={(error) => {
-                        safeError('Manual AuthKit error:', error);
-                        setBaseAuthFailed(true);
-                        toast.error(`Farcaster error: ${error.message}. Please try again.`);
-                      }}
-                      className="!w-full !px-4 !m-2 !py-2.5 !bg-black/20 !border !border-white/25 !rounded-2xl !text-white !text-sm !font-semibold !flex !items-center !justify-center !gap-3 !transition-all !duration-300 hover:!bg-gray-800/30 hover:!border-white/40 !bg-purple-600 hover:!bg-purple-700"
-                      style={{
-                        display: 'flex !important',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        backgroundColor: 'rgba(0,0,0,0.2) !important',
-                        border: '1px solid rgba(255,255,255,0.25) !important',
-                        color: 'white !important',
-                        borderRadius: '1rem !important',
-                        transition: 'all 0.3s !important',
-                      }}
-                      buttonText="Sign in with Base App"
-                      showLogo={true}
+                    <button
+                      onClick={handleMiniAppQuickAuth}  // UPDATED: Same handler cho retry
+                      className="w-full px-4 py-2.5 border-2 border-white/15 bg-white/10 text-white rounded-2xl text-sm font-semibold transition-all duration-300 hover:border-white/30 hover:bg-white/20 flex items-center justify-center"
                     >
-                      <Image
-                        src="/logos/farcaster-logo.webp"
-                        alt="Farcaster Logo"
-                        width={20}
-                        height={20}
-                        className="w-6 h-6 rounded-xl object-contain mr-2"
-                      />
-                      Sign in with Base App (via Farcaster)
-                    </SignInButton>
+                      <MatrixHoverEffect text="Sign with Base App" hoverColor="#FFFFFF" />
+                    </button>
                   </motion.div>
                 </motion.div>
               ) : showLoginForm ? (
@@ -1052,7 +1040,7 @@ function DashboardInner() {
                     )}
                   </div>
                   {isBaseApp ? (
-                    // UPDATED: Special frame for Base App - show DeeplinkButton (SignInButton) manual (không auto-trigger, chỉ click mới login via deeplink)
+                    // UPDATED: Special frame for Base App - Custom button gọi handleMiniAppQuickAuth (trigger deeplink như auto cũ, nhưng manual)
                     // Force show this UI when unauthenticated in Base App
                     <motion.div
                       initial={{ opacity: 0, y: 20 }}
@@ -1074,51 +1062,41 @@ function DashboardInner() {
                         transition={{ duration: 0.5, delay: 0.3 }}
                         className="text-[11px] md:text-xs text-gray-500 mb-6 text-center leading-relaxed"
                       >
-                        Nhấp vào nút bên dưới để bắt đầu đăng nhập an toàn qua Farcaster deeplink trong Base App.
+                        Click the button below to start a secure login via Farcaster deeplink in the Base App. The process will redirect to Warpcast for authentication.
                       </motion.p>
-                      <SignInButton
-                        onSuccess={handleFarcasterSuccess}
-                        onError={(error) => {
-                          safeError('AuthKit error:', error);
-                          setBaseAuthFailed(true);
-                          toast.error(`Farcaster error: ${error.message || 'Deeplink cancelled'}. Vui lòng thử lại.`);
-                        }}
-                        className="!w-full !px-4 !m-2 !py-2.5 !bg-black/20 !border !border-white/25 !rounded-2xl !text-white !text-sm !font-semibold !flex !items-center !justify-center !gap-3 !transition-all !duration-300 hover:!bg-gray-800/30 hover:!border-white/40 !bg-purple-600 hover:!bg-purple-700"
-                        style={{
-                          display: 'flex !important',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          backgroundColor: 'rgba(0,0,0,0.2) !important',
-                          border: '1px solid rgba(255,255,255,0.25) !important',
-                          color: 'white !important',
-                          borderRadius: '1rem !important',
-                          transition: 'all 0.3s !important',
-                        }}
-                        buttonText="Bắt đầu đăng nhập"
-                        showLogo={true}
+                      <button
+                        onClick={handleMiniAppQuickAuth}  // UPDATED: Gọi SDK quickAuth → Deeplink đến Warpcast như auto cũ
+                        disabled={miniAppAuthLoading || worldAuthLoading}  // NEW: Disable trong loading
+                        className="w-full px-4 py-2.5 border-2 border-white/15 bg-white/10 text-white rounded-2xl text-sm font-semibold transition-all duration-300 hover:border-white/30 hover:bg-white/20 flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed"
                       >
-                        <Image
-                          src="/logos/farcaster-logo.webp"
-                          alt="Farcaster Logo"
-                          width={20}
-                          height={20}
-                          className="w-6 h-6 rounded-xl object-contain mr-2"
-                        />
-                        Đăng nhập qua Base App (Farcaster Deeplink)
-                      </SignInButton>
+                        {miniAppAuthLoading ? (
+                          <span>Connecting...</span>
+                        ) : (
+                          <>
+                            <Image
+                              src="/logos/farcaster-logo.webp"
+                              alt="Farcaster Logo"
+                              width={20}
+                              height={20}
+                              className="w-6 h-6 rounded-xl object-contain mr-2"
+                            />
+                            Start Login.
+                          </>
+                        )}
+                      </button>
                       <motion.p
                         initial={{ opacity: 0, y: 10 }}
                         animate={{ opacity: 1, y: 0 }}
                         transition={{ duration: 0.5, delay: 0.5 }}
                         className="mt-4 text-[11px] text-gray-500 text-center leading-relaxed"
                       >
-                        Bằng cách nhấp tiếp tục, bạn đồng ý với{' '}
+                        By clicking continue, you agree to the{' '}
                         <button onClick={() => openModal('terms')} className="text-white hover:underline">
-                          Điều khoản Dịch vụ
+                          Terms of Service
                         </button>{' '}
                         và{' '}
                         <button onClick={() => openModal('privacy')} className="text-white hover:underline">
-                          Chính sách Bảo mật
+                          Privacy Policy
                         </button>.
                       </motion.p>
                     </motion.div>
