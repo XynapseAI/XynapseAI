@@ -657,6 +657,12 @@ async function saveAutoLabelsToDB(addressesWithLabels) {
   const confUpdate = hasConf ? ', confidence = $6' : '';
 
   for (const [address, { label, confidence }] of Object.entries(addressesWithLabels)) {
+    // Skip saving if label is null, undefined, or empty to avoid NOT NULL violation
+    if (!label || label.trim() === '') {
+      logger.info(`Skipping auto-label save for ${address}: label is null/empty`);
+      continue;
+    }
+
     const image = '/icons/default.webp';
     const description = `Auto-labeled by ML (conf: ${confidence})`;
     const subcategory = 'ML Auto';
