@@ -1,3 +1,4 @@
+// utils\serverClustering.js
 // utils/serverClustering.js (Pure JS primary, no TF import attempt unless env, fix logger to console for strings)
 import { logger } from './serverLogger';
 
@@ -138,7 +139,7 @@ async function isolationForestAnomaly(allNodes, nodeIdx, tf = null) {
   return Math.min(1, anomalyScore);
 }
 
-// Auto-label (pure JS rule-based primary, TF optional)
+// Enhanced Auto-label (pure JS rule-based primary, TF optional) - Improved logic for diverse classifications
 async function autoLabelWallets(wallets, tf = null) {
   const labels = {};
   for (const wallet of wallets) {
@@ -149,7 +150,7 @@ async function autoLabelWallets(wallets, tf = null) {
       wallet.velocity || 0,
       wallet.uniqueTokens || 0,
     ];
-    let predictedLabel = 'Unknown';
+    let predictedLabel = null;
     let confidence = 0.5;
 
     if (tf) {
@@ -159,7 +160,7 @@ async function autoLabelWallets(wallets, tf = null) {
         const featTensor = tf.tensor2d([features]);
         const scores = tf.softmax(tf.matMul(featTensor, weights.transpose())).dataSync();
         const maxScore = Math.max(...scores);
-        predictedLabel = maxScore > 0.6 ? (scores[0] > scores[1] ? 'Exchange' : 'Whale') : 'DeFi User';
+        predictedLabel = maxScore > 0.6 ? (scores[0] > scores[1] ? 'Exchange' : 'Whale') : null;
         confidence = maxScore;
         weights.dispose();
         featTensor.dispose();
@@ -167,14 +168,26 @@ async function autoLabelWallets(wallets, tf = null) {
         console.warn('TF auto-label failed:', tfErr.message);
       }
     }
-    // Rule-based fallback (always)
-    const volume = parseFloat(wallet.totalValue || 0);
+    // Enhanced Rule-based fallback (always) - More diverse and behavior/volume-based - Only for Institution, Whale, Exchange, NFT Collector
+    const totalValue = parseFloat(wallet.totalValue || 0);
     const txCount = parseFloat(wallet.txCount || 0);
     const degree = wallet.degree || 0;
-    if (txCount > 100 && degree > 10) predictedLabel = 'Exchange';
-    else if (volume > 100000) predictedLabel = 'Whale';
-    else if (wallet.uniqueTokens > 20) predictedLabel = 'NFT Collector';
-    else predictedLabel = 'DeFi User';
+    const velocity = wallet.velocity || 0;
+    const uniqueTokens = wallet.uniqueTokens || 0;
+    if (degree > 20 || txCount > 500) {
+      predictedLabel = 'Exchange';
+      confidence = Math.min(0.9, 0.7 + (degree / 100)); // Higher conf for stronger match
+    } else if (totalValue > 1000000) {
+      predictedLabel = 'Whale';
+      confidence = Math.min(0.9, 0.8 + (totalValue / 1e7)); // Scale with volume
+    } else if (totalValue > 100000 && degree > 8 && velocity < 1.5) {
+      predictedLabel = 'Institution';
+      confidence = 0.75;
+    } else if (uniqueTokens >= 30) {
+      predictedLabel = 'NFT Collector';
+      confidence = 0.7;
+    }
+    // No fallback - predictedLabel remains null if no match
     confidence = Math.min(0.9, confidence + 0.2); // Boost rule conf
     labels[wallet.id.toLowerCase()] = { label: predictedLabel, confidence: confidence.toFixed(2) };
   }
@@ -229,9 +242,18 @@ export async function detectClustersServer(nodes, edges, options = { useML: true
     }
     node.burstScore = Math.min(burstScore / Math.max(node.txCount || 1, 1), 1);
     node.degree = adjacencyList.get(node.id.toLowerCase())?.size || 0;
+    // Compute per-node uniqueTokens and velocity for better labeling
+    const uniqueTokens = new Set(nodeTxs.map(e => e.tokenSymbol || 'unknown')).size;
+    node.uniqueTokens = uniqueTokens;
+    let velocity = 0;
+    if (times.length > 1) {
+      const spanDays = (times[times.length-1] - times[0]) / (86400000);
+      velocity = times.length / Math.max(spanDays, 1);
+    }
+    node.velocity = velocity;
   });
 
-  // Auto-label (always pure JS capable)
+  // Auto-label (always pure JS capable) - Now uses enhanced rules
   const autoLabels = await autoLabelWallets(nodes, tf);
   nodes.forEach(node => {
     const label = autoLabels[node.id.toLowerCase()];
@@ -525,7 +547,7 @@ export async function detectClustersServer(nodes, edges, options = { useML: true
       return avgB - avgA;
     }).slice(0, 3);
 
-    const clusterAutoLabel = group.wallets[0]?.autoLabel || 'Cluster';
+    const clusterAutoLabel = group.wallets[0]?.autoLabel || null;
 
     console.log(`Cluster ${commId}:`, { nametag: clusterNametag, autoLabel: clusterAutoLabel, wallets: group.wallets.length, tx: uniqueTxs.length, risk: clusterRisk.toFixed(3) });
 
