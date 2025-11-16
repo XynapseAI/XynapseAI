@@ -416,6 +416,13 @@ export const authOptions = {
               return null;
             }
 
+            // NEW: Light domain check to prevent origin mismatch (fix PC config error)
+            const expectedDomain = process.env.NEXTAUTH_URL ? new URL(process.env.NEXTAUTH_URL).hostname : req?.headers?.host || 'localhost:3000';
+            if (message.domain !== expectedDomain) {
+              logger.error("Domain mismatch in Farcaster SIWE", { expected: expectedDomain, got: message.domain });
+              return null;
+            }
+
             const resources = message.resources;
             if (!resources || !Array.isArray(resources) || resources.length === 0) {
               logger.error("No resources in Farcaster message");
@@ -751,12 +758,13 @@ export const authOptions = {
       logger.info("Session created", { session: JSON.stringify(session) });
       return session;
     },
+    // FIXED: Use standard NextAuth redirect callback (remove custom cleanUrl to avoid loop/config error)
     async redirect({ url, baseUrl }) {
-      // FIXED: Clear callbackUrl query để avoid loop
-      let cleanUrl = url.replace(/[?&]callbackUrl=[^&]*/, '');
-      if (cleanUrl.startsWith('/')) return `${baseUrl}${cleanUrl}`;
-      if (cleanUrl === baseUrl || cleanUrl === `${baseUrl}/dashboard`) return cleanUrl;
-      return baseUrl + '/dashboard';
+      // Allows relative callback URLs
+      if (url.startsWith('/')) return `${baseUrl}${url}`;
+      // Allows callback URLs on the same origin
+      else if (new URL(url).origin === baseUrl) return url;
+      return baseUrl;
     },
   },
   ...(isProd && {

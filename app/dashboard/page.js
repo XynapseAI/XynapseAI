@@ -2,7 +2,7 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useAccount, useDisconnect, useSignMessage } from 'wagmi';
-import { signIn, signOut, useSession, getProviders, getCsrfToken } from 'next-auth/react';
+import { signIn, signOut, useSession, getProviders } from 'next-auth/react';
 import Header from '../../components/Header';
 import AITab from '../../components/AITab';
 import ProfileTab from '../../components/ProfileTab';
@@ -336,6 +336,8 @@ function DashboardInner() {
   // NEW: Farcaster signIn hook for manual deeplink trigger
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const { signIn: farcasterSignIn } = useSignIn();
+  // NEW: Separate state for Warpcast detection (for relaxed guard)
+  const [isWarpcastMobile, setIsWarpcastMobile] = useState(false);
 
   // FIXED: App domain from env (fix origin mismatch in preview)
   const appDomain = process.env.NEXT_PUBLIC_APP_DOMAIN || window.location.hostname;
@@ -430,7 +432,8 @@ function DashboardInner() {
     safeLog('Full UserAgent (debug):', navigator.userAgent); // NEW: Log full UA for testing
 
     const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent); // NEW: Mobile check to avoid PC extension false positive
-    const isWarpcastMobile = userAgent.includes('warpcast') || userAgent.includes('farcaster');  // Only Warpcast UA for auto
+    const isWarpcastDetected = userAgent.includes('warpcast') || userAgent.includes('farcaster');  // FIXED: Rename and set state
+    setIsWarpcastMobile(isWarpcastDetected);  // NEW: Separate state for Warpcast
     const isBaseUADetected = userAgent.includes('coinbasewallet') || userAgent.includes('cbwallet') || userAgent.includes('base') || userAgent.includes('coinbase'); // Detect Base explicit + coinbase
     const isCoinbaseWallet = !!window.ethereum && window.ethereum.isCoinbaseWallet; // NEW: Standard Web3 detection for Coinbase Wallet/Base App webview
 
@@ -449,14 +452,14 @@ function DashboardInner() {
     }); // NEW: Debug log
 
     const sdkAvailable = typeof sdk !== 'undefined' && !!sdk.quickAuth;  // Check SDK explicit
-    const miniAppDetected = (isSDKLoaded && (context === 'miniapp' || !!miniAppUser)) || isWarpcastMobile || sdkAvailable;  // Remove broad isFarcasterMobile (causes false positive in Base)
+    const miniAppDetected = (isSDKLoaded && (context === 'miniapp' || !!miniAppUser)) || isWarpcastDetected || sdkAvailable;  // FIXED: Use isWarpcastDetected
     setIsMiniApp(miniAppDetected && !isBaseAppDetected); // Exclude Base from auto - FIXED: Use new detected flag
 
     if (isBaseAppDetected) {
       setFallbackToManual(true); // Force manual for Base App
     }
 
-    safeLog('Mini App Detection Debug:', { isSDKLoaded, context, miniAppUser, userAgent, sdkAvailable, miniAppDetected, isWarpcastMobile, isBaseApp: isBaseAppDetected });
+    safeLog('Mini App Detection Debug:', { isSDKLoaded, context, miniAppUser, userAgent, sdkAvailable, miniAppDetected, isWarpcast: isWarpcastDetected, isBaseApp: isBaseAppDetected });
 
     if (miniAppDetected && miniAppUser) {
       safeLog('Mini App ready! User FID:', miniAppUser?.fid);
@@ -526,14 +529,14 @@ function DashboardInner() {
     }
   }, [status, signIn, update, isBaseApp]);  // ADD: isBaseApp to deps
 
-  // FIXED: Add guard for real miniapp context to prevent PC false trigger
+  // FIXED: Relax guard for Warpcast: If isWarpcastMobile, skip Neynar context/user check to enable auto quickAuth
   useEffect(() => {
-    if (!isMiniApp || status !== 'unauthenticated' || session || miniAppAuthLoading || attemptedAuthRef.current || (context !== 'miniapp' && !miniAppUser)) {
+    if (!isMiniApp || status !== 'unauthenticated' || session || miniAppAuthLoading || attemptedAuthRef.current || (!isWarpcastMobile && context !== 'miniapp' && !miniAppUser)) {
       return;
     }
     attemptedAuthRef.current = true; // One-time
     handleMiniAppQuickAuth();
-  }, [isMiniApp, status, session, miniAppAuthLoading, handleMiniAppQuickAuth, context, miniAppUser]);  // ADD: context, miniAppUser to deps
+  }, [isMiniApp, status, session, miniAppAuthLoading, handleMiniAppQuickAuth, context, miniAppUser, isWarpcastMobile]);  // ADD: isWarpcastMobile to deps
 
   // NEW: Detect World Mini App
   useEffect(() => {
@@ -786,17 +789,15 @@ function DashboardInner() {
     }
   };
 
-  // FIXED: Merge old handleFarcasterSuccess with new (add authSuccess + shallow push)
+  // FIXED: Merge old handleFarcasterSuccess with new (add authSuccess + shallow push). REMOVED: csrfToken (let NextAuth add automatically to avoid duplicate/mismatch)
   const handleFarcasterSuccess = async (result) => {
     try {
-      const csrf = await getCsrfToken();  // Fetch CSRF token
-      if (!csrf) throw new Error('CSRF token unavailable');
+      // REMOVED: const csrf = await getCsrfToken(); // Not needed, NextAuth handles CSRF in signIn POST
 
       const res = await signIn('farcaster', {
         message: result.message,
         signature: result.signature,
-        // Pass CSRF explicit for Credentials POST
-        csrfToken: csrf,
+        // REMOVED: csrfToken: csrf, // Avoid duplicate CSRF in credentials
       }, {
         redirect: false,
         // Ensure cookies forwarded
