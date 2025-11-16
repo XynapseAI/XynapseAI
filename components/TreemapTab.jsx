@@ -61,7 +61,7 @@ const VirtuosoTable = memo(({ transactions, isMobile, selectedChain, tokenImages
         initial={{ opacity: 0, x: 20 }}
         animate={{ opacity: 1, x: 0 }}
         transition={{ duration: 0.3 }}
-        className={`bg-black/50 backdrop-blur-md border border-white/10 rounded-xl p-3 max-h-[calc(100vh-12rem)] hide-scrollbar ${isMobile ? 'w-full mt-2' : 'w-96 fixed right-4 top-32'}`}
+        className={`bg-black/10 backdrop-blur-md border border-white/10 rounded-xl p-3 max-h-[calc(100vh-12rem)] hide-scrollbar ${isMobile ? 'w-full mt-2' : 'w-96 fixed right-4 top-32'}`}
       >
         <h4 className="text-white text-[10px] sm:text-[12px] font-bold uppercase tracking-wider mb-2">Transactions</h4>
         <p className="text-white/60 text-[9px] sm:text-[10px]">No transactions available.</p>
@@ -277,7 +277,7 @@ const VirtuosoTable = memo(({ transactions, isMobile, selectedChain, tokenImages
       initial={{ opacity: 0, x: 20 }}
       animate={{ opacity: 1, x: 0 }}
       transition={{ duration: 0.3 }}
-      className={`bg-black/50 backdrop-blur-md border border-white/10 rounded-xl p-3 hide-scrollbar ${isMobile ? 'w-full mt-2 overflow-auto max-h-[50vh]' : 'w-96 fixed right-4 top-32'}`}
+      className={`bg-black/10 backdrop-blur-md border border-white/10 rounded-xl p-3 hide-scrollbar ${isMobile ? 'w-full mt-2 overflow-auto max-h-[50vh]' : 'w-96 fixed right-4 top-32'}`}
       style={{ height: tableHeight, minHeight: '400px' }}
     >
       <h4 className="text-white text-[10px] sm:text-[12px] font-bold uppercase tracking-wider mb-2">Transactions</h4>
@@ -341,6 +341,7 @@ const VirtuosoTable = memo(({ transactions, isMobile, selectedChain, tokenImages
     </motion.div>
   );
 });
+
 const TrendChart = memo(({ transactions, velocity }) => {
   const getTimeInterval = useCallback((timestamps) => {
     const minTime = Math.min(...timestamps);
@@ -472,7 +473,7 @@ const ClusterDashboard = memo(({ entity, isMobile, tokenImages }) => {
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.3 }}
-      className={`bg-gradient-to-br from-black/60 to-black/30 backdrop-blur-lg border border-white/20 rounded-2xl p-3 shadow-neon-md hide-scrollbar max-h-[calc(100vh-8rem)] ${isMobile ? 'w-full mt-2 overflow-auto max-h-[40vh]' : 'w-80 fixed left-4 top-32'}`}
+      className={`bg-black/10 backdrop-blur-lg border border-white/20 rounded-2xl p-3 shadow-neon-md hide-scrollbar max-h-[calc(100vh-8rem)] ${isMobile ? 'w-full mt-2 overflow-auto max-h-[40vh]' : 'w-80 fixed left-4 top-32'}`}
       style={{ overflowY: 'auto' }}
     >
       <h4 className="text-white text-[11px] font-bold mb-2 bg-gradient-to-r from-neon-blue/30 to-transparent rounded p-1 flex items-center gap-2">
@@ -1308,7 +1309,7 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
       const graphNodes = positionedNodes.map(n => ({
         id: n.id,
         ...n, // includes x, y, fx, fy
-        val: n.layer === 1 ? 33.6 : n.layer === 2 ? 16.8 : 8.4, // Increased 20% from previous (28,14,7)
+        val: n.layer === 1 ? 40.32 : n.layer === 2 ? 20.16 : 10.08, // Increased another 20% from previous (33.6,16.8,8.4)
         group: n.layer,
         color: n.layer === 1 ? '#4F46E5' : n.layer === 2 ? '#10B981' : n.layer === 3 ? '#F59E0B' : '#666' // Explicit color
       }));
@@ -1440,12 +1441,12 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
       graphRef.current = ForceGraph()(containerRef.current)
         .graphData({ nodes: graphNodes, links: graphLinks })
         .backgroundColor('rgba(0,0,0,0.3)')
-        .nodeRelSize(13.2) // Increased 20% from 11
+        .nodeRelSize(15.84) // Increased another 20% from 13.2
         .nodeVal(node => {
           let baseVal = Math.sqrt(node.totalValue || 1) + 1;
-          if (node.layer === 1) return baseVal * 7.8; // Increased 20% from 6.5
-          if (node.layer === 2) return baseVal * 4.8; // Increased 20% from 4
-          return baseVal * 2.4; // Increased 20% from 2
+          if (node.layer === 1) return baseVal * 9.36; // Increased another 20% from 7.8
+          if (node.layer === 2) return baseVal * 5.76; // Increased another 20% from 4.8
+          return baseVal * 2.88; // Increased another 20% from 2.4
         })
         .nodeLabel(node => {
           // Giữ nguyên label HTML
@@ -1774,7 +1775,7 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.5, ease: 'easeInOut' }}
-      className={`font-jetbrains w-full max-w-9xl mx-auto mt-4 sm:mt-5 p-2 sm:p-3 h-[calc(100vh)] rounded-xl bg-white/5 ${isMobile ? 'pb-8 overflow-y-auto hide-scrollbar' : 'flex'}`}
+      className={`font-jetbrains w-full max-w-9xl mx-auto mt-2 sm:mt-3 p-2 sm:p-3 h-[calc(100vh)] rounded-xl bg-white/5 ${isMobile ? 'pb-8 overflow-y-auto hide-scrollbar' : 'flex'}`}
     >
       <ToastContainer
         position="top-center"
@@ -2061,7 +2062,7 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
           </motion.div>
         )}
         {walletInfo.address && (
-          <div className="relative w-full h-[calc(100vh-10rem)] sm:h-[calc(100vh-8rem)] overflow-hidden">
+          <div className="relative w-full h-[calc(100vh-8rem)] sm:h-[calc(100vh-6rem)] overflow-hidden">
             <div className="flex gap-2 mb-2 mt-2 justify-center">
               {nodes.length >= page * NODES_PER_PAGE && nodes.length < MAX_NODES && (
                 <motion.button
