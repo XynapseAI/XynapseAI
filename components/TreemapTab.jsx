@@ -336,7 +336,7 @@ const VirtuosoTable = memo(({ transactions, isMobile, selectedChain, tokenImages
             />
           ),
         }}
-        overscan={400}
+        overscan={200} // Reduced from 400 for faster rendering
       />
     </motion.div>
   );
@@ -560,9 +560,9 @@ const ClusterDashboard = memo(({ entity, isMobile, tokenImages }) => {
     </motion.div>
   );
 });
-const CACHE_TTL = 7200000; // Increased TTL for longer caching (2 hours)
+const CACHE_TTL = 7200000; // Increased to 2 hours for longer caching
 const NODES_PER_PAGE = 50;
-const MAX_NODES = 500; // Reduced from 1000 to improve performance
+const MAX_NODES = 1000; // Scalability limit
 // THÊM HÀM NÀY VÀO ĐÂY (ngay trước export default)
 function simpleRuleBasedClustering(nodesData, edgesData) {
   const clusters = [];
@@ -642,7 +642,6 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
     chainLogo: '/icons/default.webp',
   });
   const [loading, setLoading] = useState(false);
-  const [clusteringLoading, setClusteringLoading] = useState(false); // New: Separate loading for clustering
   const [logMessages, setLogMessages] = useState([]);
   const [selectedChain, setSelectedChain] = useState(initialChain);
   const [isChainDropdownOpen, setIsChainDropdownOpen] = useState(false);
@@ -703,435 +702,9 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
       setNodes(limitedNodes);
       setEdges(limitedEdges);
       setNametags((prev) => ({ ...prev, ...newNametags }));
-      // Initialize graph immediately, cluster in background
-      initializeForceGraphWithoutClustering(limitedNodes, limitedEdges);
-      performClusteringInBackground(limitedNodes.map(n => n.data), limitedEdges.map(e => e.data));
+      setTimeout(() => initializeForceGraph(), 100);
     }
   }, [filterType, fullIncomingData, fullOutgoingData, fullLayer3Data, walletAddress, page]);
-
-  const filterTransactions = useCallback((transactions, filterType, rootId, walletId = null) => {
-    if (!transactions || !Array.isArray(transactions)) {
-      logger.warn('Invalid transactions array:', transactions);
-      return [];
-    }
-    let txs = transactions.map(tx => ({
-      ...tx,
-      source: tx.source?.toLowerCase(),
-      target: tx.target?.toLowerCase(),
-    }));
-    if (walletId) {
-      logger.log(`Filtering transactions for walletId: ${walletId}`);
-      txs = txs.filter(
-        (tx) =>
-          (tx.source === walletId.toLowerCase() || tx.target === walletId.toLowerCase()) &&
-          tx.source && tx.target
-      );
-    }
-    if (filterType !== 'all') {
-      logger.log(`Applying filterType: ${filterType}, rootId: ${rootId}`);
-      txs = txs.filter((tx) => {
-        if (!tx.source || !tx.target) {
-          logger.warn('Invalid transaction (missing source or target):', tx);
-          return false;
-        }
-        if (filterType === 'incoming') {
-          return tx.type === 'incoming' && tx.target === rootId?.toLowerCase();
-        }
-        if (filterType === 'outgoing') {
-          return tx.type === 'outgoing' && tx.source === rootId?.toLowerCase();
-        }
-        return false;
-      });
-    }
-    const uniqueTxs = [...new Set(txs.map(JSON.stringify))].map(JSON.parse);
-    logger.log(`Filtered transactions (walletId: ${walletId || 'none'}, filterType: ${filterType}):`, uniqueTxs.length);
-    return uniqueTxs;
-  }, []);
-
-  // New: Initialize graph without clustering first for faster load
-  const initializeForceGraphWithoutClustering = useCallback((positionedNodes, graphLinksTemp) => {
-    if (!containerRef.current || !positionedNodes.length || !walletInfo.address) {
-      logger.warn('Cannot initialize ForceGraph without clustering: missing container, nodes, or walletInfo.address');
-      return;
-    }
-
-    try {
-      // Skip TF.js for non-clustering init
-      logger.log('Initializing graph without clustering for faster load');
-
-      if (graphRef.current) {
-        graphRef.current.pauseAnimation();
-        containerRef.current.innerHTML = ''; // Clear previous canvas
-        logger.log('Cleared previous ForceGraph instance');
-      }
-
-      const rootId = walletInfo.address.toLowerCase();
-
-      // Prepare initial positions for layered layout (same as before)
-      const graphNodes = positionedNodes.map(n => ({ ...n.data }));
-      const rootData = graphNodes.find(n => n.isRoot);
-      if (rootData) {
-        rootData.x = 0;
-        rootData.y = 0;
-        rootData.fx = rootData.x;
-        rootData.fy = rootData.y;
-      }
-      const layer2Datas = graphNodes.filter(n => n.layer === 2);
-      const radius2 = 250;
-      const numL2 = layer2Datas.length;
-      if (numL2 > 0) {
-        const angleStep = 2 * Math.PI / numL2;
-        layer2Datas.forEach((nd, i) => {
-          const angle = i * angleStep;
-          nd.x = Math.cos(angle) * radius2;
-          nd.y = Math.sin(angle) * radius2;
-        });
-      }
-      const layer3Datas = graphNodes.filter(n => n.layer === 3);
-      const parentChildMap = new Map(); // childId -> parentId
-      graphLinksTemp.forEach(link => {
-        if (link.layer === 3) {
-          const ids = [link.source, link.target];
-          const l2id = graphNodes.find(n => n.id === ids[0] && n.layer === 2)?.id || graphNodes.find(n => n.id === ids[1] && n.layer === 2)?.id;
-          if (l2id) {
-            const childId = ids[0] === l2id ? ids[1] : ids[0];
-            parentChildMap.set(childId, l2id);
-          }
-        }
-      });
-      const childrenByParent = new Map();
-      layer3Datas.forEach(nd => {
-        const parentId = parentChildMap.get(nd.id);
-        if (parentId) {
-          if (!childrenByParent.has(parentId)) childrenByParent.set(parentId, []);
-          childrenByParent.get(parentId).push(nd);
-        }
-      });
-      const radius3 = 100;
-      childrenByParent.forEach((children, parentId) => {
-        const parent = graphNodes.find(n => n.id === parentId);
-        if (!parent || !parent.x || !parent.y) return;
-        const numC = children.length;
-        const angleStep3 = 2 * Math.PI / Math.max(1, numC);
-        children.forEach((nd, i) => {
-          const angle = i * angleStep3 + (Math.random() - 0.5) * angleStep3 * 0.2; // small jitter
-          nd.x = parent.x + Math.cos(angle) * radius3;
-          nd.y = parent.y + Math.sin(angle) * radius3;
-        });
-      });
-      // Orphan layer3
-      const orphanL3 = layer3Datas.filter(nd => !parentChildMap.has(nd.id));
-      if (orphanL3.length > 0) {
-        const outerRadius = radius2 + 150;
-        orphanL3.forEach((nd, i) => {
-          const angle = i * (2 * Math.PI / orphanL3.length);
-          nd.x = Math.cos(angle) * outerRadius;
-          nd.y = Math.sin(angle) * outerRadius;
-        });
-      }
-
-      // Prepare graph data with explicit color assignment
-      const finalGraphNodes = graphNodes.map(n => ({
-        id: n.id,
-        ...n, // includes x, y, fx, fy
-        val: n.layer === 1 ? 40.32 : n.layer === 2 ? 20.16 : 10.08, // Increased another 20% from previous (33.6,16.8,8.4)
-        group: n.layer,
-        color: n.layer === 1 ? '#4F46E5' : n.layer === 2 ? '#10B981' : n.layer === 3 ? '#F59E0B' : '#666' // Explicit color
-      }));
-
-      const finalGraphLinks = graphLinksTemp.map(e => ({
-        source: e.source,
-        target: e.target,
-        ...e,
-        width: e.layer === 3 ? 0.15 : 0.4 // Thinner links, reduced 50%
-      }));
-
-      // Set selectedEntity for root node/cluster data (fallback without clusters)
-      let clusterData;
-      let filteredRootTxs = [];
-      if (filterType === 'all' || filterType === 'incoming') {
-        filteredRootTxs.push(...fullIncomingData.map(tx => ({
-          ...tx,
-          type: 'incoming',
-          source: tx.address.toLowerCase(),
-          target: rootId,
-        })));
-      }
-      if (filterType === 'all' || filterType === 'outgoing') {
-        filteredRootTxs.push(...fullOutgoingData.map(tx => ({
-          ...tx,
-          type: 'outgoing',
-          source: rootId,
-          target: tx.address.toLowerCase(),
-        })));
-      }
-
-      let filteredLayer3ForCluster = [];
-      if (fullLayer3Data.length > 0) {
-        const layer3Filter = fullLayer3Data.filter(tx => tx.nametag && tx.nametag !== 'Unknown');
-        const layer3ToInclude = filterType === 'all' ? layer3Filter : layer3Filter.filter(tx => tx.type === filterType);
-        filteredLayer3ForCluster = layer3ToInclude.map(tx => ({
-          ...tx,
-          source: tx.type === 'incoming' ? tx.address.toLowerCase() : tx.layer2Address.toLowerCase(),
-          target: tx.type === 'incoming' ? tx.layer2Address.toLowerCase() : tx.address.toLowerCase(),
-        }));
-      }
-
-      const allTxs = [...filteredRootTxs, ...filteredLayer3ForCluster];
-      const connectedWallets = [...new Set(allTxs.map(tx => [tx.source, tx.target].filter(id => id !== rootId)).flat().filter(Boolean))];
-      const uniqueTxs = [...new Set(allTxs.map(JSON.stringify))].map(JSON.parse);
-
-      const getTime = (bt) => {
-        if (typeof bt === 'number') return bt * 1000;
-        if (typeof bt === 'string' || bt instanceof Date) return new Date(bt).getTime();
-        return null;
-      };
-
-      const times = uniqueTxs.map(tx => getTime(tx.block_time)).filter(t => t !== null).sort((a, b) => a - b);
-      let velocity = 0;
-      if (times.length > 1) {
-        const timeSpanDays = (times[times.length - 1] - times[0]) / (1000 * 60 * 60 * 24);
-        velocity = uniqueTxs.length / Math.max(timeSpanDays, 1);
-      } else if (times.length === 1) {
-        velocity = 1;
-      }
-
-      const tokenKeys = uniqueTxs.map(tx => tx.contractAddress?.toLowerCase() || tx.tokenSymbol?.toLowerCase() || 'unknown');
-      const uniqueTokens = new Set(tokenKeys).size;
-
-      const connectedWalletsWithData = connectedWallets.map(cid => {
-        const node = positionedNodes.find(n => n.data.id.toLowerCase() === cid);
-        if (node) {
-          const w = { ...node.data };
-          w.totalValue = parseFloat(w.totalValue || 0);
-          return w;
-        }
-        return { id: cid, totalValue: 0 };
-      });
-
-      const rootWalletNode = positionedNodes.find(n => n.data.id.toLowerCase() === rootId);
-      const rootWalletData = rootWalletNode ? { ...rootWalletNode.data } : { id: rootId, totalValue: 0 };
-      rootWalletData.totalValue = parseFloat(rootWalletData.totalValue || 0);
-
-      const allWallets = [rootWalletData, ...connectedWalletsWithData];
-
-      clusterData = {
-        clusterId: 'root',
-        nametag: walletInfo.nametag || truncateAddress(rootId),
-        image: walletInfo.image,
-        wallets: allWallets,
-        transactions: allTxs,
-        riskScore: 0,
-        velocity,
-        uniqueTokens,
-      };
-
-      setSelectedEntity({ type: 'cluster', data: clusterData });
-
-      // Preload images in parallel (unchanged)
-      const imageCache = {};
-      const uniqueImages = [...new Set(finalGraphNodes.map(n => n.image).filter(isValidNametagImage))];
-      Promise.all(uniqueImages.map(url => new Promise((resolve) => {
-        if (imageCache[url]) return resolve();
-        const img = new Image();
-        img.crossOrigin = 'anonymous';
-        img.onload = () => {
-          imageCache[url] = img;
-          resolve();
-        };
-        img.onerror = () => resolve();
-        img.src = url.startsWith('http') ? url : `${window.location.origin}${url}`;
-      }))).then(() => {
-        logger.log(`Preloaded ${Object.keys(imageCache).length}/${uniqueImages.length} images`);
-      });
-
-      // Initialize ForceGraph with optimized params for faster render
-      graphRef.current = ForceGraph()(containerRef.current)
-        .graphData({ nodes: finalGraphNodes, links: finalGraphLinks })
-        .backgroundColor('rgba(0,0,0,0.3)')
-        .nodeRelSize(15.84) // Increased another 20% from 13.2
-        .nodeVal(node => {
-          let baseVal = Math.sqrt(node.totalValue || 1) + 1;
-          if (node.layer === 1) return baseVal * 9.36; // Increased another 20% from 7.8
-          if (node.layer === 2) return baseVal * 5.76; // Increased another 20% from 4.8
-          return baseVal * 2.88; // Increased another 20% from 2.4
-        })
-        .nodeLabel(node => {
-          // Simplified label for faster render (remove cluster info until clustered)
-          return `
-          <div style="background: rgba(0,0,0,0.8); border: 1px solid rgba(255,255,255,0.1); color: rgba(255,255,255,0.8); padding: 4px 8px; border-radius: 4px; font-size: 12px;">
-            <div>${node.isRoot ? walletInfo.nametag || 'Unknown' : (node.label !== 'Unknown' ? node.label : truncateAddress(node.id))}${node.layer === 3 ? ' (L3)' : ''}</div>
-            <div>Tx: ${node.txCount} | Value: ${formatLargeNumber(Number(node.totalValue), 1)}$</div>
-          </div>
-        `;
-        })
-        .nodeCanvasObject((node, ctx, globalScale) => {
-          const label = node.label || truncateAddress(node.id);
-          const size = node.val / globalScale;
-          // Draw circle background
-          ctx.beginPath();
-          ctx.arc(node.x, node.y, size, 0, 2 * Math.PI, false);
-          ctx.fillStyle = node.color || '#666';
-          ctx.fill();
-          // Draw border
-          ctx.strokeStyle = '#fff';
-          ctx.lineWidth = 1 / globalScale;
-          ctx.stroke();
-          // Draw image if available
-          if (isValidNametagImage(node.image) && imageCache[node.image]) {
-            const img = imageCache[node.image];
-            ctx.save();
-            ctx.beginPath();
-            ctx.arc(node.x, node.y, size, 0, 2 * Math.PI);
-            ctx.clip();
-            ctx.drawImage(img, node.x - size, node.y - size, size * 2, size * 2);
-            ctx.restore();
-          }
-          // Bỏ vẽ text mặc định
-        })
-        .nodeCanvasObjectMode(() => 'replace')
-        .nodePointerAreaPaint((node, color, ctx) => {
-          // Custom pointer area to match drawn size, reduced for better interaction
-          const size = node.val * 0.8; // Slightly smaller area to avoid overlap
-          ctx.fillStyle = color;
-          ctx.beginPath();
-          ctx.arc(node.x, node.y, size, 0, 2 * Math.PI, false);
-          ctx.fill();
-        })
-        .linkColor(link => link.type === 'incoming' ? '#00BFFF' : '#EF4444')
-        .linkCurvature(0.25) // Curvature như example để giống dây
-        .linkDirectionalArrowLength(0) // Bỏ mũi tên
-        .linkDirectionalParticles(2) // Thêm particles để animation thực hơn
-        .linkDirectionalParticleSpeed(0.01)
-        .linkDirectionalParticleWidth(1)
-        .linkDirectionalParticleColor(link => link.type === 'incoming' ? '#00BFFF' : '#EF4444')
-        .linkCanvasObject((link, ctx, globalScale) => {
-          const start = link.source;
-          const end = link.target;
-          if (typeof start === 'object' && typeof end === 'object') {
-            ctx.beginPath();
-            ctx.moveTo(start.x, start.y);
-            ctx.lineTo(end.x, end.y);
-            ctx.strokeStyle = link.color || '#fff';
-            ctx.lineWidth = (link.width || 1) / globalScale;
-            ctx.stroke();
-          }
-        })
-        .linkCanvasObjectMode(() => 'replace')
-        .linkLabel(link => `${link.tokenSymbol || 'Unknown'} - ${formatLargeNumber(Number(link.value), 1)}`)
-        .linkHoverPrecision(10) // Increase precision to avoid false hovers
-        .onNodeClick((node, event) => {
-          // Simplified click until clustering
-          const walletId = node.id;
-          const filteredTxs = filterTransactions([...fullIncomingData, ...fullOutgoingData, ...fullLayer3Data], filterType, rootId, walletId);
-          setSelectedEntity({
-            type: 'wallet',
-            data: {
-              id: walletId,
-              nametag: node.label || truncateAddress(walletId),
-              image: node.image,
-              transactions: filteredTxs,
-            }
-          });
-        })
-        .onNodeHover(node => {
-          containerRef.current.style.cursor = node ? 'pointer' : null;
-        })
-        .onNodeDrag((node, translate) => {
-          graphRef.current.d3ReheatSimulation();
-        })
-        .onNodeDragEnd(node => {
-          node.fx = node.x;
-          node.fy = node.y;
-        })
-        .onBackgroundClick(() => {
-          // Optional: clear selection or hover
-        })
-        .d3Force('charge', d3.forceManyBody().strength(-300)) // Reduced repulsion for faster simulation
-        .d3Force('link', d3.forceLink().id(d => d.id).distance(link => link.layer === 3 ? 80 : 150).strength(0.8)) // Điều chỉnh link distance và strength theo layer
-        .d3AlphaDecay(0.0228) // Default for faster decay
-        .d3VelocityDecay(0.6) // Giảm để kéo node mượt hơn (ít damping hơn)
-        .warmupTicks(1000) // Reduced warmup for faster initial render
-        .cooldownTicks(2000) // Reduced cooldown
-        .enablePointerInteraction(true)
-        .enableNodeDrag(true)
-        .enableZoomInteraction(true)
-        .enablePanInteraction(true);
-
-      // Auto center on root
-      graphRef.current.centerAt(0, 0, 1000); // Reduced animation time
-      graphRef.current.zoom(1.5, 1000);
-    } catch (err) {
-      logger.error('Error initializing ForceGraph without clustering:', err);
-      toast.error('Graph visualization failed. Please refresh.', { position: 'top-right', theme: 'dark' });
-    }
-  }, [walletInfo, filterType, walletAddress, fullIncomingData, fullOutgoingData, fullLayer3Data, filterTransactions]);
-  // New: Perform clustering in background
-  const performClusteringInBackground = useCallback(async (nodesData, edgesData) => {
-    setClusteringLoading(true);
-    try {
-      // Try server clustering in parallel
-      const clusterPromise = fetch(`${apiBaseUrl}/api/cluster`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify({
-          nodes: nodesData,
-          edges: edgesData,
-          options: { useGNN: false, useDBSCAN: true } // Stable options
-        }),
-      }).then(async (response) => {
-        if (!response.ok) {
-          throw new Error(`Cluster API error: ${response.status} ${response.statusText}`);
-        }
-        const clusterData = await response.json();
-        if (!clusterData.success || !clusterData.clusters) {
-          throw new Error(clusterData.error || 'Invalid cluster response');
-        }
-        return clusterData.clusters;
-      }).catch((clusterErr) => {
-        logger.warn('Server clustering failed in background, using simple fallback:', clusterErr.message);
-        return simpleRuleBasedClustering(nodesData, edgesData);
-      });
-
-      const detectedClusters = await clusterPromise;
-      logger.log('Background clusters computed:', detectedClusters.map(c => ({
-        clusterId: c.clusterId,
-        nametag: c.nametag,
-        autoLabel: c.autoLabel,
-        walletCount: c.wallets.length,
-        transactionCount: c.transactions.length,
-      })));
-
-      setClusters(detectedClusters);
-
-      // Update graph with clusters (re-apply colors/labels)
-      if (graphRef.current && nodes.length > 0) {
-        detectedClusters.forEach((cluster, index) => {
-          cluster.wallets.forEach((wallet) => {
-            const node = graphRef.current.graphData().nodes.find(n => n.id.toLowerCase() === wallet.id.toLowerCase());
-            if (node) {
-              node.clusterId = cluster.clusterId || `cluster-${index}`;
-              node.clusterNametag = cluster.nametag;
-              node.autoLabel = cluster.autoLabel;
-            }
-          });
-        });
-        graphRef.current.refresh(); // Refresh to update labels/colors
-      }
-
-      // Update selected entity if root cluster available
-      const rootId = walletInfo.address.toLowerCase();
-      const rootCluster = detectedClusters.find(c => c.wallets.some(w => w.id.toLowerCase() === rootId));
-      if (rootCluster) {
-        setSelectedEntity({ type: 'cluster', data: rootCluster });
-      }
-    } catch (err) {
-      logger.error('Background clustering error:', err);
-    } finally {
-      setClusteringLoading(false);
-    }
-  }, [apiBaseUrl, walletInfo, nodes.length]);
   useEffect(() => {
     const fetchTokenImages = async () => {
       const uniqueTokens = [
@@ -1163,16 +736,16 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
         }
       });
       const tokensToFetch = uniqueTokens.filter((token) => !tokenInfo[token] && selectedChain !== 'bitcoin');
-      // Parallel fetch with reduced batch size for faster failure isolation
-      const fetchPromises = [];
-      for (let i = 0; i < tokensToFetch.length; i += 10) { // Batch in 10s for better concurrency
-        const batch = tokensToFetch.slice(i, i + 10);
-        fetchPromises.push(Promise.all(batch.map(async (token) => {
+      // Parallel fetch with concurrency limit to avoid rate limits
+      const concurrencyLimit = 10;
+      const fetchBatch = async (batch) => {
+        const batchPromises = batch.map(async (token) => {
           if (!token) {
             logger.warn(`Skipping invalid token: ${token}`);
             return;
           }
           try {
+            // Parallel: Cache, DB, CG in sequence per token, but batches parallel
             const cacheResponse = await fetch(`${apiBaseUrl}/api/cache?key=token_image_${token}`, {
               headers: { 'Content-Type': 'application/json' },
               credentials: 'include',
@@ -1258,9 +831,14 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
             logger.error(`Error fetching token image for ${token}:`, err.message);
             tokenInfo[token] = { image: '/icons/default.webp', symbol: token.toUpperCase() };
           }
-        })));
+        });
+        await Promise.all(batchPromises);
+      };
+      // Batch with concurrency
+      for (let i = 0; i < tokensToFetch.length; i += concurrencyLimit) {
+        const batch = tokensToFetch.slice(i, i + concurrencyLimit);
+        await fetchBatch(batch);
       }
-      await Promise.all(fetchPromises);
       logger.log('Token info fetched:', tokenInfo);
       setTokenImages(tokenInfo);
     };
@@ -1571,12 +1149,446 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
       setLoading(false);
     }
   }, [selectedChain, selectedLimit, session, apiBaseUrl, filterType, walletInfo]);
+  const filterTransactions = useCallback((transactions, filterType, rootId, walletId = null) => {
+    if (!transactions || !Array.isArray(transactions)) {
+      logger.warn('Invalid transactions array:', transactions);
+      return [];
+    }
+    let txs = transactions.map(tx => ({
+      ...tx,
+      source: tx.source?.toLowerCase(),
+      target: tx.target?.toLowerCase(),
+    }));
+    if (walletId) {
+      logger.log(`Filtering transactions for walletId: ${walletId}`);
+      txs = txs.filter(
+        (tx) =>
+          (tx.source === walletId.toLowerCase() || tx.target === walletId.toLowerCase()) &&
+          tx.source && tx.target
+      );
+    }
+    if (filterType !== 'all') {
+      logger.log(`Applying filterType: ${filterType}, rootId: ${rootId}`);
+      txs = txs.filter((tx) => {
+        if (!tx.source || !tx.target) {
+          logger.warn('Invalid transaction (missing source or target):', tx);
+          return false;
+        }
+        if (filterType === 'incoming') {
+          return tx.type === 'incoming' && tx.target === rootId?.toLowerCase();
+        }
+        if (filterType === 'outgoing') {
+          return tx.type === 'outgoing' && tx.source === rootId?.toLowerCase();
+        }
+        return false;
+      });
+    }
+    const uniqueTxs = [...new Set(txs.map(JSON.stringify))].map(JSON.parse);
+    logger.log(`Filtered transactions (walletId: ${walletId || 'none'}, filterType: ${filterType}):`, uniqueTxs.length);
+    return uniqueTxs;
+  }, []);
 
-  // Old initializeForceGraph removed, now split into without-clustering and background clustering
+  // Replace the entire initializeForceGraph function with this:
+
+  // Replace the entire initializeForceGraph function with this:
+
+  const initializeForceGraph = useCallback(async () => {
+    if (!containerRef.current || !nodes.length || !walletInfo.address) {
+      logger.warn('Cannot initialize ForceGraph: missing container, nodes, or walletInfo.address');
+      return;
+    }
+
+    try {
+      await TensorFlowJS; // Load pure TF for client-side if needed (non-clustering)
+      logger.log('TensorFlow.js loaded (client)');
+
+      if (graphRef.current) {
+        graphRef.current.pauseAnimation();
+        containerRef.current.innerHTML = ''; // Clear previous canvas
+        logger.log('Cleared previous ForceGraph instance');
+      }
+
+      const rootId = walletInfo.address.toLowerCase();
+
+      // Fetch server-side clusters with error handling & auto-label
+      let detectedClusters = [];
+      try {
+        const clusterResponse = await fetch(`${apiBaseUrl}/api/cluster`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+          body: JSON.stringify({
+            nodes: nodes.map(n => ({ ...n.data })),
+            edges: edges.map(e => ({ ...e.data })),
+            options: { useGNN: false, useDBSCAN: true } // Stable options
+          }),
+        });
+
+        if (!clusterResponse.ok) {
+          throw new Error(`Cluster API error: ${clusterResponse.status} ${clusterResponse.statusText}`);
+        }
+
+        const clusterData = await clusterResponse.json();
+        if (!clusterData.success || !clusterData.clusters) {
+          throw new Error(clusterData.error || 'Invalid cluster response');
+        }
+
+        detectedClusters = clusterData.clusters;
+        logger.log('Server clusters fetched successfully');
+      } catch (clusterErr) {
+        logger.warn('Server clustering failed, using simple fallback:', clusterErr.message);
+        detectedClusters = simpleRuleBasedClustering(nodes.map(n => n.data), edges.map(e => e.data));
+      }
+
+      logger.log('Detected clusters:', detectedClusters.map(c => ({
+        clusterId: c.clusterId,
+        nametag: c.nametag,
+        autoLabel: c.autoLabel,
+        walletCount: c.wallets.length,
+        transactionCount: c.transactions.length,
+      })));
+
+      setClusters(detectedClusters);
+
+      // Prepare initial positions for layered layout
+      const positionedNodes = nodes.map(n => ({ ...n.data }));
+      const rootData = positionedNodes.find(n => n.isRoot);
+      if (rootData) {
+        rootData.x = 0;
+        rootData.y = 0;
+        rootData.fx = rootData.x;
+        rootData.fy = rootData.y;
+      }
+      const layer2Datas = positionedNodes.filter(n => n.layer === 2);
+      const radius2 = 250;
+      const numL2 = layer2Datas.length;
+      if (numL2 > 0) {
+        const angleStep = 2 * Math.PI / numL2;
+        layer2Datas.forEach((nd, i) => {
+          const angle = i * angleStep;
+          nd.x = Math.cos(angle) * radius2;
+          nd.y = Math.sin(angle) * radius2;
+        });
+      }
+      const layer3Datas = positionedNodes.filter(n => n.layer === 3);
+      const parentChildMap = new Map(); // childId -> parentId
+      const graphLinksTemp = edges.map(e => ({ ...e.data })); // Temp for positioning
+      graphLinksTemp.forEach(link => {
+        if (link.layer === 3) {
+          const ids = [link.source, link.target];
+          const l2id = positionedNodes.find(n => n.id === ids[0] && n.layer === 2)?.id || positionedNodes.find(n => n.id === ids[1] && n.layer === 2)?.id;
+          if (l2id) {
+            const childId = ids[0] === l2id ? ids[1] : ids[0];
+            parentChildMap.set(childId, l2id);
+          }
+        }
+      });
+      const childrenByParent = new Map();
+      layer3Datas.forEach(nd => {
+        const parentId = parentChildMap.get(nd.id);
+        if (parentId) {
+          if (!childrenByParent.has(parentId)) childrenByParent.set(parentId, []);
+          childrenByParent.get(parentId).push(nd);
+        }
+      });
+      const radius3 = 100;
+      childrenByParent.forEach((children, parentId) => {
+        const parent = positionedNodes.find(n => n.id === parentId);
+        if (!parent || !parent.x || !parent.y) return;
+        const numC = children.length;
+        const angleStep3 = 2 * Math.PI / Math.max(1, numC);
+        children.forEach((nd, i) => {
+          const angle = i * angleStep3 + (Math.random() - 0.5) * angleStep3 * 0.2; // small jitter
+          nd.x = parent.x + Math.cos(angle) * radius3;
+          nd.y = parent.y + Math.sin(angle) * radius3;
+        });
+      });
+      // Orphan layer3
+      const orphanL3 = layer3Datas.filter(nd => !parentChildMap.has(nd.id));
+      if (orphanL3.length > 0) {
+        const outerRadius = radius2 + 150;
+        orphanL3.forEach((nd, i) => {
+          const angle = i * (2 * Math.PI / orphanL3.length);
+          nd.x = Math.cos(angle) * outerRadius;
+          nd.y = Math.sin(angle) * outerRadius;
+        });
+      }
+
+      // Prepare graph data with explicit color assignment
+      const graphNodes = positionedNodes.map(n => ({
+        id: n.id,
+        ...n, // includes x, y, fx, fy
+        val: n.layer === 1 ? 40.32 : n.layer === 2 ? 20.16 : 10.08, // Increased another 20% from previous (33.6,16.8,8.4)
+        group: n.layer,
+        color: n.layer === 1 ? '#4F46E5' : n.layer === 2 ? '#10B981' : n.layer === 3 ? '#F59E0B' : '#666' // Explicit color
+      }));
+
+      const graphLinks = graphLinksTemp.map(e => ({
+        source: e.source,
+        target: e.target,
+        ...e,
+        width: e.layer === 3 ? 0.15 : 0.4 // Thinner links, reduced 50%
+      }));
+
+      // Assign clusterId to nodes for grouping/coloring
+      detectedClusters.forEach((cluster, index) => {
+        cluster.wallets.forEach((wallet) => {
+          const node = graphNodes.find(n => n.id.toLowerCase() === wallet.id.toLowerCase());
+          if (node) {
+            node.clusterId = cluster.clusterId || `cluster-${index}`;
+            node.clusterNametag = cluster.nametag;
+            node.autoLabel = cluster.autoLabel;
+          }
+        });
+      });
+
+      // Set selectedEntity for root node/cluster data
+      let clusterData;
+      const rootCluster = detectedClusters.find(c => c.wallets.some(w => w.id.toLowerCase() === rootId));
+      if (rootCluster) {
+        clusterData = rootCluster;
+      } else {
+        // Fallback to root-only data
+        let filteredRootTxs = [];
+        if (filterType === 'all' || filterType === 'incoming') {
+          filteredRootTxs.push(...fullIncomingData.map(tx => ({
+            ...tx,
+            type: 'incoming',
+            source: tx.address.toLowerCase(),
+            target: rootId,
+          })));
+        }
+        if (filterType === 'all' || filterType === 'outgoing') {
+          filteredRootTxs.push(...fullOutgoingData.map(tx => ({
+            ...tx,
+            type: 'outgoing',
+            source: rootId,
+            target: tx.address.toLowerCase(),
+          })));
+        }
+
+        let filteredLayer3ForCluster = [];
+        if (fullLayer3Data.length > 0) {
+          const layer3Filter = fullLayer3Data.filter(tx => tx.nametag && tx.nametag !== 'Unknown');
+          const layer3ToInclude = filterType === 'all' ? layer3Filter : layer3Filter.filter(tx => tx.type === filterType);
+          filteredLayer3ForCluster = layer3ToInclude.map(tx => ({
+            ...tx,
+            source: tx.type === 'incoming' ? tx.address.toLowerCase() : tx.layer2Address.toLowerCase(),
+            target: tx.type === 'incoming' ? tx.layer2Address.toLowerCase() : tx.address.toLowerCase(),
+          }));
+        }
+
+        const allTxs = [...filteredRootTxs, ...filteredLayer3ForCluster];
+        const connectedWallets = [...new Set(allTxs.map(tx => [tx.source, tx.target].filter(id => id !== rootId)).flat().filter(Boolean))];
+        const uniqueTxs = [...new Set(allTxs.map(JSON.stringify))].map(JSON.parse);
+
+        const getTime = (bt) => {
+          if (typeof bt === 'number') return bt * 1000;
+          if (typeof bt === 'string' || bt instanceof Date) return new Date(bt).getTime();
+          return null;
+        };
+
+        const times = uniqueTxs.map(tx => getTime(tx.block_time)).filter(t => t !== null).sort((a, b) => a - b);
+        let velocity = 0;
+        if (times.length > 1) {
+          const timeSpanDays = (times[times.length - 1] - times[0]) / (1000 * 60 * 60 * 24);
+          velocity = uniqueTxs.length / Math.max(timeSpanDays, 1);
+        } else if (times.length === 1) {
+          velocity = 1;
+        }
+
+        const tokenKeys = uniqueTxs.map(tx => tx.contractAddress?.toLowerCase() || tx.tokenSymbol?.toLowerCase() || 'unknown');
+        const uniqueTokens = new Set(tokenKeys).size;
+
+        const connectedWalletsWithData = connectedWallets.map(cid => {
+          const node = nodes.find(n => n.data.id.toLowerCase() === cid);
+          if (node) {
+            const w = { ...node.data };
+            w.totalValue = parseFloat(w.totalValue || 0);
+            return w;
+          }
+          return { id: cid, totalValue: 0 };
+        });
+
+        const rootWalletNode = nodes.find(n => n.data.id.toLowerCase() === rootId);
+        const rootWalletData = rootWalletNode ? { ...rootWalletNode.data } : { id: rootId, totalValue: 0 };
+        rootWalletData.totalValue = parseFloat(rootWalletData.totalValue || 0);
+
+        const allWallets = [rootWalletData, ...connectedWalletsWithData];
+
+        clusterData = {
+          clusterId: 'root',
+          nametag: walletInfo.nametag || truncateAddress(rootId),
+          image: walletInfo.image,
+          wallets: allWallets,
+          transactions: allTxs,
+          riskScore: 0,
+          velocity,
+          uniqueTokens,
+        };
+      }
+
+      setSelectedEntity({ type: 'cluster', data: clusterData });
+
+      // Preload images (giữ nguyên)
+      const imageCache = {};
+      const uniqueImages = [...new Set(graphNodes.map(n => n.image).filter(isValidNametagImage))];
+      await Promise.all(uniqueImages.map(url => new Promise((resolve) => {
+        if (imageCache[url]) return resolve();
+        const img = new Image();
+        img.crossOrigin = 'anonymous';
+        img.onload = () => {
+          imageCache[url] = img;
+          resolve();
+        };
+        img.onerror = () => resolve();
+        img.src = url.startsWith('http') ? url : `${window.location.origin}${url}`;
+      })));
+      logger.log(`Preloaded ${Object.keys(imageCache).length}/${uniqueImages.length} images`);
+
+      // Initialize ForceGraph (chỉnh sửa)
+      graphRef.current = ForceGraph()(containerRef.current)
+        .graphData({ nodes: graphNodes, links: graphLinks })
+        .backgroundColor('rgba(0,0,0,0.3)')
+        .nodeRelSize(15.84) // Increased another 20% from 13.2
+        .nodeVal(node => {
+          let baseVal = Math.sqrt(node.totalValue || 1) + 1;
+          if (node.layer === 1) return baseVal * 9.36; // Increased another 20% from 7.8
+          if (node.layer === 2) return baseVal * 5.76; // Increased another 20% from 4.8
+          return baseVal * 2.88; // Increased another 20% from 2.4
+        })
+        .nodeLabel(node => {
+          // Giữ nguyên label HTML
+          const cluster = detectedClusters.find(c => c.clusterId === node.clusterId);
+          const risk = cluster?.riskScore || 0;
+          const clusterLabel = node.isRoot ? walletInfo.nametag || 'Unknown' : cluster ? cluster.nametag : 'Unknown';
+          const autoLabel = node.autoLabel || cluster?.autoLabel || '';
+          const nametag = node.isRoot ? '' : node.label !== 'Unknown' ? node.label : truncateAddress(node.id);
+          return `
+          <div style="background: rgba(0,0,0,0.8); border: 1px solid rgba(255,255,255,0.1); color: rgba(255,255,255,0.8); padding: 4px 8px; border-radius: 4px; font-size: 12px;">
+            ${node.isRoot ? `<div>Cluster: ${clusterLabel}</div>` : `<div>${nametag}${node.layer === 3 ? ' (L3)' : ''}</div>`}
+            ${autoLabel ? `<div>Auto: ${autoLabel}</div>` : ''}
+            ${cluster ? `<div>Cluster: ${cluster.nametag}</div>` : ''}
+            <div>Tx: ${node.txCount} | Value: ${formatLargeNumber(Number(node.totalValue), 1)}$</div>
+            <div>Risk: ${(risk * 100).toFixed(0)}%</div>
+          </div>
+        `;
+        })
+        .nodeCanvasObject((node, ctx, globalScale) => {
+          const label = node.label || truncateAddress(node.id);
+          const size = node.val / globalScale;
+          // Draw circle background
+          ctx.beginPath();
+          ctx.arc(node.x, node.y, size, 0, 2 * Math.PI, false);
+          ctx.fillStyle = node.color || '#666';
+          ctx.fill();
+          // Draw border
+          ctx.strokeStyle = '#fff';
+          ctx.lineWidth = 1 / globalScale;
+          ctx.stroke();
+          // Draw image if available
+          if (isValidNametagImage(node.image) && imageCache[node.image]) {
+            const img = imageCache[node.image];
+            ctx.save();
+            ctx.beginPath();
+            ctx.arc(node.x, node.y, size, 0, 2 * Math.PI);
+            ctx.clip();
+            ctx.drawImage(img, node.x - size, node.y - size, size * 2, size * 2);
+            ctx.restore();
+          }
+          // Bỏ vẽ text mặc định
+        })
+        .nodeCanvasObjectMode(() => 'replace')
+        .nodePointerAreaPaint((node, color, ctx) => {
+          // Custom pointer area to match drawn size, reduced for better interaction
+          const size = node.val * 0.8; // Slightly smaller area to avoid overlap
+          ctx.fillStyle = color;
+          ctx.beginPath();
+          ctx.arc(node.x, node.y, size, 0, 2 * Math.PI, false);
+          ctx.fill();
+        })
+        .linkColor(link => link.type === 'incoming' ? '#00BFFF' : '#EF4444')
+        .linkCurvature(0.25) // Curvature như example để giống dây
+        .linkDirectionalArrowLength(0) // Bỏ mũi tên
+        .linkDirectionalParticles(2) // Thêm particles để animation thực hơn
+        .linkDirectionalParticleSpeed(0.01)
+        .linkDirectionalParticleWidth(1)
+        .linkDirectionalParticleColor(link => link.type === 'incoming' ? '#00BFFF' : '#EF4444')
+        .linkCanvasObject((link, ctx, globalScale) => {
+          const start = link.source;
+          const end = link.target;
+          if (typeof start === 'object' && typeof end === 'object') {
+            ctx.beginPath();
+            ctx.moveTo(start.x, start.y);
+            ctx.lineTo(end.x, end.y);
+            ctx.strokeStyle = link.color || '#fff';
+            ctx.lineWidth = (link.width || 1) / globalScale;
+            ctx.stroke();
+          }
+        })
+        .linkCanvasObjectMode(() => 'replace')
+        .linkLabel(link => `${link.tokenSymbol || 'Unknown'} - ${formatLargeNumber(Number(link.value), 1)}`)
+        .linkHoverPrecision(10) // Increase precision to avoid false hovers
+        .onNodeClick((node, event) => {
+          // Giữ nguyên click logic
+          const walletId = node.id;
+          const cluster = detectedClusters.find(c => c.wallets.some(w => w.id.toLowerCase() === walletId.toLowerCase()));
+          if (cluster) {
+            setSelectedEntity({ type: 'cluster', data: cluster });
+          } else {
+            const filteredTxs = filterTransactions([...fullIncomingData, ...fullOutgoingData, ...fullLayer3Data], filterType, rootId, walletId);
+            setSelectedEntity({
+              type: 'wallet',
+              data: {
+                id: walletId,
+                nametag: node.label || truncateAddress(walletId),
+                image: node.image,
+                transactions: filteredTxs,
+              }
+            });
+          }
+        })
+        .onNodeHover(node => {
+          containerRef.current.style.cursor = node ? 'pointer' : null;
+        })
+        .onNodeDrag((node, translate) => {
+          graphRef.current.d3ReheatSimulation();
+        })
+        .onNodeDragEnd(node => {
+          node.fx = node.x;
+          node.fy = node.y;
+        })
+        .onBackgroundClick(() => {
+          // Optional: clear selection or hover
+        })
+        .d3Force('charge', d3.forceManyBody().strength(-500)) // Tăng repulsion để spread out hơn
+        .d3Force('link', d3.forceLink().id(d => d.id).distance(link => link.layer === 3 ? 80 : 150).strength(0.8)) // Điều chỉnh link distance và strength theo layer
+        .d3AlphaDecay(0.01) // Giảm để mượt hơn
+        .d3VelocityDecay(0.6) // Giảm để kéo node mượt hơn (ít damping hơn)
+        .warmupTicks(500) // Reduced from 2000 for faster init
+        .cooldownTicks(2000) // Reduced from 3000 for faster stabilization
+        .enablePointerInteraction(true)
+        .enableNodeDrag(true)
+        .enableZoomInteraction(true)
+        .enablePanInteraction(true);
+
+      // Auto center on root
+      graphRef.current.centerAt(0, 0, 1500);
+      graphRef.current.zoom(1.5, 1500);
+    } catch (err) {
+      logger.error('Error initializing ForceGraph:', err);
+      toast.error('Graph visualization failed. Please refresh.', { position: 'top-right', theme: 'dark' });
+    }
+  }, [nodes, edges, walletInfo, filterType, walletAddress, fullIncomingData, fullOutgoingData, fullLayer3Data, filterTransactions, apiBaseUrl]);
 
   useEffect(() => {
-    // No direct call, handled in useEffect above
-  }, []);
+    initializeForceGraph().catch(console.error);
+    return () => {
+      if (graphRef.current) {
+        graphRef.current.pauseAnimation();
+      }
+    };
+  }, [initializeForceGraph]);
   const generateHmacSignature = (payload) => {
     try {
       const hmacSecret = process.env.HMAC_SECRET || '88583e5e555aaeb3d9b3b0cafbd1e609f5a7ff96548caa71c8eda0783d66b1f1';
@@ -1629,16 +1641,17 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
-  // Dynamic log messages for loading, add clustering log
+  // Dynamic log messages for loading
   useEffect(() => {
-    if (loading || clusteringLoading) {
+    if (loading) {
       const sources = [
         'Validating wallet address...',
         'Connecting to blockchain...',
         'Fetching incoming transactions...',
         'Fetching outgoing transactions...',
         'Analyzing token transfers...',
-        ...(clusteringLoading ? ['Detecting clusters in background...'] : []),
+        'Resolving labels...',
+        'Detecting clusters...',
         'Generating graph layout...',
       ];
       const interval = setInterval(() => {
@@ -1646,12 +1659,12 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
           const nextIndex = prev.length % sources.length;
           return [...prev, { text: sources[nextIndex], id: Date.now() + Math.random() }].slice(-5);
         });
-      }, 800); // Faster interval for better UX
+      }, 1200);
       return () => clearInterval(interval);
     } else {
       setLogMessages([]);
     }
-  }, [loading, clusteringLoading]);
+  }, [loading]);
   const handleLoadMore = useCallback(() => {
     if (nodes.length >= MAX_NODES) {
       toast.warn('Maximum nodes limit reached. Consider subgraph views for larger graphs.', {
@@ -1679,7 +1692,6 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
       setFullIncomingData([]);
       setFullOutgoingData([]);
       setFullLayer3Data([]);
-      setClusters([]); // Reset clusters on new search
       fetchTransactions(walletAddress, 1);
     } else {
       toast.error('Invalid wallet address.', {
@@ -2077,16 +2089,7 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
                   initial={{ opacity: 0 }}
                   animate={{ opacity: 1 }}
                 >
-                  Max nodes reached ({MAX_NODES}). Use filters for subgraphs.
-                </motion.span>
-              )}
-              {clusteringLoading && (
-                <motion.span
-                  className="px-2 sm:px-3 py-1 text-[9px] sm:text-[10px] font-medium text-blue-400 border border-blue-400/30 bg-blue-500/10 rounded-xl animate-pulse"
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                >
-                  Clustering...
+                  Max nodes reached (1000). Use filters for subgraphs.
                 </motion.span>
               )}
             </div>
@@ -2095,7 +2098,7 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
         )}
       </div>
       <AnimatePresence>
-        {selectedEntity.type === 'cluster' && clusters.length > 0 && ( // Only show if clusters loaded
+        {selectedEntity.type === 'cluster' && (
           <ClusterDashboard
             key={selectedEntity.data.clusterId}
             entity={selectedEntity}
