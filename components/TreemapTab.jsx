@@ -656,7 +656,7 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
   const containerRef = useRef(null);
   const chainDropdownRef = useRef(null);
   const limitDropdownRef = useRef(null);
-  const [selectedLimit, setSelectedLimit] = useState(50);
+  const [selectedLimit, setSelectedLimit] = useState(100); // Updated default to 100
   const [isLimitDropdownOpen, setIsLimitDropdownOpen] = useState(false);
   const [isPremium, setIsPremium] = useState(false);
   const [filterType, setFilterType] = useState('all');
@@ -1890,12 +1890,12 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
                 </motion.button>
                 {isLimitDropdownOpen && (
                   <div className="absolute z-20 bg-white/5 rounded-xl mt-1 w-28 max-h-60 overflow-y-auto hide-scrollbar border border-white/10 shadow-neon-sm">
-                    {[50, 100, 150, 200].map((limit) => (
+                    {[100, 200, 300, 500].map((limit) => (  // Updated array: 100, 200, 300, 500
                       <motion.button
                         key={limit}
                         onClick={() => {
-                          if (!isPremium && limit > 100) {
-                            toast.error('Premium account required to fetch more than 100 transactions.', {
+                          if (!isPremium && limit > 200) {
+                            toast.error('Premium account required to fetch more than 200 transactions.', {
                               position: 'top-center',
                               autoClose: 5000,
                               hideProgressBar: false,

@@ -169,7 +169,7 @@ const chainIdToName = Object.fromEntries(
 const bodySchema = z.object({
   wallet_address: z.string().nonempty('Wallet address is required'),
   chain: z.enum(Object.keys(SUPPORTED_CHAINS), { message: 'Invalid chain' }),
-  limit: z.number().int().min(50).max(200, 'Limit must be between 50 and 200'),
+  limit: z.number().int().min(100).max(500, 'Limit must be between 100 and 500'),  // Updated: min=100, max=500
   page: z.number().int().min(1).default(1),
   fetchLayer3: z.boolean().optional().default(false),
 });
@@ -712,9 +712,9 @@ export async function POST(request) {
     const { wallet_address, chain, limit, page, fetchLayer3 } = parsed.data;
 
     const isPremium = request.headers.get('x-premium-user') === 'true';
-    if (!isPremium && limit > 100) {
-      await trackViolation(ip, 'Non-premium user attempted to fetch more than 100 transactions');
-      return NextResponse.json({ error: 'Premium account required to fetch more than 100 transactions.' }, { status: 403, headers: securityHeaders });
+    if (!isPremium && limit > 200) {
+      await trackViolation(ip, 'Non-premium user attempted to fetch more than 200 transactions');
+      return NextResponse.json({ error: 'Premium account required to fetch more than 200 transactions.' }, { status: 403, headers: securityHeaders });
     }
     const isBitcoin = chain === 'bitcoin';
     const bitcoinRegex = /^[13][a-km-zA-HJ-NP-Z1-9]{25,34}$|^bc1[a-z0-9]{39,59}$/i;
