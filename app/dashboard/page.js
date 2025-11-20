@@ -48,6 +48,14 @@ const safeLog = (...args) => safeConsole.log(...args);
 const safeWarn = (...args) => safeConsole.warn(...args);
 const safeError = (...args) => safeConsole.error(...args);
 
+const BlinkingDots = () => (
+  <div className="flex items-center gap-0.5">
+    <span className="w-1 h-1 bg-white rounded-full animate-bounce"></span>
+    <span className="w-1 h-1 bg-white rounded-full animate-bounce" style={{ animationDelay: '0.1s' }}></span>
+    <span className="w-1 h-1 bg-white rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></span>
+  </div>
+);
+
 // Polyfill HMAC for browser (use Web Crypto API, as old uses createHmac - server only)
 async function hmacSha256(key, data) {
   if (typeof window !== 'undefined' && !crypto.subtle) {
@@ -905,7 +913,7 @@ function DashboardInner() {
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               transition={{ duration: 0.5 }}
-              className="w-full h-full flex items-center justify-center"
+              className="w-full h-full bg-gradient-to-br from-black/80 to-gray-900/80 flex items-center justify-center"
             >
               {isMiniApp && miniAppAuthFailed && !fallbackToManual ? (
                 <motion.div
@@ -1079,7 +1087,7 @@ function DashboardInner() {
                         className="w-full px-4 py-2.5 border-2 border-white/15 bg-white/10 text-white rounded-2xl text-sm font-semibold transition-all duration-300 hover:border-white/30 hover:bg-white/20 flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed"
                       >
                         {miniAppAuthLoading ? (
-                          <span>Connecting...</span>
+                          <BlinkingDots />
                         ) : (
                           <>
                             <Image

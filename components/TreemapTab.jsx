@@ -1913,12 +1913,12 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
                           setFullLayer3Data([]);
                           if (walletAddress) handleSearch();
                         }}
-                        className={`flex items-center w-full text-left px-2 sm:px-3 py-1 hover:bg-neon-blue/20 rounded-md text-white font-medium text-[9px] sm:text-[10px] transition-all duration-300 relative ${!isPremium && limit > 100 ? 'opacity-50 cursor-not-allowed' : ''}`}
-                        whileHover={{ scale: !isPremium && limit > 100 ? 1 : 1.05 }}
-                        whileTap={{ scale: !isPremium && limit > 100 ? 1 : 0.95 }}
+                        className={`flex items-center w-full text-left px-2 sm:px-3 py-1 hover:bg-neon-blue/20 rounded-md text-white font-medium text-[9px] sm:text-[10px] transition-all duration-300 relative ${!isPremium && limit > 200 ? 'opacity-50 cursor-not-allowed' : ''}`}
+                        whileHover={{ scale: !isPremium && limit > 200 ? 1 : 1.05 }}
+                        whileTap={{ scale: !isPremium && limit > 200 ? 1 : 0.95 }}
                       >
                         {limit}
-                        {!isPremium && limit > 100 && (
+                        {!isPremium && limit > 200 && (
                           <span className="absolute right-2 top-1/2 transform -translate-y-1/2 group">
                             <img
                               src="/icons/crown.webp"
