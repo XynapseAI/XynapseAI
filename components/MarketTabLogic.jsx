@@ -1584,9 +1584,9 @@ export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initi
                     };
                   });
                   return chainTrades;
-                } catch (chainErr) { 
-                  console.warn(`Failed chain ${ch.value}: ${chainErr}`); 
-                  return []; 
+                } catch (chainErr) {
+                  console.warn(`Failed chain ${ch.value}: ${chainErr}`);
+                  return [];
                 }
               })
             );
@@ -2071,6 +2071,39 @@ export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initi
     }, 500),
     [currency, availableCurrencies, timeRange, fetchPriceHistory, selectedChain, session, status, executeRecaptcha, getDefaultChainAndAddress]
   );
+
+  const fetchCurrentPrice = useCallback(
+    debounce(
+      async (tokenId, retryCount = 0) => {
+        if (!tokenId) return;
+        const cacheKey = `current-price-${tokenId}-${currency}`;
+        try {
+          const fetchFn = async () => {
+            const response = await axios.get('/api/coingecko', {
+              params: { action: 'simple/price', ids: tokenId, vs_currencies: currency },
+              timeout: 10000,
+            });
+            if (!response.data.success || !response.data.data[tokenId]?.[currency]) {
+              throw new Error('Invalid current price data');
+            }
+            return response.data.data[tokenId];
+          };
+          const priceData = await getCachedData(cacheKey, fetchFn, CACHE_DURATIONS.PRICE, 0, false, session, status);
+          setSelectedToken((prev) => prev ? { ...prev, current_price: { ...prev.current_price, [currency]: priceData[currency] } } : prev);
+        } catch (err) {
+          if (retryCount < 3 && (err.response?.status === 429 || err.code === 'ECONNABORTED')) {
+            const delay = Math.pow(2, retryCount) * 1000 + Math.random() * 100;
+            await new Promise((resolve) => setTimeout(resolve, delay));
+            return fetchCurrentPrice(tokenId, retryCount + 1);
+          }
+          console.error('Failed to fetch current price:', err);
+        }
+      },
+      300
+    ),
+    [currency, session, status]
+  );
+
   const debouncedHandleAnalysis = useCallback(
     debounce(async () => {
       if (!selectedToken) {
@@ -2490,6 +2523,19 @@ Predict **${selectedToken.symbol}/USD** price movement (1-3 days) in Markdown fo
       };
     }
   }, [selectedToken, timeRange, currency, fetchPriceHistory, setError]);
+
+  useEffect(() => {
+    if (selectedToken?.id && document.visibilityState === 'visible') {
+      fetchCurrentPrice(selectedToken.id);
+      const interval = setInterval(() => {
+        if (document.visibilityState === 'visible') {
+          fetchCurrentPrice(selectedToken.id);
+        }
+      }, CACHE_DURATIONS.PRICE);
+      return () => clearInterval(interval);
+    }
+  }, [selectedToken?.id, currency, fetchCurrentPrice]);
+
   useEffect(() => {
     if (!selectedToken?.id || ['bitcoin', 'ethereum'].includes(selectedToken.id.toLowerCase()) || document.visibilityState !== 'visible') {
       return;

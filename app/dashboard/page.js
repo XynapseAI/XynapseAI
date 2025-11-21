@@ -327,7 +327,7 @@ function DashboardInner() {
   const [modalContent, setModalContent] = useState(null);
   const [authSuccess, setAuthSuccess] = useState(false); // NEW: Fix loop - track auth success to hide form immediately
   const recaptchaRef = useRef(null);
-  const { isSDKLoaded, context, user: miniAppUser } = useMiniApp(); // FIXED: Destructure properly based on Neynar docs (user may be optional)
+  const { isSDKLoaded, context, user: miniAppUser, addMiniApp } = useMiniApp(); // FIXED: Destructure properly based on Neynar docs (user may be optional)
   const [isMiniApp, setIsMiniApp] = useState(false);
   const [miniAppAuthLoading, setMiniAppAuthLoading] = useState(false); // NEW: Loading for quickauth
   const [miniAppAuthFailed, setMiniAppAuthFailed] = useState(false); // NEW: Track if auto-auth failed for Mini App
@@ -346,6 +346,8 @@ function DashboardInner() {
   const { signIn: farcasterSignIn } = useSignIn();
   // NEW: Separate state for Warpcast detection (for relaxed guard)
   const [isWarpcastMobile, setIsWarpcastMobile] = useState(false);
+  const [showAddMiniAppPrompt, setShowAddMiniAppPrompt] = useState(false);
+  const [addingMiniApp, setAddingMiniApp] = useState(false);
 
   // FIXED: App domain from env (fix origin mismatch in preview)
   const appDomain = process.env.NEXT_PUBLIC_APP_DOMAIN || window.location.hostname;
@@ -450,13 +452,13 @@ function DashboardInner() {
     // FIXED: Only include isCoinbaseWallet if mobile (desktop extension -> false)
     const isBaseAppDetected = forceBase || isBaseUADetected || (isCoinbaseWallet && isMobile);
     setIsBaseApp(isBaseAppDetected); // UPDATED: Include ethereum check + force + mobile guard
-    safeLog('Base App Detection Debug:', { 
-      userAgentSnippet: userAgent.substring(0, 100), 
+    safeLog('Base App Detection Debug:', {
+      userAgentSnippet: userAgent.substring(0, 100),
       isMobile, // NEW: Log mobile flag
-      isBaseUADetected, 
-      isCoinbaseWallet, 
+      isBaseUADetected,
+      isCoinbaseWallet,
       forceBase,  // NEW: Log force flag
-      isBaseAppDetected 
+      isBaseAppDetected
     }); // NEW: Debug log
 
     const sdkAvailable = typeof sdk !== 'undefined' && !!sdk.quickAuth;  // Check SDK explicit
@@ -635,6 +637,39 @@ function DashboardInner() {
     }
   }, [status, signIn, update]);  // deps: status (used inside), signIn/update (stable from hooks)
 
+  const handleAddMiniApp = async () => {
+    if (!isSDKLoaded || !addMiniApp) {
+      toast.error('Chức năng không khả dụng trong môi trường này.');
+      setShowAddMiniAppPrompt(false);
+      return;
+    }
+
+    setAddingMiniApp(true);
+    try {
+      const result = await addMiniApp();   // Neynar sẽ tự động hiện dialog hệ thống
+
+      if (result?.added) {
+        toast.success('Đã thêm Mini App và bật thông báo thành công! 🎉');
+        localStorage.setItem('miniAppAdded', 'true');
+        setShowAddMiniAppPrompt(false);
+      } else {
+        toast.warn('Bạn chưa thêm Mini App – sẽ nhắc lại lần sau.');
+        setShowAddMiniAppPrompt(false);
+      }
+
+      // Nếu có token → thông báo bật thành công (log để debug)
+      if (result?.notificationDetails?.token) {
+        safeLog('Notification token:', result.notificationDetails.token);
+      }
+    } catch (error) {
+      safeError('Lỗi thêm Mini App:', error);
+      toast.error('Lỗi khi thêm Mini App: ' + (error?.message || ''));
+      setShowAddMiniAppPrompt(false);
+    } finally {
+      setAddingMiniApp(false);
+    }
+  };
+
   // FIXED: Similarly, add status guard for World auto-auth. Add handleWorldQuickAuth to deps.
   useEffect(() => {
     if (isWorldMiniApp && status === 'unauthenticated' && !session && !worldAuthLoading) {
@@ -655,6 +690,18 @@ function DashboardInner() {
       return () => clearInterval(checkReady);
     }
   }, [isWorldMiniApp]);
+
+  // NEW: Prompt to add Mini App on first login in Mini App/Base/Warpcast
+  useEffect(() => {
+    if (status === 'authenticated') {
+      const previouslyAdded = localStorage.getItem('miniAppAdded') === 'true';
+      if (!previouslyAdded && isSDKLoaded && (context === 'miniapp' || isBaseApp || isWarpcastMobile)) {
+        // Delay nhẹ để chắc chắn UI đã render xong login
+        const timer = setTimeout(() => setShowAddMiniAppPrompt(true), 800);
+        return () => clearTimeout(timer);
+      }
+    }
+  }, [status, isSDKLoaded, context, isBaseApp, isWarpcastMobile]);
 
   // REMOVED: Auto-login for Base App via Farcaster deeplink - Now only manual via button click (per request: show DeeplinkButton first, click to trigger)
   // Keep handleBaseManualAuth for manual trigger if needed (but currently use direct SignInButton onSuccess/onError)
@@ -893,12 +940,11 @@ function DashboardInner() {
     <CurrencyProvider>
       <AuthKitProvider
         config={{
-          domain: appDomain, // FIXED: Use env domain to match manifest (fix origin)
-          siweUri: `${window.location.origin}/api/auth/signin/farcaster`, // Callback for NextAuth
-          relay: 'https://relay.farcaster.xyz', // Default relay
-          rpcUrl: 'https://mainnet.optimism.io', // Base RPC
+          domain: appDomain,
+          siweUri: `${window.location.origin}/api/auth/signin/farcaster`,
+          relay: 'https://relay.farcaster.xyz',
+          rpcUrl: 'https://mainnet.optimism.io',
           version: '1',
-          // REMOVED: deeplinkUrl (not standard in AuthKit, SignInButton handles auto in Base App)
         }}
       >
         <div className="h-screen w-screen bg-gradient-to-br from-black to-gray-900 backdrop-blur-xs text-white overflow-x-hidden flex flex-col">
@@ -1245,7 +1291,66 @@ function DashboardInner() {
                 </motion.div>
               ) : (
                 <>
+                  {showAddMiniAppPrompt && (context === 'miniapp' || isBaseApp || isWarpcastMobile) && (
+                    <motion.div
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      exit={{ opacity: 0 }}
+                      transition={{ duration: 0.5 }}
+                      className="fixed inset-0 z-50 flex items-center justify-center bg-black/90"
+                    >
+                      {/* Background 3D mờ để đẹp */}
+                      <div className="fixed inset-0 opacity-50">
+                        <Canvas camera={{ position: [0, 0, 5], fov: 75 }} dpr={[1, 1.5]}>
+                          <UniverseBackground />
+                        </Canvas>
+                      </div>
+
+                      <motion.div
+                        initial={{ opacity: 0, y: 60, scale: 0.95 }}
+                        animate={{ opacity: 1, y: 0, scale: 1 }}
+                        transition={{ duration: 0.8, ease: "easeOut" }}
+                        className="relative z-10 bg-gradient-to-b from-black/95 via-purple-900/30 to-black/95 backdrop-blur-xl p-8 md:p-12 rounded-3xl border border-purple-500/50 max-w-lg w-full mx-4 text-center shadow-2xl shadow-purple-900/50"
+                      >
+                        <div className="mb-8">
+                          <div className="text-6xl mb-6 animate-pulse">🔔</div>
+                          <h2 className="text-3xl md:text-4xl font-bold text-white mb-6 leading-tight">
+                            Turn On Notifications Now<br />Never Miss a Signal!
+                          </h2>
+                          <p className="text-lg text-gray-300 leading-relaxed px-4">
+                            Get real-time buy/sell alerts, pumps, dumps, breaking news, AI signals… even when the app is closed.
+                          </p>
+                          <p className="text-sm text-gray-400 mt-4">
+                            Just <span className="text-purple-400 font-bold">add to Base/Warpcast home screen</span> → notifications arrive instantly!
+                          </p>
+                        </div>
+
+                        <button
+                          onClick={handleAddMiniApp}
+                          disabled={addingMiniApp}
+                          className="w-full py-5 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-500 hover:to-pink-500 text-white font-bold text-xl rounded-2xl transition-all duration-300 transform hover:scale-105 disabled:opacity-70 disabled:cursor-not-allowed shadow-lg shadow-purple-900/50"
+                        >
+                          {addingMiniApp ? (
+                            <span className="flex items-center justify-center gap-3">
+                              <BlinkingDots />
+                              Processing...
+                            </span>
+                          ) : (
+                            'Add Mini App & Enable Notifications'
+                          )}
+                        </button>
+
+                        <button
+                          onClick={() => setShowAddMiniAppPrompt(false)}
+                          className="mt-6 text-gray-500 hover:text-gray-300 text-sm transition"
+                        >
+                          Maybe later
+                        </button>
+                      </motion.div>
+                    </motion.div>
+                  )}
                   {activeTab === 'market' && (
+
                     <MarketTab
                       recaptchaRef={recaptchaRef}
                       toast={toast}
