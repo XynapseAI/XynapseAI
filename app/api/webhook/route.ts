@@ -158,6 +158,8 @@ export async function POST(request: NextRequest) {
                         body: 'Mini app is now added to your client!',
                     });
                     console.log('Send welcome result:', sendResult);
+                } else {
+                  console.log(`Mini App added without notifications for fid=${fid}, appFid=${appFid}`);
                 }
                 break;
 
