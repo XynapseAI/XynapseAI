@@ -196,7 +196,7 @@ export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initi
   const prevAvailableChainsRef = useRef([]);
   const isTokenPage = typeof window !== 'undefined' && window.location.pathname.startsWith('/token/');
   const getCachedData = async (key, fetchFn, ttl = CACHE_DURATIONS.DEFAULT, retryCount = 0, requiresSession = false, session = null, status = 'unauthenticated') => {
-    const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'https://xynapse-ai.vercel.app';
+    const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'https://xynapseai.net';
     // Validate session for session-dependent data
     if (requiresSession && status !== 'authenticated') {
       console.error(`Session required but not authenticated for key: ${key}`);
