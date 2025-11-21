@@ -346,8 +346,6 @@ function DashboardInner() {
   const { signIn: farcasterSignIn } = useSignIn();
   // NEW: Separate state for Warpcast detection (for relaxed guard)
   const [isWarpcastMobile, setIsWarpcastMobile] = useState(false);
-  const [showAddMiniAppPrompt, setShowAddMiniAppPrompt] = useState(false);
-  const [addingMiniApp, setAddingMiniApp] = useState(false);
 
   // FIXED: App domain from env (fix origin mismatch in preview)
   const appDomain = process.env.NEXT_PUBLIC_APP_DOMAIN || window.location.hostname;
