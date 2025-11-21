@@ -638,7 +638,6 @@ function DashboardInner() {
       const response = await sdk.actions.addMiniApp();   // Sử dụng Farcaster SDK chính thức để trigger dialog hệ thống mặc định của Base/Warpcast
 
       if (response?.notificationDetails) {
-        toast.success('Mini App added and notifications enabled successfully! 🎉');
         safeLog('Notification details:', response.notificationDetails); // Debug: Log token và url (lưu server nếu cần)
         localStorage.setItem('miniAppAdded', 'true');
       } else {

@@ -75,7 +75,7 @@ async function getUserNotificationDetails(fid: number, appFid: number): Promise<
 }
 
 // Function to send notification (from docs, adjust appUrl)
-const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://your-domain.com/dashboard'; // Must be same domain as Mini App
+const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://xynapseai.net/dashboard'; // Must be same domain as Mini App
 
 async function sendMiniAppNotification({
     fid,
