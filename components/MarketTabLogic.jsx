@@ -1,6 +1,5 @@
 // Updated: components/MarketTabLogic.jsx
 'use client';
-
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import axios from 'axios';
 import { useSession } from 'next-auth/react';
@@ -17,7 +16,6 @@ import ltcNameTags from '../public/nametags/litecoin-top-holders.json';
 import useSWR from 'swr';
 import Bottleneck from 'bottleneck';
 import axiosRetry from 'axios-retry';
-
 const axiosWithRetry = axios.create();
 axiosRetry(axiosWithRetry, {
   retries: 5,
@@ -28,26 +26,22 @@ axiosRetry(axiosWithRetry, {
     error.code === 'ECONNABORTED' ||
     error.code === 'ERR_NETWORK',
 });
-
 const cacheLimiter = new Bottleneck({
-  maxConcurrent: 15,
-  minTime: 200,
+  maxConcurrent: 30, // Increased from 15 to 30 for faster concurrent caching
+  minTime: 100, // Decreased from 200 to 100 for reduced delay
   reservoir: 500,
   reservoirRefreshAmount: 500,
   reservoirRefreshInterval: 60 * 1000,
 });
-
 const coingeckoAxios = rateLimit(axios.create(), {
   maxRequests: 60,
   perMilliseconds: 60000,
 });
-
 axiosRetry(coingeckoAxios, {
   retries: 3,
   retryDelay: (retryCount) => Math.pow(2, retryCount) * 1000 + Math.random() * 100, // Exponential backoff with jitter
   retryCondition: (error) => error.response?.status === 429 || error.code === 'ECONNABORTED',
 });
-
 const fetcher = async (url, params) => {
   const response = await axios.get(url, { params });
   if (!response.data.success) {
@@ -64,7 +58,6 @@ const fetcher = async (url, params) => {
   }
   return response.data.data;
 };
-
 // Cache durations
 const CACHE_DURATIONS = {
   PRICE: 5 * 60 * 1000,
@@ -77,7 +70,6 @@ const CACHE_DURATIONS = {
   NAMETAGS: 48 * 60 * 60 * 1000,
   TOP_HOLDERS: 12 * 60 * 60 * 1000, // 12 h
 };
-
 const MEMPOOL_POLLING_INTERVAL = 60 * 1000;
 const MAX_MEMPOOL_TXS = 200;
 const MEMPOOL_MAX_AGE = 5 * 24 * 60 * 60 * 1000; // 5 days
@@ -85,11 +77,9 @@ const MEMPOOL_POLL_LIMIT = 50; // Limit for polling
 const MEMPOOL_INIT_LIMIT = 100; // Higher limit for initial fetch
 const dexPaginationSize = 100; // Keep as is
 const MAX_TOTAL_TXS = 5000;
-
 if (!process.env.NEXT_PUBLIC_APP_URL && process.env.NODE_ENV === 'production') {
   console.warn('NEXT_PUBLIC_APP_URL is not set, defaulting to https://xynapse-ai.vercel.app');
 }
-
 const NON_EVM_CHAINS = ['bitcoin', 'ethereum', 'dogecoin', 'litecoin'];
 const BLOCKCHAIR_REQUEST_LIMIT = 60; // Limit of 30 requests per minute
 const BLOCKCHAIR_REQUEST_WINDOW = 60 * 1000; // 1 minute
@@ -97,14 +87,12 @@ const blockchairRequestTracker = new Map();
 const DEX_REQUEST_LIMIT = 100; // Max 5 requests per minute
 const DEX_REQUEST_WINDOW = 60 * 1000; // 1 minute
 const dexRequestTracker = new Map();
-const limit = pLimit(60);
-
+const limit = pLimit(100); // Increased from 60 to 100 for higher concurrency
 const COINGECKO_API_KEY = process.env.NEXT_PUBLIC_COINGECKO_API_KEY || '';
 const NAME_TAG_CACHE_DURATION = 24 * 60 * 60 * 1000;
 const WALLET_SEARCH_LIMIT = 10;
 const WALLET_SEARCH_WINDOW = 60 * 1000;
 const tokensPerPage = 30;
-
 // Hardcoded supported EVM mainnets for Etherscan (no testnets, full coverage)
 const SUPPORTED_EVM_CHAINS = [
   { value: 'ethereum', coingeckoId: 'ethereum', label: 'Ethereum Mainnet', chainId: 1, testnet: false },
@@ -119,9 +107,7 @@ const SUPPORTED_EVM_CHAINS = [
   { value: 'scroll', coingeckoId: 'scroll', label: 'Scroll', chainId: 534352, testnet: false },
   { value: 'mantle', coingeckoId: 'mantle', label: 'Mantle', chainId: 5000, testnet: false },
   { value: 'linea', coingeckoId: 'linea', label: 'Linea', chainId: 59144, testnet: false },
-
 ];
-
 export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initialTokenData }) => {
   const { data: session, status } = useSession();
   const [tokens, setTokens] = useState([]);
@@ -208,18 +194,14 @@ export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initi
   const progressiveLoadRef = useRef(null); // To manage progressive loading chain
   const [isSearching, setIsSearching] = useState(false);
   const prevAvailableChainsRef = useRef([]);
-
   const isTokenPage = typeof window !== 'undefined' && window.location.pathname.startsWith('/token/');
-
   const getCachedData = async (key, fetchFn, ttl = CACHE_DURATIONS.DEFAULT, retryCount = 0, requiresSession = false, session = null, status = 'unauthenticated') => {
     const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'https://xynapse-ai.vercel.app';
-
     // Validate session for session-dependent data
     if (requiresSession && status !== 'authenticated') {
       console.error(`Session required but not authenticated for key: ${key}`);
       throw new Error('Authentication required for this data');
     }
-
     try {
       // Check local cache first
       const localCached = localCache.current[key];
@@ -244,7 +226,6 @@ export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initi
         }
         return localCached.data || [];
       }
-
       // Check Redis cache
       try {
         const cacheResponse = await cacheLimiter.schedule(() =>
@@ -285,7 +266,6 @@ export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initi
         }
         console.error(`Redis cache error for ${key}:`, cacheError.message);
       }
-
       // Fetch new data if no cache is available
       const data = await fetchFn();
       if (data) {
@@ -311,7 +291,6 @@ export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initi
       throw new Error(`Failed to fetch data for ${key}: ${error.message}`);
     }
   };
-
   // Cache warmup for trending tokens and top tokens
   const warmUpCache = useCallback(async () => {
     const cacheTrending = async () => {
@@ -328,7 +307,6 @@ export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initi
       };
       await getCachedData(cacheKey, fetchFn, CACHE_DURATIONS.TRENDING, 0, false, session, status);
     };
-
     const cacheTopTokens = async () => {
       const cacheKey = `market-info-default-${currency}`; // Non-session-dependent
       const fetchFn = async () => {
@@ -345,8 +323,6 @@ export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initi
     };
     await Promise.all([cacheTrending(), cacheTopTokens()]);
   }, [currency, session, status]);
-
-
   const executeRecaptcha = useCallback(async (action, retries = 3) => {
     if (process.env.NEXT_PUBLIC_DISABLE_RECAPTCHA === 'true') {
       return 'disabled';
@@ -370,25 +346,19 @@ export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initi
       }
     }
   }, [recaptchaRef]);
-
-
   const fetchSupportedChains = useCallback(async (retryCount = 0) => {
     const cacheKey = 'supported-chains'; // Non-session-dependent
     const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'https://xynapse-ai.vercel.app';
-
     // Check local cache
     const cachedChains = localCache.current[cacheKey]?.data;
     if (cachedChains && Date.now() - localCache.current[cacheKey]?.timestamp < 48 * 60 * 60 * 1000) {
       setChains(cachedChains);
       return;
     }
-
     if (isFetchingChainsRef.current || (Date.now() - lastFetchedChainsRef.current < 48 * 60 * 60 * 1000 && chains.length > 0)) {
       return;
     }
-
     isFetchingChainsRef.current = true;
-
     try {
       const cacheResponse = await cacheLimiter.schedule(() =>
         axios.post(
@@ -406,16 +376,13 @@ export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initi
     } catch (cacheError) {
       console.warn(`Redis cache error for supported chains: ${cacheError.message}`);
     }
-
     try {
       const response = await coingeckoAxios.get('/api/coingecko/chains', {
         timeout: 20000,
       });
-
       if (!response.data.success || !Array.isArray(response.data.data)) {
         throw new Error('Invalid or empty chain data from API');
       }
-
       const coingeckoChains = response.data.data;
       const mappedChains = SUPPORTED_CHAINS.map((simChain) => {
         const coingeckoChain = coingeckoChains.find(
@@ -432,7 +399,6 @@ export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initi
           image: imageUrl,
         };
       });
-
       localCache.current[cacheKey] = { data: mappedChains, timestamp: Date.now() };
       await cacheLimiter.schedule(() =>
         axios.post(
@@ -441,7 +407,6 @@ export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initi
           { timeout: 30000 }
         )
       );
-
       setChains(mappedChains);
       lastFetchedChainsRef.current = Date.now();
     } catch (error) {
@@ -451,7 +416,6 @@ export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initi
         await new Promise((resolve) => setTimeout(resolve, delay));
         return fetchSupportedChains(retryCount + 1);
       }
-
       const fallbackChains = SUPPORTED_CHAINS.map((chain) => ({
         coingeckoId: Object.keys(CHAIN_MAPPING).find(
           (key) => CHAIN_MAPPING[key].simChain === chain.value
@@ -473,13 +437,11 @@ export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initi
       isFetchingChainsRef.current = false;
     }
   }, [toast, session, status]);
-
   useEffect(() => {
     if (chains.length === 0 && !isFetchingChainsRef.current && Date.now() - lastFetchedChainsRef.current > 48 * 60 * 60 * 1000) {
       fetchSupportedChains();
     }
   }, [fetchSupportedChains, chains.length]);
-
   const fetchPoolTokenMetadata = useCallback(
     async (chain, poolAddress, retryCount = 0) => {
       const cacheKey = `pool-${GECKOTERMINAL_CHAIN_MAPPING[chain]}-${poolAddress}-session_required`; // Session-dependent
@@ -492,7 +454,6 @@ export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initi
               timeout: 10000,
             }
           );
-
           const tokenData = response.data.data || [];
           return tokenData.reduce((acc, token) => {
             acc[token.attributes.address] = {
@@ -504,7 +465,6 @@ export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initi
             return acc;
           }, {});
         };
-
         return await getCachedData(cacheKey, fetchFn, CACHE_DURATIONS.DEFI_POOL, 0, true, session, status);
       } catch (error) {
         if (retryCount < 3 && error.response?.status === 429) {
@@ -517,17 +477,14 @@ export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initi
     },
     [session, status]
   );
-
   const fetchNameTagsForAddresses = useCallback(
     async (addresses) => {
       if (!addresses || addresses.length === 0) {
         setIsLoadingNameTags(false);
         return;
       }
-
       setIsLoadingNameTags(true);
       const newNameTags = {};
-
       // Handle non-EVM addresses (Bitcoin, Dogecoin, Litecoin)
       const nonEvmAddresses = addresses.filter((addr) => !addr.match(/^0x[a-fA-F0-9]{40}$/));
       const nameTagsMap = {
@@ -536,7 +493,6 @@ export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initi
         litecoin: ltcNameTags,
         ethereum: ethNameTags,
       };
-
       nonEvmAddresses.forEach((addr) => {
         const normalizedAddress = addr.toLowerCase();
         let nameTagData = null;
@@ -553,7 +509,6 @@ export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initi
           timestamp: Date.now(),
         };
       });
-
       // Handle EVM addresses with batching
       const evmAddresses = addresses.filter((addr) => addr.match(/^0x[a-fA-F0-9]{40}$/));
       if (evmAddresses.length > 0 && status === 'authenticated') {
@@ -563,7 +518,6 @@ export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initi
           for (let i = 0; i < evmAddresses.length; i += batchSize) {
             batches.push(evmAddresses.slice(i, i + batchSize));
           }
-
           const batchPromises = batches.map((batch) =>
             cacheLimiter.schedule(async () => {
               const cacheKey = `nametags-batch-${batch.join('-')}-session_required`; // Session-dependent
@@ -583,7 +537,6 @@ export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initi
               return await getCachedData(cacheKey, fetchFn, NAME_TAG_CACHE_DURATION, 0, true, session, status);
             })
           );
-
           const responses = await Promise.allSettled(batchPromises);
           responses.forEach((result, index) => {
             if (result.status === 'fulfilled' && result.value) {
@@ -608,7 +561,6 @@ export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initi
             data: error.response?.data,
             message: error.message,
           });
-
           const errorMessage =
             error.response?.status === 401
               ? 'Unauthorized: Please log in again.'
@@ -617,12 +569,10 @@ export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initi
                 : error.response?.status === 400
                   ? 'Invalid addresses provided.'
                   : error.response?.data?.detail || `Failed to fetch Name Tags: ${error.message}`;
-
           evmAddresses.forEach((address) => {
             const normalizedAddress = address.toLowerCase();
             newNameTags[normalizedAddress] = { nameTag: null, image: null, timestamp: Date.now() };
           });
-
           toast.error(errorMessage, { position: 'top-center', autoClose: 5000 });
         }
       } else if (evmAddresses.length > 0) {
@@ -631,7 +581,6 @@ export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initi
           newNameTags[normalizedAddress] = { nameTag: null, image: null, timestamp: Date.now() };
         });
       }
-
       setNameTags((prev) => {
         const updated = { ...prev, ...newNameTags };
         nameTagsRef.current = updated;
@@ -641,7 +590,6 @@ export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initi
     },
     [session, status, toast]
   );
-
   const fetchMempoolTransactions = useCallback(async () => {
     if (selectedToken?.id !== 'bitcoin' || document.visibilityState !== 'visible') {
       setMempoolTransactions([]);
@@ -649,7 +597,6 @@ export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initi
       setMempoolError(null);
       return;
     }
-
     setIsLoadingMempool(true);
     setMempoolError(null);
     try {
@@ -661,15 +608,13 @@ export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initi
         setIsLoadingMempool(false);
         return;
       }
-
       // Determine params based on initial fetch or polling
       const isInitial = isInitialMempoolFetch.current && mempoolTransactions.length === 0;
       const limit = isInitial ? MEMPOOL_INIT_LIMIT : MEMPOOL_POLL_LIMIT;
       let allRawTxs = [];
       let currentPage = 1;
       let hasMore = true;
-
-      while (hasMore) {
+      while (hasMore && allRawTxs.length < MAX_MEMPOOL_TXS) { // Added limit to stop early
         const params = {
           maxAge: MEMPOOL_MAX_AGE,
           limit,
@@ -682,7 +627,6 @@ export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initi
           },
           timeout: 50000,
         });
-
         if (response.data.success && Array.isArray(response.data.data)) {
           allRawTxs = [...allRawTxs, ...response.data.data];
           const pagination = response.data.pagination || {};
@@ -694,14 +638,12 @@ export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initi
           break;
         }
       }
-
       const rawNewTxs = allRawTxs
         .filter((tx) => {
           const isNew = !mempoolTxCache.current.has(tx.txid);
           const valueUSD = (tx.value_btc * btcPrice) || 0;
           return isNew && valueUSD >= 1000000; // Only take transactions >= 1M USD
         });
-
       // Collect unique addresses from new transactions
       const uniqueAddresses = new Set();
       rawNewTxs.forEach((tx) => {
@@ -715,12 +657,10 @@ export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initi
         });
       });
       const addressesArray = Array.from(uniqueAddresses);
-
       // Fetch nametags for these addresses (will use JSON for BTC)
       if (addressesArray.length > 0) {
         await fetchNameTagsForAddresses(addressesArray);
       }
-
       const newTxs = rawNewTxs
         .map((tx) => {
           mempoolTxCache.current.add(tx.txid);
@@ -756,7 +696,6 @@ export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initi
             status: tx.status || {},
           };
         });
-
       // Update mempoolTransactions with new data, keeping up to MAX_MEMPOOL_TXS transactions
       setMempoolTransactions((prev) => {
         const updated = [...newTxs, ...prev].slice(0, MAX_MEMPOOL_TXS).sort((a, b) => b.timestamp - a.timestamp);
@@ -775,8 +714,6 @@ export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initi
       setIsLoadingMempool(false);
     }
   }, [selectedToken, session, fetchNameTagsForAddresses, nameTagsRef]);
-
-
   useEffect(() => {
     if (selectedToken?.id !== 'bitcoin' || document.visibilityState !== 'visible') {
       setMempoolTransactions([]);
@@ -785,38 +722,31 @@ export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initi
       isInitialMempoolFetch.current = true;
       return;
     }
-
     // Call fetch initially
     fetchMempoolTransactions();
-
     // Set up polling interval
     const interval = setInterval(() => {
       if (selectedToken?.id === 'bitcoin' && document.visibilityState === 'visible') {
         fetchMempoolTransactions();
       }
     }, MEMPOOL_POLLING_INTERVAL);
-
     return () => clearInterval(interval);
   }, [selectedToken, fetchMempoolTransactions]);
-
   const fetchNameTag = useCallback(
     async (address) => {
       if (!address || !address.match(/^0x[a-fA-F0-9]{40}$/)) {
         return { nameTag: null, image: null };
       }
-
       const normalizedAddress = address.toLowerCase();
       const cacheKey = `nametag-${normalizedAddress}-session_required`; // Session-dependent
       const cached = nameTagsRef.current[normalizedAddress];
       if (cached && Date.now() - cached.timestamp < NAME_TAG_CACHE_DURATION) {
         return { nameTag: cached.nameTag, image: cached.image };
       }
-
       try {
         if (status !== 'authenticated') {
           throw new Error('Unauthorized: Please log in to fetch Name Tag.');
         }
-
         const fetchFn = async () => {
           const response = await axios.get(`/api/nametags`, {
             params: { address: normalizedAddress },
@@ -825,7 +755,6 @@ export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initi
             },
             timeout: 5000,
           });
-
           if (!response.data.success || !response.data.data?.[normalizedAddress]) {
             const cacheEntry = { nameTag: null, image: null, timestamp: Date.now() };
             nameTagsRef.current[normalizedAddress] = cacheEntry;
@@ -835,13 +764,11 @@ export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initi
             }));
             return { nameTag: null, image: null };
           }
-
           const data = response.data.data[normalizedAddress];
           const nameTag = data.Labels?.deposit?.['Name Tag'] || null;
           const image = data.Labels?.deposit?.image || '/icons/default.webp';
           return { nameTag, image, timestamp: Date.now() };
         };
-
         const result = await getCachedData(cacheKey, fetchFn, NAME_TAG_CACHE_DURATION, 0, true, session, status);
         nameTagsRef.current[normalizedAddress] = result;
         setNameTags((prev) => ({
@@ -855,7 +782,6 @@ export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initi
           data: error.response?.data,
           message: error.message,
         });
-
         let errorMessage;
         let showToast = true;
         if (error.response?.status === 401) {
@@ -868,14 +794,12 @@ export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initi
         } else {
           errorMessage = error.response?.data?.detail || `Failed to fetch Name Tag: ${error.message}`;
         }
-
         const cacheEntry = { nameTag: null, image: null, timestamp: Date.now() };
         nameTagsRef.current[normalizedAddress] = cacheEntry;
         setNameTags((prev) => ({
           ...prev,
           [normalizedAddress]: cacheEntry,
         }));
-
         if (showToast) {
           toast.error(errorMessage, { position: 'top-center', autoClose: 5000 });
         }
@@ -884,7 +808,6 @@ export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initi
     },
     [session, status, toast]
   );
-
   const fetchPriceHistory = useCallback(
     debounce(
       async (tokenId, days, callback = () => { }, retryCount = 0) => {
@@ -899,21 +822,17 @@ export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initi
           callback(new Error(errorMessage));
           return;
         }
-
         const cacheKey = `price-history-${tokenId}-${days}-${currency}`; // Non-session-dependent
         setIsLoadingSelectedToken(true);
-
         try {
           const fetchFn = async () => {
             const response = await axios.get('/api/coingecko/market_chart', {
               params: { id: tokenId, days, currency },
               timeout: 30000,
             });
-
             if (!response.data?.prices || !Array.isArray(response.data.prices) || response.data.prices.length === 0) {
               throw new Error('Invalid or empty price history data');
             }
-
             const prices = response.data.prices.map(([, price]) => price).filter((p) => p > 0);
             const minPrice = prices.length > 0 ? Math.min(...prices) : 0.01;
             let fractionDigits = 2;
@@ -922,7 +841,6 @@ export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initi
             } else if (minPrice < 0.01) {
               fractionDigits = 4;
             }
-
             const priceData = response.data.prices
               .filter(([timestamp]) => typeof timestamp === 'number' && !isNaN(timestamp))
               .map(([timestamp, price]) => ({
@@ -934,14 +852,11 @@ export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initi
                   }).replace(/,/g, '')
                 ),
               }));
-
             if (priceData.length === 0) {
               throw new Error('No valid price data after filtering');
             }
-
             return priceData;
           };
-
           const priceData = await getCachedData(cacheKey, fetchFn, CACHE_DURATIONS.PRICE, 0, false, session, status);
           setPriceHistory(priceData);
           callback(null, priceData);
@@ -972,7 +887,6 @@ export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initi
     ),
     [currency, session, status, toast]
   );
-
   const fetchPublicTreasuryData = useCallback(
     debounce(
       async (tokenSymbol, retryCount = 0) => {
@@ -983,21 +897,17 @@ export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initi
           setIsLoadingOnChain(false);
           return;
         }
-
         if (status !== 'authenticated') {
           setIsLoadingOnChain(false);
           return;
         }
-
         const chain = normalizedTokenSymbol;
         const cacheKey = `top-holders-${chain}-session_required`; // Session-dependent
         setIsLoadingOnChain(true);
         setOnChainError(null);
-
         try {
           const fetchFn = async () => {
             let topHolders = [];
-
             // Map token symbol to corresponding JSON file for top holders
             const topHoldersMap = {
               bitcoin: btcTopHolders,
@@ -1005,7 +915,6 @@ export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initi
               litecoin: ltcNameTags,
               ethereum: ethNameTags,
             };
-
             // Map token symbol to corresponding JSON file for name tags
             const nameTagsMap = {
               bitcoin: btcNameTags,
@@ -1013,10 +922,8 @@ export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initi
               litecoin: ltcNameTags,
               ethereum: ethNameTags,
             };
-
             const jsonData = topHoldersMap[chain];
             const nameTagData = nameTagsMap[chain];
-
             if (jsonData) {
               const isBitcoinAddressPattern = (addr) => /^1[1-9A-HJ-NP-Za-km-z]{25,34}$|^3[1-9A-HJ-NP-Za-km-z]{25,33}$|^bc1[ac-hj-np-z02-9]{39,59}$/.test(addr);
               topHolders = Object.values(jsonData)
@@ -1046,7 +953,6 @@ export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initi
                   };
                 })
                 .filter(Boolean);
-
               // Deduplicate by normalized address, keeping only the first non-lowercase (proper structure) entry
               const seen = new Set();
               topHolders = topHolders.filter((holder) => {
@@ -1060,7 +966,6 @@ export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initi
             } else {
               throw new Error(`No JSON data available for ${chain}`);
             }
-
             // Fetch CoinGecko treasury data for Bitcoin and Ethereum
             if (['bitcoin', 'ethereum'].includes(chain)) {
               try {
@@ -1071,7 +976,6 @@ export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initi
                   },
                   timeout: 15000,
                 });
-
                 if (coingeckoResponse.data.success && Array.isArray(coingeckoResponse.data.data?.companies)) {
                   const treasuryData = coingeckoResponse.data.data.companies.map((company) => {
                     const address = company.address?.toLowerCase() || company.name?.toLowerCase() || 'unknown';
@@ -1085,7 +989,6 @@ export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initi
                       source: 'CoinGecko',
                     };
                   });
-
                   // Merge with JSON data, avoiding duplicates
                   const uniqueAddresses = new Set(topHolders.map((holder) => holder.address.toLowerCase()));
                   topHolders = [
@@ -1104,17 +1007,13 @@ export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initi
                 console.warn(`Failed to fetch treasury data from CoinGecko for ${chain}:`, coingeckoError.message);
               }
             }
-
             // Sort by balance and limit to top 100
             topHolders = topHolders.sort((a, b) => b.balance - a.balance).slice(0, 200);
-
             if (topHolders.length === 0) {
               throw new Error(`No data for ${chain}`);
             }
-
             return topHolders;
           };
-
           const topHolders = await getCachedData(cacheKey, fetchFn, CACHE_DURATIONS.TOP_HOLDERS, 0, true, session, status);
           setOnChainData((prev) => ({
             ...prev,
@@ -1151,7 +1050,6 @@ export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initi
     ),
     [session, status, toast, executeRecaptcha]
   );
-
   const fetchTickerData = useCallback(
     debounce(
       async (tokenId, retryCount = 0) => {
@@ -1159,7 +1057,6 @@ export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initi
         const cacheKey = `ticker-${tokenId}`; // Non-session-dependent
         setIsLoadingTickers(true);
         setTickerError(null);
-
         try {
           const fetchFn = async () => {
             const response = await coingeckoAxios.get('/api/coingecko', {
@@ -1175,7 +1072,6 @@ export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initi
             }
             return response.data.data.tickers;
           };
-
           const tickers = await getCachedData(cacheKey, fetchFn, CACHE_DURATIONS.TICKERS, 0, false, session, status);
           setTickerData(tickers || []);
           setTickerError(null);
@@ -1203,7 +1099,6 @@ export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initi
     ),
     [session, status]
   );
-
   const fetchOnChainData = useCallback(
     debounce(
       async (chain, tokenAddress, action, decimalPlace, address, recaptchaToken, retryCount = 0) => {
@@ -1220,7 +1115,6 @@ export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initi
           toast.error(errorMessage, { position: 'top-center', autoClose: 5000 });
           return;
         }
-
         if (status !== 'authenticated') {
           const errorMessage = 'Please log in to access on-chain data.';
           setOnChainError(errorMessage);
@@ -1229,13 +1123,11 @@ export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initi
           setIsLoadingTransactions(false);
           return;
         }
-
         let simChain = chains.find((c) => c.value === chain)?.value;
         if (!simChain && action === 'top-holders') {
           simChain = 'ethereum';
           console.warn(`Invalid chain: ${chain}, falling back to 'ethereum'`);
         }
-
         if (!simChain && action !== 'wallet-balances' && action !== 'transactions') {
           const errorMessage = `No valid chain found for ${chain}`;
           console.error(errorMessage);
@@ -1244,12 +1136,10 @@ export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initi
           toast.error(errorMessage, { position: 'top-center', autoClose: 5000 });
           return;
         }
-
         const cacheKey = `onchain-${simChain || 'wallet'}-${tokenAddress || address}-${action}-session_required`; // Session-dependent
         setIsLoadingOnChain(action === 'top-holders');
         if (action === 'wallet-balances') setIsLoadingWalletBalances(true);
         else if (action === 'transactions') setIsLoadingTransactions(true);
-
         try {
           const fetchFn = async () => {
             const apiUrl = `${process.env.NEXT_PUBLIC_APP_URL || 'https://xynapse-ai.vercel.app'}/api/sim`;
@@ -1261,7 +1151,6 @@ export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initi
               ...(decimalPlace != null && { decimalPlace: Number(decimalPlace) }),
               ...(address && { address }),
             };
-
             const response = await fetch(apiUrl, {
               method: 'POST',
               headers: {
@@ -1272,7 +1161,6 @@ export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initi
               body: JSON.stringify(payload),
               signal: AbortSignal.timeout(30000),
             });
-
             if (!response.ok) {
               const text = await response.text();
               let errorMessage = `Failed to fetch ${action} data: ${response.status} ${response.statusText}`;
@@ -1284,31 +1172,25 @@ export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initi
               }
               throw new Error(errorMessage);
             }
-
             const reader = response.body.getReader();
             const decoder = new TextDecoder();
             let data = [];
             let buffer = '';
             let isFirstChunk = true;
-
             while (true) {
               const { done, value } = await reader.read();
               if (done) break;
-
               buffer += decoder.decode(value, { stream: true });
-
               if (isFirstChunk) {
                 buffer = buffer.trim().replace(/^\[/, '');
                 isFirstChunk = false;
               }
-
               let pos = 0;
               while (pos < buffer.length) {
                 while (pos < buffer.length && (buffer[pos] === ' ' || buffer[pos] === '\n' || buffer[pos] === ',' || buffer[pos] === ']')) {
                   pos++;
                 }
                 if (pos >= buffer.length) break;
-
                 if (buffer[pos] === '{') {
                   let openBraces = 1;
                   let start = pos;
@@ -1318,7 +1200,6 @@ export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initi
                     else if (buffer[pos] === '}') openBraces--;
                     pos++;
                   }
-
                   if (openBraces === 0) {
                     const objStr = buffer.substring(start, pos).trim();
                     try {
@@ -1337,10 +1218,8 @@ export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initi
                   pos++;
                 }
               }
-
               buffer = buffer.slice(pos).trim();
             }
-
             if (buffer) {
               buffer = buffer.replace(/\]$/, '').trim();
               if (buffer.startsWith('{')) {
@@ -1356,13 +1235,10 @@ export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initi
                 }
               }
             }
-
             return data;
           };
-
           const ttl = action === 'transactions' ? CACHE_DURATIONS.TRANSACTIONS : CACHE_DURATIONS.DEFAULT;
           const data = await getCachedData(cacheKey, fetchFn, ttl, 0, true, session, status);
-
           if (action === 'top-holders') {
             setOnChainData((prev) => ({
               ...prev,
@@ -1418,10 +1294,8 @@ export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initi
     ),
     [chains, session, status, toast, executeRecaptcha]
   );
-
   const getAvailableChains = useCallback(() => {
     if (!selectedToken?.detail_platforms) return [];
-
     const tokenSymbol = selectedToken.symbol?.toLowerCase();
     if (tokenSymbol === 'bnb') {
       const bnbPlatforms = {
@@ -1434,7 +1308,6 @@ export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initi
           decimal_place: selectedToken.detail_platforms?.ethereum?.decimal_place || 18,
         },
       };
-
       const availableChains = SUPPORTED_EVM_CHAINS.filter(
         (chain) => {
           const cgId = chain.coingeckoId;
@@ -1446,7 +1319,6 @@ export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initi
       prevAvailableChainsRef.current = availableChains;
       return availableChains;
     }
-
     // For other tokens, filter based on detail_platforms using full EVM chains
     const availableChains = SUPPORTED_EVM_CHAINS.filter(
       (chain) => {
@@ -1455,23 +1327,19 @@ export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initi
           (process.env.NODE_ENV === 'development' || !chain.testnet);
       }
     );
-
     prevAvailableChainsRef.current = availableChains;
     return availableChains;
   }, [selectedToken]);
-
   const getDefaultChainAndAddress = useCallback(
     (token, preferredChain = 'ethereum') => {
       if (!token) {
         console.warn('No token provided for getDefaultChainAndAddress');
         return { chain: 'ethereum', tokenAddress: null, decimalPlace: null };
       }
-
       const tokenSymbol = token.symbol?.toLowerCase();
       if (NON_EVM_CHAINS.includes(tokenSymbol)) {
         return { chain: tokenSymbol, tokenAddress: null, decimalPlace: null };
       }
-
       // Special case for BNB
       if (tokenSymbol === 'bnb') {
         const bnbChainAddress = '0xbb4cdb9cbd36b01bd1cbaebf2de08d9173bc095c';
@@ -1485,13 +1353,11 @@ export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initi
             decimal_place: token.detail_platforms?.ethereum?.decimal_place || 18,
           },
         };
-
         // Ensure SUPPORTED_EVM_CHAINS is available
         if (!SUPPORTED_EVM_CHAINS || SUPPORTED_EVM_CHAINS.length === 0) {
           console.warn('SUPPORTED_EVM_CHAINS is empty, falling back to BNB chain for BNB');
           return { chain: 'bnb', tokenAddress: bnbChainAddress, decimalPlace: 18 };
         }
-
         // Filter available chains for BNB, excluding testnets in production
         const availableChains = SUPPORTED_EVM_CHAINS.filter(
           (chain) => {
@@ -1501,7 +1367,6 @@ export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initi
               (process.env.NODE_ENV === 'development' || !chain.testnet)
           }
         );
-
         // Prefer BNB chain if available, otherwise fall back to Ethereum
         const bnbChainEntry = SUPPORTED_EVM_CHAINS.find(c => c.value === 'bnb');
         if (
@@ -1525,17 +1390,14 @@ export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initi
             decimalPlace: bnbPlatforms['ethereum'].decimal_place,
           };
         }
-
         setOnChainError('BNB does not have on-chain data available on supported chains.');
         return { chain: 'bnb', tokenAddress: bnbChainAddress, decimalPlace: 18 };
       }
-
       // For other tokens, use full EVM chains
       if (!SUPPORTED_EVM_CHAINS || SUPPORTED_EVM_CHAINS.length === 0) {
         console.warn('SUPPORTED_EVM_CHAINS array is empty, falling back to default chain: ethereum');
         return { chain: 'ethereum', tokenAddress: null, decimalPlace: null };
       }
-
       const normalizedPlatforms = Object.keys(token.detail_platforms || {}).reduce((acc, cgId) => {
         const chain = SUPPORTED_EVM_CHAINS.find((c) => c.coingeckoId === cgId);
         if (chain && token.detail_platforms[cgId]?.contract_address?.match(/^0x[a-fA-F0-9]{40}$/)) {
@@ -1547,13 +1409,11 @@ export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initi
         }
         return acc;
       }, {});
-
       const availableChains = SUPPORTED_EVM_CHAINS.filter(
         (chain) =>
           normalizedPlatforms[chain.value] &&
           (process.env.NODE_ENV === 'development' || !chain.testnet)
       );
-
       if (
         normalizedPlatforms[preferredChain] &&
         SUPPORTED_EVM_CHAINS.some((net) => net.value === preferredChain) &&
@@ -1565,14 +1425,12 @@ export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initi
           decimalPlace: normalizedPlatforms[preferredChain].decimal_place,
         };
       }
-
       if (availableChains.length > 0) {
         const defaultChain = availableChains[0].value;
         const tokenAddress = normalizedPlatforms[defaultChain].address;
         const decimalPlace = normalizedPlatforms[defaultChain].decimal_place;
         return { chain: defaultChain, tokenAddress, decimalPlace };
       }
-
       const fallbackTokens = {
         usdc: {
           chain: 'ethereum',
@@ -1590,17 +1448,14 @@ export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initi
           decimalPlace: 18,
         },
       };
-
       if (fallbackTokens[tokenSymbol]) {
         return fallbackTokens[tokenSymbol];
       }
-
       setOnChainError('This token does not have on-chain data available on supported chains.');
       return { chain: 'ethereum', tokenAddress: null, decimalPlace: null };
     },
     [setOnChainError]
   );
-
   const fetchDexData = useCallback(
     debounce(
       async (chain, tokenAddress, page = 1) => {
@@ -1610,7 +1465,6 @@ export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initi
           setIsLoadingDex(false);
           return;
         }
-
         // Handle Bitcoin case - unchanged
         if (chain === 'bitcoin') {
           setIsLoadingDex(false);
@@ -1619,7 +1473,6 @@ export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initi
           fetchMempoolTransactions();
           return;
         }
-
         if (!selectedToken || !selectedToken.detail_platforms) {
           const errorMessage = 'Invalid token data for on-chain transactions';
           setDexError(errorMessage);
@@ -1627,7 +1480,6 @@ export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initi
           toast.error(errorMessage, { position: "top-center", autoClose: 5000 });
           return;
         }
-
         const availableChains = getAvailableChains().filter(c => !c.testnet).slice(0, 5);
         if (availableChains.length === 0) {
           const errorMessage = `No supported EVM chains found for ${selectedToken.symbol}`;
@@ -1636,7 +1488,6 @@ export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initi
           toast.error(errorMessage, { position: "top-center", autoClose: 5000 });
           return;
         }
-
         // Rate limit check (reset on visibility change for idle fix)
         const userId = session?.user?.id || 'anonymous';
         const now = Date.now();
@@ -1655,7 +1506,6 @@ export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initi
           dexRequestTracker.set(userId, { count: userRequests.count + 1, lastReset: userRequests.lastReset });
           setDexRequestCount((prev) => prev + 1);
         }
-
         const isInitial = page === 1 && dexData.fullTrades.length === 0;
         const OFFSET_PER_CALL = 200;
         const offset = OFFSET_PER_CALL;
@@ -1663,117 +1513,103 @@ export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initi
           setHasMoreDex(false);
           return;
         }
-
         const cacheKey = `onchain-tx-${selectedToken.id}-page-${page}-session_required`;
         setIsLoadingDex(isInitial);
         setIsLoadingPage(!isInitial && page > 1);
         setDexError(null);
-
         try {
           const fetchFn = async () => {
             let newTrades = [];
             let uniqueAddresses = new Set();
-
-            // Sequential fetch để tránh rate limit
-            for (const ch of availableChains) {
-              const platformId = ch.coingeckoId;
-              const tokenAddr = selectedToken.detail_platforms?.[platformId]?.contract_address;
-              if (!tokenAddr || !tokenAddr.match(/^0x[a-fA-F0-9]{40}$/)) continue;
-
-              const payload = {
-                action: 'token-transactions',
-                chain: ch.value,
-                tokenAddress: tokenAddr,
-                page, // API page
-                offset, // Fixed offset
-              };
-
-              try {
-                const response = await fetch('/api/etherscan', {
-                  method: 'POST',
-                  headers: {
-                    'Content-Type': 'application/json',
-                    ...(session?.accessToken && { Authorization: `Bearer ${session.accessToken}` }),
-                  },
-                  body: JSON.stringify(payload),
-                });
-
-                if (!response.ok) {
-                  console.warn(`Failed to fetch token tx for ${ch.value}: ${response.status}`);
-                  await new Promise(r => setTimeout(r, 300)); // Increased delay to avoid rate limit
-                  continue;
-                }
-
-                // Parse response
-                const text = await response.text();
-                let trades = [];
+            // Parallel fetch with pLimit to respect rates but speed up (removed sequential delays)
+            const chainLimit = pLimit(5); // Limit to 5 concurrent chain fetches
+            const chainPromises = availableChains.map((ch) =>
+              chainLimit.schedule(async () => {
+                const platformId = ch.coingeckoId;
+                const tokenAddr = selectedToken.detail_platforms?.[platformId]?.contract_address;
+                if (!tokenAddr || !tokenAddr.match(/^0x[a-fA-F0-9]{40}$/)) return [];
+                const payload = {
+                  action: 'token-transactions',
+                  chain: ch.value,
+                  tokenAddress: tokenAddr,
+                  page, // API page
+                  offset, // Fixed offset
+                };
                 try {
-                  const parsed = JSON.parse(text);
-                  if (parsed.success && Array.isArray(parsed.data)) {
-                    trades = parsed.data;
+                  const response = await fetch('/api/etherscan', {
+                    method: 'POST',
+                    headers: {
+                      'Content-Type': 'application/json',
+                      ...(session?.accessToken && { Authorization: `Bearer ${session.accessToken}` }),
+                    },
+                    body: JSON.stringify(payload),
+                  });
+                  if (!response.ok) {
+                    console.warn(`Failed to fetch token tx for ${ch.value}: ${response.status}`);
+                    return [];
                   }
-                } catch (e) {
-                  console.warn(`Parse error for ${ch.value}: ${e.message}`);
+                  // Parse response
+                  const text = await response.text();
+                  let trades = [];
+                  try {
+                    const parsed = JSON.parse(text);
+                    if (parsed.success && Array.isArray(parsed.data)) {
+                      trades = parsed.data;
+                    }
+                  } catch (e) {
+                    console.warn(`Parse error for ${ch.value}: ${e.message}`);
+                  }
+                  // Map to trade format
+                  const chainTrades = trades.map((tx) => {
+                    const amount = parseFloat(tx.value) / Math.pow(10, parseInt(tx.tokenDecimal || 18));
+                    const usdValue = amount * (selectedToken.current_price?.[currency] || 0);
+                    const gasFee = (BigInt(tx.gasUsed || 0) * BigInt(tx.gasPrice || 0)) / BigInt(10 ** 18);
+                    uniqueAddresses.add(tx.from);
+                    uniqueAddresses.add(tx.to);
+                    return {
+                      tx_hash: tx.txhash,
+                      block_timestamp: new Date(parseInt(tx.timeStamp) * 1000).toISOString(),
+                      tx_from_address: { address: tx.from },
+                      to_token_address: { address: tx.to },
+                      from_token_amount: '0',
+                      to_token_amount: amount.toString(),
+                      volume_in_usd: usdValue,
+                      pool_name: `${ch.value.toUpperCase()} Transfer`,
+                      pool_address: null,
+                      kind: 'transfer',
+                      chain: ch.value,
+                      gas_fee: gasFee.toString(),
+                      decimals: parseInt(tx.tokenDecimal || 18),
+                      symbol: tx.tokenSymbol || selectedToken.symbol,
+                    };
+                  });
+                  return chainTrades;
+                } catch (chainErr) { 
+                  console.warn(`Failed chain ${ch.value}: ${chainErr}`); 
+                  return []; 
                 }
-
-                // Map to trade format
-                const chainTrades = trades.map((tx) => {
-                  const amount = parseFloat(tx.value) / Math.pow(10, parseInt(tx.tokenDecimal || 18));
-                  const usdValue = amount * (selectedToken.current_price?.[currency] || 0);
-                  const gasFee = (BigInt(tx.gasUsed || 0) * BigInt(tx.gasPrice || 0)) / BigInt(10 ** 18);
-
-                  uniqueAddresses.add(tx.from);
-                  uniqueAddresses.add(tx.to);
-
-                  return {
-                    tx_hash: tx.txhash,
-                    block_timestamp: new Date(parseInt(tx.timeStamp) * 1000).toISOString(),
-                    tx_from_address: { address: tx.from },
-                    to_token_address: { address: tx.to },
-                    from_token_amount: '0',
-                    to_token_amount: amount.toString(),
-                    volume_in_usd: usdValue,
-                    pool_name: `${ch.value.toUpperCase()} Transfer`,
-                    pool_address: null,
-                    kind: 'transfer',
-                    chain: ch.value,
-                    gas_fee: gasFee.toString(),
-                    decimals: parseInt(tx.tokenDecimal || 18),
-                    symbol: tx.tokenSymbol || selectedToken.symbol,
-                  };
-                });
-
-                newTrades.push(...chainTrades);
-                // Partial update for faster UI
-                setDexData(prev => ({
-                  ...prev,
-                  fullTrades: [...prev.fullTrades, ...chainTrades].slice(0, MAX_TOTAL_TXS),
-                }));
-              } catch (chainErr) { console.warn(`Failed chain ${ch.value}: ${chainErr}`); } await new Promise(r => setTimeout(r, 300));
-            }
-
+              })
+            );
+            const chainResults = await Promise.all(chainPromises);
+            newTrades = chainResults.flat();
             // Fetch nametags
             const addressesArray = Array.from(uniqueAddresses).filter(addr => addr.match(/^0x[a-fA-F0-9]{40}$/));
             if (addressesArray.length > 0) {
               await fetchNameTagsForAddresses(addressesArray);
             }
-
             // Apply tags and sort
             const tradesWithTags = newTrades.map((trade) => {
               const fromAddr = trade.tx_from_address?.address?.toLowerCase();
               const toAddr = trade.to_token_address?.address?.toLowerCase();
               const fromTag = fromAddr ? nameTagsRef.current[fromAddr] : null;
               const toTag = toAddr ? nameTagsRef.current[toAddr] : null;
-
               return {
                 ...trade,
                 tx_from_address: { ...trade.tx_from_address, nameTag: fromTag?.nameTag || null, image: fromTag?.image || null },
                 to_token_address: { ...trade.to_token_address, nameTag: toTag?.nameTag || null, image: toTag?.image || null },
               };
             });
-
             const sortedNewTrades = tradesWithTags.sort((a, b) => new Date(b.block_timestamp) - new Date(a.block_timestamp));
-
             // Accumulate fullTrades: merge new with existing, dedup by tx_hash, limit total
             let updatedFullTrades = [...dexData.fullTrades, ...sortedNewTrades];
             // Dedup: keep latest by tx_hash
@@ -1784,14 +1620,13 @@ export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initi
               return true;
             });
             updatedFullTrades = updatedFullTrades.slice(0, MAX_TOTAL_TXS);
-
-            // Progressive loading for initial: chain timeouts up to 5 pages (5000 / 200) with increasing delays
+            // Progressive loading for initial: reduced to 3 pages for faster initial load
             if (isInitial && !progressiveLoadRef.current) {
               progressiveLoadRef.current = setTimeout(async () => {
                 setIsLoadingMoreDex(true);
                 try {
-                  for (let p = 2; p <= 5; p++) { // Reduced to 5 pages for 1000 txs
-                    await new Promise(resolve => setTimeout(resolve, p * 3000)); // Increased delay: 6s, 9s, etc.
+                  for (let p = 2; p <= 3; p++) { // Reduced from 5 to 3 pages
+                    await new Promise(resolve => setTimeout(resolve, p * 1000)); // Reduced delay from 3000 to 1000
                     if (!hasMoreDex) break;
                     await fetchDexData(chain, tokenAddress, p);
                   }
@@ -1803,11 +1638,9 @@ export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initi
                 }
               }, 1000); // Start after 1s
             }
-
             // Return only fullTrades, pools, poolTokens - trades handled by useEffect
             return { pools: [], fullTrades: updatedFullTrades, poolTokens: {} };
           };
-
           const dexDataBatch = await getCachedData(cacheKey, fetchFn, CACHE_DURATIONS.TRANSACTIONS, 0, true, session, status); // Use shorter cache for transactions
           setDexData(prev => ({ ...prev, ...dexDataBatch }));
           setHasMoreDex(dexDataBatch.fullTrades.length < MAX_TOTAL_TXS);
@@ -1840,7 +1673,6 @@ export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initi
     ),
     [session, status, toast, fetchNameTagsForAddresses, nameTagsRef, selectedToken, currency, getAvailableChains, fetchMempoolTransactions, dexData, setHasMoreDex]
   );
-
   // New: Function to get paginated trades from cached fullTrades
   const getPaginatedTrades = useCallback((page) => {
     const start = (page - 1) * dexPaginationSize;
@@ -1848,7 +1680,6 @@ export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initi
     const fullTrades = dexData.fullTrades || [];
     return fullTrades.slice(start, end);
   }, [dexData.fullTrades, dexPaginationSize]);
-
   // Updated loadMoreDexData: Now paginates client-side from cache, loads on demand
   const loadMoreDexData = useCallback(async () => {
     if (!selectedToken || dexError || isLoadingMoreDex || dexData.fullTrades.length >= MAX_TOTAL_TXS) {
@@ -1857,7 +1688,7 @@ export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initi
     }
     const OFFSET_PER_CALL = 200;
     const nextPage = Math.floor(dexData.fullTrades.length / OFFSET_PER_CALL) + 1;
-    if (nextPage > 5) { // Reduced to 5 pages
+    if (nextPage > 5) { // Reduced to 5 pages for 1000 txs
       setHasMoreDex(false);
       return;
     }
@@ -1873,7 +1704,6 @@ export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initi
     setIsLoadingMoreDex(false);
     setHasMoreDex(dexData.fullTrades.length < MAX_TOTAL_TXS);
   }, [selectedToken, dexError, isLoadingMoreDex, dexData.fullTrades, selectedChain, getDefaultChainAndAddress, fetchDexData]);
-
   useEffect(() => {
     const isBitcoin = selectedToken?.id.toLowerCase() === 'bitcoin';
     if (isBitcoin) return;
@@ -1881,12 +1711,10 @@ export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initi
     setDexData(prev => ({ ...prev, trades: paginated }));
     setIsLoadingPage(false); // Hide loading sau update
   }, [currentDexPage, getPaginatedTrades, selectedToken]);
-
   const goToDexPage = useCallback((page) => {
     if (page < 1 || page > Math.ceil((dexData.fullTrades?.length || 0) / dexPaginationSize)) return;
     setIsLoadingPage(true);
     setCurrentDexPage(page);
-
     // Nếu chưa đủ data cho page này, trigger load more background
     const requiredTxs = page * dexPaginationSize;
     if (dexData.fullTrades.length < requiredTxs) {
@@ -1895,14 +1723,10 @@ export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initi
       setTimeout(() => setIsLoadingPage(false), 300); // Short delay for smooth UX
     }
   }, [dexData.fullTrades, dexPaginationSize, loadMoreDexData]);
-
   // New: Get total pages
   const getTotalDexPages = useCallback(() => {
     return Math.ceil((dexData.fullTrades?.length || 0) / dexPaginationSize);
   }, [dexData.fullTrades, dexPaginationSize]);
-
-
-
   // Reset rate limit tracker on tab focus (fix idle error)
   useEffect(() => {
     const handleVisibilityChange = () => {
@@ -1915,21 +1739,17 @@ export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initi
     document.addEventListener('visibilitychange', handleVisibilityChange);
     return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
   }, [session]);
-
   // Update the useEffect for dex data fetch to pass page=1:
   useEffect(() => {
     if (!selectedToken?.id || ['bitcoin', 'ethereum'].includes(selectedToken.id.toLowerCase()) || document.visibilityState !== 'visible' || isLoadingDex || isLoadingMoreDex) {
       return;
     }
-
     const { chain, tokenAddress } = getDefaultChainAndAddress(selectedToken, selectedChain);
     if (!chain || !tokenAddress) {
       return;
     }
-
     // Initial fetch (full load)
     fetchDexData(chain, tokenAddress, 1);
-
     // Set up interval for background refresh (only initial, và check loading)
     const interval = setInterval(() => {
       const cacheKey = `onchain-tx-${selectedToken.id}`;
@@ -1941,14 +1761,12 @@ export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initi
         fetchDexData(chain, tokenAddress, 1);
       }
     }, CACHE_DURATIONS.DEFI_POOL);
-
     return () => {
       clearInterval(interval);
       if (progressiveLoadRef.current) clearTimeout(progressiveLoadRef.current);
       fetchDexData.cancel && fetchDexData.cancel();
     };
   }, [selectedToken?.id, selectedChain, getDefaultChainAndAddress, fetchDexData, tickerCache, isLoadingDex, isLoadingMoreDex]);
-
   const fetchTrendingTokens = useCallback(
     debounce(
       async (retryCount = 0) => {
@@ -1956,7 +1774,6 @@ export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initi
         const cacheKey = `trending-tokens-${currency}`; // Non-session-dependent
         setIsLoadingTrending(true);
         setTrendingError(null);
-
         try {
           const fetchFn = async () => {
             const response = await axios.get('/api/coingecko', {
@@ -1968,7 +1785,6 @@ export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initi
             }
             return response.data.data;
           };
-
           const tokens = await getCachedData(cacheKey, fetchFn, CACHE_DURATIONS.TRENDING, 0, false, session, status);
           setTrendingTokens(tokens || []);
           setTrendingError(null);
@@ -1997,8 +1813,6 @@ export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initi
     ),
     [currency, session, status, toast]
   );
-
-
   const handleAddressClick = useCallback(
     (address) => {
       if (address === 'Unknown') {
@@ -2008,14 +1822,12 @@ export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initi
         toast.error(errorMessage, { position: 'top-center', autoClose: 5000 });
         return;
       }
-
       // Check if the selected token is Bitcoin
       if (selectedToken?.id.toLowerCase() === 'bitcoin') {
         const blockchairUrl = `https://blockchair.com/bitcoin/address/${address}`;
         window.open(blockchairUrl, '_blank', 'noreferrer');
         return;
       }
-
       // Check if the address is a valid EVM address (for ETH, BNB, and other EVM chains)
       if (!address?.match(/^0x[a-fA-F0-9]{40}$/)) {
         const errorMessage = `Invalid address format: ${address}`;
@@ -2024,7 +1836,6 @@ export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initi
         toast.error(errorMessage, { position: 'top-center', autoClose: 5000 });
         return;
       }
-
       // For ETH and other EVM-compatible tokens, trigger WalletBalances
       setSelectedWallet(address);
       setWalletBalances([]);
@@ -2032,7 +1843,6 @@ export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initi
       setWalletBalancesError(null);
       setTransactionsError(null);
       setIsLoadingWalletBalances(true);
-
       // Fetch wallet balances with reCAPTCHA
       const fetchBalances = async () => {
         try {
@@ -2053,12 +1863,10 @@ export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initi
           toast.error(errorMessage, { position: 'top-center', autoClose: 5000 });
         }
       };
-
       fetchBalances();
     },
     [fetchOnChainData, selectedToken, toast, executeRecaptcha, setWalletBalancesError, setSelectedWallet, setWalletBalances, setTransactions, setTransactionsError, setIsLoadingWalletBalances]
   );
-
   const handleWalletSearch = useCallback(
     debounce(async () => {
       if (!walletAddress || walletAddress.length !== 42 || !walletAddress.match(/^0x[a-fA-F0-9]{40}$/)) {
@@ -2108,7 +1916,6 @@ export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initi
     }, 500),
     [walletAddress, fetchOnChainData, executeRecaptcha, status, walletSearchCount, lastWalletSearchTime, selectedToken, onChainData]
   );
-
   const fetchTransactions = useCallback(
     async (address, retryCount = 0) => {
       if (!address?.match(/^0x[a-fA-F0-9]{40}$/)) {
@@ -2119,7 +1926,6 @@ export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initi
         toast.error(errorMessage, { position: 'top-center', autoClose: 5000 });
         return;
       }
-
       try {
         const recaptchaToken = await executeRecaptcha('transactions');
         setIsLoadingTransactions(true);
@@ -2149,16 +1955,13 @@ export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initi
     },
     [fetchOnChainData, executeRecaptcha, toast]
   );
-
   const debouncedHandleTokenSelect = useCallback(
     debounce(async (token, initialTokenData = null, onTokenSelect = null) => {
       if (!token?.id || lastFetchedTokenRef.current === token.id) {
         return;
       }
-
       const cacheKey = `token-metadata-${token.id}`; // Non-session-dependent
       setIsLoadingSelectedToken(true);
-
       try {
         const fetchFn = async () => {
           const recaptchaToken = await executeRecaptcha('coin_details');
@@ -2170,17 +1973,14 @@ export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initi
               vs_currencies: availableCurrencies.join(','),
             },
           });
-
           let responseData = response.data;
           if (response.data instanceof ReadableStream) {
             const text = await new Response(response.data).text();
             responseData = JSON.parse(text);
           }
-
           if (!responseData.success) {
             throw new Error(responseData.detail || 'Failed to fetch coin details');
           }
-
           return {
             id: responseData.data.id,
             symbol: responseData.data.symbol,
@@ -2231,7 +2031,6 @@ export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initi
             },
           };
         };
-
         const fullToken = await getCachedData(cacheKey, fetchFn, CACHE_DURATIONS.METADATA, 0, false, session, status);
         setSelectedToken(fullToken);
         setSelectedPair(`${fullToken.symbol?.toUpperCase()}/${currency.toUpperCase()}`);
@@ -2244,7 +2043,6 @@ export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initi
         setOnChainData({ topHolders: [], whaleActivity: [] });
         setOnChainError(null);
         lastFetchedTokenRef.current = token.id;
-
         const days = timeRange || '1';
         fetchPriceHistory(token.id, days, (err, data) => {
           if (err) {
@@ -2273,7 +2071,6 @@ export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initi
     }, 500),
     [currency, availableCurrencies, timeRange, fetchPriceHistory, selectedChain, session, status, executeRecaptcha, getDefaultChainAndAddress]
   );
-
   const debouncedHandleAnalysis = useCallback(
     debounce(async () => {
       if (!selectedToken) {
@@ -2284,24 +2081,20 @@ export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initi
         toast.info('Please log in to perform the analysis.', { position: 'top-center', autoClose: 5000 });
         return;
       }
-
       const cacheKey = `analysis-${selectedToken.symbol.toUpperCase()}-session_required`;
       setIsAnalyzing(true);
       setAnalysisLogs([]);
-
       try {
         const fetchFn = async () => {
           const recaptchaToken = await executeRecaptcha('analyze');
           const prompt = `
 Analyze **${selectedToken.symbol}** in Markdown format (500-800 words). Use **bold**, *italics*, tables, and concise yet detailed language. Ensure *not investment advice*. Format with clear headings, subheadings, line breaks, and professional tone. Base analysis heavily on real-time data from Brave API searches, incorporating specific facts, figures, and quotes from credible sources.
-
 **Data**:
 - **Current Price**: $${selectedToken.current_price?.[currency]?.toFixed(2) || 'N/A'}
 - **24h Price Change**: ${selectedToken.price_change_percentage_24h?.toFixed(2) || 'N/A'}%
 - **Market Cap**: $${selectedToken.market_cap?.[currency]?.toLocaleString() || 'N/A'}
 - **24h Volume**: $${selectedToken.total_volume?.[currency]?.toLocaleString() || 'N/A'}
 - **Social Media/Web**: Fetch recent sentiment from Twitter/X and web articles via Brave API, prioritizing latest news from the past week.
-
 **Requirements**:
 - **Overview**: Provide a detailed summary of market performance, recent trends, volatility, and historical context with specific data points, charts description (e.g., candlestick patterns), and comparisons to similar assets.
 - **US Economic Impact**: Analyze effects of the most recent CPI (include latest value and date), Non-Farm Payrolls (latest figures and date), GDP growth (quarterly data), and Federal Reserve interest rate decisions (latest rate and meeting date). Discuss how these macroeconomic factors influence the token, with evidence from sources.
@@ -2316,14 +2109,12 @@ Analyze **${selectedToken.symbol}** in Markdown format (500-800 words). Use **bo
 - **Risk Factors**: Discuss potential risks like market manipulation, regulatory risks, or technological issues, backed by recent news.
 - **Conclusion**: Provide balanced, actionable insights with a neutral tone, summarizing key takeaways.
 - **References**: Provide a JSON array of links in the format [{ "text": "Article Title", "url": "https://example.com", "description": "Summary", "image": "https://thumbnail.jpg" }, ...] from Brave API results, including at least 5-10 sources.
-
 **Output Format**:
 {
   "content": "Markdown text here",
   "links": [{ "text": "Article Title", "url": "https://example.com", "description": "Summary", "image": "https://thumbnail.jpg" }, ...]
 }
 `;
-
           const response = await fetch('/api/token-analysis', {
             method: 'POST',
             headers: {
@@ -2335,22 +2126,17 @@ Analyze **${selectedToken.symbol}** in Markdown format (500-800 words). Use **bo
               recaptchaToken,
             }),
           });
-
           if (!response.ok) {
             throw new Error(`HTTP error! status: ${response.status}`);
           }
-
           const reader = response.body.getReader();
           let result = '';
           let links = [];
-
           while (true) {
             const { done, value } = await reader.read();
             if (done) break;
-
             const chunk = new TextDecoder().decode(value);
             result += chunk;
-
             const lines = chunk.split('\n');
             for (const line of lines) {
               if (!line.trim()) continue;
@@ -2367,10 +2153,8 @@ Analyze **${selectedToken.symbol}** in Markdown format (500-800 words). Use **bo
               }
             }
           }
-
           return { content: result, links };
         };
-
         const { content, links } = await getCachedData(cacheKey, fetchFn, CACHE_DURATIONS.DEFAULT, 0, true, session, status);
         setAnalysis(content);
         setAnalysisLinks(links);
@@ -2410,7 +2194,6 @@ Analyze **${selectedToken.symbol}** in Markdown format (500-800 words). Use **bo
     }, 500),
     [selectedToken, currency, session, status, executeRecaptcha, toast, analysis]
   );
-
   // Replace the debouncedHandlePrediction function
   const debouncedHandlePrediction = useCallback(
     debounce(async () => {
@@ -2422,17 +2205,14 @@ Analyze **${selectedToken.symbol}** in Markdown format (500-800 words). Use **bo
         toast.info('Please log in to perform the prediction.', { position: 'top-center', autoClose: 5000 });
         return;
       }
-
       const cacheKey = `prediction-${selectedToken.symbol.toUpperCase()}-session_required`;
       setIsPredicting(true);
       setAnalysisLogs([]);
-
       try {
         const fetchFn = async () => {
           const recaptchaToken = await executeRecaptcha('predict');
           const prompt = `
 Predict **${selectedToken.symbol}/USD** price movement (1-3 days) in Markdown format (500-800 words). Use **bold**, *italics*, tables, and concise yet detailed language. Ensure *not investment advice*. Format with clear headings, subheadings, line breaks, and professional tone. Base predictions heavily on real-time data from Brave API searches, incorporating specific facts, figures, and quotes from credible sources.
-
 **Data**:
 - **Current Price**: $${selectedToken.current_price?.[currency]?.toFixed(2) || 'N/A'}
 - **24h Price Change**: ${selectedToken.price_change_percentage_24h?.toFixed(2) || 'N/A'}%
@@ -2440,7 +2220,6 @@ Predict **${selectedToken.symbol}/USD** price movement (1-3 days) in Markdown fo
 - **24h Volume**: $${selectedToken.total_volume?.[currency]?.toLocaleString() || 'N/A'}
 - **Price History**: ${JSON.stringify(priceHistory.slice(-10))}
 - **Recent Analysis**: ${analysis || 'No prior analysis available.'}
-
 **Requirements**:
 - **Price Trend**: Predict short-term movement (increase, decrease, sideways) using detailed RSI (current value), MACD (signal lines), moving averages (50-day, 200-day with values), sentiment scores, economic indicators, stock market trends, and political news. Include probability estimates and scenarios.
 - **Likelihood Table**: Provide probabilities for each trend (total 100%), with explanations.
@@ -2450,7 +2229,6 @@ Predict **${selectedToken.symbol}/USD** price movement (1-3 days) in Markdown fo
 - **Conclusion**: Summarize prediction with balanced, actionable observations.
 - **Sources**: Include relevant links in [text](url) format from Brave API results, at least 5-10 sources.
 `;
-
           const response = await fetch('/api/gemini', {
             method: 'POST',
             headers: {
@@ -2465,23 +2243,18 @@ Predict **${selectedToken.symbol}/USD** price movement (1-3 days) in Markdown fo
             }),
             signal: AbortSignal.timeout(30000),
           });
-
           if (!response.ok) {
             const errorData = await response.json().catch(() => ({}));
             throw new Error(`HTTP error! status: ${response.status}, detail: ${errorData.detail || 'Unknown error'}`);
           }
-
           const reader = response.body.getReader();
           let result = '';
           let links = [];
-
           while (true) {
             const { done, value } = await reader.read();
             if (done) break;
-
             const chunk = new TextDecoder().decode(value);
             result += chunk;
-
             const lines = chunk.split('\n');
             for (const line of lines) {
               if (!line.trim()) continue;
@@ -2498,10 +2271,8 @@ Predict **${selectedToken.symbol}/USD** price movement (1-3 days) in Markdown fo
               }
             }
           }
-
           return { content: result, links };
         };
-
         const { content, links } = await getCachedData(cacheKey, fetchFn, CACHE_DURATIONS.DEFAULT, 0, true, session, status);
         setPrediction(content);
         setAnalysisLinks(links);
@@ -2533,16 +2304,13 @@ Predict **${selectedToken.symbol}/USD** price movement (1-3 days) in Markdown fo
     }, 500),
     [selectedToken, priceHistory, analysis, currency, session, status, executeRecaptcha, toast, prediction]
   );
-
   // Debounced search query for API calls
   useEffect(() => {
     const timer = setTimeout(() => {
       setDebouncedSearchQuery(searchQuery);
     }, 200); // Reduced debounce time for faster response
-
     return () => clearTimeout(timer);
   }, [searchQuery]);
-
   // Set searching state on query change
   useEffect(() => {
     if (searchQuery) {
@@ -2552,7 +2320,6 @@ Predict **${selectedToken.symbol}/USD** price movement (1-3 days) in Markdown fo
       setSearchResults([]);
     }
   }, [searchQuery]);
-
   const { data: trendingData, error: trendingSWRError } = useSWR(
     ['/api/coingecko', { action: 'trending', vs_currency: currency }],
     ([url, params]) => getCachedData(`trending-tokens-${currency}`, () => fetcher(url, params), CACHE_DURATIONS.TRENDING),
@@ -2587,7 +2354,6 @@ Predict **${selectedToken.symbol}/USD** price movement (1-3 days) in Markdown fo
       },
     }
   );
-
   const { data: searchData, error: searchError, isLoading: searchIsLoading } = useSWR(
     debouncedSearchQuery ? ['/api/coingecko', { action: 'search', query: debouncedSearchQuery }] : null,
     ([url, params]) => fetcher(url, params),
@@ -2616,18 +2382,15 @@ Predict **${selectedToken.symbol}/USD** price movement (1-3 days) in Markdown fo
       },
     }
   );
-
   // Update searching state based on SWR loading
   useEffect(() => {
     if (!searchIsLoading && !searchError) {
       setIsSearching(false);
     }
   }, [searchIsLoading, searchError]);
-
   useEffect(() => {
     warmUpCache();
   }, [warmUpCache]);
-
   const { data: marketData, error: marketError } = useSWR(
     ['/api/coingecko', { start: 1, limit: tokensPerPage, vs_currencies: availableCurrencies.join(',') }],
     ([url, params]) => fetcher(url, params),
@@ -2642,7 +2405,6 @@ Predict **${selectedToken.symbol}/USD** price movement (1-3 days) in Markdown fo
       },
     }
   );
-
   useEffect(() => {
     if (marketError) {
       const errorMessage =
@@ -2661,7 +2423,6 @@ Predict **${selectedToken.symbol}/USD** price movement (1-3 days) in Markdown fo
         toast.error('Invalid market data format', { position: 'top-center', autoClose: 3000 });
         return;
       }
-
       const tokensWithRoi = marketData.map((token) => ({
         id: token.id,
         symbol: token.symbol,
@@ -2677,7 +2438,6 @@ Predict **${selectedToken.symbol}/USD** price movement (1-3 days) in Markdown fo
         market_cap_rank: token.market_cap_rank || null,
       }));
       setTokens(tokensWithRoi);
-
       if (
         !initialTokenSlug &&
         !initialTokenData &&
@@ -2699,11 +2459,9 @@ Predict **${selectedToken.symbol}/USD** price movement (1-3 days) in Markdown fo
       setLoading(true);
     }
   }, [marketData, marketError, initialTokenSlug, initialTokenData, selectedToken, debouncedHandleTokenSelect, toast]);
-
   useEffect(() => {
     fetchSupportedChains();
   }, [fetchSupportedChains]);
-
   useEffect(() => {
     if (selectedToken && timeRange && document.visibilityState === 'visible') {
       const tokenId = selectedToken.id;
@@ -2732,20 +2490,16 @@ Predict **${selectedToken.symbol}/USD** price movement (1-3 days) in Markdown fo
       };
     }
   }, [selectedToken, timeRange, currency, fetchPriceHistory, setError]);
-
   useEffect(() => {
     if (!selectedToken?.id || ['bitcoin', 'ethereum'].includes(selectedToken.id.toLowerCase()) || document.visibilityState !== 'visible') {
       return;
     }
-
     const { chain, tokenAddress } = getDefaultChainAndAddress(selectedToken, selectedChain);
     if (!chain || !tokenAddress) {
       return;
     }
-
     // Initial fetch
     fetchDexData(chain, tokenAddress);
-
     // Set up interval for background refresh
     const interval = setInterval(() => {
       const cacheKey = `onchain-tx-${selectedToken.id}`;
@@ -2757,19 +2511,16 @@ Predict **${selectedToken.symbol}/USD** price movement (1-3 days) in Markdown fo
         fetchDexData(chain, tokenAddress);
       }
     }, CACHE_DURATIONS.DEFI_POOL);
-
     return () => {
       clearInterval(interval);
       fetchDexData.cancel && fetchDexData.cancel();
     };
   }, [selectedToken?.id, selectedChain, getDefaultChainAndAddress, fetchDexData, tickerCache]);
-
   useEffect(() => {
     if (walletBalances.length > 0 || walletBalancesError) {
       setIsLoadingWalletBalances(false);
     }
   }, [walletBalances, walletBalancesError]);
-
   useEffect(() => {
     if (!selectedToken?.id) {
       setTickerData([]);
@@ -2777,7 +2528,6 @@ Predict **${selectedToken.symbol}/USD** price movement (1-3 days) in Markdown fo
     }
     fetchTickerData(selectedToken.id);
   }, [selectedToken?.id, fetchTickerData]);
-
   useEffect(() => {
     async function fetchDailyMarketInteractions() {
       if (session?.user?.id) {
@@ -2793,7 +2543,6 @@ Predict **${selectedToken.symbol}/USD** price movement (1-3 days) in Markdown fo
     }
     fetchDailyMarketInteractions();
   }, [session]);
-
   useEffect(() => {
     if (onChainData.topHolders.length > 0) {
       const addresses = onChainData.topHolders
@@ -2808,19 +2557,15 @@ Predict **${selectedToken.symbol}/USD** price movement (1-3 days) in Markdown fo
       setIsLoadingNameTags(false);
     }
   }, [onChainData.topHolders, fetchNameTagsForAddresses, nameTags]);
-
   useEffect(() => {
     if (selectedWallet && selectedWallet.match(/^0x[a-fA-F0-9]{40}$/)) {
       fetchNameTag(selectedWallet);
     }
   }, [selectedWallet, fetchNameTag]);
-
   useEffect(() => {
     if (!selectedToken?.id || document.visibilityState !== 'visible') return;
-
     const tokenSymbol = selectedToken.id.toLowerCase();
     const isNonEvmChain = NON_EVM_CHAINS.includes(tokenSymbol);
-
     if (isNonEvmChain) {
       const tokenKey = `${selectedToken.id}-top-holders`;
       if (lastFetchedTokenRef.current === tokenKey && onChainData.topHolders.length > 0) {
@@ -2833,13 +2578,11 @@ Predict **${selectedToken.symbol}/USD** price movement (1-3 days) in Markdown fo
       fetchPublicTreasuryData(tokenSymbol);
       return;
     }
-
     // Special case for BNB
     if (tokenSymbol === 'binancecoin') {
       setIsLoadingOnChain(true);
       setOnChainData((prev) => ({ ...prev, topHolders: [] }));
       setOnChainError(null);
-
       const fetchBnbHolders = async () => {
         const chainsToFetch = [];
         const bnbChain = {
@@ -2848,7 +2591,6 @@ Predict **${selectedToken.symbol}/USD** price movement (1-3 days) in Markdown fo
           decimalPlace: 18,
         };
         chainsToFetch.push(bnbChain);
-
         const ethPlatform = selectedToken.detail_platforms?.ethereum;
         if (ethPlatform?.contract_address?.match(/^0x[a-fA-F0-9]{40}$/)) {
           chainsToFetch.push({
@@ -2857,7 +2599,6 @@ Predict **${selectedToken.symbol}/USD** price movement (1-3 days) in Markdown fo
             decimalPlace: Number(ethPlatform.decimal_place) || 18,
           });
         }
-
         const topHoldersPromises = chainsToFetch.map(async ({ chain, tokenAddress, decimalPlace }) => {
           try {
             const cacheKey = `onchain-${chain}-${tokenAddress}-top-holders`;
@@ -2878,7 +2619,6 @@ Predict **${selectedToken.symbol}/USD** price movement (1-3 days) in Markdown fo
                 }),
                 signal: AbortSignal.timeout(30000),
               });
-
               if (!response.ok) {
                 const text = await response.text();
                 let errorMessage = `Failed to fetch top-holders data: ${response.status} ${response.statusText}`;
@@ -2890,31 +2630,25 @@ Predict **${selectedToken.symbol}/USD** price movement (1-3 days) in Markdown fo
                 }
                 throw new Error(errorMessage);
               }
-
               const reader = response.body.getReader();
               const decoder = new TextDecoder();
               let data = [];
               let buffer = '';
               let isFirstChunk = true;
-
               while (true) {
                 const { done, value } = await reader.read();
                 if (done) break;
-
                 buffer += decoder.decode(value, { stream: true });
-
                 if (isFirstChunk) {
                   buffer = buffer.trim().replace(/^\[/, '');
                   isFirstChunk = false;
                 }
-
                 let pos = 0;
                 while (pos < buffer.length) {
                   while (pos < buffer.length && (buffer[pos] === ' ' || buffer[pos] === '\n' || buffer[pos] === ',' || buffer[pos] === ']')) {
                     pos++;
                   }
                   if (pos >= buffer.length) break;
-
                   if (buffer[pos] === '{') {
                     let openBraces = 1;
                     let start = pos;
@@ -2924,7 +2658,6 @@ Predict **${selectedToken.symbol}/USD** price movement (1-3 days) in Markdown fo
                       else if (buffer[pos] === '}') openBraces--;
                       pos++;
                     }
-
                     if (openBraces === 0) {
                       const objStr = buffer.substring(start, pos).trim();
                       try {
@@ -2943,10 +2676,8 @@ Predict **${selectedToken.symbol}/USD** price movement (1-3 days) in Markdown fo
                     pos++;
                   }
                 }
-
                 buffer = buffer.slice(pos).trim();
               }
-
               if (buffer) {
                 buffer = buffer.replace(/\]$/, '').trim();
                 if (buffer.startsWith('{')) {
@@ -2962,12 +2693,9 @@ Predict **${selectedToken.symbol}/USD** price movement (1-3 days) in Markdown fo
                   }
                 }
               }
-
               return data;
             };
-
             let holders = await getCachedData(cacheKey, fetchFn, CACHE_DURATIONS.TOP_HOLDERS);
-
             // If chain is 'bnb', merge with bnb-top-holders.json
             if (chain === 'bnb') {
               const jsonHolders = Object.values(bnbNameTags).map((holder) => ({
@@ -2978,7 +2706,6 @@ Predict **${selectedToken.symbol}/USD** price movement (1-3 days) in Markdown fo
                 source: 'JSON',
                 chain: 'bnb',
               }));
-
               // Merge holders from API and JSON, remove duplicates by address
               const uniqueAddresses = new Set();
               const mergedHolders = [
@@ -2999,18 +2726,15 @@ Predict **${selectedToken.symbol}/USD** price movement (1-3 days) in Markdown fo
                   return false;
                 }),
               ];
-
               // Sort by balance and take top 100
               holders = mergedHolders.sort((a, b) => b.balance - a.balance).slice(0, 200);
             }
-
             return holders;
           } catch (error) {
             console.error(`Error fetching top holders for ${chain}: ${error.message}`);
             return [];
           }
         });
-
         try {
           const results = await Promise.all(topHoldersPromises);
           const mergedHolders = results.flat().sort((a, b) => b.balance - a.balance).slice(0, 200); // Limit to top 100 holders
@@ -3031,7 +2755,6 @@ Predict **${selectedToken.symbol}/USD** price movement (1-3 days) in Markdown fo
           }
         }
       };
-
       const tokenKey = `binancecoin-multichain`;
       if (lastFetchedTokenRef.current !== tokenKey) {
         lastFetchedTokenRef.current = tokenKey;
@@ -3039,33 +2762,26 @@ Predict **${selectedToken.symbol}/USD** price movement (1-3 days) in Markdown fo
       }
       return;
     }
-
     // Existing logic for other tokens
     const { chain, tokenAddress, decimalPlace } = getDefaultChainAndAddress(selectedToken, selectedChain);
     const tokenKey = `${selectedToken.id}-${chain}-${tokenAddress}-${decimalPlace}`;
-
     if (lastFetchedTokenRef.current === tokenKey && onChainData.topHolders.length > 0) {
       return;
     }
-
     setIsLoadingOnChain(true);
     setOnChainData((prev) => ({ ...prev, topHolders: [] }));
     setOnChainError(null);
-
     if (!chain || !tokenAddress) {
       setIsLoadingOnChain(false);
       setOnChainError('This token does not have on-chain data available on supported chains.');
       return;
     }
-
     lastFetchedTokenRef.current = tokenKey;
     fetchOnChainData(chain, tokenAddress, 'top-holders', decimalPlace);
   }, [selectedToken?.id, selectedChain, fetchPublicTreasuryData, getDefaultChainAndAddress, fetchOnChainData, executeRecaptcha, session, toast]);
-
   useEffect(() => {
     prevTopHoldersRef.current = onChainData.topHolders;
   }, [onChainData.topHolders]);
-
   return {
     dailyMarketInteractions,
     setDailyMarketInteractions,
