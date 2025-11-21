@@ -237,7 +237,7 @@ function UniverseBackground() {
 
       pointsRef.current.geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
       pointsRef.current.geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
-    }, []);
+    }, [positions, colors]); // Fixed: Add positions and colors to deps (they are memoized, so no infinite loop)
 
     return (
       <points ref={pointsRef} position={[0, 0, -20]} rotation={[Math.PI / 6, 0, 0]}>
@@ -327,7 +327,7 @@ function DashboardInner() {
   const [modalContent, setModalContent] = useState(null);
   const [authSuccess, setAuthSuccess] = useState(false); // NEW: Fix loop - track auth success to hide form immediately
   const recaptchaRef = useRef(null);
-  const { isSDKLoaded, context, user: miniAppUser, addMiniApp } = useMiniApp(); // FIXED: Destructure properly based on Neynar docs (user may be optional)
+  const { isSDKLoaded, context, user: miniAppUser } = useMiniApp(); // FIXED: Destructure properly based on Neynar docs (user may be optional)
   const [isMiniApp, setIsMiniApp] = useState(false);
   const [miniAppAuthLoading, setMiniAppAuthLoading] = useState(false); // NEW: Loading for quickauth
   const [miniAppAuthFailed, setMiniAppAuthFailed] = useState(false); // NEW: Track if auto-auth failed for Mini App
@@ -456,9 +456,9 @@ function DashboardInner() {
       forceBase, // NEW: Log force flag
       isBaseAppDetected
     }); // NEW: Debug log
-    const sdkAvailable = typeof sdk !== 'undefined' && !!sdk.quickAuth; // Check SDK explicit
-    const miniAppDetected = (isSDKLoaded && (context === 'miniapp' || !!miniAppUser)) || isWarpcastDetected || sdkAvailable || isBaseAppDetected; // THÊM: Hoặc isBaseAppDetected để include Base vào miniApp
-    setIsMiniApp(miniAppDetected); // BỎ: !isBaseAppDetected – để SDK Neynar hoạt động trong Base
+    const sdkAvailable = typeof sdk !== 'undefined' && !!sdk.quickAuth && !!sdk.actions.addMiniApp; // THÊM: Check addMiniApp có sẵn
+    const miniAppDetected = (isSDKLoaded && (context === 'miniapp' || !!miniAppUser)) || isWarpcastDetected || sdkAvailable || isBaseAppDetected; // Giữ để support Neynar nếu cần cho khác
+    setIsMiniApp(miniAppDetected);
     if (isBaseAppDetected) {
       setFallbackToManual(true); // Giữ cho auth manual trong Base
     }
@@ -629,28 +629,25 @@ function DashboardInner() {
   }, [status, signIn, update]);  // deps: status (used inside), signIn/update (stable from hooks)
 
   const handleAddMiniApp = async () => {
-    if (!isSDKLoaded || !addMiniApp) {
+    if (typeof sdk === 'undefined' || !sdk.actions || !sdk.actions.addMiniApp) {
       toast.error('Function not available in this environment. Please ensure you are in Base App or Warpcast.');
       return;
     }
 
     try {
-      const result = await addMiniApp();   // Neynar sẽ tự động hiện dialog hệ thống mặc định của Base/Warpcast
+      const response = await sdk.actions.addMiniApp();   // Sử dụng Farcaster SDK chính thức để trigger dialog hệ thống mặc định của Base/Warpcast
 
-      if (result?.added) {
+      if (response?.notificationDetails) {
         toast.success('Mini App added and notifications enabled successfully! 🎉');
+        safeLog('Notification details:', response.notificationDetails); // Debug: Log token và url (lưu server nếu cần)
         localStorage.setItem('miniAppAdded', 'true');
       } else {
-        toast.warn('Mini App not added – will prompt again next time.');
-      }
-
-      // Nếu có token → thông báo bật thành công (log để debug)
-      if (result?.notificationDetails?.token) {
-        safeLog('Notification token:', result.notificationDetails.token);
+        toast.success('Mini App added without notifications.');
+        localStorage.setItem('miniAppAdded', 'true'); // Vẫn set để không gọi lại, dù không enable notif
       }
     } catch (error) {
       safeError('Error adding Mini App:', error);
-      toast.error('Error adding Mini App: ' + (error?.message || ''));
+      toast.error('Error adding Mini App: ' + (error?.message || 'Please check your webhook setup in manifest.'));
     }
   };
 
@@ -679,11 +676,12 @@ function DashboardInner() {
   useEffect(() => {
     if (status === 'authenticated') {
       const previouslyAdded = localStorage.getItem('miniAppAdded') === 'true';
-      if (!previouslyAdded && isSDKLoaded && (context === 'miniapp' || isBaseApp || isWarpcastMobile)) {
+      if (!previouslyAdded && (isBaseApp || isWarpcastMobile) && typeof sdk !== 'undefined' && sdk.actions && sdk.actions.addMiniApp) {
+        // Gọi trực tiếp handleAddMiniApp để trigger popup hệ thống mặc định, không cần overlay thủ công
         handleAddMiniApp();
       }
     }
-  }, [status, isSDKLoaded, context, isBaseApp, isWarpcastMobile, handleAddMiniApp]);
+  }, [status, isBaseApp, isWarpcastMobile]);
 
   // REMOVED: Auto-login for Base App via Farcaster deeplink - Now only manual via button click (per request: show DeeplinkButton first, click to trigger)
   // Keep handleBaseManualAuth for manual trigger if needed (but currently use direct SignInButton onSuccess/onError)

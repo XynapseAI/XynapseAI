@@ -167,7 +167,7 @@ model users {
   api_key_hash       String?
   api_key_salt       String?
   days_active        Int                 @default(0)
-  farcaster_fid      BigInt?
+  farcaster_fid      BigInt?             @unique // Added @unique here to fix reference error
   accounts           Account[]           @relation("UserToAccount")
   payments           Payment[]           @relation("UserPayments")
   sessions           Session[]           @relation("UserToSession")
@@ -175,6 +175,7 @@ model users {
   legacyAccounts     accounts[]
   task_completions   task_completions[]
   twitter_handles    twitter_handles?
+  miniAppNotifications MiniAppNotification[] @relation("MiniAppNotificationToUser") // Added opposite relation field
 
   @@index([ai_points], map: "idx_users_ai_points")
   @@index([email], map: "idx_users_email")
@@ -472,4 +473,21 @@ model ibit_wallets {
   amount_received Decimal?  @db.Decimal(20, 8)
   created_at      DateTime? @default(now()) @db.Timestamp(6)
   updated_at      DateTime? @default(now()) @db.Timestamp(6)
+}
+
+model MiniAppNotification {
+  id         Int      @id @default(autoincrement())
+  fid        BigInt
+  appFid     BigInt
+  url        String   @db.VarChar(255)
+  token      String   @unique @db.VarChar(255)
+  createdAt  DateTime @default(now()) @db.Timestamp(6)
+  updatedAt  DateTime @updatedAt
+
+  // Optional relation to users (if fid matches farcaster_fid)
+  user       users?   @relation("MiniAppNotificationToUser", fields: [fid], references: [farcaster_fid], onDelete: SetNull, onUpdate: Cascade)
+
+  @@unique([fid, appFid])
+  @@index([fid])
+  @@index([appFid])
 }
