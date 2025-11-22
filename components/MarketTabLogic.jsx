@@ -27,8 +27,8 @@ axiosRetry(axiosWithRetry, {
     error.code === 'ERR_NETWORK',
 });
 const cacheLimiter = new Bottleneck({
-  maxConcurrent: 30, // Increased from 15 to 30 for faster concurrent caching
-  minTime: 100, // Decreased from 200 to 100 for reduced delay
+  maxConcurrent: 15, // Increased from 15 to 30 for faster concurrent caching
+  minTime: 200, // Decreased from 200 to 100 for reduced delay
   reservoir: 500,
   reservoirRefreshAmount: 500,
   reservoirRefreshInterval: 60 * 1000,

@@ -7,8 +7,8 @@ import Bottleneck from 'bottleneck';
 import { isAddress } from 'ethers';
 
 const limiterBottleneck = new Bottleneck({
-  maxConcurrent: 10,
-  minTime: 200,
+  maxConcurrent: 3,
+  minTime: 300,
 });
 
 const fetchWithRateLimit = limiterBottleneck.wrap(async (url, config = {}) => {
