@@ -186,6 +186,12 @@ async function autoLabelWallets(wallets, tf = null) {
     } else if (uniqueTokens >= 30) {
       predictedLabel = 'NFT Collector';
       confidence = 0.7;
+    } else if (velocity > 10 && txCount > 100) {
+      predictedLabel = 'High Activity Trader';
+      confidence = 0.8;
+    } else if (uniqueTokens > 10 && velocity < 0.5) {
+      predictedLabel = 'Long-term Holder';
+      confidence = 0.7;
     }
     // No fallback - predictedLabel remains null if no match
     confidence = Math.min(0.9, confidence + 0.2); // Boost rule conf
@@ -251,6 +257,15 @@ export async function detectClustersServer(nodes, edges, options = { useML: true
       velocity = times.length / Math.max(spanDays, 1);
     }
     node.velocity = velocity;
+    const values = nodeTxs.map(e => Number(e.value || 0));
+    const meanValue = values.reduce((a,b)=>a+b,0) / values.length || 0;
+    const varianceValue = values.reduce((a,b)=>a + Math.pow(b - meanValue,2),0) / values.length || 0;
+    node.amountStd = Math.sqrt(varianceValue);
+    let avgInterval = 24; // Default 1 day in hours
+    if (times.length > 1) {
+      avgInterval = (times[times.length-1] - times[0]) / (times.length-1) / 3600000; // hours
+    }
+    node.avgInterval = avgInterval;
   });
 
   // Auto-label (always pure JS capable) - Now uses enhanced rules
@@ -306,7 +321,11 @@ export async function detectClustersServer(nodes, edges, options = { useML: true
           hasLabel,
           clusteringCoeff,
           neighEntropy,
-          node.burstScore
+          node.burstScore,
+          Math.log1p(node.velocity || 0),
+          node.uniqueTokens,
+          Math.log1p(node.amountStd || 0),
+          Math.log1p(node.avgInterval)
         ];
         features.push(feat);
         nodeIds.push(id);
@@ -412,7 +431,7 @@ export async function detectClustersServer(nodes, edges, options = { useML: true
           let bestAssignments = null;
           for (let k = 2; k <= Math.min(20, n); k++) {
             let centroids = normalized.map(() => Array(numFeatures).fill(0).map(() => (Math.random() - 0.5) * 2)); // Random init
-            const maxIter = 50;
+            const maxIter = 20;
             let assignments = new Array(n).fill(0);
             for (let iter = 0; iter < maxIter; iter++) {
               // Assign

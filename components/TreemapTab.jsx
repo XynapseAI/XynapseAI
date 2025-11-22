@@ -341,7 +341,6 @@ const VirtuosoTable = memo(({ transactions, isMobile, selectedChain, tokenImages
     </motion.div>
   );
 });
-
 const TrendChart = memo(({ transactions, velocity }) => {
   const getTimeInterval = useCallback((timestamps) => {
     const minTime = Math.min(...timestamps);
@@ -1187,29 +1186,22 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
     logger.log(`Filtered transactions (walletId: ${walletId || 'none'}, filterType: ${filterType}):`, uniqueTxs.length);
     return uniqueTxs;
   }, []);
-
   // Replace the entire initializeForceGraph function with this:
-
   // Replace the entire initializeForceGraph function with this:
-
   const initializeForceGraph = useCallback(async () => {
     if (!containerRef.current || !nodes.length || !walletInfo.address) {
       logger.warn('Cannot initialize ForceGraph: missing container, nodes, or walletInfo.address');
       return;
     }
-
     try {
       await TensorFlowJS; // Load pure TF for client-side if needed (non-clustering)
       logger.log('TensorFlow.js loaded (client)');
-
       if (graphRef.current) {
         graphRef.current.pauseAnimation();
         containerRef.current.innerHTML = ''; // Clear previous canvas
         logger.log('Cleared previous ForceGraph instance');
       }
-
       const rootId = walletInfo.address.toLowerCase();
-
       // Fetch server-side clusters with error handling & auto-label
       let detectedClusters = [];
       try {
@@ -1220,26 +1212,22 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
           body: JSON.stringify({
             nodes: nodes.map(n => ({ ...n.data })),
             edges: edges.map(e => ({ ...e.data })),
-            options: { useGNN: false, useDBSCAN: true } // Stable options
+            options: { useGNN: true, useDBSCAN: true } // Stable options
           }),
         });
-
         if (!clusterResponse.ok) {
           throw new Error(`Cluster API error: ${clusterResponse.status} ${clusterResponse.statusText}`);
         }
-
         const clusterData = await clusterResponse.json();
         if (!clusterData.success || !clusterData.clusters) {
           throw new Error(clusterData.error || 'Invalid cluster response');
         }
-
         detectedClusters = clusterData.clusters;
         logger.log('Server clusters fetched successfully');
       } catch (clusterErr) {
         logger.warn('Server clustering failed, using simple fallback:', clusterErr.message);
         detectedClusters = simpleRuleBasedClustering(nodes.map(n => n.data), edges.map(e => e.data));
       }
-
       logger.log('Detected clusters:', detectedClusters.map(c => ({
         clusterId: c.clusterId,
         nametag: c.nametag,
@@ -1247,9 +1235,7 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
         walletCount: c.wallets.length,
         transactionCount: c.transactions.length,
       })));
-
       setClusters(detectedClusters);
-
       // Prepare initial positions for layered layout
       const positionedNodes = nodes.map(n => ({ ...n.data }));
       const rootData = positionedNodes.find(n => n.isRoot);
@@ -1313,7 +1299,6 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
           nd.y = Math.sin(angle) * outerRadius;
         });
       }
-
       // Prepare graph data with explicit color assignment
       const graphNodes = positionedNodes.map(n => ({
         id: n.id,
@@ -1322,14 +1307,12 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
         group: n.layer,
         color: n.layer === 1 ? '#4F46E5' : n.layer === 2 ? '#10B981' : n.layer === 3 ? '#F59E0B' : '#666' // Explicit color
       }));
-
       const graphLinks = graphLinksTemp.map(e => ({
         source: e.source,
         target: e.target,
         ...e,
         width: e.layer === 3 ? 0.15 : 0.4 // Thinner links, reduced 50%
       }));
-
       // Assign clusterId to nodes for grouping/coloring
       detectedClusters.forEach((cluster, index) => {
         cluster.wallets.forEach((wallet) => {
@@ -1341,7 +1324,6 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
           }
         });
       });
-
       // Set selectedEntity for root node/cluster data
       let clusterData;
       const rootCluster = detectedClusters.find(c => c.wallets.some(w => w.id.toLowerCase() === rootId));
@@ -1366,7 +1348,6 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
             target: tx.address.toLowerCase(),
           })));
         }
-
         let filteredLayer3ForCluster = [];
         if (fullLayer3Data.length > 0) {
           const layer3Filter = fullLayer3Data.filter(tx => tx.nametag && tx.nametag !== 'Unknown');
@@ -1377,17 +1358,14 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
             target: tx.type === 'incoming' ? tx.layer2Address.toLowerCase() : tx.address.toLowerCase(),
           }));
         }
-
         const allTxs = [...filteredRootTxs, ...filteredLayer3ForCluster];
         const connectedWallets = [...new Set(allTxs.map(tx => [tx.source, tx.target].filter(id => id !== rootId)).flat().filter(Boolean))];
         const uniqueTxs = [...new Set(allTxs.map(JSON.stringify))].map(JSON.parse);
-
         const getTime = (bt) => {
           if (typeof bt === 'number') return bt * 1000;
           if (typeof bt === 'string' || bt instanceof Date) return new Date(bt).getTime();
           return null;
         };
-
         const times = uniqueTxs.map(tx => getTime(tx.block_time)).filter(t => t !== null).sort((a, b) => a - b);
         let velocity = 0;
         if (times.length > 1) {
@@ -1396,10 +1374,8 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
         } else if (times.length === 1) {
           velocity = 1;
         }
-
         const tokenKeys = uniqueTxs.map(tx => tx.contractAddress?.toLowerCase() || tx.tokenSymbol?.toLowerCase() || 'unknown');
         const uniqueTokens = new Set(tokenKeys).size;
-
         const connectedWalletsWithData = connectedWallets.map(cid => {
           const node = nodes.find(n => n.data.id.toLowerCase() === cid);
           if (node) {
@@ -1409,13 +1385,10 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
           }
           return { id: cid, totalValue: 0 };
         });
-
         const rootWalletNode = nodes.find(n => n.data.id.toLowerCase() === rootId);
         const rootWalletData = rootWalletNode ? { ...rootWalletNode.data } : { id: rootId, totalValue: 0 };
         rootWalletData.totalValue = parseFloat(rootWalletData.totalValue || 0);
-
         const allWallets = [rootWalletData, ...connectedWalletsWithData];
-
         clusterData = {
           clusterId: 'root',
           nametag: walletInfo.nametag || truncateAddress(rootId),
@@ -1427,9 +1400,7 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
           uniqueTokens,
         };
       }
-
       setSelectedEntity({ type: 'cluster', data: clusterData });
-
       // Preload images (giữ nguyên)
       const imageCache = {};
       const uniqueImages = [...new Set(graphNodes.map(n => n.image).filter(isValidNametagImage))];
@@ -1445,7 +1416,6 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
         img.src = url.startsWith('http') ? url : `${window.location.origin}${url}`;
       })));
       logger.log(`Preloaded ${Object.keys(imageCache).length}/${uniqueImages.length} images`);
-
       // Initialize ForceGraph (chỉnh sửa)
       graphRef.current = ForceGraph()(containerRef.current)
         .graphData({ nodes: graphNodes, links: graphLinks })
@@ -1499,14 +1469,6 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
           // Bỏ vẽ text mặc định
         })
         .nodeCanvasObjectMode(() => 'replace')
-        .nodePointerAreaPaint((node, color, ctx) => {
-          // Custom pointer area to match drawn size, reduced for better interaction
-          const size = node.val * 0.8; // Slightly smaller area to avoid overlap
-          ctx.fillStyle = color;
-          ctx.beginPath();
-          ctx.arc(node.x, node.y, size, 0, 2 * Math.PI, false);
-          ctx.fill();
-        })
         .linkColor(link => link.type === 'incoming' ? '#00BFFF' : '#EF4444')
         .linkCurvature(0.25) // Curvature như example để giống dây
         .linkDirectionalArrowLength(0) // Bỏ mũi tên
@@ -1571,7 +1533,6 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
         .enableNodeDrag(true)
         .enableZoomInteraction(true)
         .enablePanInteraction(true);
-
       // Auto center on root
       graphRef.current.centerAt(0, 0, 1500);
       graphRef.current.zoom(1.5, 1500);
@@ -1580,7 +1541,6 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
       toast.error('Graph visualization failed. Please refresh.', { position: 'top-right', theme: 'dark' });
     }
   }, [nodes, edges, walletInfo, filterType, walletAddress, fullIncomingData, fullOutgoingData, fullLayer3Data, filterTransactions, apiBaseUrl]);
-
   useEffect(() => {
     initializeForceGraph().catch(console.error);
     return () => {
@@ -1890,7 +1850,7 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
                 </motion.button>
                 {isLimitDropdownOpen && (
                   <div className="absolute z-20 bg-white/5 rounded-xl mt-1 w-28 max-h-60 overflow-y-auto hide-scrollbar border border-white/10 shadow-neon-sm">
-                    {[100, 200, 300, 500].map((limit) => (  // Updated array: 100, 200, 300, 500
+                    {[100, 200, 300, 500].map((limit) => ( // Updated array: 100, 200, 300, 500
                       <motion.button
                         key={limit}
                         onClick={() => {
