@@ -639,8 +639,6 @@ function DashboardInner() {
 
       if (response?.notificationDetails) {
         safeLog('Notification details:', response.notificationDetails); // Debug: Log token và url (lưu server nếu cần)
-      } else {
-        toast.success('Mini App added without notifications.');
       }
     } catch (error) {
       safeError('Error adding Mini App:', error);

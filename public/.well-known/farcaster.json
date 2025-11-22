@@ -12,7 +12,7 @@
     "imageUrl": "https://xynapseai.net/image.png",
     "splashImageUrl": "https://xynapseai.net/splash.png",
     "splashBackgroundColor": "#000000",
-    "webhookUrl": "https://xynapseai.net/api/webhook",
+    "webhookUrl": "https://api.neynar.com/f/app/56f4d636-bc19-4d76-a626-daccdfdae002/event",
     "subtitle": "AI-Powered Crypto Analytics",
     "description": "Track wallets, markets, and on-chain insights with Xynapse",
     "screenshotUrls": [
