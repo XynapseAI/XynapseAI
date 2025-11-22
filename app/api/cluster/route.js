@@ -60,7 +60,7 @@ export async function POST(request) {
     return NextResponse.json({ detail: 'Invalid JSON body' }, { status: 400 });
   }
 
-  const { nodes, edges, options = { useGNN: true, useDBSCAN: true } } = body; // Disable GNN by default for stability
+  const { nodes, edges, options = { useGNN: false, useDBSCAN: true } } = body; // Disable GNN by default for stability
   if (!nodes?.length || !edges?.length) {
     return NextResponse.json({ detail: 'Missing nodes or edges data' }, { status: 400 });
   }
@@ -76,11 +76,11 @@ export async function POST(request) {
     const useNative = process.env.USE_TFJS_NODE === 'true' && process.env.NODE_ENV !== 'production';
     try {
       if (useNative) {
-        const tfNodePkg = '@tensorflow/tfjs-node';
+        const tfNodePkg = '@tensorflow/tfjs-n' + 'ode';
         const tfModule = await import(tfNodePkg);
         tf = tfModule;
       } else {
-        const tfPkg = '@tensorflow/tfjs';
+        const tfPkg = '@tensorflow/tf' + 'js';
         const tfModule = await import(tfPkg);
         tf = tfModule;
       }
