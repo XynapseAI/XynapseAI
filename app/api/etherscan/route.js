@@ -7,8 +7,8 @@ import Bottleneck from 'bottleneck';
 import { isAddress } from 'ethers';
 
 const limiterBottleneck = new Bottleneck({
-  maxConcurrent: 3,
-  minTime: 300,
+  maxConcurrent: 10,
+  minTime: 200,
 });
 
 const fetchWithRateLimit = limiterBottleneck.wrap(async (url, config = {}) => {
@@ -332,7 +332,7 @@ async function fetchTokenInfo(chainId, tokenAddress) {
   ];
   let info = { name: 'Unknown', symbol: 'UNK', decimals: 18 };
 
-  for (const call of calls) {
+  await Promise.all(calls.map(async (call) => {
     let callUrl = `${ETHERSCAN_V2_BASE_URL}?chainid=${chainId}&module=proxy&action=eth_call&to=${tokenAddress}&data=${call.selector}&tag=latest&apikey=${process.env.ETHERSCAN_API_KEY}`;
     try {
       const callRes = await fetchWithRateLimit(callUrl, { timeout: 20000 });
@@ -350,7 +350,7 @@ async function fetchTokenInfo(chainId, tokenAddress) {
     } catch (err) {
       logger.warn(`Failed to fetch ${call.key} for token ${tokenAddress} on chain ${chainId}: ${err.message} - using fallback`);
     }
-  }
+  }));
   logger.info(`Fetched token info for ${tokenAddress}: ${info.symbol} (${info.decimals} dec)`);
   return info;
 }
@@ -563,7 +563,7 @@ export const POST = handlerWrapper(async (request) => {
             controller.enqueue(JSON.stringify({ success: true, data }));
           } else if (action === 'tx-details' && txHash) {
             const supportedChains = Object.entries(primaryChainNameMap);
-            const priorityOrder = ['1', '8453', '10', '42161', '56', '137', '43114'];
+            const priorityOrder = ['1', '8453', '10', '42161', '56', '137'];
             const sortedChains = supportedChains.sort((a, b) => {
               const priA = priorityOrder.indexOf(a[0]);
               const priB = priorityOrder.indexOf(b[0]);
