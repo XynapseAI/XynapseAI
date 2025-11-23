@@ -565,6 +565,7 @@ const ClusterDashboard = memo(({ entity, isMobile, tokenImages }) => {
 const CACHE_TTL = 7200000; // Increased to 2 hours for longer caching
 const NODES_PER_PAGE = 50;
 const MAX_NODES = 1000; // Scalability limit
+
 // THÊM HÀM NÀY VÀO ĐÂY (ngay trước export default)
 function simpleRuleBasedClustering(nodesData, edgesData) {
   const clusters = [];
@@ -629,6 +630,7 @@ function simpleRuleBasedClustering(nodesData, edgesData) {
   });
   return clusters;
 }
+
 export default function TreemapTab({ initialChain = 'ethereum', initialAddress = '' }) {
   const { data: session, status } = useSession();
   const router = useRouter();
