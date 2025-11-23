@@ -24,12 +24,12 @@ export default function ExplorerTab({ initialQuery, initialChain, isStandalone =
 
     const chainConfig = {
         bitcoin: { id: null, apiBase: '/api/mempool' },
-        ethereum: { id: 1, apiBase: '/api/etherscan' },
-        bsc: { id: 56, apiBase: '/api/etherscan' },
-        arbitrum: { id: 42161, apiBase: '/api/etherscan' },
-        optimism: { id: 10, apiBase: '/api/etherscan' },
-        polygon: { id: 137, apiBase: '/api/etherscan' },
-        base: { id: 8453, apiBase: '/api/etherscan' },
+        ethereum: { id: 1, apiBase: '/api/etherscan-explorer' },
+        bsc: { id: 56, apiBase: '/api/etherscan-explorer' },
+        arbitrum: { id: 42161, apiBase: '/api/etherscan-explorer' },
+        optimism: { id: 10, apiBase: '/api/etherscan-explorer' },
+        polygon: { id: 137, apiBase: '/api/etherscan-explorer' },
+        base: { id: 8453, apiBase: '/api/etherscan-explorer' },
         solana: { id: null, apiBase: '/api/solana' },
     };
 
@@ -338,7 +338,7 @@ export default function ExplorerTab({ initialQuery, initialChain, isStandalone =
 
             let endpoint = config.apiBase;
             let body;
-            if (config.apiBase === '/api/etherscan') {
+            if (config.apiBase === '/api/etherscan-explorer') {
                 body = { action: 'tx-details', chain: ch, txHash: q };
             } else if (ch === 'bitcoin') {
                 body = { action: 'tx-details', txHash: q };
