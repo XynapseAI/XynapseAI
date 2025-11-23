@@ -21,6 +21,8 @@ import { TableVirtuoso } from 'react-virtuoso';
 import { lazy, Suspense } from 'react';
 import ForceGraph from 'force-graph';
 import * as d3 from 'd3-force';
+import { clusterInWorker } from '../utils/clusterWorker';
+
 // Fixed: Lazy load pure TF.js only (no node backend in client)
 const TensorFlowJS = lazy(() => import('@tensorflow/tfjs')); // Direct import, no concat needed in client
 const formatLargeNumber = (value, decimals = 1) => {
@@ -1188,10 +1190,6 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
     return uniqueTxs;
   }, []);
 
-  // Replace the entire initializeForceGraph function with this:
-
-  // Replace the entire initializeForceGraph function with this:
-
   const initializeForceGraph = useCallback(async () => {
     if (!containerRef.current || !nodes.length || !walletInfo.address) {
       logger.warn('Cannot initialize ForceGraph: missing container, nodes, or walletInfo.address');
@@ -1210,33 +1208,13 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
 
       const rootId = walletInfo.address.toLowerCase();
 
-      // Fetch server-side clusters with error handling & auto-label
+      // Cluster chạy nền với Web Worker
       let detectedClusters = [];
       try {
-        const clusterResponse = await fetch(`${apiBaseUrl}/api/cluster`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          credentials: 'include',
-          body: JSON.stringify({
-            nodes: nodes.map(n => ({ ...n.data })),
-            edges: edges.map(e => ({ ...e.data })),
-            options: { useGNN: false, useDBSCAN: true } // Stable options
-          }),
-        });
-
-        if (!clusterResponse.ok) {
-          throw new Error(`Cluster API error: ${clusterResponse.status} ${clusterResponse.statusText}`);
-        }
-
-        const clusterData = await clusterResponse.json();
-        if (!clusterData.success || !clusterData.clusters) {
-          throw new Error(clusterData.error || 'Invalid cluster response');
-        }
-
-        detectedClusters = clusterData.clusters;
-        logger.log('Server clusters fetched successfully');
+        detectedClusters = await clusterInWorker(nodes.map(n => ({ ...n.data })), edges.map(e => ({ ...e.data })));
+        logger.log('Worker clusters fetched successfully');
       } catch (clusterErr) {
-        logger.warn('Server clustering failed, using simple fallback:', clusterErr.message);
+        logger.warn('Worker clustering failed, using simple fallback:', clusterErr.message);
         detectedClusters = simpleRuleBasedClustering(nodes.map(n => n.data), edges.map(e => e.data));
       }
 
@@ -1465,14 +1443,14 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
           const autoLabel = node.autoLabel || cluster?.autoLabel || '';
           const nametag = node.isRoot ? '' : node.label !== 'Unknown' ? node.label : truncateAddress(node.id);
           return `
-          <div style="background: rgba(0,0,0,0.8); border: 1px solid rgba(255,255,255,0.1); color: rgba(255,255,255,0.8); padding: 4px 8px; border-radius: 4px; font-size: 12px;">
-            ${node.isRoot ? `<div>Cluster: ${clusterLabel}</div>` : `<div>${nametag}${node.layer === 3 ? ' (L3)' : ''}</div>`}
-            ${autoLabel ? `<div>Auto: ${autoLabel}</div>` : ''}
-            ${cluster ? `<div>Cluster: ${cluster.nametag}</div>` : ''}
-            <div>Tx: ${node.txCount} | Value: ${formatLargeNumber(Number(node.totalValue), 1)}$</div>
-            <div>Risk: ${(risk * 100).toFixed(0)}%</div>
-          </div>
-        `;
+        <div style="background: rgba(0,0,0,0.8); border: 1px solid rgba(255,255,255,0.1); color: rgba(255,255,255,0.8); padding: 4px 8px; border-radius: 4px; font-size: 12px;">
+          ${node.isRoot ? `<div>Cluster: ${clusterLabel}</div>` : `<div>${nametag}${node.layer === 3 ? ' (L3)' : ''}</div>`}
+          ${autoLabel ? `<div>Auto: ${autoLabel}</div>` : ''}
+          ${cluster ? `<div>Cluster: ${cluster.nametag}</div>` : ''}
+          <div>Tx: ${node.txCount} | Value: ${formatLargeNumber(Number(node.totalValue), 1)}$</div>
+          <div>Risk: ${(risk * 100).toFixed(0)}%</div>
+        </div>
+      `;
         })
         .nodeCanvasObject((node, ctx, globalScale) => {
           const label = node.label || truncateAddress(node.id);
@@ -1589,6 +1567,7 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
       }
     };
   }, [initializeForceGraph]);
+  
   const generateHmacSignature = (payload) => {
     try {
       const hmacSecret = process.env.HMAC_SECRET || '88583e5e555aaeb3d9b3b0cafbd1e609f5a7ff96548caa71c8eda0783d66b1f1';

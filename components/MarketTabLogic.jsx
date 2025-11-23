@@ -30,7 +30,7 @@ axiosRetry(axiosWithRetry, {
 });
 
 const cacheLimiter = new Bottleneck({
-  maxConcurrent: 15,
+  maxConcurrent: 20,
   minTime: 200,
   reservoir: 500,
   reservoirRefreshAmount: 500,
