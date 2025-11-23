@@ -2052,7 +2052,7 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
           </motion.div>
         )}
         {walletInfo.address && (
-          <div className="relative w-full h-[calc(100vh-8rem)] sm:h-[calc(100vh-6rem)] overflow-hidden">
+          <div className="relative w-full h-[calc(100vh-6rem)] sm:h-[calc(100vh)] overflow-hidden">
             <div className="flex gap-2 mb-2 mt-2 justify-center">
               {nodes.length >= page * NODES_PER_PAGE && nodes.length < MAX_NODES && (
                 <motion.button
