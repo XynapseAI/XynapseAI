@@ -346,6 +346,7 @@ function DashboardInner() {
   const { signIn: farcasterSignIn } = useSignIn();
   // NEW: Separate state for Warpcast detection (for relaxed guard)
   const [isWarpcastMobile, setIsWarpcastMobile] = useState(false);
+  const [isMobile, setIsMobile] = useState(false); // NEW: State to detect mobile device (for hiding Farcaster button on PC)
 
   // FIXED: App domain from env (fix origin mismatch in preview)
   const appDomain = process.env.NEXT_PUBLIC_APP_DOMAIN || window.location.hostname;
@@ -438,7 +439,8 @@ function DashboardInner() {
     if (typeof window === 'undefined') return;
     const userAgent = navigator.userAgent.toLowerCase();
     safeLog('Full UserAgent (debug):', navigator.userAgent); // NEW: Log full UA for testing
-    const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent); // NEW: Mobile check to avoid PC extension false positive
+    const mobileDetected = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent); // NEW: Mobile check to avoid PC extension false positive
+    setIsMobile(mobileDetected); // NEW: Set isMobile state
     const isWarpcastDetected = userAgent.includes('warpcast') || userAgent.includes('farcaster'); // FIXED: Rename and set state
     setIsWarpcastMobile(isWarpcastDetected); // NEW: Separate state for Warpcast
     const isBaseUADetected = userAgent.includes('coinbasewallet') || userAgent.includes('cbwallet') || userAgent.includes('base') || userAgent.includes('coinbase'); // Detect Base explicit + coinbase
@@ -446,11 +448,11 @@ function DashboardInner() {
     // NEW: Force detection for dev testing via ?base=true
     const forceBase = searchParams.get('base') === 'true';
     // FIXED: Only include isCoinbaseWallet if mobile (desktop extension -> false)
-    const isBaseAppDetected = forceBase || isBaseUADetected || (isCoinbaseWallet && isMobile);
+    const isBaseAppDetected = forceBase || isBaseUADetected || (isCoinbaseWallet && mobileDetected);
     setIsBaseApp(isBaseAppDetected); // UPDATED: Include ethereum check + force + mobile guard
     safeLog('Base App Detection Debug:', {
       userAgentSnippet: userAgent.substring(0, 100),
-      isMobile, // NEW: Log mobile flag
+      isMobile: mobileDetected, // NEW: Log mobile flag
       isBaseUADetected,
       isCoinbaseWallet,
       forceBase, // NEW: Log force flag
@@ -1192,7 +1194,7 @@ function DashboardInner() {
                         </button>
                       )}
                       {/* FIXED: Always show SignInButton for Farcaster if not World (support deeplink in Base/PC, fallback if !isMiniApp) */}
-                      {!isWorldMiniApp && !isBaseApp && (
+                      {!isWorldMiniApp && !isBaseApp && isMobile && ( // MODIFIED: Add isMobile condition to hide Farcaster button on PC (prevent "disabled" or ineffective deeplink/QR on desktop)
                         <SignInButton
                           onSuccess={handleFarcasterSuccess}
                           onError={(error) => {
