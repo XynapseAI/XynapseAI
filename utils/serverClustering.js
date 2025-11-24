@@ -1,6 +1,4 @@
 // utils\serverClustering.js
-// utils/serverClustering.js (Pure JS primary, no TF import attempt unless env, fix logger to console for strings)
-import { logger } from './serverLogger';
 
 // DBSCAN (pure JS)
 function dbscan(data, eps, minPts) {
@@ -570,8 +568,6 @@ export async function detectClustersServer(nodes, edges, options = { useML: true
     const sumB = b.wallets.reduce((sum, w) => sum + parseFloat(w.totalValue || 0), 0);
     return sumB - sumA;
   });
-
-  console.log(`Detected ${clusters.length} clusters`); // Fix: console.log instead of logger.log(string)
 
   return clusters;
 }

@@ -369,7 +369,6 @@ export default function ExplorerTab({ initialQuery, initialChain, isStandalone =
         } catch (err) {
             if (isEVMChain(ch) && err.message.includes('not found') && fallbackIndex < evmChainsOrder.length - 1) {
                 const nextChain = evmChainsOrder[fallbackIndex + 1];
-                console.log(`Fallback from ${ch} to ${nextChain} for tx ${q.slice(0, 10)}...`);
                 await fetchData(q, nextChain, fallbackIndex + 1);
                 return;
             }
