@@ -302,6 +302,7 @@ const CHAIN_ID_MAP = {
   world: "480",
   zksync: "324",
   zora: "7777777",
+  monad: "143",
 };
 
 const LIMIT_CONFIG = {
@@ -320,6 +321,7 @@ const NATIVE_TOKEN_METADATA = {
   ethereum: { symbol: "ETH", logo: "/ethereum-logo.webp", name: "Ethereum" },
   bnb: { symbol: "BNB", logo: "/bnb-logo.webp", name: "BNB" },
   polygon: { symbol: "MATIC", logo: "/polygon-logo.webp", name: "Polygon" },
+  monad: { symbol: "MONAD", logo: "/monad-logo.webp", name: "Monad" },
 };
 
 // ================= Helper Functions =================

@@ -47,6 +47,7 @@ const platformIdMap = {
   gnosis: 'gnosis',
   zksync: 'zksync-era',
   linea: 'linea',
+  monad: 'monad',
 };
 
 // FIXED: Fetch token metadata/logo from CoinGecko by contract (batch via Promise.all)
@@ -133,7 +134,8 @@ async function fetchNativePrice(chain) {
     gnosis: '16547', // xDAI
     zksync: '1027', // ETH
     linea: '1027', // ETH
-    scroll: '1027', // ETH
+    scroll: '1027', // 
+    monad: '143', // MONAD
   };
   const nativeId = nativeIdMap[chain];
   if (!nativeId) return null;
@@ -211,7 +213,7 @@ const chainIdMap = {
   gnosis: '100',
   hyperevm: '999',
   linea: '59144',
-  monad: '10143',
+  monad: '143',
   op: '10',
   optimism: '10',
   polygon: '137',
@@ -238,7 +240,7 @@ const primaryChainNameMap = {
   '100': 'gnosis',
   '999': 'hyperevm',
   '59144': 'linea',
-  '10143': 'monad',
+  '143': 'monad',
   '10': 'optimism',
   '137': 'polygon',
   '534352': 'scroll',

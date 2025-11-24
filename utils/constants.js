@@ -26,7 +26,7 @@ export const GECKOTERMINAL_CHAIN_MAPPING = {
   'ink': 'ink',
   'mode': 'mode',
   'soneium': 'soneium',
-  'monad_testnet': 'monad',
+  'monad': 'monad',
 };
 
 export const SUPPORTED_SVM_CHAINS = ['solana', 'eclipse'];
@@ -54,7 +54,7 @@ export const chains = [
   { value: '5000', label: 'Mantle', image: '/icons/mantle.webp', testnet: false },
   { value: '7560', label: 'Cyber', image: '/icons/cyber.webp', testnet: false },
   { value: '8453', label: 'Base', image: '/icons/base.webp', testnet: false },
-  { value: '10143', label: 'Monad', image: '/icons/monad.webp', testnet: true },
+  { value: '143', label: 'Monad', image: '/icons/monad.webp', testnet: true },
   { value: '33139', label: 'Ape Chain', image: '/icons/ape_chain.webp', testnet: false },
   { value: '34443', label: 'Mode', image: '/icons/mode.webp', testnet: false },
   { value: '42161', label: 'Arbitrum', image: '/icons/arbitrum.webp', testnet: false },
@@ -97,7 +97,7 @@ export const mapCoinGeckoChains = (coingeckoChains) => {
     'metis': '1088',
     'mint': '185',
     'mode': '34443',
-    'monad_testnet': '10143',
+    'monad': '143',
     'omni': '166',
     'opbnb': '204',
     'optimistic-ethereum': '10',
@@ -161,7 +161,7 @@ export const getPlatformImage = (chainId, coingeckoChains) => {
       '480': 'world',
       '324': 'zksync',
       '7777777': 'zora',
-      '10143': 'monad_testnet',
+      '143': 'monad',
       'solana': 'solana',
       'eclipse': 'eclipse',
 
@@ -208,6 +208,7 @@ export const getExplorerUrls = (chainId, txHash, address) => {
     'bitcoin': 'https://mempool.space',
     'solana': 'https://solscan.io',
     'tron': 'https://tronscan.org',
+    'monad': 'https://monadvision.com/',
   };
   const baseUrl = baseUrls[chainId] || baseUrls['1'];
   return {
@@ -250,7 +251,7 @@ export const SUPPORTED_CHAINS = [
   { value: 'world', chainId: '480', label: 'World' },
   { value: 'zksync', chainId: '324', label: 'zkSync' },
   { value: 'zora', chainId: '7777777', label: 'Zora' },
-  { value: 'monad_testnet', chainId: '10143', label: 'Monad Testnet', testnet: true },
+  { value: 'monad', chainId: '143', label: 'Monad', testnet: false },
   { value: 'solana', chainId: null, label: 'Solana' }, // Added Solana
   { value: 'eclipse', chainId: null, label: 'Eclipse' },
 
@@ -304,7 +305,7 @@ export const CHAIN_MAPPING = {
   'ink': { simChain: 'ink', chainId: '57073' },
   'mode': { simChain: 'mode', chainId: '34443' },
   'soneium': { simChain: 'soneium', chainId: '1868' },
-  'monad': { simChain: 'monad_testnet', chainId: '10143' },
+  'monad': { simChain: 'monad', chainId: '143' },
   'abstract': { simChain: 'abstract', chainId: 2741 },
   'rari': { simChain: 'rari', chainId: 1380012617 },
   'lisk': { simChain: 'lisk', chainId: 1135 },
@@ -370,7 +371,7 @@ export const CHAIN_ID_MAP = {
   zkevm: '1101',
   zksync: '324',
   zora: '7777777',
-  monad_testnet: '10143',
+  monad: '143',
   solana: 'solana',
   eclipse: 'eclipse',
 };
@@ -406,7 +407,7 @@ export const CHAIN_EXPLORER_MAP = {
   metis: { baseUrl: 'https://andromeda-explorer.metis.io', supportsTx: true, supportsAddress: true },
   mint: { baseUrl: 'https://explorer.mintchain.io', supportsTx: true, supportsAddress: true },
   mode: { baseUrl: 'https://modescan.io', supportsTx: true, supportsAddress: true },
-  monad_testnet: { baseUrl: 'https://explorer.monad.xyz', supportsTx: true, supportsAddress: true },
+  monad: { baseUrl: 'https://monadvision.com/', supportsTx: true, supportsAddress: true },
   omni: { baseUrl: 'https://explorer.omni.network', supportsTx: true, supportsAddress: true },
   opbnb: { baseUrl: 'https://opbnbscan.com', supportsTx: true, supportsAddress: true },
   optimism: { baseUrl: 'https://optimistic.etherscan.io', supportsTx: true, supportsAddress: true },
@@ -484,7 +485,7 @@ export const CHAIN_ID_TO_NAME = {
   '1101': 'zkevm',
   '324': 'zksync',
   '7777777': 'zora',
-  '10143': 'monad_testnet',
+  '143': 'monad',
   'solana': 'solana',
   'eclipse': 'eclipse',
 };

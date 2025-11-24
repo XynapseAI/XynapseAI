@@ -31,6 +31,7 @@ export default function ExplorerTab({ initialQuery, initialChain, isStandalone =
         polygon: { id: 137, apiBase: '/api/etherscan-explorer' },
         base: { id: 8453, apiBase: '/api/etherscan-explorer' },
         solana: { id: null, apiBase: '/api/solana' },
+        monad: { id: 143, apiBase: '/api/etherscan-explorer' },
     };
 
     const chainLogos = {
@@ -62,6 +63,7 @@ export default function ExplorerTab({ initialQuery, initialChain, isStandalone =
         MATIC: 'https://assets.coingecko.com/coins/images/4713/small/matic-token-icon.png',
         BTC: 'https://assets.coingecko.com/coins/images/1/small/bitcoin.png',
         SOL: 'https://assets.coingecko.com/coins/images/4128/small/solana.png',
+        MON: 'https://assets.coingecko.com/coins/images/38927/small/monad.jpg?1719547722',
     };
 
     const nativeSymbols = {
@@ -71,6 +73,7 @@ export default function ExplorerTab({ initialQuery, initialChain, isStandalone =
         optimism: 'ETH',
         polygon: 'MATIC',
         base: 'ETH',
+        monad: 'MON',
     };
 
     const chainSymbols = {
@@ -82,9 +85,10 @@ export default function ExplorerTab({ initialQuery, initialChain, isStandalone =
         polygon: 'MATIC',
         base: 'ETH',
         solana: 'SOL',
+        monad: 'MON',
     };
 
-    const evmChainsOrder = ['ethereum', 'arbitrum', 'bsc', 'optimism', 'polygon', 'base'];
+    const evmChainsOrder = ['ethereum', 'arbitrum', 'bsc', 'optimism', 'polygon', 'base', "monad"];
 
     useEffect(() => {
         if (results && results.data) {

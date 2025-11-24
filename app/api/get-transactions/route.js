@@ -146,6 +146,7 @@ const SUPPORTED_CHAINS = {
   'solana': { name: 'solana', explorer: 'Solscan', apiUrl: 'https://public-api.solscan.io', apiKey: process.env.SOLSCAN_API_KEY, coingeckoId: 'solana' },
   'tron': { name: 'tron', explorer: 'TronScan', apiUrl: 'https://api.tronscan.org/api', apiKey: process.env.TRONSCAN_API_KEY, coingeckoId: 'tron' },
   'bitcoin': { name: 'bitcoin', explorer: 'Mempool', apiUrl: 'https://mempool.space/api', apiKey: '', coingeckoId: 'bitcoin' },
+  'monad': { name: 'monad', explorer: 'Monad Explorer', apiUrl: 'https://monadvision.com/', apiKey: process.env.ETHERSCAN_API_KEY, coingeckoId: 'monad' },
 };
 const chainIdToName = Object.fromEntries(
   Object.entries(SUPPORTED_CHAINS).map(([id, { name }]) => [id, name])

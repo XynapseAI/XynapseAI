@@ -43,7 +43,7 @@ const isValidNametagImage = (image) => {
   return image && image !== '/icons/default.webp';
 };
 const SUPPORTED_CHAINS = [
-  '1', '56', '10', '130', '137', '42161', '59144', 'solana', 'tron', 'bitcoin',
+  '1', '56', '10', '130', '137', '42161', '59144', 'solana', 'tron', 'bitcoin' , '143',
 ];
 const isValidDate = (date) => {
   return date instanceof Date && !isNaN(date);
