@@ -54,7 +54,7 @@ const Modal = ({ isOpen, onClose, title, content, links = [], isMobile, isLoadin
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
           transition={{ duration: 0.3 }}
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm font-saira"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm font-inter"
           onClick={onClose}
         >
           <motion.div
@@ -89,7 +89,7 @@ const Modal = ({ isOpen, onClose, title, content, links = [], isMobile, isLoadin
                       {logMessages.map((log, index) => (
                         <motion.p
                           key={log.id}
-                          className={`text-white/80 text-[10px] sm:text-xs font-saira mb-2 ${index === logMessages.length - 1
+                          className={`text-white/80 text-[10px] sm:text-xs font-inter mb-2 ${index === logMessages.length - 1
                               ? 'text-blue-400 font-semibold animate-pulse'
                               : 'text-white/60'
                             }`}

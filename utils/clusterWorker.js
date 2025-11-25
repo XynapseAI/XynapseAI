@@ -6,15 +6,15 @@ function truncateAddress(addr) {
 function isValidDate(date) {
   return date instanceof Date && !isNaN(date);
 }
-function aggregateWallets(incomingData, outgoingData, layer3Data, rootAddress, page, filterType) {
+function aggregateWallets(incomingData, outgoingData, layer3Data, rootAddress, page, filterType, rootNametag = 'Unknown', rootImage = '/icons/default.webp') {
   const walletMap = new Map();
   const nametags = {};
   const edges = [];
   const rootLower = rootAddress.toLowerCase();
   walletMap.set(rootLower, {
     address: rootLower,
-    nametag: 'Unknown', // Will be updated later if needed
-    image: '/icons/default.webp',
+    nametag: rootNametag, // Updated with passed nametag
+    image: rootImage, // Updated with passed image
     chainLogo: '/icons/default.webp',
     tokenSymbol: 'Unknown',
     totalValue: 0,
@@ -24,8 +24,8 @@ function aggregateWallets(incomingData, outgoingData, layer3Data, rootAddress, p
     layer: 1,
   });
   nametags[rootLower] = {
-    name: 'Unknown',
-    image: '/icons/default.webp',
+    name: rootNametag, // Updated with passed nametag
+    image: rootImage, // Updated with passed image
   };
   const addWallet = (address, tx, type, layer) => {
     if (filterType === 'incoming' && type !== 'incoming') return;
@@ -330,15 +330,15 @@ export function clusterInWorker(nodes, edges) {
       function isValidDate(date) {
         return date instanceof Date && !isNaN(date);
       }
-      function aggregateWallets(incomingData, outgoingData, layer3Data, rootAddress, page, filterType) {
+      function aggregateWallets(incomingData, outgoingData, layer3Data, rootAddress, page, filterType, rootNametag = 'Unknown', rootImage = '/icons/default.webp') {
         const walletMap = new Map();
         const nametags = {};
         const edges = [];
         const rootLower = rootAddress.toLowerCase();
         walletMap.set(rootLower, {
           address: rootLower,
-          nametag: 'Unknown', // Will be updated later if needed
-          image: '/icons/default.webp',
+          nametag: rootNametag, // Updated with passed nametag
+          image: rootImage, // Updated with passed image
           chainLogo: '/icons/default.webp',
           tokenSymbol: 'Unknown',
           totalValue: 0,
@@ -348,8 +348,8 @@ export function clusterInWorker(nodes, edges) {
           layer: 1,
         });
         nametags[rootLower] = {
-          name: 'Unknown',
-          image: '/icons/default.webp',
+          name: rootNametag, // Updated with passed nametag
+          image: rootImage, // Updated with passed image
         };
         const addWallet = (address, tx, type, layer) => {
           if (filterType === 'incoming' && type !== 'incoming') return;
@@ -658,7 +658,9 @@ export function clusterInWorker(nodes, edges) {
                 data.layer3Data,
                 data.rootAddress,
                 data.page,
-                data.filterType
+                data.filterType,
+                data.rootNametag,
+                data.rootImage
               );
             } else if (type === 'position') {
               result = computePositionedNodes(data.nodes, data.edges);
@@ -691,7 +693,7 @@ export function clusterInWorker(nodes, edges) {
     };
   });
 }
-export function aggregateInWorker(incomingData, outgoingData, layer3Data, rootAddress, page, filterType) {
+export function aggregateInWorker(incomingData, outgoingData, layer3Data, rootAddress, page, filterType, rootNametag = 'Unknown', rootImage = '/icons/default.webp') {
   return new Promise((resolve, reject) => {
     const workerCode = `
       function truncateAddress(addr) {
@@ -701,15 +703,15 @@ export function aggregateInWorker(incomingData, outgoingData, layer3Data, rootAd
       function isValidDate(date) {
         return date instanceof Date && !isNaN(date);
       }
-      function aggregateWallets(incomingData, outgoingData, layer3Data, rootAddress, page, filterType) {
+      function aggregateWallets(incomingData, outgoingData, layer3Data, rootAddress, page, filterType, rootNametag = 'Unknown', rootImage = '/icons/default.webp') {
         const walletMap = new Map();
         const nametags = {};
         const edges = [];
         const rootLower = rootAddress.toLowerCase();
         walletMap.set(rootLower, {
           address: rootLower,
-          nametag: 'Unknown', // Will be updated later if needed
-          image: '/icons/default.webp',
+          nametag: rootNametag, // Updated with passed nametag
+          image: rootImage, // Updated with passed image
           chainLogo: '/icons/default.webp',
           tokenSymbol: 'Unknown',
           totalValue: 0,
@@ -719,8 +721,8 @@ export function aggregateInWorker(incomingData, outgoingData, layer3Data, rootAd
           layer: 1,
         });
         nametags[rootLower] = {
-          name: 'Unknown',
-          image: '/icons/default.webp',
+          name: rootNametag, // Updated with passed nametag
+          image: rootImage, // Updated with passed image
         };
         const addWallet = (address, tx, type, layer) => {
           if (filterType === 'incoming' && type !== 'incoming') return;
@@ -1029,7 +1031,9 @@ export function aggregateInWorker(incomingData, outgoingData, layer3Data, rootAd
                 data.layer3Data,
                 data.rootAddress,
                 data.page,
-                data.filterType
+                data.filterType,
+                data.rootNametag,
+                data.rootImage
               );
             } else if (type === 'position') {
               result = computePositionedNodes(data.nodes, data.edges);
@@ -1047,7 +1051,7 @@ export function aggregateInWorker(incomingData, outgoingData, layer3Data, rootAd
     `;
     const blob = new Blob([workerCode], { type: 'application/javascript' });
     const worker = new Worker(URL.createObjectURL(blob));
-    worker.postMessage({ type: 'aggregate', data: { incomingData, outgoingData, layer3Data, rootAddress, page, filterType } });
+    worker.postMessage({ type: 'aggregate', data: { incomingData, outgoingData, layer3Data, rootAddress, page, filterType, rootNametag, rootImage } });
     worker.onmessage = (e) => {
       if (e.data.error) {
         reject(new Error(e.data.error));
@@ -1072,15 +1076,15 @@ export function positionInWorker(nodes, edges) {
       function isValidDate(date) {
         return date instanceof Date && !isNaN(date);
       }
-      function aggregateWallets(incomingData, outgoingData, layer3Data, rootAddress, page, filterType) {
+      function aggregateWallets(incomingData, outgoingData, layer3Data, rootAddress, page, filterType, rootNametag = 'Unknown', rootImage = '/icons/default.webp') {
         const walletMap = new Map();
         const nametags = {};
         const edges = [];
         const rootLower = rootAddress.toLowerCase();
         walletMap.set(rootLower, {
           address: rootLower,
-          nametag: 'Unknown', // Will be updated later if needed
-          image: '/icons/default.webp',
+          nametag: rootNametag, // Updated with passed nametag
+          image: rootImage, // Updated with passed image
           chainLogo: '/icons/default.webp',
           tokenSymbol: 'Unknown',
           totalValue: 0,
@@ -1090,8 +1094,8 @@ export function positionInWorker(nodes, edges) {
           layer: 1,
         });
         nametags[rootLower] = {
-          name: 'Unknown',
-          image: '/icons/default.webp',
+          name: rootNametag, // Updated with passed nametag
+          image: rootImage, // Updated with passed image
         };
         const addWallet = (address, tx, type, layer) => {
           if (filterType === 'incoming' && type !== 'incoming') return;
@@ -1400,7 +1404,9 @@ export function positionInWorker(nodes, edges) {
                 data.layer3Data,
                 data.rootAddress,
                 data.page,
-                data.filterType
+                data.filterType,
+                data.rootNametag,
+                data.rootImage
               );
             } else if (type === 'position') {
               result = computePositionedNodes(data.nodes, data.edges);
@@ -1443,15 +1449,15 @@ export function computeMetricsInWorker(transactions, wallets) {
       function isValidDate(date) {
         return date instanceof Date && !isNaN(date);
       }
-      function aggregateWallets(incomingData, outgoingData, layer3Data, rootAddress, page, filterType) {
+      function aggregateWallets(incomingData, outgoingData, layer3Data, rootAddress, page, filterType, rootNametag = 'Unknown', rootImage = '/icons/default.webp') {
         const walletMap = new Map();
         const nametags = {};
         const edges = [];
         const rootLower = rootAddress.toLowerCase();
         walletMap.set(rootLower, {
           address: rootLower,
-          nametag: 'Unknown', // Will be updated later if needed
-          image: '/icons/default.webp',
+          nametag: rootNametag, // Updated with passed nametag
+          image: rootImage, // Updated with passed image
           chainLogo: '/icons/default.webp',
           tokenSymbol: 'Unknown',
           totalValue: 0,
@@ -1461,8 +1467,8 @@ export function computeMetricsInWorker(transactions, wallets) {
           layer: 1,
         });
         nametags[rootLower] = {
-          name: 'Unknown',
-          image: '/icons/default.webp',
+          name: rootNametag, // Updated with passed nametag
+          image: rootImage, // Updated with passed image
         };
         const addWallet = (address, tx, type, layer) => {
           if (filterType === 'incoming' && type !== 'incoming') return;
@@ -1771,7 +1777,9 @@ export function computeMetricsInWorker(transactions, wallets) {
                 data.layer3Data,
                 data.rootAddress,
                 data.page,
-                data.filterType
+                data.filterType,
+                data.rootNametag,
+                data.rootImage
               );
             } else if (type === 'position') {
               result = computePositionedNodes(data.nodes, data.edges);

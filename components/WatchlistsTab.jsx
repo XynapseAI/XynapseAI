@@ -44,7 +44,7 @@ const Tooltip = ({ children, text }) => {
     >
       {children}
       <div
-        className={`absolute ${isVisible ? 'block' : 'hidden'} bg-white/5 backdrop-blur-md border border-white/10 text-white/80 text-[9px] sm:text-[10px] py-1 sm:py-1.5 px-2 sm:px-3 rounded-lg shadow-neon-sm z-20 top-8 sm:top-10 left-1/2 -translate-x-1/2 max-w-[200px] text-center leading-relaxed`}
+        className={`absolute ${isVisible ? 'block' : 'hidden'} bg-[#FFFFFF]/5 backdrop-blur-md border border-[#FFFFFF20] text-[#D4D4D4] text-[9px] sm:text-[10px] py-1 sm:py-1.5 px-2 sm:px-3 rounded-lg shadow-[0_4px_12px_rgba(0,0,0,0.3)] glow-[#FFFFFF15] z-20 top-8 sm:top-10 left-1/2 -translate-x-1/2 max-w-[200px] text-center leading-relaxed`}
       >
         {text.split(' - ').map((line, index) => (
           <div key={index}>{line}</div>
@@ -64,31 +64,31 @@ const copyAddress = (address, toast) => {
 const SkeletonTokenRow = ({ index }) => (
   <motion.div
     key={`skeleton-token-${index}`}
-    className="flex hover:bg-neon-blue/10 transition-all duration-300 py-2 border-t border-white/10"
+    className="flex hover:bg-[#FFFFFF]/10 transition-all ease-in-out duration-200 py-2 border-t border-[#FFFFFF20]"
     initial={{ opacity: 0, y: 10 }}
     animate={{ opacity: 1, y: 0 }}
     transition={{ duration: 0.3 }}
   >
     <div className="w-[25%] px-2 sm:px-3 flex items-center gap-2">
       <div className="relative flex-shrink-0">
-        <div className="w-[16px] h-[16px] bg-white/10 rounded-full animate-pulse" />
-        <div className="w-[10px] h-[10px] bg-white/5 rounded-full absolute top-0 right-0 animate-pulse" style={{ transform: 'translate(25%, -25%)' }} />
+        <div className="w-[20px] sm:w-[24px] h-[20px] sm:h-[24px] bg-[#FFFFFF]/10 rounded-full animate-pulse" />
+        <div className="w-[14px] sm:w-[16px] h-[14px] sm:h-[16px] bg-[#FFFFFF]/5 rounded-full absolute top-0 right-0 animate-pulse" style={{ transform: 'translate(25%, -25%)' }} />
       </div>
       <div className="flex flex-col items-start">
-        <div className="w-12 h-2 bg-white/10 rounded animate-pulse" />
-        <div className="w-8 h-1.5 bg-white/5 rounded mt-1 animate-pulse" />
+        <div className="w-12 h-2 bg-[#FFFFFF]/10 rounded animate-pulse" />
+        <div className="w-8 h-1.5 bg-[#FFFFFF]/5 rounded mt-1 animate-pulse" />
       </div>
     </div>
     <div className="w-[45%] px-2 sm:px-3 flex items-center justify-center">
       <div className="flex flex-col items-center">
-        <div className="w-10 h-2 bg-white/10 rounded animate-pulse" />
-        <div className="w-12 h-1.5 bg-white/5 rounded mt-1 animate-pulse" />
+        <div className="w-10 h-2 bg-[#FFFFFF]/10 rounded animate-pulse" />
+        <div className="w-12 h-1.5 bg-[#FFFFFF]/5 rounded mt-1 animate-pulse" />
       </div>
     </div>
     <div className="w-[30%] px-2 sm:px-3 flex flex-col items-center justify-center gap-1">
-      <div className="w-6 h-2 bg-white/10 rounded animate-pulse" />
-      <div className="w-full bg-white/10 rounded-full h-1.5">
-        <div className="bg-white/20 h-1.5 rounded-full w-[60%] animate-pulse" />
+      <div className="w-6 h-2 bg-[#FFFFFF]/10 rounded animate-pulse" />
+      <div className="w-full bg-[#FFFFFF]/10 rounded-full h-1.5">
+        <div className="bg-[#FFFFFF]/20 h-1.5 rounded-full w-[60%] animate-pulse" />
       </div>
     </div>
   </motion.div>
@@ -96,34 +96,34 @@ const SkeletonTokenRow = ({ index }) => (
 const SkeletonTransactionRow = ({ index }) => (
   <motion.div
     key={`skeleton-tx-${index}`}
-    className="flex hover:bg-neon-blue/10 transition-all duration-300 py-2 border-t border-white/10"
+    className="flex hover:bg-[#FFFFFF]/10 transition-all ease-in-out duration-200 py-2 border-t border-[#FFFFFF20]"
     initial={{ opacity: 0, y: 10 }}
     animate={{ opacity: 1, y: 0 }}
     transition={{ duration: 0.3 }}
   >
     <div className="w-[25%] px-2 sm:px-3 flex flex-col items-center gap-1">
       <div className="relative flex-shrink-0">
-        <div className="w-[16px] h-[16px] bg-white/10 rounded-full animate-pulse mx-auto" />
-        <div className="w-[10px] h-[10px] bg-white/5 rounded-full absolute top-0 right-0 animate-pulse" style={{ transform: 'translate(25%, -25%)' }} />
+        <div className="w-[20px] sm:w-[24px] h-[20px] sm:h-[24px] bg-[#FFFFFF]/10 rounded-full animate-pulse mx-auto" />
+        <div className="w-[14px] sm:w-[16px] h-[14px] sm:h-[16px] bg-[#FFFFFF]/5 rounded-full absolute top-0 right-0 animate-pulse" style={{ transform: 'translate(25%, -25%)' }} />
       </div>
-      <div className="w-10 h-2 bg-white/10 rounded animate-pulse" />
+      <div className="w-10 h-2 bg-[#FFFFFF]/10 rounded animate-pulse" />
     </div>
     <div className="w-[25%] px-2 sm:px-3 flex flex-col items-center gap-1">
-      <div className="w-12 h-2 bg-white/10 rounded animate-pulse" />
+      <div className="w-12 h-2 bg-[#FFFFFF]/10 rounded animate-pulse" />
       <div className="flex items-center justify-center gap-2">
-        <div className="w-[14px] h-[14px] bg-white/10 rounded-full animate-pulse" />
-        <div className="w-16 h-2 bg-white/10 rounded animate-pulse" />
+        <div className="w-[14px] h-[14px] bg-[#FFFFFF]/10 rounded-full animate-pulse" />
+        <div className="w-16 h-2 bg-[#FFFFFF]/10 rounded animate-pulse" />
       </div>
     </div>
     <div className="w-[25%] px-2 sm:px-3 flex items-center justify-center">
       <div className="flex flex-col items-center">
-        <div className="w-10 h-2 bg-white/10 rounded animate-pulse" />
-        <div className="w-12 h-1.5 bg-white/5 rounded mt-1 animate-pulse" />
+        <div className="w-10 h-2 bg-[#FFFFFF]/10 rounded animate-pulse" />
+        <div className="w-12 h-1.5 bg-[#FFFFFF]/5 rounded mt-1 animate-pulse" />
       </div>
     </div>
     <div className="w-[25%] px-2 sm:px-3 flex flex-col items-center gap-0.5">
-      <div className="w-[14px] h-[14px] bg-white/10 rounded-full animate-pulse" />
-      <div className="w-8 h-1.5 bg-white/5 rounded animate-pulse" />
+      <div className="w-[14px] h-[14px] bg-[#FFFFFF]/10 rounded-full animate-pulse" />
+      <div className="w-8 h-1.5 bg-[#FFFFFF]/5 rounded animate-pulse" />
     </div>
   </motion.div>
 );
@@ -1081,18 +1081,18 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
     return (
       <motion.div
         key={`${token.chain}-${token.address}-${index}`}
-        className="flex hover:bg-neon-blue/10 transition-all duration-300 py-2 border-t border-white/10"
+        className="flex hover:bg-[#0A0A0A]/80 transition-all ease-in-out duration-200 py-2 border-t border-[#FFFFFF20]"
         initial={{ opacity: 0, y: 10 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.3, delay: 0.1 }}
       >
-        <div className="w-[25%] px-2 sm:px-3 text-white/80 text-[9px] sm:text-[10px] flex items-center gap-2">
+        <div className="w-[25%] px-4 sm:px-6 text-[#D4D4D4] text-[12px] sm:text-[14px] flex items-center gap-4">
           <div className="relative flex-shrink-0">
             <img
               src={logoUrl}
               alt={`${tokenSymbol} logo`}
-              width={isMobile ? 14 : 16}
-              height={isMobile ? 14 : 16}
+              width={isMobile ? 20 : 24}
+              height={isMobile ? 20 : 24}
               className="rounded-full"
               onError={(e) => (e.target.src = '/icons/default.webp')}
               loading="lazy"
@@ -1100,8 +1100,8 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
             <img
               src={getPlatformImage(token.chain)}
               alt={`${token.chain} logo`}
-              width={isMobile ? 8 : 10}
-              height={isMobile ? 8 : 10}
+              width={isMobile ? 14 : 16}
+              height={isMobile ? 14 : 16}
               className="rounded-full absolute top-0 right-0"
               style={{ transform: 'translate(25%, -25%)' }}
               onError={(e) => (e.target.src = token.chain === 'eclipse' ? '/eclipse-logo.webp' : '/fallback-image.webp')}
@@ -1111,23 +1111,23 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
           <div className="flex flex-col items-center">
             <span>{tokenSymbol}</span>
             {token.price_usd != null && (
-              <span className="text-[7px] sm:text-[9px] text-gray-500">{formatPrice(token.price_usd)}</span>
+              <span className="text-[10px] sm:text-[12px] text-[#D4D4D4]">{formatPrice(token.price_usd)}</span>
             )}
           </div>
         </div>
-        <div className="w-[45%] px-2 sm:px-3 text-white/80 text-[9px] sm:text-[10px] flex items-center justify-center">
+        <div className="w-[45%] px-4 sm:px-6 text-[#D4D4D4] text-[12px] sm:text-[14px] flex items-center justify-center">
           <div className="flex flex-col items-center">
             <span className="font-semibold">{formatBalance(token.amount)}</span>
-            <span className="text-[7px] sm:text-[9px] text-gray-500">
+            <span className="text-[10px] sm:text-[12px] text-[#D4D4D4]">
               ${value.toLocaleString('en-US', { maximumFractionDigits: 2 })}
             </span>
           </div>
         </div>
-        <div className="w-[30%] px-2 sm:px-3 text-white/80 text-[9px] sm:text-[10px] flex flex-col items-center justify-center gap-1">
+        <div className="w-[30%] px-4 sm:px-6 text-[#D4D4D4] text-[12px] sm:text-[14px] flex flex-col items-center justify-center gap-1">
           <span className="font-semibold">{percentage.toFixed(2)}%</span>
-          <div className="w-full bg-white/10 rounded-full h-1.5">
+          <div className="w-full bg-[#FFFFFF]/10 rounded-full h-1.5">
             <motion.div
-              className="bg-gradient-to-r from-neon-blue to-emerald-400 h-1.5 rounded-full"
+              className="bg-gradient-to-r from-[#00FFFF20] to-emerald-400 h-1.5 rounded-full"
               style={{ width: `${Math.min(percentage, 100)}%` }}
               initial={{ width: 0 }}
               animate={{ width: `${Math.min(percentage, 100)}%` }}
@@ -1182,18 +1182,18 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
     return (
       <motion.div
         key={`${tx.chain}-${transactionKey}-${index}`}
-        className="flex hover:bg-neon-blue/10 transition-all duration-300 py-2 border-t border-white/10"
+        className="flex hover:bg-[#0A0A0A]/80 transition-all ease-in-out duration-200 py-2 border-t border-[#FFFFFF20]"
         initial={{ opacity: 0, y: 10 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.3, delay: 0.1 }}
       >
-        <div className="w-[25%] px-2 sm:px-3 text-white/80 text-[9px] sm:text-[10px] flex flex-col items-center gap-1 relative overflow-hidden text-ellipsis">
+        <div className="w-[25%] px-4 sm:px-6 text-[#D4D4D4] text-[12px] sm:text-[14px] flex flex-col items-center gap-1 relative overflow-hidden text-ellipsis">
           <div className="relative flex-shrink-0">
             <img
               src={tokenLogo}
               alt={`${tokenSymbol} logo`}
-              width={isMobile ? 14 : 16}
-              height={isMobile ? 14 : 16}
+              width={isMobile ? 20 : 24}
+              height={isMobile ? 20 : 24}
               className="rounded-full mx-auto"
               onError={(e) => (e.target.src = '/icons/default.webp')}
               loading="lazy"
@@ -1201,38 +1201,38 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
             <img
               src={getPlatformImage(tx.chain)}
               alt={`${tx.chain} logo`}
-              width={isMobile ? 8 : 10}
-              height={isMobile ? 8 : 10}
+              width={isMobile ? 14 : 16}
+              height={isMobile ? 14 : 16}
               className="rounded-full absolute top-0 right-0"
               style={{ transform: 'translate(25%, -25%)' }}
               onError={(e) => (e.target.src = tx.chain === 'eclipse' ? '/eclipse-logo.webp' : '/fallback-image.webp')}
               loading="lazy"
             />
           </div>
-          <span className="text-[8px] sm:text-[9px] truncate max-w-[60px] sm:max-w-[80px]">{tokenSymbol}</span>
+          <span className="text-[10px] sm:text-[12px] truncate max-w-[60px] sm:max-w-[80px]">{tokenSymbol}</span>
         </div>
         {!isSVM ? (
           <>
-            <div className="w-[25%] px-2 sm:px-3 text-white/80 text-[9px] sm:text-[10px] flex flex-col items-center gap-1 overflow-hidden text-ellipsis">
+            <div className="w-[25%] px-4 sm:px-6 text-[#D4D4D4] text-[12px] sm:text-[14px] flex flex-col items-center gap-1 overflow-hidden text-ellipsis">
               <span
-                className={`inline-flex px-1 sm:px-1.5 py-0.5 rounded-full text-[8px] sm:text-[9px] font-medium ${tx.type === 'receive'
-                  ? 'bg-neon-green/20 text-neon-green'
+                className={`inline-flex px-1 sm:px-1.5 py-0.5 rounded-full text-[10px] sm:text-[12px] font-medium ${tx.type === 'receive'
+                  ? 'bg-emerald-400/20 text-emerald-400'
                   : tx.type === 'send'
-                    ? 'bg-neon-blue/20 text-neon-blue'
+                    ? 'bg-[#00FFFF20]/20 text-[#00FFFF20]'
                     : tx.type === 'swap'
                       ? 'bg-purple-400/20 text-purple-400'
-                      : 'bg-white/20 text-white/60'
+                      : 'bg-[#FFFFFF]/20 text-[#FFF]/60'
                   }`}
               >
                 {typeDisplay}
               </span>
-              <div className="flex items-center justify-center gap-2">
+              <div className="flex items-center justify-center gap-4">
                 {addressImage && (
                   <img
                     src={addressImage}
                     alt={`${displayAddress} logo`}
-                    width={isMobile ? 12 : 14}
-                    height={isMobile ? 12 : 14}
+                    width={isMobile ? 14 : 16}
+                    height={isMobile ? 14 : 16}
                     className="rounded-full"
                     onError={(e) => (e.target.src = '/icons/default.webp')}
                     loading="lazy"
@@ -1242,58 +1242,58 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
                   href={addressUrl}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="text-neon-blue hover:text-neon-blue/80 truncate"
+                  className="text-[#00FFFF20] hover:text-[#00FFFF20]/80 truncate"
                   title={addressToShow}
                 >
                   {displayAddress}
                 </a>
               </div>
             </div>
-            <div className="w-[25%] px-2 sm:px-3 text-white/80 text-[9px] sm:text-[10px] flex items-center justify-center overflow-hidden text-ellipsis">
+            <div className="w-[25%] px-4 sm:px-6 text-[#D4D4D4] text-[12px] sm:text-[14px] flex items-center justify-center overflow-hidden text-ellipsis">
               <div className="flex flex-col items-center">
                 <span className="font-semibold">{displayValue}</span>
                 {tx.value_usd != null && (
-                  <span className="text-[7px] sm:text-[9px] text-white/60">
+                  <span className="text-[10px] sm:text-[12px] text-[#D4D4D4]">
                     ${Number(tx.value_usd).toLocaleString('en-US', { maximumFractionDigits: 2 })}
                   </span>
                 )}
               </div>
             </div>
-            <div className="w-[25%] px-2 sm:px-3 text-white/80 text-[9px] sm:text-[10px] flex flex-col items-center gap-0.5 overflow-hidden text-ellipsis">
+            <div className="w-[25%] px-4 sm:px-6 text-[#D4D4D4] text-[12px] sm:text-[14px] flex flex-col items-center gap-0.5 overflow-hidden text-ellipsis">
               <a href={txUrl} target="_blank" rel="noopener noreferrer">
                 <img
                   src="/logos/etherscan-logo.webp"
                   alt="Explorer"
-                  width={isMobile ? 12 : 14}
-                  height={isMobile ? 12 : 14}
+                  width={isMobile ? 14 : 16}
+                  height={isMobile ? 14 : 16}
                   className="rounded-full"
                   onError={(e) => (e.target.src = '/fallback-image.webp')}
                   loading="lazy"
                 />
               </a>
-              <span className="text-[6px] sm:text-[7px] text-white/60">
+              <span className="text-[10px] sm:text-[12px] text-[#D4D4D4]">
                 {tx.block_time ? formatDistanceToNow(new Date(tx.block_time), { addSuffix: true }) : 'N/A'}
               </span>
             </div>
           </>
         ) : (
           <>
-            <div className="w-[25%] px-2 sm:px-3 text-white/80 text-[9px] sm:text-[10px] flex items-center justify-center overflow-hidden text-ellipsis">
+            <div className="w-[25%] px-4 sm:px-6 text-[#D4D4D4] text-[12px] sm:text-[14px] flex items-center justify-center overflow-hidden text-ellipsis">
               <div className="flex flex-col items-center">
                 <span className="font-semibold">{displayValue}</span>
                 {tx.value_usd != null && (
-                  <span className="text-[7px] sm:text-[9px] text-gray-500">
+                  <span className="text-[10px] sm:text-[12px] text-[#D4D4D4]">
                     ${Number(tx.value_usd).toLocaleString('en-US', { maximumFractionDigits: 2 })}
                   </span>
                 )}
               </div>
             </div>
-            <div className="w-[25%] px-2 sm:px-3 text-white/80 text-[9px] sm:text-[10px] flex items-center justify-center gap-2 overflow-hidden text-ellipsis">
+            <div className="w-[25%] px-4 sm:px-6 text-[#D4D4D4] text-[12px] sm:text-[14px] flex items-center justify-center gap-4 overflow-hidden text-ellipsis">
               <img
                 src="/logos/solscan.webp"
                 alt="Solscan Explorer"
-                width={isMobile ? 12 : 14}
-                height={isMobile ? 12 : 14}
+                width={isMobile ? 14 : 16}
+                height={isMobile ? 14 : 16}
                 className="rounded-full"
                 onError={(e) => (e.target.src = '/fallback-image.webp')}
                 loading="lazy"
@@ -1302,14 +1302,14 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
                 href={txUrl}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="text-neon-blue hover:text-neon-blue/80 truncate"
+                className="text-[#00FFFF20] hover:text-[#00FFFF20]/80 truncate"
                 title={tx.hash}
               >
                 {truncatedHash}
               </a>
             </div>
-            <div className="w-[25%] px-2 sm:px-3 text-white/80 text-[9px] sm:text-[10px] flex items-center justify-center overflow-hidden text-ellipsis">
-              <span className="text-[8px] sm:text-[9px] text-white/60">
+            <div className="w-[25%] px-4 sm:px-6 text-[#D4D4D4] text-[12px] sm:text-[14px] flex items-center justify-center overflow-hidden text-ellipsis">
+              <span className="text-[10px] sm:text-[12px] text-[#D4D4D4]">
                 {tx.block_time ? formatDistanceToNow(new Date(tx.block_time), { addSuffix: true }) : 'N/A'}
               </span>
             </div>
@@ -1327,16 +1327,16 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.5, ease: 'easeInOut' }}
-        className="font-saira w-full max-w-7xl mx-auto mt-2 p-2 sm:p-3 bg-white/5 backdrop-blur-md border border-white/10 shadow-neon-sm rounded-xl flex items-center justify-center min-h-[calc(100vh-6rem)]"
+        className="font-inter w-full max-w-7xl mx-auto mt-2 p-4 sm:p-6 bg-[#FFFFFF]/5 backdrop-blur-md border border-[#FFFFFF20] shadow-[0_4px_12px_rgba(0,0,0,0.3)] glow-[#FFFFFF15] rounded-xl flex items-center justify-center min-h-[calc(100vh-6rem)]"
       >
         <div className="text-center">
-          <h3 className="text-[12px] sm:text-[14px] font-bold text-white mb-3 uppercase tracking-wider">Please Log In</h3>
-          <p className="text-[9px] sm:text-[10px] text-white/60 mb-4">You need to be logged in to access your watchlist.</p>
+          <h3 className="text-[12px] sm:text-[14px] font-bold text-[#FFF] mb-3 uppercase tracking-wider">Please Log In</h3>
+          <p className="text-[9px] sm:text-[10px] text-[#D4D4D4] mb-4">You need to be logged in to access your watchlist.</p>
           <motion.button
             onClick={() => router.push('/auth/signin')}
             whileHover={{ scale: 1.05 }}
             whileTap={{ scale: 0.95 }}
-            className="px-3 sm:px-4 py-1 sm:py-1.5 text-[9px] sm:text-[10px] font-medium text-white border border-white/10 bg-white/5 backdrop-blur-md rounded-xl hover:bg-neon-blue/20 transition-all duration-300"
+            className="px-3 sm:px-4 py-1 sm:py-1.5 text-[9px] sm:text-[10px] font-medium text-[#FFF] border border-[#FFFFFF20] bg-[#FFFFFF]/5 backdrop-blur-md rounded-xl hover:bg-[#FFFFFF]/10 hover:shadow-[0_0_8px_rgba(255,255,255,0.15)] transition-all ease-in-out duration-200"
           >
             Log In
           </motion.button>
@@ -1349,13 +1349,13 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.5, ease: 'easeInOut' }}
-      className="font-saira w-full max-w-9xl bg-gradient-to-br from-black/80 to-gray-900/80 backdrop-blur-xs mx-auto mt-2 p-2 sm:p-3 flex flex-row h-[calc(100vh-3rem)] rounded-xl overflow-hidden"
+      className="font-inter w-full max-w-9xl bg-[#0A0A0A]/80 backdrop-blur-md mx-auto mt-2 p-4 sm:p-6 flex flex-row h-[calc(100vh-3rem)] rounded-xl overflow-hidden"
     >
       <ToastContainer position="top-center" autoClose={5000} theme="dark" />
       {/* Toggle Button for Mobile */}
       {!showWatchlistSidebar && (
         <motion.button
-          className="sm:hidden fixed top-10 left-0 p-2 bg-white/5 border border-white/20 rounded-r-lg text-white hover:bg-neon-blue/20 transition-all duration-300 overflow-hidden"
+          className="sm:hidden fixed top-10 left-0 p-2 bg-[#FFFFFF]/5 border border-[#FFFFFF20] rounded-r-lg text-[#FFF] hover:bg-[#FFFFFF]/10 hover:shadow-[0_0_8px_rgba(255,255,255,0.15)] transition-all ease-in-out duration-200 overflow-hidden"
           style={{ width: '25px', height: '40px', marginLeft: '-7px' }}
           onClick={() => setShowWatchlistSidebar(true)}
         >
@@ -1382,14 +1382,14 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
             onClick={() => setShowWatchlistSidebar(false)}
           >
             <motion.div
-              className="w-2/3 h-full bg-black/70 backdrop-blur-sm border-r border-white/10 overflow-y-auto custom-scrollbar shadow-neon-sm relative pt-12"
+              className="w-2/3 h-full bg-[#0A0A0A]/70 backdrop-blur-md border-r border-[#FFFFFF20] overflow-y-auto custom-scrollbar shadow-[0_4px_12px_rgba(0,0,0,0.3)] glow-[#FFFFFF15] relative pt-12"
               onClick={(e) => e.stopPropagation()}
             >
               <LoadingOverlay className="absolute inset-0 z-50" isLoading={loadingStates.loading} isMobile={isMobile} />
-              <div className="p-2 ">
-                <div className="flex items-center justify-between mb-3 bg-gradient-to-r from-white/20 to-transparent p-1 rounded">
-                  <div className="flex items-center gap-2">
-                    <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4 text-white ml-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <div className="p-4 ">
+                <div className="flex items-center justify-between mb-3 bg-[#0A0A0A]/80 rounded">
+                  <div className="flex items-center gap-4">
+                    <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4 text-[#FFF] ml-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
                     </svg>
                     <div className="flex items-center gap-1">
@@ -1397,7 +1397,7 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
                         Watchlist ({watchlists.length}/{maxWalletsLimit})
                       </h3>
                       <Tooltip text="Upgrade to Premium to add up to 20 wallets (currently limited to 5).">
-                        <svg xmlns="http://www.w3.org/2000/svg" className={`w-3 h-3 ${userTier?.isPremium ? 'text-yellow-400' : 'text-white/80'}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <svg xmlns="http://www.w3.org/2000/svg" className={`w-3 h-3 ${userTier?.isPremium ? 'text-yellow-400' : 'text-[#D4D4D4]'}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                         </svg>
                       </Tooltip>
@@ -1407,13 +1407,13 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
                     <motion.button
                       onClick={() => !isAtLimit && setShowAddModal(true)}
                       disabled={isAtLimit || userTierLoading}
-                      whileHover={!isAtLimit ? { scale: 1.05 } : {}}
-                      whileTap={!isAtLimit ? { scale: 0.95 } : {}}
-                      className={`p-1 rounded-xl transition-all duration-300 ${isAtLimit ? 'opacity-50 cursor-not-allowed' : 'hover:bg-neon-neon-blue/20'}`}
+                      whileHover={{ scale: 1.05 }}
+                      whileTap={{ scale: 0.95 }}
+                      className={`p-1 rounded-xl transition-all ease-in-out duration-200 ${isAtLimit ? 'opacity-50 cursor-not-allowed' : 'hover:bg-[#FFFFFF]/10 hover:shadow-[0_0_8px_rgba(255,255,255,0.15)]'}`}
                     >
                       <svg
                         xmlns="http://www.w3.org/2000/svg"
-                        className="w-5 h-5 text-white"
+                        className="w-5 h-5 text-[#FFF]"
                         viewBox="0 0 24 24"
                         fill="none"
                         stroke="currentColor"
@@ -1425,7 +1425,7 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
                   </Tooltip>
                 </div>
                 {watchlists.length === 0 ? (
-                  <p className="text-[9px] sm:text-[10px] text-white/60 text-center">
+                  <p className="text-[9px] sm:text-[10px] text-[#D4D4D4] text-center">
                     {isAtLimit ? 'Watchlist full. Upgrade to add more!' : 'No wallets added'}
                   </p>
                 ) : (
@@ -1448,12 +1448,12 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
                           updateUrl(wallet.address);
                           setShowWatchlistSidebar(false);
                         }}
-                        className={`flex items-center justify-between p-2 mb-2 cursor-pointer transition-all duration-300 border-l-4 ${selectedWallet?.address === wallet.address
-                          ? 'border-white/80 bg-white/10'
-                          : 'border-transparent bg-white/5 hover:bg-neon-blue/10'
+                        className={`flex items-center justify-between p-2 mb-2 cursor-pointer transition-all ease-in-out duration-200 border-l-4 ${selectedWallet?.address === wallet.address
+                          ? 'border-[#FFF]/80 bg-[#FFFFFF]/10'
+                          : 'border-transparent bg-[#FFFFFF]/5 hover:bg-[#FFFFFF]/10 hover:shadow-[0_0_8px_rgba(255,255,255,0.15)]'
                           }`}
                       >
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-4">
                           {nameTags[wallet.chainType === 'EVM' ? wallet.address.toLowerCase() : wallet.address]?.image && (
                             <img
                               src={nameTags[wallet.chainType === 'EVM' ? wallet.address.toLowerCase() : wallet.address].image}
@@ -1466,10 +1466,10 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
                             />
                           )}
                           <div className="flex flex-col">
-                            <span className="text-[9px] sm:text-[10px] text-white font-bold">
+                            <span className="text-[9px] sm:text-[10px] text-[#FFF] font-bold">
                               {nameTags[wallet.chainType === 'EVM' ? wallet.address.toLowerCase() : wallet.address]?.nameTag || wallet.name || 'Unnamed Wallet'}
                             </span>
-                            <span className="text-[8px] sm:text-[9px] text-white/60 truncate max-w-[120px] sm:max-w-[150px]">
+                            <span className="text-[8px] sm:text-[9px] text-[#D4D4D4] truncate max-w-[120px] sm:max-w-[150px]">
                               {truncatedWalletAddress}
                             </span>
                           </div>
@@ -1481,7 +1481,7 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
                           }}
                           whileHover={{ scale: 1.05 }}
                           whileTap={{ scale: 0.95 }}
-                          className="text-[8px] sm:text-[9px] text-red-400/80 hover:text-red-400"
+                          className="text-[8px] sm:text-[10px] text-red-400/80 hover:text-red-400"
                         >
                           ✕
                         </motion.button>
@@ -1495,19 +1495,19 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
         )}
       </AnimatePresence>
       {/* Left Sidebar: Watchlist (Desktop) */}
-      <div className="hidden sm:block w-[20%] h-[96%] border border-white/10 rounded-xl p-3 sm:p-4 mt-3 overflow-y-auto custom-scrollbar bg-white/5 relative">
+      <div className="hidden sm:block w-[20%] border border-[#FFFFFF20] rounded-xl p-3 sm:p-4 overflow-y-auto custom-scrollbar bg-[#0A0A0A]/80 relative">
         <LoadingOverlay className="absolute inset-0 z-50" isLoading={loadingStates.loading} isMobile={isMobile} />
-        <div className="flex items-center justify-between mb-3 bg-gradient-to-r from-white/20 to-transparent p-1 rounded">
-          <div className="flex items-center gap-2">
-            <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4 text-white ml-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <div className="flex items-center justify-between mb-3 bg-[#0A0A0A]/80 rounded">
+          <div className="flex items-center gap-4">
+            <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4 text-[#FFF] ml-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
             </svg>
             <div className="flex items-center gap-2 mt-2">
-              <h3 className={`text-[10px] sm:text-[12px] font-bold uppercase tracking-wider ${userTier?.isPremium ? 'text-yellow-400' : 'text-white'}`}>
+              <h3 className={`text-[10px] sm:text-[12px] font-bold uppercase tracking-wider ${userTier?.isPremium ? 'text-yellow-400' : 'text-[#FFF]'}`}>
                 Watchlist ({watchlists.length}/{maxWalletsLimit})
               </h3>
               <Tooltip text="Upgrade to Premium to add up to 20 wallets (currently limited to 5).">
-                <svg xmlns="http://www.w3.org/2000/svg" className={`w-3 h-3 ${userTier?.isPremium ? 'text-yellow-400' : 'text-white/80'}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <svg xmlns="http://www.w3.org/2000/svg" className={`w-3 h-3 ${userTier?.isPremium ? 'text-yellow-400' : 'text-[#D4D4D4]'}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                 </svg>
               </Tooltip>
@@ -1519,11 +1519,11 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
               disabled={isAtLimit || userTierLoading}
               whileHover={!isAtLimit ? { scale: 1.05 } : {}}
               whileTap={!isAtLimit ? { scale: 0.95 } : {}}
-              className={`p-1 rounded-xl transition-all duration-300 ${isAtLimit ? 'opacity-50 cursor-not-allowed' : 'hover:bg-neon-blue/20'}`}
+              className={`p-1 rounded-xl transition-all ease-in-out duration-200 ${isAtLimit ? 'opacity-50 cursor-not-allowed' : 'hover:bg-[#FFFFFF]/10 hover:shadow-[0_0_8px_rgba(255,255,255,0.15)]'}`}
             >
               <svg
                 xmlns="http://www.w3.org/2000/svg"
-                className="w-5 h-5 text-white"
+                className="w-5 h-5 text-[#FFF]"
                 viewBox="0 0 24 24"
                 fill="none"
                 stroke="currentColor"
@@ -1535,7 +1535,7 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
           </Tooltip>
         </div>
         {watchlists.length === 0 ? (
-          <p className="text-[9px] sm:text-[10px] text-white/60 text-center">
+          <p className="text-[9px] sm:text-[10px] text-[#D4D4D4] text-center">
             {isAtLimit ? 'Watchlist full. Upgrade to add more!' : 'No wallets added'}
           </p>
         ) : (
@@ -1557,12 +1557,12 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
                   lastSelectedWalletRef.current = wallet.address;
                   updateUrl(wallet.address);
                 }}
-                className={`flex items-center justify-between p-2 mb-2 rounded-lg cursor-pointer transition-all duration-300 border-l-4 ${selectedWallet?.address === wallet.address
-                  ? 'border-neon-blue bg-white/10'
-                  : 'border-transparent bg-white/5 hover:bg-neon-blue/10'
+                className={`flex items-center justify-between p-2 mb-2 rounded-lg cursor-pointer transition-all ease-in-out duration-200 border-l-4 ${selectedWallet?.address === wallet.address
+                  ? 'border-[#FFF]/80 bg-[#FFFFFF]/10'
+                  : 'border-transparent bg-[#FFFFFF]/5 hover:bg-[#FFFFFF]/10 hover:shadow-[0_0_8px_rgba(255,255,255,0.15)]'
                   }`}
               >
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-4">
                   {nameTags[wallet.chainType === 'EVM' ? wallet.address.toLowerCase() : wallet.address]?.image && (
                     <img
                       src={nameTags[wallet.chainType === 'EVM' ? wallet.address.toLowerCase() : wallet.address].image}
@@ -1575,10 +1575,10 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
                     />
                   )}
                   <div className="flex flex-col">
-                    <span className="text-[9px] sm:text-[10px] text-white font-bold">
+                    <span className="text-[9px] sm:text-[10px] text-[#FFF] font-bold">
                       {nameTags[wallet.chainType === 'EVM' ? wallet.address.toLowerCase() : wallet.address]?.nameTag || wallet.name || 'Unnamed Wallet'}
                     </span>
-                    <span className="text-[8px] sm:text-[9px] text-white/60 truncate max-w-[120px] sm:max-w-[150px]">
+                    <span className="text-[8px] sm:text-[9px] text-[#D4D4D4] truncate max-w-[120px] sm:max-w-[150px]">
                       {truncatedWalletAddress}
                     </span>
                   </div>
@@ -1600,12 +1600,12 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
         )}
       </div>
       {/* Right Section: Wallet Info (20%) + Tabs (80%) */}
-      <div className="w-full sm:w-[80%] p-2 sm:p-3 flex flex-col">
+      <div className="w-full sm:w-[80%] ml-2 flex flex-col">
         {selectedWallet ? (
           <>
-            <div className="h-[20%] border border-white/10 bg-white/5 backdrop-blur-md p-3 sm:p-4 flex flex-col justify-between rounded-xl relative">
+            <div className="h-[15%] border border-[#FFFFFF20] bg-[#0A0A0A]/80 backdrop-blur-md p-3 sm:p-4 flex flex-col justify-between rounded-xl relative">
               <div className="flex items-center justify-between mb-3">
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-4">
                   {nameTags[selectedWallet.chainType === 'EVM' ? selectedWallet.address.toLowerCase() : selectedWallet.address]?.image && (
                     <img
                       src={nameTags[selectedWallet.chainType === 'EVM' ? selectedWallet.address.toLowerCase() : selectedWallet.address].image}
@@ -1618,7 +1618,7 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
                     />
                   )}
                   <div className="flex flex-col">
-                    <span className="text-[10px] sm:text-[12px] font-bold text-white">
+                    <span className="text-[10px] sm:text-[12px] font-bold text-[#FFF]">
                       {nameTags[selectedWallet.chainType === 'EVM' ? selectedWallet.address.toLowerCase() : selectedWallet.address]?.nameTag || selectedWallet.name || 'Unnamed Wallet'}
                     </span>
                     <div className="relative flex items-center group">
@@ -1626,10 +1626,10 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
                         const { text: displayAddress } = truncateAddress(selectedWallet.address, nameTags);
                         return (
                           <>
-                            <span className="text-[9px] sm:text-[10px] text-white/60">{displayAddress}</span>
+                            <span className="text-[9px] sm:text-[10px] text-[#D4D4D4]">{displayAddress}</span>
                             <motion.button
                               onClick={() => copyAddress(selectedWallet.address, toast)}
-                              className="ml-2 p-1 bg-white/10 rounded-xl hover:bg-red-400/20 opacity-0 group-hover:opacity-100 transition-opacity duration-300"
+                              className="ml-2 p-1 bg-[#FFFFFF]/10 rounded-xl hover:bg-red-400/20 opacity-0 group-hover:opacity-100 transition-opacity ease-in-out duration-200"
                               whileHover={{ scale: 1.1, y: -2 }}
                               whileTap={{ scale: 0.9 }}
                               title="Copy Address"
@@ -1653,9 +1653,9 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
                     </div>
                   </div>
                 </div>
-                <div className="flex items-center gap-1 p-1 sm:p-3 bg-gradient-to-r from-black/70 to-black/50 rounded-xl border border-white/10 shadow-md shadow-neon-blue/10">
+                <div className="flex items-center gap-1 p-1 sm:p-3 bg-[#0A0A0A]/50 rounded-xl border border-[#FFFFFF20] shadow-[0_4px_12px_rgba(0,0,0,0.3)] glow-[#FFFFFF15]">
                   <div className="flex items-center gap-1 flex-wrap min-w-0">
-                    <span className="flex items-center font-bold text-white text-[11px] sm:text-xs whitespace-nowrap">
+                    <span className="flex items-center font-bold text-[#FFF] text-[11px] sm:text-xs whitespace-nowrap">
                       <svg
                         xmlns="http://www.w3.org/2000/svg"
                         className="h-4 w-4 text-emerald-400 flex-shrink-0 m-1"
@@ -1672,50 +1672,22 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
                       </svg>
                       Total Value:
                     </span>
-                    <span className="font-bold ml-1 bg-gradient-to-r from-neon-blue to-emerald-400 bg-clip-text text-transparent text-xs sm:text-sm truncate">
+                    <span className="font-bold ml-1 bg-gradient-to-r from-[#00FFFF20] to-emerald-400 bg-clip-text text-transparent text-xs sm:text-sm">
                       ${totalValue.toLocaleString('en-US', { maximumFractionDigits: 2 })}
                     </span>
                   </div>
                 </div>
               </div>
-              <div className="flex overflow-x-auto gap-2 sm:gap-3 mb-1 no-scrollbar virtuoso-container">
-                <Tooltip text="All Chains">
-                  <motion.button
-                    onClick={() => setActiveChain(null)}
-                    className={`px-2 sm:px-3 py-1 text-[9px] sm:text-[10px] font-medium text-white border border-white/10 bg-white/5 rounded-xl flex-shrink-0 min-w-[48px] z-10 ${activeChain === null ? 'border-neon-blue bg-neon-blue/20 shadow-neon-sm' : 'hover:bg-neon-blue/20'}`}
-                  >
-                    ALL
-                  </motion.button>
-                </Tooltip>
-                {chainsWithAssets.map((chain) => (
-                  <Tooltip key={chain} text={chain.charAt(0).toUpperCase() + chain.slice(1)}>
-                    <motion.button
-                      onClick={() => setActiveChain(chain)}
-                      className={`flex items-center justify-center rounded-lg flex-shrink-0 z-10 min-w-[22px] sm:min-w-[22px] m-1 ${activeChain === chain ? 'border-neon-blue bg-neon-blue/20' : 'border-white/10 bg-white/5'}`}
-                    >
-                      <img
-                        src={getPlatformImage(chain)}
-                        alt={chain}
-                        width={isMobile ? 18 : 20}
-                        height={isMobile ? 18 : 20}
-                        className="rounded-lg object-contain block flex-shrink-0"
-                        onError={(e) => (e.target.src = chain === 'eclipse' ? '/eclipse-logo.webp' : '/fallback-image.webp')}
-                        loading="lazy"
-                      />
-                    </motion.button>
-                  </Tooltip>
-                ))}
-              </div>
             </div>
             {/* Tabs: Portfolio & Activity (80% height) */}
-            <div className="h-[84%] flex flex-col">
-              <div className="flex w-full border border-white/10 mt-3 bg-white/5 rounded-t-xl">
+            <div className="h-[85%] flex flex-col">
+              <div className="flex w-full border border-[#FFFFFF20] mt-3 bg-[#0A0A0A]/80 rounded-t-xl">
                 {['PORTFOLIO', 'ACTIVITY'].map((tab) => (
                   <motion.button
                     key={tab}
                     onClick={() => handleTabClick(tab)}
-                    className={`flex items-center justify-center gap-1 flex-1 px-2 sm:px-3 py-1 sm:py-1.5 text-[9px] sm:text-[10px] font-medium ${activeTab === tab ? 'border-b-2 border-white text-white' : 'text-white/80'
-                      } last:border-r-0 relative after:content-[''] after:absolute after:bottom-0 after:left-0 after:w-full after:h-0.5 after:bg-gradient-to-r after:from-neon-blue after:to-emerald-400 after:opacity-0 after:group-hover:opacity-100`}
+                    className={`flex items-center justify-center gap-1 flex-1 px-2 sm:px-3 py-1 sm:py-1.5 text-[9px] sm:text-[10px] font-medium ${activeTab === tab ? 'border-b-2 border-[#FFF] text-[#FFF]' : 'text-[#D4D4D4]'
+                      } last:border-r-0 relative after:content-[''] after:absolute after:bottom-0 after:left-0 after:w-full after:h-0.5 after:bg-gradient-to-r after:from-[#00FFFF20] after:to-emerald-400 after:opacity-0 after:group-hover:opacity-100`}
                   >
                     {tab === 'PORTFOLIO' && (
                       <svg xmlns="http://www.w3.org/2000/svg" className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -1731,306 +1703,164 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
                   </motion.button>
                 ))}
               </div>
-              <div className="flex-1 border border-white/10 bg-white/5 rounded-b-xl relative">
-                <AnimatePresence mode="wait">
-                  <motion.div
-                    key={activeTab}
-                    initial={{ opacity: 0, x: activeTab === 'PORTFOLIO' ? -20 : 20 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    exit={{ opacity: 0, x: activeTab === 'PORTFOLIO' ? 20 : -20 }}
-                    transition={{ duration: 0.3, ease: 'easeInOut' }}
-                    className="h-full relative"
-                  >
-                    {activeTab === 'PORTFOLIO' && (
-                      <div className="h-full flex flex-col relative">
-                        <LoadingOverlay className="absolute inset-0 z-20" isLoading={loadingStates.balances || loadingStates.tokenInfo} isMobile={isMobile} />
-                        {error ? (
-                          <div className="flex-1 flex items-center justify-center">
-                            <p className="text-[9px] sm:text-[10px] text-red-400 text-center bg-red-400/10 p-2 sm:p-3 rounded-lg">
-                              Error: {error}
-                            </p>
-                          </div>
-                        ) : loadingStates.balances || loadingStates.tokenInfo ? (
-                          <div className="space-y-2 flex-1 flex flex-col">
-                            <div className="flex-1 bg-gradient-to-b from-black/80 to-black/90 rounded-b-xl border border-white/10 overflow-hidden shadow-inner">
-                              <div className="flex bg-gradient-to-r from-black/20 to-black/30 border-b border-white/10 px-2 py-2 text-[9px] sm:text-[10px] font-semibold text-white sticky top-0 z-10">
-                                <div className="w-[25%] px-2 flex items-center gap-1 text-left">
-                                  <svg xmlns="http://www.w3.org/2000/svg" className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                                  </svg>
-                                  Token
-                                </div>
-                                <div className="w-[45%] px-2 flex items-center justify-center gap-1 text-center">
-                                  <svg xmlns="http://www.w3.org/2000/svg" className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                                  </svg>
-                                  Balance
-                                </div>
-                                <div className="w-[30%] px-2 flex items-center justify-center gap-1 text-center">
-                                  <svg xmlns="http://www.w3.org/2000/svg" className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
-                                  </svg>
-                                  Percentage
-                                </div>
-                              </div>
-                              <div className="overflow-y-auto custom-scrollbar" style={{ height: 'calc(100% - 2.5rem)' }}>
-                                <Virtuoso
-                                  className="custom-scrollbar"
-                                  style={{ height: '100%' }}
-                                  totalCount={20} // Show 20 skeleton rows
-                                  itemContent={(index) => <SkeletonTokenRow index={index} />}
-                                />
-                              </div>
-                            </div>
-                          </div>
-                        ) : filteredBalances.length > 0 ? (
-                          <div className="space-y-2 flex-1 flex flex-col">
-                            <div className="flex-1 bg-gradient-to-b from-black/80 to-black/90 rounded-b-xl border border-white/10 overflow-hidden shadow-inner">
-                              <div className="flex bg-gradient-to-r from-black/20 to-black/30 border-b border-white/10 px-2 py-2 text-[9px] sm:text-[10px] font-semibold text-white sticky top-0 z-10">
-                                <div className="w-[25%] px-2 flex items-center gap-1 text-left">
-                                  <svg xmlns="http://www.w3.org/2000/svg" className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                                  </svg>
-                                  Token
-                                </div>
-                                <div className="w-[45%] px-2 flex items-center justify-center gap-1 text-center">
-                                  <svg xmlns="http://www.w3.org/2000/svg" className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                                  </svg>
-                                  Balance
-                                </div>
-                                <div className="w-[30%] px-2 flex items-center justify-center gap-1 text-center">
-                                  <svg xmlns="http://www.w3.org/2000/svg" className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
-                                  </svg>
-                                  Percentage
-                                </div>
-                              </div>
-                              <div className="overflow-y-auto custom-scrollbar" style={{ height: 'calc(100% - 2.5rem)' }}>
-                                <Virtuoso
-                                  className="custom-scrollbar"
-                                  style={{ height: '100%' }}
-                                  data={filteredBalances}
-                                  itemContent={renderTokenRow}
-                                  overscan={400}
-                                  components={{
-                                    EmptyPlaceholder: () => null,
-                                  }}
-                                />
-                              </div>
-                            </div>
-                          </div>
+              <div className="flex-1 border border-[#FFFFFF20] bg-[#0A0A0A]/80 rounded-b-xl overflow-hidden flex">
+                {/* Cột chọn Chain - chỉ render 1 lần */}
+                <div className="w-[50px] flex flex-col gap-2 p-2 border-r border-[#FFFFFF20] overflow-y-auto custom-scrollbar shrink-0 bg-[#0A0A0A]/80">
+                  <Tooltip text="All Chains">
+                    <motion.button
+                      onClick={() => setActiveChain(null)}
+                      className={`p-1 rounded-lg text-[8px] font-medium flex items-center justify-center transition-all ${activeChain === null
+                        ? 'bg-[#00FFFF20]/20 shadow-[0_0_8px_rgba(0,255,255,0.2)] glow-[#00FFFF20]'
+                        : 'hover:bg-[#FFFFFF]/10'
+                        }`}
+                    >
+                      ALL
+                    </motion.button>
+                  </Tooltip>
+                  {chainsWithAssets.map((chain) => (
+                    <Tooltip key={chain} text={chain.charAt(0).toUpperCase() + chain.slice(1)}>
+                      <motion.button
+                        onClick={() => setActiveChain(chain)}
+                        className={`p-1 rounded-lg flex items-center justify-center transition-all ${activeChain === chain
+                          ? 'bg-[#00FFFF20]/20 shadow-[0_0_8px_rgba(0,255,255,0.2)] glow-[#00FFFF20]'
+                          : 'hover:bg-[#FFFFFF]/10'
+                          }`}
+                      >
+                        <img
+                          src={getPlatformImage(chain)}
+                          alt={chain}
+                          width={20}
+                          height={20}
+                          className="rounded-lg"
+                          onError={(e) => (e.target.src = chain === 'eclipse' ? '/eclipse-logo.webp' : '/fallback-image.webp')}
+                          loading="lazy"
+                        />
+                      </motion.button>
+                    </Tooltip>
+                  ))}
+                </div>
+
+                {/* Nội dung bảng chính */}
+                <div className="flex-1 flex flex-col">
+                  <AnimatePresence mode="wait">
+                    <motion.div
+                      key={activeTab}
+                      initial={{ opacity: 0, x: activeTab === 'PORTFOLIO' ? -20 : 20 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      exit={{ opacity: 0, x: activeTab === 'PORTFOLIO' ? 20 : -20 }}
+                      transition={{ duration: 0.3, ease: 'easeInOut' }}
+                      className="h-full flex flex-col"
+                    >
+                      {/* Header cố định */}
+                      <div className="flex bg-[#0A0A0A]/20 border-b border-[#FFFFFF20] px-2 py-2 text-[9px] sm:text-[10px] font-semibold text-[#FFF] sticky top-0 z-10 shrink-0">
+                        {activeTab === 'PORTFOLIO' ? (
+                          <>
+                            <div className="w-[25%] px-2 text-left">Token</div>
+                            <div className="w-[45%] px-2 text-center">Balance</div>
+                            <div className="w-[30%] px-2 text-center">Percentage</div>
+                          </>
                         ) : (
-                          <div className="flex-1 flex items-center justify-center">
-                            <p className="text-[9px] sm:text-[10px] text-white/60 text-center p-2 sm:p-3">
-                              {loadingStates.balances || loadingStates.tokenInfo
-                                ? 'Loading balances...'
-                                : 'No balances found for this wallet.'}
-                            </p>
-                          </div>
+                          <>
+                            <div className="w-[25%] px-2 text-left">Token</div>
+                            <div className="w-[25%] px-2 text-center">Address</div>
+                            <div className="w-[25%] px-2 text-center">Balance</div>
+                            <div className="w-[25%] px-2 text-center">Tx / Time</div>
+                          </>
                         )}
                       </div>
-                    )}
-                    {activeTab === 'ACTIVITY' && (
-                      <div className="h-full flex flex-col relative">
-                        <LoadingOverlay className="absolute inset-0 z-20" isLoading={loadingStates.transactions} isMobile={isMobile} />
-                        {transactionsError ? (
-                          <div className="flex-1 flex items-center justify-center">
-                            <p className="text-[9px] sm:text-[10px] text-red-400 text-center bg-red-400/10 p-2 sm:p-3 rounded-lg">
-                              Error: {transactionsError.message || 'Failed to load transactions'}
-                            </p>
-                          </div>
-                        ) : loadingStates.transactions ? (
-                          <>
-                            <div className="flex items-center justify-center gap-2 p-2 border-b border-white/10 bg-white/5">
-                              <motion.button
-                                onClick={() => handlePageChange(Math.max(1, currentPage - 1))}
-                                disabled={currentPage === 1}
-                                whileHover={{ scale: 1.05 }}
-                                whileTap={{ scale: 0.95 }}
-                                className="p-1 text-[9px] font-medium text-white border border-white/10 bg-white/5 rounded-xl disabled:opacity-50 disabled:cursor-not-allowed hover:bg-neon-blue/20 transition-all duration-300"
-                              >
-                                <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-                                </svg>
-                              </motion.button>
-                              <div className="px-3 py-1 text-[9px] font-medium text-white border border-white/10 bg-white/5 rounded-xl">
-                                {currentPage}/{totalPages}
-                              </div>
-                              <motion.button
-                                onClick={() => handlePageChange(Math.min(totalPages, currentPage + 1))}
-                                disabled={currentPage === totalPages}
-                                whileHover={{ scale: 1.05 }}
-                                whileTap={{ scale: 0.95 }}
-                                className="p-1 text-[9px] font-medium text-white border border-white/10 bg-white/5 rounded-xl disabled:opacity-50 disabled:cursor-not-allowed hover:bg-neon-blue/20 transition-all duration-300"
-                              >
-                                <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                                </svg>
-                              </motion.button>
+
+                      {/* Virtuoso - phần quan trọng nhất */}
+                      <div className="flex-1 relative">
+                        <LoadingOverlay
+                          className="absolute inset-0 z-20"
+                          isLoading={
+                            activeTab === 'PORTFOLIO'
+                              ? loadingStates.balances || loadingStates.tokenInfo
+                              : loadingStates.transactions
+                          }
+                          isMobile={isMobile}
+                        />
+
+                        {activeTab === 'PORTFOLIO' ? (
+                          filteredBalances.length > 0 ? (
+                            <Virtuoso
+                              className="custom-scrollbar"
+                              style={{ height: '100%', width: '100%' }}
+                              data={filteredBalances}
+                              itemContent={renderTokenRow}
+                              overscan={400}
+                              components={{ EmptyPlaceholder: () => null }}
+                            />
+                          ) : loadingStates.balances || loadingStates.tokenInfo ? (
+                            <Virtuoso
+                              className="custom-scrollbar"
+                              style={{ height: '100%', width: '100%' }}
+                              totalCount={20}
+                              itemContent={(index) => <SkeletonTokenRow index={index} />}
+                            />
+                          ) : (
+                            <div className="h-full flex items-center justify-center text-[#D4D4D4] text-sm">
+                              No balances found
                             </div>
-                            <div className="flex-1 bg-gradient-to-b from-black/80 to-black/90 rounded-b-xl border border-white/10 overflow-hidden shadow-inner">
-                              <div className="flex bg-gradient-to-r from-black/20 to-black/30 border-b border-white/10 px-2 py-2 text-[9px] sm:text-[10px] font-semibold text-white sticky top-0 z-10">
-                                {/* Headers for skeleton - same as real */}
-                                <div className="w-[25%] px-2 flex items-center gap-1 text-left">
-                                  <svg xmlns="http://www.w3.org/2000/svg" className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                                  </svg>
-                                  Token
-                                </div>
-                                <div className="w-[25%] px-2 flex items-center gap-1 text-center">
-                                  <svg xmlns="http://www.w3.org/2000/svg" className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-                                  </svg>
-                                  Address
-                                </div>
-                                <div className="w-[25%] px-2 flex items-center gap-1 text-center">
-                                  <svg xmlns="http://www.w3.org/2000/svg" className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                                  </svg>
-                                  Balance
-                                </div>
-                                <div className="w-[25%] px-2 flex items-center gap-1 text-center">
-                                  <svg xmlns="http://www.w3.org/2000/svg" className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                                  </svg>
-                                  Tx / Time
-                                </div>
-                              </div>
-                              <div className="overflow-y-auto custom-scrollbar" style={{ height: 'calc(100% - 2.5rem)' }}>
-                                <Virtuoso
-                                  className="custom-scrollbar"
-                                  style={{ height: '100%' }}
-                                  totalCount={transactionsPerPage} // Show page-sized skeletons
-                                  itemContent={(index) => <SkeletonTransactionRow index={index} />}
-                                />
-                              </div>
-                            </div>
-                          </>
+                          )
                         ) : filteredTransactions.length > 0 ? (
                           <>
-                            <div className="flex items-center justify-center gap-2 p-2 border-b border-white/10 bg-white/5">
+                            {/* Pagination chỉ hiện ở Activity */}
+                            <div className="flex items-center justify-center gap-4 p-3 border-b border-[#FFFFFF20] bg-[#0A0A0A]/50 shrink-0">
                               <motion.button
                                 onClick={() => handlePageChange(Math.max(1, currentPage - 1))}
                                 disabled={currentPage === 1}
                                 whileHover={{ scale: 1.05 }}
                                 whileTap={{ scale: 0.95 }}
-                                className="p-1 text-[9px] font-medium text-white border border-white/10 bg-white/5 rounded-xl disabled:opacity-50 disabled:cursor-not-allowed hover:bg-neon-blue/20 transition-all duration-300"
+                                className="p-1.5 text-[#FFF] border border-[#FFFFFF20] bg-[#FFFFFF]/5 rounded-xl disabled:opacity-50 hover:bg-[#FFFFFF]/10"
                               >
-                                <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-                                </svg>
+                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" /></svg>
                               </motion.button>
-                              <div className="px-3 py-1 text-[9px] font-medium text-white border border-white/10 bg-white/5 rounded-xl">
+                              <span className="px-3 py-1 text-sm border border-[#FFFFFF20] bg-[#FFFFFF]/5 rounded-xl">
                                 {currentPage}/{totalPages}
-                              </div>
+                              </span>
                               <motion.button
                                 onClick={() => handlePageChange(Math.min(totalPages, currentPage + 1))}
                                 disabled={currentPage === totalPages}
                                 whileHover={{ scale: 1.05 }}
                                 whileTap={{ scale: 0.95 }}
-                                className="p-1 text-[9px] font-medium text-white border border-white/10 bg-white/5 rounded-xl disabled:opacity-50 disabled:cursor-not-allowed hover:bg-neon-blue/20 transition-all duration-300"
+                                className="p-1.5 text-[#FFF] border border-[#FFFFFF20] bg-[#FFFFFF]/5 rounded-xl disabled:opacity-50 hover:bg-[#FFFFFF]/10"
                               >
-                                <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                                </svg>
+                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
                               </motion.button>
                             </div>
-                            {(() => {
-                              const sampleTx = filteredTransactions[0];
-                              const isSVM = SUPPORTED_SVM_CHAINS.includes(sampleTx.chain);
-                              return (
-                                <div className="flex-1 bg-gradient-to-b from-black/80 to-black/90 rounded-b-xl border border-white/10 overflow-hidden shadow-inner">
-                                  <div className="flex bg-gradient-to-r from-black/20 to-black/30 border-b border-white/10 px-2 py-2 text-[9px] sm:text-[10px] font-semibold text-white sticky top-0 z-10">
-                                    {!isSVM ? (
-                                      <>
-                                        <div className="w-[25%] px-2 flex items-center gap-1 text-left">
-                                          <svg xmlns="http://www.w3.org/2000/svg" className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                                          </svg>
-                                          Token
-                                        </div>
-                                        <div className="w-[25%] px-2 flex items-center gap-1 text-center">
-                                          <svg xmlns="http://www.w3.org/2000/svg" className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-                                          </svg>
-                                          Address
-                                        </div>
-                                        <div className="w-[25%] px-2 flex items-center gap-1 text-center">
-                                          <svg xmlns="http://www.w3.org/2000/svg" className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                                          </svg>
-                                          Balance
-                                        </div>
-                                        <div className="w-[25%] px-2 flex items-center gap-1 text-center">
-                                          <svg xmlns="http://www.w3.org/2000/svg" className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                                          </svg>
-                                          Tx / Time
-                                        </div>
-                                      </>
-                                    ) : (
-                                      <>
-                                        <div className="w-[25%] px-2 flex items-center gap-1 text-left">
-                                          <svg xmlns="http://www.w3.org/2000/svg" className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                                          </svg>
-                                          Token
-                                        </div>
-                                        <div className="w-[25%] px-2 flex items-center gap-1 text-center">
-                                          <svg xmlns="http://www.w3.org/2000/svg" className="w-3 h-3" fill="none" viewBox="0 0 24 0 24" stroke="currentColor">
-                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                                          </svg>
-                                          Balance
-                                        </div>
-                                        <div className="w-[25%] px-2 flex items-center gap-1 text-center">
-                                          <svg xmlns="http://www.w3.org/2000/svg" className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                                          </svg>
-                                          Tx
-                                        </div>
-                                        <div className="w-[25%] px-2 flex items-center gap-1 text-center">
-                                          <svg xmlns="http://www.w3.org/2000/svg" className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                                          </svg>
-                                          Time
-                                        </div>
-                                      </>
-                                    )}
-                                  </div>
-                                  <div className="overflow-y-auto custom-scrollbar" style={{ height: 'calc(100% - 2.5rem)' }}>
-                                    <Virtuoso
-                                      className="custom-scrollbar"
-                                      style={{ height: '100%' }}
-                                      data={currentTransactions}
-                                      itemContent={renderTransactionRow}
-                                      overscan={400}
-                                      components={{
-                                        EmptyPlaceholder: () => null,
-                                      }}
-                                    />
-                                  </div>
-                                </div>
-                              );
-                            })()}
+
+                            <Virtuoso
+                              className="custom-scrollbar"
+                              style={{ height: 'calc(100% - 60px)', width: '100%' }}
+                              data={currentTransactions}
+                              itemContent={renderTransactionRow}
+                              overscan={400}
+                              components={{ EmptyPlaceholder: () => null }}
+                            />
                           </>
+                        ) : loadingStates.transactions ? (
+                          <Virtuoso
+                            className="custom-scrollbar"
+                            style={{ height: '100%', width: '100%' }}
+                            totalCount={transactionsPerPage}
+                            itemContent={(index) => <SkeletonTransactionRow index={index} />}
+                          />
                         ) : (
-                          <div className="flex-1 flex items-center justify-center">
-                            <p className="text-[9px] sm:text-[10px] text-white/60 text-center p-2 sm:p-3">
-                              {loadingStates.transactions ? 'Loading transactions...' : 'No transactions found for this wallet.'}
-                            </p>
+                          <div className="h-full flex items-center justify-center text-[#D4D4D4] text-sm">
+                            No transactions found
                           </div>
                         )}
                       </div>
-                    )}
-                  </motion.div>
-                </AnimatePresence>
+                    </motion.div>
+                  </AnimatePresence>
+                </div>
               </div>
             </div>
           </>
         ) : (
-          <div className="h-full flex items-center justify-center border border-white/10 bg-white/5 rounded-xl shadow-lg shadow-neon-blue/20">
-            <p className="text-[9px] sm:text-[10px] text-white/60 text-center">
+          <div className="h-full flex items-center justify-center border border-[#FFFFFF20] bg-[#FFFFFF]/5 rounded-xl shadow-[0_4px_12px_rgba(0,0,0,0.3)] glow-[#FFFFFF15]">
+            <p className="text-[9px] sm:text-[10px] text-[#D4D4D4] text-center">
               {watchlists.length === 0 ? (isAtLimit ? 'Watchlist full. Upgrade to add more!' : 'Add a wallet to your watchlist to get started.') : 'Select a wallet from the watchlist.'}
             </p>
           </div>
@@ -2052,41 +1882,41 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
               animate={{ scale: 1, opacity: 1 }}
               exit={{ scale: 0.8, opacity: 0 }}
               transition={{ duration: 0.3, ease: 'easeInOut' }}
-              className="w-[90%] sm:w-[400px] bg-white/5 backdrop-blur-md border border-white/10 rounded-xl p-3 sm:p-4 shadow-2xl shadow-neon-blue/30"
+              className="w-[90%] sm:w-[400px] bg-[#FFFFFF]/5 backdrop-blur-md border border-[#FFFFFF20] rounded-xl p-3 sm:p-4 shadow-[0_4px_12px_rgba(0,0,0,0.3)] glow-[#FFFFFF15]"
               onClick={(e) => e.stopPropagation()}
             >
-              <h3 className="text-[10px] sm:text-[12px] font-bold text-white uppercase tracking-wider mb-3 flex items-center gap-2">
+              <h3 className="text-[10px] sm:text-[12px] font-bold text-[#FFF] uppercase tracking-wider mb-3 flex items-center gap-2">
                 <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
                 </svg>
                 Add Wallet to Watchlist
               </h3>
               <div className="mb-3">
-                <label className="text-[9px] sm:text-[10px] text-white/80">Wallet Name (Optional)</label>
+                <label className="text-[9px] sm:text-[10px] text-[#D4D4D4]">Wallet Name (Optional)</label>
                 <input
                   type="text"
                   value={newWalletName}
                   onChange={(e) => setNewWalletName(e.target.value)}
-                  className="w-full mt-1 p-2 text-[9px] sm:text-[10px] text-white bg-white/5 border border-white/10 rounded-lg focus:outline-none focus:ring-1 focus:ring-neon-blue shadow-shadow-md"
+                  className="w-full mt-1 p-2 text-[9px] sm:text-[10px] text-[#FFF] bg-[#FFFFFF]/5 border border-[#FFFFFF20] rounded-lg focus:outline-none focus:ring-1 focus:ring-[#FFF]/30 shadow-[0_4px_12px_rgba(0,0,0,0.3)] glow-[#FFFFFF15]"
                   placeholder="Enter wallet name"
                 />
               </div>
               <div className="mb-3">
-                <label className="text-[9px] sm:text-[10px] text-white/80">Wallet Address</label>
+                <label className="text-[9px] sm:text-[10px] text-[#D4D4D4]">Wallet Address</label>
                 <input
                   type="text"
                   value={newAddress}
                   onChange={(e) => setNewAddress(e.target.value.trim())}
-                  className="w-full mt-1 p-2 text-[9px] sm:text-[10px] text-white bg-white/5 border border-white/10 rounded-lg focus:outline-none focus:ring-1 focus:ring-neon-blue shadow-md"
+                  className="w-full mt-1 p-2 text-[9px] sm:text-[10px] text-[#FFF] bg-[#FFFFFF]/5 border border-[#FFFFFF20] rounded-lg focus:outline-none focus:ring-1 focus:ring-[#FFF]/30 shadow-[0_4px_12px_rgba(0,0,0,0.3)] glow-[#FFFFFF15]"
                   placeholder="Enter wallet address"
                 />
               </div>
               <div className="mb-3">
-                <label className="text-[9px] sm:text-[10px] text-white/80">Chain Type</label>
+                <label className="text-[9px] sm:text-[10px] text-[#D4D4D4]">Chain Type</label>
                 <select
                   value={newChainType}
                   onChange={(e) => setNewChainType(e.target.value)}
-                  className="w-full mt-1 p-2 text-[9px] sm:text-[10px] text-white bg-white/5 border border-white/10 rounded-lg focus:outline-none focus:ring-1 focus:ring-neon-blue shadow-md"
+                  className="w-full mt-1 p-2 text-[9px] sm:text-[10px] text-[#FFF] bg-[#FFFFFF]/5 border border-[#FFFFFF20] rounded-lg focus:outline-none focus:ring-1 focus:ring-[#FFF]/30 shadow-[0_4px_12px_rgba(0,0,0,0.3)] glow-[#FFFFFF15]"
                 >
                   <option value="EVM">EVM</option>
                   <option value="SVM">SVM</option>
@@ -2105,7 +1935,7 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
                   }}
                   whileHover={{ scale: 1.05 }}
                   whileTap={{ scale: 0.95 }}
-                  className="px-3 sm:px-4 py-1 sm:py-1.5 text-[9px] sm:text-[10px] text-white/80 border border-white/10 rounded-lg hover:bg-white/10 shadow-md"
+                  className="px-3 sm:px-4 py-1 sm:py-1.5 text-[9px] sm:text-[10px] text-[#D4D4D4] border border-[#FFFFFF20] rounded-lg hover:bg-[#FFFFFF]/10 hover:shadow-[0_0_8px_rgba(255,255,255,0.15)] shadow-[0_4px_12px_rgba(0,0,0,0.3)] glow-[#FFFFFF15]"
                 >
                   Cancel
                 </motion.button>
@@ -2115,7 +1945,7 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
                     disabled={isAtLimit || userTierLoading}
                     whileHover={!isAtLimit ? { scale: 1 } : {}}
                     whileTap={!isAtLimit ? { scale: 1 } : {}}
-                    className={`px-3 sm:px-4 py-1 sm:py-1.5 text-[9px] sm:text-[10px] text-white border rounded-lg shadow-md ${isAtLimit ? 'opacity-50 cursor-not-allowed border-gray-500 bg-gray-500/20' : 'bg-gradient-to-r from-neon-blue/20 to-emerald-400/20 border-neon-blue hover:from-neon-blue/30 hover:to-emerald-400/30 shadow-neon-blue/20'}`}
+                    className={`px-3 sm:px-4 py-1 sm:py-1.5 text-[9px] sm:text-[10px] text-[#FFF] border rounded-lg shadow-[0_4px_12px_rgba(0,0,0,0.3)] glow-[#FFFFFF15] ${isAtLimit ? 'opacity-50 cursor-not-allowed border-gray-500 bg-gray-500/20' : 'bg-gradient-to-r from-[#00FFFF20]/20 to-emerald-400/20 border-[#00FFFF20] hover:from-[#00FFFF20]/30 hover:to-emerald-400/30 shadow-[#00FFFF20]/20'}`}
                   >
                     Add
                   </motion.button>
@@ -2130,31 +1960,26 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
 }
 // Custom CSS to hide scrollbar
 <style jsx global>{`
-  .no-scrollbar::-webkit-scrollbar {
-    display: none;
+  /* Đè chết background của Virtuoso */
+  .virtuoso-container,
+  [data-viewport="virtuoso"],
+  div[data-test-id="virtuoso-scroller"],
+  div[data-virtuoso-scroller="true"] {
+    background: transparent !important;
   }
-  .no-scrollbar {
-    -ms-overflow-style: none;
-    scrollbar-width: none;
-  }
-  .virtuoso-container {
-  scrollbar-width: none; /* Firefox */
-  -ms-overflow-style: none; /* IE and Edge */
-}
-.virtuoso-container::-webkit-scrollbar {
-  display: none; /* Chrome, Safari, Edge */
-}
+
+  /* Scrollbar mượt */
   .custom-scrollbar::-webkit-scrollbar {
-    width: 4px;
+    width: 5px;
   }
   .custom-scrollbar::-webkit-scrollbar-track {
     background: transparent;
   }
   .custom-scrollbar::-webkit-scrollbar-thumb {
-    background: rgba(255, 255, 255, 0.2);
-    border-radius: 2px;
+    background: rgba(255, 255, 255, 0.25);
+    border-radius: 3px;
   }
   .custom-scrollbar::-webkit-scrollbar-thumb:hover {
-    background: rgba(255, 255, 255, 0.3);
+    background: rgba(255, 255, 255, 0.4);
   }
 `}</style>

@@ -712,7 +712,7 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
   return (
     <section
       ref={trendingListRef} // AutoAnimate for trending
-      className={`font-saira w-full max-w-9xl mx-auto mt-4 p-2 sm:p-4 h-[calc(100vh)] bg-gradient-to-br from-black/80 to-gray-900/80 backdrop-blur-xs ${isMobile ? 'pb-8 overflow-y-auto' : ''} animate-fadeIn`} // CSS initial fade
+      className={`font-inter w-full max-w-9xl mx-auto mt-4 p-2 sm:p-4 h-[calc(100vh)] bg-gradient-to-br from-black/80 to-gray-900/80 backdrop-blur-xs ${isMobile ? 'pb-8 overflow-y-auto' : ''} animate-fadeIn`} // CSS initial fade
       aria-label="Cryptocurrency Market Data"
     >
       <div className="w-full mb-1 mt-2 sm:mt-1">

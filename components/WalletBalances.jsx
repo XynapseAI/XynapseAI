@@ -468,7 +468,7 @@ const WalletBalances = ({
       animate={{ opacity: 1, scale: 1 }}
       exit={{ opacity: 0, scale: 0.9 }}
       transition={{ duration: 0.4, ease: 'easeInOut' }}
-      className="fixed inset-0 flex items-center justify-center z-50 font-saira bg-black/10 backdrop-blur-sm"
+      className="fixed inset-0 flex items-center justify-center z-50 font-inter bg-black/10 backdrop-blur-sm"
     >
       <div
         ref={walletBalancesRef}

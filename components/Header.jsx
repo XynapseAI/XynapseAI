@@ -212,7 +212,7 @@ export default function Header({ activeTab, setActiveTab, handleSignOut, selecte
 
   return (
     <header className="sticky top-0 z-50 w-full"> {/* Changed top-4 to top-0 for better overlap prevention */}
-      <div className="w-[80%] mx-auto h-[4.5vh] sm:h-[4.5vh] bg-gradient-to-br from-black/80 to-gray-900/80 backdrop-blur-sm border border-white/20 rounded-xl flex justify-between items-center px-4 font-saira shadow-2xl">
+      <div className="w-[80%] mx-auto h-[4.5vh] sm:h-[4.5vh] bg-gradient-to-br from-black/80 to-gray-900/80 backdrop-blur-sm border border-white/20 rounded-xl flex justify-between items-center px-4 font-inter shadow-2xl">
         <div className="block sm:hidden">
           <motion.button
             onClick={() => setIsMenuOpen(!isMenuOpen)}
@@ -316,7 +316,7 @@ export default function Header({ activeTab, setActiveTab, handleSignOut, selecte
               variants={menuVariants}
             >
               <div className="flex justify-between items-center mb-4 pb-4 border-b border-white/10">
-                <span className="text-white/80 text-lg font-saira font-bold uppercase">Menu</span>
+                <span className="text-white/80 text-lg font-inter font-bold uppercase">Menu</span>
                 <motion.button
                   onClick={() => setIsMenuOpen(false)}
                   className="p-1 rounded-lg bg-white/10 hover:bg-white/20 transition-colors"

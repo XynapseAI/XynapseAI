@@ -43,7 +43,7 @@ const isValidNametagImage = (image) => {
   return image && image !== '/icons/default.webp';
 };
 const SUPPORTED_CHAINS = [
-  '1', '56', '10', '130', '137', '42161', '59144', 'solana', 'tron', 'bitcoin' , '143',
+  '1', '56', '10', '130', '137', '42161', '59144', 'solana', 'tron', 'bitcoin', '143',
 ];
 const isValidDate = (date) => {
   return date instanceof Date && !isNaN(date);
@@ -672,7 +672,9 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
           fullLayer3Data,
           walletAddress,
           page,
-          filterType
+          filterType,
+          walletInfo.nametag || 'Unknown',
+          walletInfo.image || '/icons/default.webp'
         );
         // Enforce max nodes for scalability
         const limitedNodes = newNodes.slice(0, MAX_NODES);
@@ -835,6 +837,7 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
     if (address) newParams.set('address', address);
     router.replace(`/dashboard?${newParams.toString()}`, { scroll: false });
   };
+
   const fetchTransactions = useCallback(async (address, page = 1) => {
     const isBitcoin = selectedChain === 'bitcoin';
     if (!isAddress(address) && !['solana', 'tron', 'bitcoin'].includes(selectedChain)) {
@@ -878,10 +881,17 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
         cached.layer3 || [],
         address,
         page,
-        filterType
+        filterType,
+        cached.wallet.nametag || 'Unknown',
+        cached.wallet.image || '/icons/default.webp'
       );
-      setNodes(newNodes);
-      setEdges(newEdges);
+      const limitedNodes = newNodes.slice(0, MAX_NODES);
+      const limitedEdges = newEdges.filter(e =>
+        limitedNodes.some(n => n.data.id === e.data.source) &&
+        limitedNodes.some(n => n.data.id === e.data.target)
+      );
+      setNodes((prev) => page === 1 ? limitedNodes : [...prev, ...limitedNodes]);
+      setEdges((prev) => page === 1 ? limitedEdges : [...prev, ...limitedEdges]);
       setNametags((prev) => ({ ...prev, ...newNametags }));
       return;
     }
@@ -934,13 +944,20 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
       setFullIncomingData(data.incoming);
       setFullOutgoingData(data.outgoing);
       setFullLayer3Data(data.layer3);
-      const { nodes, edges, nametags: newNametags } = await aggregateInWorker(
+      const { nodes: newNodes, edges: newEdges, nametags: newNametags } = await aggregateInWorker(
         data.incoming,
         data.outgoing,
         data.layer3,
         address,
         page,
-        filterType
+        filterType,
+        data.wallet.nametag || 'Unknown',
+        data.wallet.image || '/icons/default.webp'
+      );
+      const limitedNodes = newNodes.slice(0, MAX_NODES);
+      const limitedEdges = newEdges.filter(e =>
+        limitedNodes.some(n => n.data.id === e.data.source) &&
+        limitedNodes.some(n => n.data.id === e.data.target)
       );
       await cacheData(cacheKey, {
         incoming: data.incoming,
@@ -948,8 +965,8 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
         layer3: data.layer3,
         wallet: data.wallet,
       }, CACHE_TTL);
-      setNodes((prev) => page === 1 ? nodes : [...prev, ...nodes]);
-      setEdges((prev) => page === 1 ? edges : [...prev, ...edges]);
+      setNodes((prev) => page === 1 ? limitedNodes : [...prev, ...limitedNodes]);
+      setEdges((prev) => page === 1 ? limitedEdges : [...prev, ...limitedEdges]);
       setNametags((prev) => ({ ...prev, ...newNametags }));
       setWalletInfo(data.wallet);
       setWalletAddress(address);
@@ -978,6 +995,8 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
       setLoading(false);
     }
   }, [selectedChain, selectedLimit, session, apiBaseUrl, filterType, walletInfo]);
+
+
   const filterTransactions = useCallback((transactions, filterType, rootId, walletId = null) => {
     if (!transactions || !Array.isArray(transactions)) {
       logger.warn('Invalid transactions array:', transactions);
@@ -1706,7 +1725,7 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
               animate={{ scale: 1, opacity: 1 }}
               exit={{ scale: 0.9, opacity: 0 }}
               transition={{ duration: 0.4, ease: 'easeInOut' }}
-              className={`bg-black/80 border border-white/20 rounded-2xl p-4 sm:p-6 w-full max-w-md ${isMobile ? 'h-[60vh]' : 'max-h-[50vh]'} overflow-y-auto custom-scrollbar`}
+              className={`p-4 sm:p-6 w-full max-w-md ${isMobile ? 'h-[60vh]' : 'max-h-[50vh]'} overflow-y-auto custom-scrollbar`}
             >
               <div className="w-full h-[80%] bg-black/10 backdrop-blur-xl border border-white/20 rounded-xl p-6 relative overflow-hidden shadow-2xl">
                 <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-transparent via-neon-blue to-transparent animate-scan" />
@@ -1745,7 +1764,7 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
                             scale: 0.95,
                             transition: { duration: 0.3, ease: 'easeInOut' }
                           }}
-                          className={`text-white/80 text-xs font-saira ${index === logMessages.length - 1 ? 'text-neon-blue font-semibold animate-pulse' : 'text-white/60'}`}
+                          className={`text-white/80 text-xs font-inter ${index === logMessages.length - 1 ? 'text-neon-blue font-semibold animate-pulse' : 'text-white/60'}`}
                         >
                           <span className="text-neon-blue mr-2">•</span>{log.text}
                         </motion.li>

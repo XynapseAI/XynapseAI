@@ -961,7 +961,7 @@ export default function ExplorerTab({ initialQuery, initialChain, isStandalone =
     const isOverallLoading = loading || nametagsLoading;
 
     return (
-        <div className="font-saira w-full max-w-9xl mx-auto p-2 sm:p-3 bg-gradient-to-br from-black/80 to-gray-900/80 backdrop-blur-xs flex flex-col h-full overflow-y-auto hide-scrollbar relative">
+        <div className="font-inter w-full max-w-9xl mx-auto p-2 sm:p-3 bg-gradient-to-br from-black/80 to-gray-900/80 backdrop-blur-xs flex flex-col h-full overflow-y-auto hide-scrollbar relative">
             <div className="mb-4 relative z-10 bg-inherit">
                 <h1 className="text-lg font-bold flex items-center gap-2 mb-2 uppercase">
                     <img src="/logos/logo.webp" alt="Project Logo" className="w-8 h-8" />
@@ -1010,7 +1010,7 @@ export default function ExplorerTab({ initialQuery, initialChain, isStandalone =
                                 {logMessages.map((log, index) => (
                                     <motion.p
                                         key={log.id}
-                                        className={`text-white/80 text-xs font-saira mb-2 ${index === logMessages.length - 1
+                                        className={`text-white/80 text-xs font-inter mb-2 ${index === logMessages.length - 1
                                             ? 'text-blue-400 font-semibold animate-pulse'
                                             : 'text-white/60'
                                             }`}
