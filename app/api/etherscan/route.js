@@ -172,8 +172,9 @@ export const POST = handlerWrapper(async (request) => {
           let data = [];
 
           if (action === 'transactions' && address) {
+            // Fetch txlist
             const apiModule = 'account';
-            const apiAction = 'txlist';
+            let apiAction = 'txlist';
             apiUrl += `&module=${apiModule}&action=${apiAction}&address=${address}&startblock=0&endblock=99999999&sort=desc&apikey=${process.env.ETHERSCAN_API_KEY}`;
             logger.info('Calling Etherscan V2 API', { module: apiModule, action: apiAction, chain, address, ip });
             const response = await fetchWithRateLimit(apiUrl, { timeout: 15000 });
@@ -194,6 +195,34 @@ export const POST = handlerWrapper(async (request) => {
             } else {
               logger.warn(`Etherscan V2 API returned status ${response.data.status} for transactions: ${response.data.message}`, { ip, address });
             }
+
+            // Fetch txlistinternal and combine
+            apiAction = 'txlistinternal';
+            const internalApiUrl = `${ETHERSCAN_V2_BASE_URL}?chainid=${chainId}&module=${apiModule}&action=${apiAction}&address=${address}&startblock=0&endblock=99999999&sort=desc&apikey=${process.env.ETHERSCAN_API_KEY}`;
+            logger.info('Calling Etherscan V2 API for internal transactions', { module: apiModule, action: apiAction, chain, address, ip });
+            const internalResponse = await fetchWithRateLimit(internalApiUrl, { timeout: 15000 });
+
+            if (internalResponse.data.status === '1' && Array.isArray(internalResponse.data.result)) {
+              const internalData = internalResponse.data.result.map((tx) => ({
+                chain,
+                hash: tx.hash,
+                from: tx.from,
+                to: tx.to,
+                value: '0x' + (parseInt(tx.value) || 0).toString(16),
+                block_time: new Date(parseInt(tx.timeStamp) * 1000).toISOString(),
+                gasUsed: tx.gasUsed,
+                gasPrice: '0',  // No gasPrice in internal transactions
+                input: tx.input || '',
+                isError: tx.isError === '1',
+              }));
+              data = [...data, ...internalData];
+            } else {
+              logger.warn(`Etherscan V2 API returned status ${internalResponse.data.status} for internal transactions: ${internalResponse.data.message}`, { ip, address });
+            }
+
+            // Sort combined data by block_time descending
+            data.sort((a, b) => new Date(b.block_time) - new Date(a.block_time));
+
             logger.info(`Transactions response for address ${address}: ${data.length} transactions`, { ip });
             controller.enqueue(JSON.stringify({ success: true, data }));
             controller.close();
@@ -257,7 +286,7 @@ export const POST = handlerWrapper(async (request) => {
             if (response.data.status === '1' && Array.isArray(response.data.result)) {
               data = response.data.result.map((tx) => ({
                 chain,
-                txhash: tx.hash || tx.txhash,  // ← SỬA: Lấy từ 'hash' (V2), fallback 'txhash' (V1)
+                txhash: tx.hash || tx.txhash,  // Fixed: Get from 'hash' (V2), fallback 'txhash' (V1)
                 timeStamp: tx.timeStamp,
                 from: tx.from,
                 to: tx.to,
