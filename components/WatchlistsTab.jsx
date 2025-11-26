@@ -1111,19 +1111,19 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
           <div className="flex flex-col items-center">
             <span>{tokenSymbol}</span>
             {token.price_usd != null && (
-              <span className="text-[10px] sm:text-[12px] text-[#D4D4D4]">{formatPrice(token.price_usd)}</span>
+              <span className="text-[9px] sm:text-[10px] text-gray-500">{formatPrice(token.price_usd)}</span>
             )}
           </div>
         </div>
         <div className="w-[45%] px-4 sm:px-6 text-[#D4D4D4] text-[12px] sm:text-[14px] flex items-center justify-center">
           <div className="flex flex-col items-center">
             <span className="font-semibold">{formatBalance(token.amount)}</span>
-            <span className="text-[10px] sm:text-[12px] text-[#D4D4D4]">
+            <span className="text-[9px] sm:text-[10px] text-gray-500">
               ${value.toLocaleString('en-US', { maximumFractionDigits: 2 })}
             </span>
           </div>
         </div>
-        <div className="w-[30%] px-4 sm:px-6 text-[#D4D4D4] text-[12px] sm:text-[14px] flex flex-col items-center justify-center gap-1">
+        <div className="w-[30%] px-4 sm:px-6 text-[#D4D4D4] text-[9px] sm:text-[10px] flex flex-col items-center justify-center gap-1">
           <span className="font-semibold">{percentage.toFixed(2)}%</span>
           <div className="w-full bg-[#FFFFFF]/10 rounded-full h-1.5">
             <motion.div
@@ -1209,7 +1209,7 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
               loading="lazy"
             />
           </div>
-          <span className="text-[10px] sm:text-[12px] truncate max-w-[60px] sm:max-w-[80px]">{tokenSymbol}</span>
+          <span className="text-[9px] sm:text-[10px] truncate max-w-[60px] sm:max-w-[80px]">{tokenSymbol}</span>
         </div>
         {!isSVM ? (
           <>
@@ -1218,10 +1218,10 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
                 className={`inline-flex px-1 sm:px-1.5 py-0.5 rounded-full text-[10px] sm:text-[12px] font-medium ${tx.type === 'receive'
                   ? 'bg-emerald-400/20 text-emerald-400'
                   : tx.type === 'send'
-                    ? 'bg-[#00FFFF20]/20 text-[#00FFFF20]'
+                    ? 'bg-[#00FFFF20]/20 text-[#FFF]/80'
                     : tx.type === 'swap'
                       ? 'bg-purple-400/20 text-purple-400'
-                      : 'bg-[#FFFFFF]/20 text-[#FFF]/60'
+                      : 'bg-[#FFFFFF]/20 text-[#FFF]/80'
                   }`}
               >
                 {typeDisplay}
@@ -1242,7 +1242,7 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
                   href={addressUrl}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="text-[#00FFFF20] hover:text-[#00FFFF20]/80 truncate"
+                  className="text-[#FFF]/80 hover:text-[#00FFFF20]/80 truncate"
                   title={addressToShow}
                 >
                   {displayAddress}
@@ -1253,7 +1253,7 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
               <div className="flex flex-col items-center">
                 <span className="font-semibold">{displayValue}</span>
                 {tx.value_usd != null && (
-                  <span className="text-[10px] sm:text-[12px] text-[#D4D4D4]">
+                  <span className="text-[10px] sm:text-[12px] text-gray-500">
                     ${Number(tx.value_usd).toLocaleString('en-US', { maximumFractionDigits: 2 })}
                   </span>
                 )}
@@ -1271,7 +1271,7 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
                   loading="lazy"
                 />
               </a>
-              <span className="text-[10px] sm:text-[12px] text-[#D4D4D4]">
+              <span className="text-[8px] sm:text-[10px] text-[#D4D4D4]">
                 {tx.block_time ? formatDistanceToNow(new Date(tx.block_time), { addSuffix: true }) : 'N/A'}
               </span>
             </div>
@@ -1672,7 +1672,7 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
                       </svg>
                       Total Value:
                     </span>
-                    <span className="font-bold ml-1 bg-gradient-to-r from-[#00FFFF20] to-emerald-400 bg-clip-text text-transparent text-xs sm:text-sm">
+                    <span className="font-bold ml-1 bg-gradient-to-r from-[#D4D4D4] to-emerald-400 bg-clip-text text-transparent text-xs sm:text-sm">
                       ${totalValue.toLocaleString('en-US', { maximumFractionDigits: 2 })}
                     </span>
                   </div>
@@ -1686,7 +1686,7 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
                   <motion.button
                     key={tab}
                     onClick={() => handleTabClick(tab)}
-                    className={`flex items-center justify-center gap-1 flex-1 px-2 sm:px-3 py-1 sm:py-1.5 text-[9px] sm:text-[10px] font-medium ${activeTab === tab ? 'border-b-2 border-[#FFF] text-[#FFF]' : 'text-[#D4D4D4]'
+                    className={`flex items-center justify-center gap-1 flex-1 px-2 sm:px-3 py-1.5 sm:py-1.5 text-[10px] sm:text-[11px] font-medium ${activeTab === tab ? 'border-b-2 border-[#FFF] text-[#FFF]' : 'text-[#D4D4D4]'
                       } last:border-r-0 relative after:content-[''] after:absolute after:bottom-0 after:left-0 after:w-full after:h-0.5 after:bg-gradient-to-r after:from-[#00FFFF20] after:to-emerald-400 after:opacity-0 after:group-hover:opacity-100`}
                   >
                     {tab === 'PORTFOLIO' && (
@@ -1704,7 +1704,7 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
                 ))}
               </div>
               <div className="flex-1 border border-[#FFFFFF20] bg-[#0A0A0A]/80 rounded-b-xl overflow-hidden flex">
-                {/* Cột chọn Chain - chỉ render 1 lần */}
+                {/* Chain - only 1 render */}
                 <div className="w-[50px] flex flex-col gap-2 p-2 border-r border-[#FFFFFF20] overflow-y-auto custom-scrollbar shrink-0 bg-[#0A0A0A]/80">
                   <Tooltip text="All Chains">
                     <motion.button
@@ -1740,7 +1740,7 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
                   ))}
                 </div>
 
-                {/* Nội dung bảng chính */}
+                {/* Main content*/}
                 <div className="flex-1 flex flex-col">
                   <AnimatePresence mode="wait">
                     <motion.div

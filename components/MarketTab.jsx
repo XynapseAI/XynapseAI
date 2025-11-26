@@ -1,6 +1,5 @@
 // Upgraded components/MarketTab.jsx (Optimized for 2025: Lighter, Smoother)
 "use client"
-
 import React, { useState, useEffect, useRef, useCallback, useMemo, Suspense } from "react"
 import dynamic from "next/dynamic"
 import { useRouter } from "next/navigation"
@@ -30,7 +29,6 @@ import { logger } from '../utils/clientLogger';
 import remarkGfm from 'remark-gfm';
 import ReactMarkdown from "react-markdown";
 import { Virtuoso } from 'react-virtuoso';
-
 // Dynamic imports for heavy components (Next.js 15 opt)
 const WalletBalances = dynamic(() => import("./WalletBalances"), {
   ssr: false,
@@ -42,13 +40,12 @@ const Modal = dynamic(() => import("./Modal"), {
 });
 const LoginPrompt = dynamic(() => import('./LoginPrompt'), { ssr: false });
 const UniversalSearch = dynamic(() => import("./UniversalSearch"), { ssr: false });
-
 const CustomTooltip = ({ active, payload, label, currency }) => {
   if (active && payload && payload.length) {
     return (
-      <div className="bg-black/95 backdrop-blur-xl border border-white/20 p-3 rounded-2xl text-white text-sm font-medium shadow-2xl transition-opacity duration-200">
-        <p className="text-white/70 text-xs mb-1">{label}</p>
-        <p className="text-white font-semibold">
+      <div className="bg-[#0A0A0A]/95 backdrop-blur-xl border border-[#FFFFFF20] p-3 rounded-2xl text-[#FFF] text-sm font-medium shadow-2xl transition-opacity duration-200">
+        <p className="text-[#D4D4D4] text-xs mb-1">{label}</p>
+        <p className="text-[#FFF] font-semibold">
           Price: <span className="text-emerald-400">{formatPrice(payload[0].value, currency, 8)}</span>
         </p>
       </div>
@@ -56,14 +53,12 @@ const CustomTooltip = ({ active, payload, label, currency }) => {
   }
   return null
 }
-
 // Downsample function for large chart data (built-in JS, no dep)
 const downsampleData = (data, maxPoints = 200) => {
   if (!data || data.length <= maxPoints) return data;
   const step = Math.floor(data.length / maxPoints);
   return data.filter((_, i) => i % step === 0);
 };
-
 const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initialTokenData }) => {
   const { data: session } = useSession()
   const { currency } = useCurrency();
@@ -167,7 +162,6 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
     setIsLoadingPage,
     loadMoreDexData,
   } = useMarketTabLogic({ recaptchaRef, toast, initialTokenData, toast })
-
   const dropdownRef = useRef(null)
   const chainDropdownRef = useRef(null)
   const prevTradesRef = useRef([])
@@ -185,13 +179,11 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
   const [tooltipToken, setTooltipToken] = useState(null)
   const tokenRefs = useRef({})
   const lastFetchedSlugRef = useRef(null)
-
   // AutoAnimate refs for lists
   const holdersListRef = useRef(null)
   const tradesListRef = useRef(null)
   const tickersListRef = useRef(null)
   const trendingListRef = useRef(null)
-
   // Map exchange IDs to match ClusterTab's EXCHANGE_MAPPING
   const EXCHANGE_MAPPING = {
     okx: "okex",
@@ -206,9 +198,7 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
     uniswap: "uniswap",
     mtgox: "mtgox",
   };
-
   const mapExchangeId = (id) => EXCHANGE_MAPPING[id.toLowerCase()] || id.toLowerCase();
-
   // Helper function to get explorer URL and logo
   const getExplorerInfo = (chain, txHash, address) => {
     if (chain === 'bitcoin') {
@@ -224,12 +214,10 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
       };
     }
   };
-
   // Helper function to get name tag info
   const getNameTagInfo = (address, chain) => {
     const normalizedAddress = address?.toLowerCase();
     if (!normalizedAddress) return { nameTag: null, image: null };
-
     if (chain === 'bitcoin') {
       // For Bitcoin, use btcNameTags from MarketTabLogic
       // Since btcNameTags is not directly available, we'll use the existing structure
@@ -247,7 +235,6 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
       };
     }
   };
-
   useEffect(() => {
     if (initialTokenSlug !== lastFetchedSlugRef.current || trendingTokens.length === 0) {
       fetchTrendingTokens((err) => {
@@ -258,7 +245,6 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
       lastFetchedSlugRef.current = initialTokenSlug
     }
   }, [initialTokenSlug, fetchTrendingTokens, trendingTokens.length, toast])
-
   useEffect(() => {
     if (initialTokenSlug) {
       const fetchTokenBySlug = async () => {
@@ -284,7 +270,6 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
       fetchTokenBySlug()
     }
   }, [initialTokenSlug, setSelectedToken])
-
   const updateTooltipPosition = useCallback((tokenId, index) => {
     const tokenElement = tokenRefs.current[`${tokenId}-${index}`];
     if (tokenElement) {
@@ -295,13 +280,11 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
       });
     }
   }, []);
-
   const TrendingTooltip = ({ token, position }) => {
     if (!token) return null;
-
     return createPortal(
       <div
-        className="fixed z-50 bg-black/40 backdrop-blur-sm border border-white/30 p-4 rounded-2xl text-white shadow-2xl transition-all duration-200"
+        className="fixed z-50 bg-[#0A0A0A]/40 backdrop-blur-md border border-[#FFFFFF20] p-4 rounded-2xl text-[#FFF] shadow-2xl transition-all duration-200"
         style={{
           top: `${position.top}px`,
           left: `${position.left}px`,
@@ -320,17 +303,17 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
             unoptimized
           />
           <div>
-            <div className="font-bold text-sm text-white">{token.symbol.toUpperCase()}</div>
-            <div className="text-white/60 text-xs">Rank #{token.market_cap_rank || "N/A"}</div>
+            <div className="font-bold text-sm text-[#FFF]">{token.symbol.toUpperCase()}</div>
+            <div className="text-[#D4D4D4] text-xs">Rank #{token.market_cap_rank || "N/A"}</div>
           </div>
         </div>
         <div className="grid grid-cols-2 gap-4 text-xs">
           <div className="space-y-1">
-            <span className="text-white/60 block">Price (USD)</span>
-            <span className="font-semibold text-white">${token.price.toFixed(4)}</span>
+            <span className="text-[#D4D4D4] block">Price (USD)</span>
+            <span className="font-semibold text-[#FFF]">${token.price.toFixed(4)}</span>
           </div>
           <div className="space-y-1">
-            <span className="text-white/60 block">24h Change</span>
+            <span className="text-[#D4D4D4] block">24h Change</span>
             <span
               className={`font-semibold ${token.price_change_percentage_24h >= 0 ? "text-emerald-400" : "text-red-500"}`}
             >
@@ -342,7 +325,6 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
       document.body,
     )
   }
-
   const handleTokenSelect = (token) => {
     if (session) {
       debouncedHandleTokenSelect(token);
@@ -353,7 +335,6 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
       onTokenSelect(token.id);
     }
   };
-
   const handleChainSelect = useCallback(
     (chainValue) => {
       setSelectedChain(chainValue)
@@ -361,14 +342,12 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
     },
     [setSelectedChain, setIsChainDropdownOpen],
   )
-
   const getPlatformImage = (chainValue) => {
     const chainName = CHAIN_ID_TO_NAME[chainValue] || chainValue || "ethereum"
     const chain = chains.find((c) => c.value === chainName)
     const imageUrl = chain?.image || "/fallback-image.webp"
     return imageUrl
   }
-
   const handleDexTabClick = useCallback(() => {
     if (!session) {
       setActiveMarketTab("dex");
@@ -391,7 +370,6 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
       }
     }
   }, [session, dexRequestCount, lastDexRequestTime, selectedToken, selectedChain, fetchMempoolTransactions, fetchDexData, getDefaultChainAndAddress, setActiveMarketTab, setShowTrades]);
-
   const handlePoolClick = (poolAddress) => {
     if (process.env.NODE_ENV === "development") {
     }
@@ -407,7 +385,6 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
       }
     }
   }
-
   // Handle search result selection
   const handleSearchSelect = (result) => {
     if (result.type === "wallet" || result.type === "nametag") {
@@ -425,27 +402,23 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
       window.open(`/cluster?exchangeId=${mappedId}`, '_blank');
     }
   }
-
   const renderPoolModalContent = () => {
     if (!selectedPool || !selectedPool.tokens) {
-      return <p className="text-sm text-white/70 text-center">No pool data available.</p>
+      return <p className="text-sm text-[#D4D4D4] text-center">No pool data available.</p>
     }
-
     const tokens = Object.values(selectedPool.tokens)
     if (tokens.length < 2) {
-      return <p className="text-sm text-white/70 text-center">Insufficient token data for this pool.</p>
+      return <p className="text-sm text-[#D4D4D4] text-center">Insufficient token data for this pool.</p>
     }
-
     const [token1, token2] = tokens
-
     return (
-      <div className="text-sm text-white/90">
-        <h4 className="text-2xl font-bold text-white mb-6 text-center">
+      <div className="text-sm text-[#FFF]">
+        <h4 className="text-2xl font-bold text-[#FFF] mb-6 text-center">
           {token1.symbol}/{token2.symbol}
         </h4>
         <div className="flex flex-col sm:flex-row justify-between gap-6">
           <div className="flex-1 min-w-0">
-            <h5 className="text-lg font-bold text-white mb-4 flex items-center justify-center gap-3">
+            <h5 className="text-lg font-bold text-[#FFF] mb-4 flex items-center justify-center gap-3">
               <Image
                 src={token1.image_url}
                 alt={`${token1.symbol} logo`}
@@ -457,34 +430,34 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
               {token1.symbol}
             </h5>
             <div className="space-y-4 text-center">
-              <div className="bg-white/5 backdrop-blur-sm rounded-xl p-4">
-                <div className="text-white/60 text-xs mb-1">Transaction Score</div>
+              <div className="bg-[#FFFFFF]/5 backdrop-blur-md rounded-xl p-4">
+                <div className="text-[#D4D4D4] text-xs mb-1">Transaction Score</div>
                 <div className="text-emerald-400 font-semibold">{token1.transaction_score || "N/A"}</div>
               </div>
-              <div className="bg-white/5 backdrop-blur-sm rounded-xl p-4">
-                <div className="font-bold text-white mb-3">HOLDERS</div>
+              <div className="bg-[#FFFFFF]/5 backdrop-blur-md rounded-xl p-4">
+                <div className="font-bold text-[#FFF] mb-3">HOLDERS</div>
                 <div className="space-y-2 text-xs">
                   <div className="flex justify-between">
-                    <span className="text-white/60">Total Count:</span>
-                    <span className="text-white">{token1.holders?.count?.toLocaleString() || "N/A"}</span>
+                    <span className="text-[#D4D4D4]">Total Count:</span>
+                    <span className="text-[#FFF]">{token1.holders?.count?.toLocaleString() || "N/A"}</span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-white/60">Top 10:</span>
-                    <span className="text-white">{token1.holders?.distribution_percentage?.top_10 || "N/A"}%</span>
+                    <span className="text-[#D4D4D4]">Top 10:</span>
+                    <span className="text-[#FFF]">{token1.holders?.distribution_percentage?.top_10 || "N/A"}%</span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-white/60">11-30:</span>
-                    <span className="text-white">{token1.holders?.distribution_percentage?.["11_30"] || "N/A"}%</span>
+                    <span className="text-[#D4D4D4]">11-30:</span>
+                    <span className="text-[#FFF]">{token1.holders?.distribution_percentage?.["11_30"] || "N/A"}%</span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-white/60">31-50:</span>
-                    <span className="text-white">{token1.holders?.distribution_percentage?.["31_50"] || "N/A"}%</span>
+                    <span className="text-[#D4D4D4]">31-50:</span>
+                    <span className="text-[#FFF]">{token1.holders?.distribution_percentage?.["31_50"] || "N/A"}%</span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-white/60">Rest:</span>
-                    <span className="text-white">{token1.holders?.distribution_percentage?.rest || "N/A"}%</span>
+                    <span className="text-[#D4D4D4]">Rest:</span>
+                    <span className="text-[#FFF]">{token1.holders?.distribution_percentage?.rest || "N/A"}%</span>
                   </div>
-                  <div className="text-white/40 text-xs pt-2 border-t border-white/10">
+                  <div className="text-[#D4D4D4] text-xs pt-2 border-t border-[#FFFFFF10]">
                     Last Updated:{" "}
                     {token1.holders?.last_updated
                       ? new Date(token1.holders.last_updated).toLocaleString("en-US")
@@ -495,11 +468,11 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
             </div>
           </div>
           <div className="flex-1 min-w-0">
-            <h5 className="text-lg font-bold text-white mb-4 flex items-center justify-center gap-3">
+            <h5 className="text-lg font-bold text-[#FFF] mb-4 flex items-center justify-center gap-3">
               <Image
                 src={token2.image_url}
                 alt={`${token2.symbol} logo`}
-                className="w-8 h-8 rounded-full ring-2 ring-white/20"
+                className="w-8 h-8 rounded-full ring-2 ring-[#FFFFFF20]"
                 width={32}
                 height={32}
                 unoptimized
@@ -507,34 +480,34 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
               {token2.symbol}
             </h5>
             <div className="space-y-4 text-center">
-              <div className="bg-white/5 backdrop-blur-sm rounded-xl p-4">
-                <div className="text-white/60 text-xs mb-1">Transaction Score</div>
+              <div className="bg-[#FFFFFF]/5 backdrop-blur-md rounded-xl p-4">
+                <div className="text-[#D4D4D4] text-xs mb-1">Transaction Score</div>
                 <div className="text-emerald-400 font-semibold">{token2.transaction_score || "N/A"}</div>
               </div>
-              <div className="bg-white/5 backdrop-blur-sm rounded-xl p-4">
-                <div className="font-bold text-white mb-3">HOLDERS</div>
+              <div className="bg-[#FFFFFF]/5 backdrop-blur-md rounded-xl p-4">
+                <div className="font-bold text-[#FFF] mb-3">HOLDERS</div>
                 <div className="space-y-2 text-xs">
                   <div className="flex justify-between">
-                    <span className="text-white/60">Total Count:</span>
-                    <span className="text-white">{token2.holders?.count?.toLocaleString() || "N/A"}</span>
+                    <span className="text-[#D4D4D4]">Total Count:</span>
+                    <span className="text-[#FFF]">{token2.holders?.count?.toLocaleString() || "N/A"}</span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-white/60">Top 10:</span>
-                    <span className="text-white">{token2.holders?.distribution_percentage?.top_10 || "N/A"}%</span>
+                    <span className="text-[#D4D4D4]">Top 10:</span>
+                    <span className="text-[#FFF]">{token2.holders?.distribution_percentage?.top_10 || "N/A"}%</span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-white/60">11-30:</span>
-                    <span className="text-white">{token2.holders?.distribution_percentage?.["11_30"] || "N/A"}%</span>
+                    <span className="text-[#D4D4D4]">11-30:</span>
+                    <span className="text-[#FFF]">{token2.holders?.distribution_percentage?.["11_30"] || "N/A"}%</span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-white/60">31-50:</span>
-                    <span className="text-white">{token2.holders?.distribution_percentage?.["31_50"] || "N/A"}%</span>
+                    <span className="text-[#D4D4D4]">31-50:</span>
+                    <span className="text-[#FFF]">{token2.holders?.distribution_percentage?.["31_50"] || "N/A"}%</span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-white/60">Rest:</span>
-                    <span className="text-white">{token2.holders?.distribution_percentage?.rest || "N/A"}%</span>
+                    <span className="text-[#D4D4D4]">Rest:</span>
+                    <span className="text-[#FFF]">{token2.holders?.distribution_percentage?.rest || "N/A"}%</span>
                   </div>
-                  <div className="text-white/40 text-xs pt-2 border-t border-white/10">
+                  <div className="text-[#D4D4D4] text-xs pt-2 border-t border-[#FFFFFF10]">
                     Last Updated:{" "}
                     {token2.holders?.last_updated
                       ? new Date(token2.holders.last_updated).toLocaleString("en-US")
@@ -548,18 +521,15 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
       </div>
     )
   }
-
   useEffect(() => {
     const checkMobile = () => setIsMobile(window.innerWidth <= 640)
     checkMobile()
     window.addEventListener("resize", checkMobile)
     return () => window.removeEventListener("resize", checkMobile)
   }, [])
-
   useEffect(() => {
     prevTradesRef.current = dexData.trades
   }, [dexData.trades])
-
   useEffect(() => {
     if (selectedToken && timeRange && currency) {
       logger.log("Fetching price history:", { tokenId: selectedToken.id, days: timeRange, currency })
@@ -573,10 +543,8 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
       })
     }
   }, [selectedToken, timeRange, currency, fetchPriceHistory])
-
   useEffect(() => {
     if (!selectedToken) return
-
     const fetchHighLowData = async () => {
       try {
         const percentageFieldMap = {
@@ -587,7 +555,6 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
           90: { currency: "price_change_percentage_90d_in_currency", fallback: "price_change_percentage_90d" },
           365: { currency: "price_change_percentage_1y_in_currency", fallback: "price_change_percentage_1y" },
         }
-
         const { currency: currencyField, fallback } = percentageFieldMap[timeRange] || {
           currency: "price_change_percentage_24h_in_currency",
           fallback: "price_change_percentage_24h",
@@ -598,12 +565,9 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
           high: selectedToken.high_24h?.[currency] ?? "N/A",
           low: selectedToken.low_24h?.[currency] ?? "N/A",
         }
-
         if (process.env.NODE_ENV === "development") {
         }
-
         setHighLowData({ high: highLow.high, low: highLow.low, percentageChange })
-
         setIsChartLoading(true)
         const tokenId = selectedToken.id
         const days =
@@ -635,10 +599,8 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
         toast.error("Failed to fetch market data.", { position: "top-center", autoClose: 3000 })
       }
     }
-
     fetchHighLowData()
   }, [selectedToken, timeRange, currency, fetchPriceHistory])
-
   useEffect(() => {
     const handleClickOutside = (event) => {
       // Check if click is outside token dropdown
@@ -650,42 +612,34 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
         setIsChainDropdownOpen(false);
       }
     };
-
     // Add event listeners for both click (PC) and touchstart (mobile)
     document.addEventListener("click", handleClickOutside);
     document.addEventListener("touchstart", handleClickOutside);
-
     // Cleanup event listeners on component unmount
     return () => {
       document.removeEventListener("click", handleClickOutside);
       document.removeEventListener("touchstart", handleClickOutside);
     };
   }, [setIsDropdownOpen, setIsChainDropdownOpen]);
-
   useEffect(() => {
     const observer = new IntersectionObserver((entries) => {
       entries.forEach(entry => {
         if (entry.isIntersecting) {
-          entry.target.classList.add('visible');  // Trigger CSS animation nếu cần
+          entry.target.classList.add('visible'); // Trigger CSS animation nếu cần
         }
       });
     }, { threshold: 0.1 });
-
-    const sections = document.querySelectorAll('.tab-content, .chart-panel');  // Class cho sections heavy
+    const sections = document.querySelectorAll('.tab-content, .chart-panel'); // Class cho sections heavy
     sections.forEach(sec => observer.observe(sec));
-
     return () => observer.disconnect();
   }, []);
-
   // Memoized chart data (downsample for perf)
   const chartData = useMemo(() => downsampleData(priceHistory), [priceHistory])
-
   // Memoized sortedTrades (enhance perf)
   const sortedTrades = useMemo(() => {
     if (!dexData.trades || dexData.trades.length === 0) return [];
     return [...dexData.trades].sort((a, b) => new Date(b.block_timestamp) - new Date(a.block_timestamp));
   }, [dexData.trades]);
-
   // New: Handle next/prev page
   const handleNextPage = useCallback(() => {
     const totalPages = getTotalDexPages();
@@ -693,13 +647,11 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
       goToDexPage(currentDexPage + 1);
     }
   }, [currentDexPage, getTotalDexPages, goToDexPage]);
-
   const handlePrevPage = useCallback(() => {
     if (currentDexPage > 1) {
       goToDexPage(currentDexPage - 1);
     }
   }, [currentDexPage, goToDexPage]);
-
   // Tab indicator style (CSS-based, no layoutId)
   const tabIndicatorStyle = useMemo(() => {
     const width = '33.333%';
@@ -708,29 +660,27 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
     else if (activeMarketTab === 'dex') left = '66.666%';
     return { left, width, transition: 'left 0.3s ease-in-out' };
   }, [activeMarketTab]);
-
   return (
     <section
       ref={trendingListRef} // AutoAnimate for trending
-      className={`font-inter w-full max-w-9xl mx-auto mt-4 p-2 sm:p-4 h-[calc(100vh)] bg-gradient-to-br from-black/80 to-gray-900/80 backdrop-blur-xs ${isMobile ? 'pb-8 overflow-y-auto' : ''} animate-fadeIn`} // CSS initial fade
+      className={`font-inter w-full max-w-9xl mx-auto mt-4 p-2 sm:p-4 h-[calc(100vh)] bg-[#0A0A0A]/80 backdrop-blur-md ${isMobile ? 'pb-8 overflow-y-auto' : ''} animate-fadeIn`} // CSS initial fade
       aria-label="Cryptocurrency Market Data"
     >
       <div className="w-full mb-1 mt-2 sm:mt-1">
         <div className="flex flex-col gap-2">
           <div className="flex flex-row items-center justify-between gap-2 sm:gap-3">
-            <div className="flex items-center gap-2 flex-shrink-0 bg-gradient-to-r from-white/10 to-white/5 backdrop-blur-sm">
+            <div className="flex items-center gap-2 flex-shrink-0 bg-gradient-to-r from-[#FFFFFF]/10 to-[#FFFFFF]/5 backdrop-blur-md">
               <div className="p-1.5 group hover:scale-102 transition-transform duration-200"> {/* CSS hover */}
-                <h2 className="text-[8px] sm:text-[10px] font-bold text-white uppercase tracking-wider">Crypto</h2>
+                <h2 className="text-[8px] sm:text-[10px] font-bold text-[#FFF] uppercase tracking-wider">Crypto</h2>
               </div>
             </div>
-
             {/* Controls */}
             <div className="flex flex-row items-center gap-4 flex-1 justify-end">
               {/* Chain Selector */}
               <div className="relative" ref={chainDropdownRef}>
                 <button
                   onClick={() => setIsChainDropdownOpen(!isChainDropdownOpen)}
-                  className={`bg-black/40 backdrop-blur-sm text-white px-1.5 sm:px-2 py-1 sm:py-1 text-[8px] sm:text-[10px] flex items-center gap-1 sm:gap-2 border-2 border-white/20 hover:bg-white/10 transition-all duration-300 rounded-lg min-w-[120px] group hover:scale-102 active:scale-98 ${selectedToken?.id && ["bitcoin", "ethereum"].includes(selectedToken.id.toLowerCase())
+                  className={`bg-[#0A0A0A]/40 backdrop-blur-md text-[#FFF] px-1.5 sm:px-2 py-1 sm:py-1 text-[8px] sm:text-[10px] flex items-center gap-1 sm:gap-2 border-2 border-[#FFFFFF20] hover:bg-[#FFFFFF]/10 transition-all duration-300 rounded-lg min-w-[120px] group hover:scale-102 active:scale-98 ${selectedToken?.id && ["bitcoin", "ethereum"].includes(selectedToken.id.toLowerCase())
                     ? "opacity-50 cursor-not-allowed"
                     : ""
                     }`} // CSS scale
@@ -759,7 +709,7 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                       </span>
                     </>
                   ) : (
-                    <div className="w-3 sm:w-4 h-3 sm:h-4 bg-white/20 rounded-full animate-pulse"></div>
+                    <div className="w-3 sm:w-4 h-3 sm:h-4 bg-[#FFFFFF20] rounded-full animate-pulse"></div>
                   )}
                   <span className={`text-[8px] sm:text-[10px] ml-auto transition-transform duration-200 ${isChainDropdownOpen ? 'rotate-180' : ''}`}>
                     {isChainDropdownOpen ? "▲" : "▼"}
@@ -767,10 +717,10 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                 </button>
                 {isChainDropdownOpen && (
                   <div
-                    className="bg-black/80 backdrop-blur-xl shadow-xl absolute z-50 mt-2 w-32 sm:w-48 max-h-48 sm:max-h-64 overflow-y-auto border border-white/20 rounded-lg shadow-2xl animate-slideDown" // CSS anim
+                    className="bg-[#0A0A0A]/80 backdrop-blur-xl shadow-xl absolute z-50 mt-2 w-32 sm:w-48 max-h-48 sm:max-h-64 overflow-y-auto border border-[#FFFFFF20] rounded-lg shadow-2xl animate-slideDown" // CSS anim
                   >
                     {getAvailableChains().length === 0 ? (
-                      <div className="px-3 py-2 text-white/60 text-[8px] sm:text-[10px]">No supported chains available</div>
+                      <div className="px-3 py-2 text-[#D4D4D4] text-[8px] sm:text-[10px]">No supported chains available</div>
                     ) : (
                       getAvailableChains()
                         .filter((chain) => process.env.NODE_ENV === "development" || !chain.testnet)
@@ -778,13 +728,13 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                           <button
                             key={chain.value}
                             onClick={() => handleChainSelect(chain.value)}
-                            className="flex items-center w-full text-left px-3 py-2 hover:bg-white/10 text-white text-[8px] sm:text-[10px] font-medium transition-all duration-300 first:rounded-t-lg last:rounded-b-lg group hover:translate-x-1" // CSS translate
+                            className="flex items-center w-full text-left px-3 py-2 hover:bg-[#FFFFFF]/10 text-[#FFF] text-[8px] sm:text-[10px] font-medium transition-all duration-300 first:rounded-t-lg last:rounded-b-lg group hover:translate-x-1" // CSS translate
                             whileHover={{ x: 4 }}
                           >
                             <img
                               src={chain.image || "/placeholder.svg"}
                               alt={`${chain.label} logo`}
-                              className="w-3 sm:w-4 h-3 sm:h-4 rounded-full mr-2 ring-1 ring-white/20"
+                              className="w-3 sm:w-4 h-3 sm:h-4 rounded-full mr-2 ring-1 ring-[#FFFFFF20]"
                               onError={(e) => {
                                 logger.error("Dropdown chain logo failed to load:", {
                                   chain: chain.value,
@@ -800,7 +750,6 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                   </div>
                 )}
               </div>
-
               {/* Universal Search */}
               <UniversalSearch
                 onSelect={handleSearchSelect}
@@ -811,7 +760,6 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
               />
             </div>
           </div>
-
           {/* Trending Tokens Ticker */}
           <section
             className="relative w-full rounded-lg trending-container overflow-hidden"
@@ -827,13 +775,13 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                 <p className="text-red-500 text-[10px] mb-2">{trendingError}</p>
                 <button
                   onClick={() => fetchTrendingTokens()}
-                  className="px-4 py-1 text-white text-[10px] border border-white/20 rounded-xl hover:bg-white/10 transition-all duration-300 group hover:scale-105 active:scale-95"
+                  className="px-4 py-1 text-[#FFF] text-[10px] border border-[#FFFFFF20] rounded-xl hover:bg-[#FFFFFF]/10 transition-all duration-300 group hover:scale-105 active:scale-95"
                 >
                   Retry
                 </button>
               </div>
             ) : trendingTokens.length === 0 ? (
-              <div className="text-white/60 text-[10px] text-center p-2">No trending data</div>
+              <div className="text-[#D4D4D4] text-[10px] text-center p-2">No trending data</div>
             ) : (
               <div className="overflow-hidden h-8 flex items-center">
                 <div
@@ -887,7 +835,7 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                         height={16}
                         unoptimized
                       />
-                      <span className="text-white text-[8px] sm:text-[10px] font-medium">{token.symbol.toUpperCase()}</span>
+                      <span className="text-[#FFF] text-[8px] sm:text-[10px] font-medium">{token.symbol.toUpperCase()}</span>
                       <span
                         className={`text-[8px] sm:text-[9px] font-medium ${token.price_change_percentage_24h >= 0 ? "text-emerald-400" : "text-red-500"}`}
                       >
@@ -903,7 +851,6 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
           </section>
         </div>
       </div>
-
       {error && (
         <div
           className="text-[10px] sm:text-xs text-red-500 text-center p-2 sm:p-4 bg-red-500/10 border border-red-500/20 rounded-lg mb-2 animate-slideDown"
@@ -911,7 +858,6 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
           An error occurred while loading data. Please try again later.
         </div>
       )}
-
       {!loading && !error && tokens.length > 0 && (
         <div
           className={`flex flex-col md:grid md:grid-cols-2 gap-4 sm:gap-4 h-[calc(100%-4rem)] sm:h-[calc(100%-1rem)] ${isMobile ? "space-y-4 overflow-y-auto hide-scrollbar" : ""}`}
@@ -920,7 +866,7 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
           <div className="flex flex-col gap-4 max-h-full min-h-[800px] sm:max-h-full overflow-y-auto hide-scrollbar">
             {/* Token Information Panel */}
             <div
-              className="border border-white/10 p-4 sm:p-4 rounded-xl min-h-[280px] sm:min-h-[310px] sm:max-h-[310px] overflow-y-auto custom-scrollbar bg-black/80 backdrop-blur-xl relative animate-slideInLeft" // CSS anim
+              className="border border-[#FFFFFF20] p-4 sm:p-4 rounded-xl min-h-[280px] sm:min-h-[310px] sm:max-h-[310px] overflow-y-auto custom-scrollbar bg-[#0A0A0A]/80 backdrop-blur-md relative animate-slideInLeft shadow-[0_4px_12px_rgba(0,0,0,0.3)] glow-[#FFFFFF15]" // CSS anim
             >
               <LoadingOverlay
                 isLoading={
@@ -938,7 +884,7 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                   <div className="absolute top-1 right-1 w-32 sm:w-40" ref={dropdownRef}>
                     <button
                       onClick={() => setIsDropdownOpen(!isDropdownOpen)}
-                      className="text-white px-2 sm:px-2 py-1 sm:py-1 text-[10px] sm:text-xs flex items-center w-full border-2 border-white/20 bg-white/5 hover:bg-white/10 transition-all duration-300 rounded-xl group hover:scale-102 active:scale-98" // CSS
+                      className="text-[#FFF] px-2 sm:px-2 py-1 sm:py-1 text-[10px] sm:text-xs flex items-center w-full border-2 border-[#FFFFFF20] bg-[#FFFFFF]/5 hover:bg-[#FFFFFF]/10 transition-all duration-300 rounded-xl group hover:scale-102 active:scale-98" // CSS
                       aria-label="Select token"
                     >
                       {selectedToken || localCache.current[`token-metadata-${selectedToken?.id}`]?.data ? (
@@ -966,7 +912,7 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                     </button>
                     {isDropdownOpen && (
                       <div
-                        className="bg-black/80 backdrop-blur-xl shadow-2xl absolute mt-2 w-full max-h-40 sm:max-h-48 overflow-y-auto border border-white/20 rounded-lg shadow-2xl z-50 hide-scrollbar animate-slideDown" // CSS
+                        className="bg-[#0A0A0A]/80 backdrop-blur-xl shadow-2xl absolute mt-2 w-full max-h-40 sm:max-h-48 overflow-y-auto border border-[#FFFFFF20] rounded-lg shadow-2xl z-50 hide-scrollbar animate-slideDown" // CSS
                       >
                         <input
                           type="text"
@@ -974,14 +920,14 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                           value={searchQuery}
                           onChange={(e) => setSearchQuery(e.target.value)}
                           onClick={(e) => e.stopPropagation()}
-                          className="text-white px-3 py-1 sm:py-1.5 w-full text-[8px] sm:text-[10px] border-b border-white/10 bg-transparent focus:outline-none rounded-t-lg"
+                          className="text-[#FFF] px-3 py-1 sm:py-1.5 w-full text-[8px] sm:text-[10px] border-b border-[#FFFFFF10] bg-transparent focus:outline-none rounded-t-lg"
                         />
                         <div className="p-2">
                           {(searchQuery ? searchResults : tokens.slice(0, 30)).filter(isValidToken).map((token) => (
                             <button
                               key={token.id}
                               onClick={() => handleTokenSelect(token)}
-                              className="flex items-center w-full text-left px-3 py-1.5 hover:bg-white/10 text-white text-[8px] sm:text-[10px] transition-all duration-300 rounded group hover:translate-x-1" // CSS
+                              className="flex items-center w-full text-left px-3 py-1.5 hover:bg-[#FFFFFF]/10 text-[#FFF] text-[8px] sm:text-[10px] transition-all duration-300 rounded group hover:translate-x-1" // CSS
                             >
                               {token.image && (
                                 <img
@@ -993,12 +939,12 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                               )}
                               <div>
                                 <div className="font-medium">{token.name}</div>
-                                <div className="text-[8px] sm:text-[10px] text-white/60">{token.symbol?.toUpperCase() || "Token"}</div>
+                                <div className="text-[8px] sm:text-[10px] text-[#D4D4D4]">{token.symbol?.toUpperCase() || "Token"}</div>
                               </div>
                             </button>
                           ))}
                           {(searchQuery ? searchResults : tokens.slice(0, 30)).filter(isValidToken).length === 0 && (
-                            <p className="text-[8px] sm:text-[10px] text-white/60 text-center p-2">No tokens found</p>
+                            <p className="text-[8px] sm:text-[10px] text-[#D4D4D4] text-center p-2">No tokens found</p>
                           )}
                         </div>
                       </div>
@@ -1020,9 +966,9 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                           />
                         )}
                       <div>
-                        <h4 className="text-base sm:text-sm font-bold text-white tracking-tight">
+                        <h4 className="text-base sm:text-sm font-bold text-[#FFF] tracking-tight">
                           {selectedToken?.name || localCache.current[`token-metadata-${selectedToken?.id}`]?.data?.name}
-                          <span className="text-white/60 ml-2">
+                          <span className="text-[#D4D4D4] ml-2">
                             (
                             {(
                               selectedToken?.symbol ||
@@ -1033,7 +979,7 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                         </h4>
                         {(selectedToken?.market_cap_rank ||
                           localCache.current[`token-metadata-${selectedToken?.id}`]?.data?.market_cap_rank) && (
-                            <span className="text-[10px] sm:text-xs text-white/60 px-2 py-1 rounded-lg">
+                            <span className="text-[10px] sm:text-xs text-[#D4D4D4] px-2 py-1 rounded-lg">
                               Rank #
                               {selectedToken?.market_cap_rank ||
                                 localCache.current[`token-metadata-${selectedToken?.id}`]?.data?.market_cap_rank}
@@ -1045,7 +991,7 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                   <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-2 sm:gap-2 mb-2 sm:mb-0">
                     <div className="flex flex-col">
                       <div className="flex items-center gap-2 mb-2">
-                        <p className="text-lg sm:text-xl font-bold text-white">
+                        <p className="text-lg sm:text-xl font-bold text-[#FFF]">
                           {formatPrice(
                             selectedToken?.current_price?.[currency] ||
                             localCache.current[`token-metadata-${selectedToken?.id}`]?.data?.current_price?.[currency],
@@ -1085,7 +1031,7 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                             href={`https://twitter.com/${selectedToken?.links?.twitter_screen_name || localCache.current[`token-metadata-${selectedToken?.id}`]?.data?.links?.twitter_screen_name}`}
                             target="_blank"
                             rel="noreferrer"
-                            className="p-1 bg-white/10 rounded-lg hover:bg-white/20 transition-all duration-300 group" // CSS
+                            className="p-1 bg-[#FFFFFF]/10 rounded-lg hover:bg-[#FFFFFF]/20 transition-all duration-300 group" // CSS
                             title="Twitter"
                           >
                             <img
@@ -1105,7 +1051,7 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                             }
                             target="_blank"
                             rel="noreferrer"
-                            className="p-1 bg-white/10 rounded-lg hover:bg-white/20 transition-all duration-300 group"
+                            className="p-1 bg-[#FFFFFF]/10 rounded-lg hover:bg-[#FFFFFF]/20 transition-all duration-300 group"
                             title="Discord"
                           >
                             <img
@@ -1125,7 +1071,7 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                             }
                             target="_blank"
                             rel="noreferrer"
-                            className="p-1 bg-white/10 rounded-lg hover:bg-white/20 transition-all duration-300 group"
+                            className="p-1 bg-[#FFFFFF]/10 rounded-lg hover:bg-[#FFFFFF]/20 transition-all duration-300 group"
                             title="Website"
                           >
                             <img
@@ -1145,7 +1091,7 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                             }
                             target="_blank"
                             rel="noreferrer"
-                            className="p-1 bg-white/10 rounded-lg hover:bg-white/20 transition-all duration-300 group"
+                            className="p-1 bg-[#FFFFFF]/10 rounded-lg hover:bg-[#FFFFFF]/20 transition-all duration-300 group"
                             title="GitHub"
                           >
                             <img
@@ -1159,14 +1105,14 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                     </div>
                   </div>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-4">
-                    <div className="bg-white/5 rounded-xl p-2">
-                      <h5 className="text-[9px] sm:text-[9px] font-bold text-white uppercase mb-2 tracking-wider bg-gradient-to-r from-white/10 to-transparent rounded-l-sm p-1">
+                    <div className="bg-[#FFFFFF]/5 rounded-xl p-2">
+                      <h5 className="text-[9px] sm:text-[9px] font-bold text-[#FFF] uppercase mb-2 tracking-wider bg-gradient-to-r from-[#FFFFFF]/10 to-transparent rounded-l-sm p-1">
                         Market Stats
                       </h5>
                       <div className="space-y-1 text-[10px] sm:text-[10px]">
                         <div className="flex justify-between">
-                          <span className="text-white/60">Market Cap:</span>
-                          <span className="text-white font-semibold">
+                          <span className="text-[#D4D4D4]">Market Cap:</span>
+                          <span className="text-[#FFF] font-semibold">
                             {(selectedToken?.market_cap?.[currency] ||
                               localCache.current[`token-metadata-${selectedToken?.id}`]?.data?.market_cap?.[currency]) != null
                               ? `${currency.toUpperCase()} ${(
@@ -1177,8 +1123,8 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                           </span>
                         </div>
                         <div className="flex justify-between">
-                          <span className="text-white/60">FDV:</span>
-                          <span className="text-white font-semibold">
+                          <span className="text-[#D4D4D4]">FDV:</span>
+                          <span className="text-[#FFF] font-semibold">
                             {(selectedToken?.fully_diluted_valuation?.[currency] ||
                               localCache.current[`token-metadata-${selectedToken?.id}`]?.data?.fully_diluted_valuation?.[currency]) != null
                               ? `${currency.toUpperCase()} ${(
@@ -1189,8 +1135,8 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                           </span>
                         </div>
                         <div className="flex justify-between">
-                          <span className="text-white/60">24h Volume:</span>
-                          <span className="text-white font-semibold">
+                          <span className="text-[#D4D4D4]">24h Volume:</span>
+                          <span className="text-[#FFF] font-semibold">
                             {(selectedToken?.total_volume?.[currency] ||
                               localCache.current[`token-metadata-${selectedToken?.id}`]?.data?.total_volume?.[currency]) != null
                               ? `${currency.toUpperCase()} ${(
@@ -1202,14 +1148,14 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                         </div>
                       </div>
                     </div>
-                    <div className="bg-white/5 rounded-xl p-2">
-                      <h5 className="text-[9px] sm:text-[9px] font-bold text-white uppercase mb-2 tracking-wider bg-gradient-to-r from-white/10 to-transparent rounded-l-sm p-1">
+                    <div className="bg-[#FFFFFF]/5 rounded-xl p-2">
+                      <h5 className="text-[9px] sm:text-[9px] font-bold text-[#FFF] uppercase mb-2 tracking-wider bg-gradient-to-r from-[#FFFFFF]/10 to-transparent rounded-l-sm p-1">
                         Supply Stats
                       </h5>
                       <div className="space-y-1 text-[10px] sm:text-[10px]">
                         <div className="flex justify-between">
-                          <span className="text-white/60">Circulating:</span>
-                          <span className="text-white font-semibold">
+                          <span className="text-[#D4D4D4]">Circulating:</span>
+                          <span className="text-[#FFF] font-semibold">
                             {(selectedToken?.circulating_supply ||
                               localCache.current[`token-metadata-${selectedToken?.id}`]?.data?.circulating_supply) != null
                               ? `${(
@@ -1220,8 +1166,8 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                           </span>
                         </div>
                         <div className="flex justify-between">
-                          <span className="text-white/60">Total Supply:</span>
-                          <span className="text-white font-semibold">
+                          <span className="text-[#D4D4D4]">Total Supply:</span>
+                          <span className="text-[#FFF] font-semibold">
                             {(selectedToken?.total_supply ||
                               localCache.current[`token-metadata-${selectedToken?.id}`]?.data?.total_supply) != null
                               ? `${(
@@ -1232,8 +1178,8 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                           </span>
                         </div>
                         <div className="flex justify-between">
-                          <span className="text-white/60">Max Supply:</span>
-                          <span className="text-white font-semibold">
+                          <span className="text-[#D4D4D4]">Max Supply:</span>
+                          <span className="text-[#FFF] font-semibold">
                             {(selectedToken?.max_supply ||
                               localCache.current[`token-metadata-${selectedToken?.id}`]?.data?.max_supply) != null
                               ? `${(
@@ -1245,13 +1191,13 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                         </div>
                       </div>
                     </div>
-                    <div className="bg-white/5 rounded-xl p-2 sm:col-span-2">
-                      <h5 className="text-[9px] sm:text-[9px] font-bold text-white uppercase mb-1 tracking-wider bg-gradient-to-r from-white/10 to-transparent rounded-l-sm p-1">
+                    <div className="bg-[#FFFFFF]/5 rounded-xl p-2 sm:col-span-2">
+                      <h5 className="text-[9px] sm:text-[9px] font-bold text-[#FFF] uppercase mb-1 tracking-wider bg-gradient-to-r from-[#FFFFFF]/10 to-transparent rounded-l-sm p-1">
                         Price Range (24h)
                       </h5>
                       <div className="flex justify-between items-center gap-2 text-[10px] sm:text-[9px]">
                         <div className="flex-1 text-center">
-                          <span className="text-white/60 block mb-0.5">ATH</span>
+                          <span className="text-[#D4D4D4] block mb-0.5">ATH</span>
                           <span
                             className={`font-semibold ${typeof (
                               selectedToken?.ath?.[currency] ||
@@ -1263,7 +1209,7 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                               ) >= 0
                                 ? "text-red-500"
                                 : "text-emerald-400"
-                              : "text-white"
+                              : "text-[#FFF]"
                               }`}
                           >
                             {typeof (
@@ -1278,7 +1224,7 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                           </span>
                         </div>
                         <div className="flex-1 text-center">
-                          <span className="text-white/60 block mb-0.5">ATL</span>
+                          <span className="text-[#D4D4D4] block mb-0.5">ATL</span>
                           <span
                             className={`font-semibold ${typeof (
                               selectedToken?.atl?.[currency] ||
@@ -1290,7 +1236,7 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                               ) >= 0
                                 ? "text-red-500"
                                 : "text-emerald-400"
-                              : "text-white"
+                              : "text-[#FFF]"
                               }`}
                           >
                             {typeof (
@@ -1305,13 +1251,13 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                           </span>
                         </div>
                         <div className="flex-1 text-center">
-                          <span className="text-white/60 block mb-0.5">24H High</span>
+                          <span className="text-[#D4D4D4] block mb-0.5">24H High</span>
                           <span className="text-emerald-400 font-semibold">
                             {formatPrice(highLowData.high, currency, 8)}
                           </span>
                         </div>
                         <div className="flex-1 text-center">
-                          <span className="text-white/60 block mb-0.5">24H Low</span>
+                          <span className="text-[#D4D4D4] block mb-0.5">24H Low</span>
                           <span className="text-red-500 font-semibold">
                             {formatPrice(highLowData.low, currency, 8)}
                           </span>
@@ -1322,19 +1268,18 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                 </div>
               ) : (
                 <div className="h-full flex items-center justify-center">
-                  <p className="text-[10px] sm:text-xs text-white/60 text-center">Please select a token to view details.</p>
+                  <p className="text-[10px] sm:text-xs text-[#D4D4D4] text-center">Please select a token to view details.</p>
                 </div>
               )}
             </div>
-
             {/* Chart Panel */}
             <div
-              className="border border-white/10 p-2 sm:p-2 rounded-xl flex-1 min-h-[320px] sm:min-h-[280px] max-h-[200px] sm:max-h-[280px] bg-black/80 backdrop-blur-xl overflow-hidden relative animate-slideInLeft" // CSS
+              className="border border-[#FFFFFF20] p-2 sm:p-2 rounded-xl flex-1 min-h-[320px] sm:min-h-[280px] max-h-[200px] sm:max-h-[280px] bg-[#0A0A0A]/80 backdrop-blur-md overflow-hidden relative animate-slideInLeft shadow-[0_4px_12px_rgba(0,0,0,0.3)] glow-[#FFFFFF15]" // CSS
             >
-              <LoadingOverlay 
-                isLoading={isChartLoading && selectedToken} 
+              <LoadingOverlay
+                isLoading={isChartLoading && selectedToken}
                 isMobile={isMobile}
-                className="h-full w-full" 
+                className="h-full w-full"
               />
               <div className="flex flex-col items-center mb-1 sm:mb-2 mt-4 sm:mt-0">
                 <div className="flex flex-col sm:flex-row justify-between items-center w-full max-w-[90%] sm:max-w-[600px] gap-2 sm:gap-3">
@@ -1342,8 +1287,8 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                     <button
                       onClick={debouncedHandleAnalysis}
                       className={`px-2 sm:px-4 py-1 sm:py-1.5 text-[10px] sm:text-xs font-medium transition-all duration-300 border rounded-xl group hover:scale-105 active:scale-95 ${selectedToken
-                        ? 'text-white border-white/20 bg-white/5 hover:bg-white/10'
-                        : 'text-white/40 border-white/10 cursor-not-allowed opacity-50'
+                        ? 'text-[#FFF] border-[#FFFFFF20] bg-[#FFFFFF]/5 hover:bg-[#FFFFFF]/10'
+                        : 'text-[#D4D4D4] border-[#FFFFFF10] cursor-not-allowed opacity-50'
                         }`}
                       disabled={!selectedToken}
                       aria-label="Analyze token"
@@ -1353,8 +1298,8 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                     <button
                       onClick={debouncedHandlePrediction}
                       className={`px-2 sm:px-4 py-1 sm:py-1.5 text-[10px] sm:text-xs font-medium transition-all duration-300 border rounded-xl group hover:scale-105 active:scale-95 ${selectedToken
-                        ? 'text-black border-white bg-white hover:bg-white/90'
-                        : 'text-white/40 border-white/10 cursor-not-allowed opacity-50'
+                        ? 'text-black border-[#FFF] bg-[#D4D4D4] hover:bg-[#D4D4D4]/90'
+                        : 'text-[#D4D4D4] border-[#FFFFFF10] cursor-not-allowed opacity-50'
                         }`}
                       disabled={!selectedToken}
                       aria-label="Predict token price"
@@ -1363,14 +1308,14 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                     </button>
                   </div>
                   <div className="flex items-center justify-center gap-2 sm:gap-4 mt-2 sm:mt-6 mb-2 sm:mb-0">
-                    <div className="text-[8px] sm:text-[9px] text-white/90 text-center">
-                      <div className="text-white/60 mb-1">Price Change</div>
+                    <div className="text-[8px] sm:text-[9px] text-[#FFF] text-center">
+                      <div className="text-[#D4D4D4] mb-1">Price Change</div>
                       <div
                         className={`font-bold ${highLowData.percentageChange !== "N/A" && typeof highLowData.percentageChange === "number"
                           ? highLowData.percentageChange >= 0
                             ? "text-emerald-400"
                             : "text-red-500"
-                          : "text-white/60"
+                          : "text-[#D4D4D4]"
                           }`}
                       >
                         {highLowData.percentageChange !== "N/A" && typeof highLowData.percentageChange === "number"
@@ -1393,7 +1338,7 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                       <select
                         value={timeRange}
                         onChange={(e) => setTimeRange(e.target.value)}
-                        className="text-white px-2 sm:px-3 py-1 sm:py-1.5 text-[8px] sm:text-[9px] border-2 border-white/20 bg-white/5 rounded-xl focus:outline-none focus:ring-2 focus:ring-white/30"
+                        className="text-[#FFF] px-2 sm:px-3 py-1 sm:py-1.5 text-[8px] sm:text-[9px] border-2 border-[#FFFFFF20] bg-[#FFFFFF]/5 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#FFF]/30"
                       >
                         {["1D", "7D", "1M", "3M", "1Y"].map((range, idx) => (
                           <option key={range} value={["1", "7", "30", "90", "365"][idx]} className="bg-black">
@@ -1455,7 +1400,7 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                 </div>
               ) : (
                 <div className="h-48 sm:h-58 flex items-center justify-center">
-                  <p className="text-[10px] sm:text-xs text-white/60 text-center">
+                  <p className="text-[10px] sm:text-xs text-[#D4D4D4] text-center">
                     {selectedToken
                       ? "No price data available for this token."
                       : "Please select a token to view the chart."}
@@ -1464,27 +1409,26 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
               )}
               <div className="absolute top-1 right-1 flex items-center group p-2">
                 <img src="/logos/CG.webp" alt="CG Logo" className="w-4 sm:w-4 h-4 sm:h-4 object-contain opacity-60" />
-                <span className="absolute right-20 sm:right-20 text-[8px] sm:text-[9px] text-white/60 opacity-0 translate-x-4 group-hover:opacity-100 group-hover:-translate-x-0 transition-all duration-300 whitespace-nowrap flex items-center">
+                <span className="absolute right-20 sm:right-20 text-[8px] sm:text-[9px] text-[#D4D4D4] opacity-0 translate-x-4 group-hover:opacity-100 group-hover:-translate-x-0 transition-all duration-300 whitespace-nowrap flex items-center">
                   Data powered by
                   <img src="/logos/CG_1.webp" alt="CG_1 Logo" className="w-12 sm:w-12 h-12 sm:h-12 object-contain ml-2" />
                 </span>
               </div>
             </div>
           </div>
-
           {/* Right Column - Market Data Tabs */}
           <div
-            className="flex flex-col border border-white/10 rounded-xl min-h-[600px] sm:min-h-[500px] max-h-full sm:max-h-[605px] bg-black/80 market-tab-container hide-scrollbar relative animate-slideInRight" // CSS
+            className="flex flex-col border border-[#FFFFFF20] rounded-xl min-h-[600px] sm:min-h-[500px] max-h-full sm:max-h-[605px] bg-[#0A0A0A]/80 market-tab-container hide-scrollbar relative animate-slideInRight shadow-[0_4px_12px_rgba(0,0,0,0.3)] glow-[#FFFFFF15]" // CSS
           >
             {selectedToken ? (
               <>
-                <div className="flex w-full text-[10px] sm:text-[12px] border-b border-white/10 bg-white/5 rounded-t-xl relative" role="tablist">
+                <div className="flex w-full text-[10px] sm:text-[12px] bg-[#FFFFFF]/5 rounded-t-xl relative" role="tablist">
                   <button
                     onClick={() => {
                       setActiveMarketTab("holders")
                       setShowTrades(false)
                     }}
-                    className={`flex-1 px-6 py-2 font-semibold transition-all duration-300 relative p-1 group ${activeMarketTab === "holders" ? "text-white" : "text-white/60 hover:text-white hover:bg-white/5"
+                    className={`flex-1 px-6 py-2 font-semibold transition-all duration-300 relative p-1 group ${activeMarketTab === "holders" ? "text-[#FFF]" : "text-[#D4D4D4] hover:text-[#FFF] hover:bg-[#FFFFFF]/5"
                       }`}
                     role="tab"
                     aria-selected={activeMarketTab === "holders"}
@@ -1498,7 +1442,7 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                       setActiveMarketTab("cex")
                       setShowTrades(false)
                     }}
-                    className={`flex-1 px-6 py-2 font-semibold transition-all duration-300 relative p-1 group ${activeMarketTab === "cex" ? "text-white" : "text-white/60 hover:text-white hover:bg-white/5"
+                    className={`flex-1 px-6 py-2 font-semibold transition-all duration-300 relative p-1 group ${activeMarketTab === "cex" ? "text-[#FFF]" : "text-[#D4D4D4] hover:text-[#FFF] hover:bg-[#FFFFFF]/5"
                       }`}
                     role="tab"
                     aria-selected={activeMarketTab === "cex"}
@@ -1509,7 +1453,7 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                   </button>
                   <button
                     onClick={handleDexTabClick}
-                    className={`flex-1 px-6 py-2 font-semibold transition-all duration-300 relative p-1 group${activeMarketTab === "dex" ? "text-white" : "text-white/60 hover:text-white hover:bg-white/5"
+                    className={`flex-1 px-6 py-2 font-semibold transition-all duration-300 relative p-1 group${activeMarketTab === "dex" ? "text-[#FFF]" : "text-[#D4D4D4] hover:text-[#FFF] hover:bg-[#FFFFFF]/5"
                       }`}
                     role="tab"
                     aria-selected={activeMarketTab === "dex"}
@@ -1519,7 +1463,6 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                     ON-CHAIN
                   </button>
                 </div>
-
                 {/* Tab Content */}
                 <div className="flex-1 overflow-y-auto hide-scrollbar relative min-h-[500px] sm:min-h-[400px]">
                   <div
@@ -1533,8 +1476,8 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                         {session ? (
                           <>
                             <LoadingOverlay isLoading={isLoadingOnChain} isMobile={isMobile} className="!absolute h-full w-full" />
-                            <div className="flex justify-center items-center p-2 border-b border-white/10 bg-white/5">
-                              <h4 className="text-xs font-bold text-white text-center uppercase tracking-wider flex items-center gap-2">
+                            <div className="flex justify-center items-center p-2 border-b border-[#FFFFFF10] bg-[#FFFFFF]/5">
+                              <h4 className="text-xs font-bold text-[#FFF] text-center uppercase tracking-wider flex items-center gap-2">
                                 Top 100
                                 {selectedToken.image && (
                                   <img
@@ -1554,16 +1497,16 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                               </h4>
                             </div>
                             {isLoadingOnChain ? (
-                              <div className="text-sm text-white/60 text-center p-6">
+                              <div className="text-sm text-[#D4D4D4] text-center p-6">
                                 {/* Loading handled by LoadingOverlay */}
                               </div>
                             ) : onChainError && !NON_EVM_CHAINS.includes(selectedToken?.id.toLowerCase()) ? (
                               <div className="text-sm text-center p-6">
-                                <p className="text-white/60">Unable to load top holders data. Please try again.</p>
+                                <p className="text-[#D4D4D4]">Unable to load top holders data. Please try again.</p>
                               </div>
                             ) : onChainData.topHolders && onChainData.topHolders.length > 0 ? (
                               <div className="flex flex-col h-[600px]">
-                                <div className="flex bg-black/80 border-b border-white/10 p-2 font-semibold text-white text-[10px] sticky top-0 z-10">
+                                <div className="flex bg-[#0A0A0A]/80 border-b border-[#FFFFFF10] p-2 font-semibold text-[#FFF] text-[10px] sticky top-0 z-10">
                                   <div className="flex-1">Address/Name</div>
                                   <div className="w-28 text-right">Balance</div>
                                 </div>
@@ -1582,10 +1525,9 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                                     const isValidAddress =
                                       holder.address &&
                                       (holder.address.match(/^0x[a-fA-F0-9]{40}$/) || holder.address.match(/^(1|3|bc1)[a-zA-Z0-9]+$/));
-
                                     const HolderRow = React.memo(() => (
                                       <div
-                                        className="flex border-t border-white/10 bg-black/80 px-3 py-2 text-[9px] sm:text-[11px]"
+                                        className="flex border-t border-[#FFFFFF10] bg-[#0A0A0A]/80 px-3 py-2 text-[9px] sm:text-[11px]"
                                       >
                                         <div className="flex-1 flex items-center gap-2 group relative">
                                           {image && (
@@ -1601,7 +1543,7 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                                               href={`https://mempool.space/address/${holder.address}`}
                                               target="_blank"
                                               rel="noreferrer"
-                                              className="text-white hover:text-white/80 transition-colors font-medium"
+                                              className="text-[#FFF] hover:text-[#FFF]/80 transition-colors font-medium"
                                               title={holder.address}
                                             >
                                               <div className="flex flex-col">
@@ -1611,7 +1553,7 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                                             </a>
                                           ) : (
                                             <span
-                                              className={`text-white font-medium ${isValidAddress ? "cursor-pointer hover:text-white/80 transition-colors" : "cursor-default"} text-[10px]`}
+                                              className={`text-[#FFF] font-medium ${isValidAddress ? "cursor-pointer hover:text-[#FFF]/80 transition-colors" : "cursor-default"} text-[10px]`}
                                               onClick={() => isValidAddress && handleAddressClick(holder.address)}
                                               title={holder.address}
                                             >
@@ -1627,7 +1569,7 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                                                 navigator.clipboard.writeText(holder.address);
                                                 toast.success("Address copied!", { autoClose: 2000 });
                                               }}
-                                              className="absolute right-0 text-white/40 hover:text-white/80 transition-colors flex-shrink-0 opacity-0 group-hover:opacity-100 p-1 rounded-lg hover:bg-white/10 group hover:scale-110 active:scale-90" // CSS
+                                              className="absolute right-0 text-[#D4D4D4] hover:text-[#FFF]/80 transition-colors flex-shrink-0 opacity-0 group-hover:opacity-100 p-1 rounded-lg hover:bg-[#FFFFFF]/10 group hover:scale-110 active:scale-90" // CSS
                                               title="Copy address"
                                             >
                                               <svg xmlns="http://www.w3.org/2000/svg" className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -1636,7 +1578,7 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                                             </button>
                                           )}
                                         </div>
-                                        <div className="w-28 text-right font-bold text-white text-[10px]">
+                                        <div className="w-28 text-right font-bold text-[#FFF] text-[10px]">
                                           <span>{Math.floor(holder.balance).toLocaleString("en-US")}</span>
                                         </div>
                                       </div>
@@ -1646,7 +1588,7 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                                 />
                               </div>
                             ) : (
-                              <div className="text-sm text-white/60 text-center p-6">
+                              <div className="text-sm text-[#D4D4D4] text-center p-6">
                                 {NON_EVM_CHAINS.includes(selectedToken?.id.toLowerCase())
                                   ? `Top holders data for ${selectedToken?.symbol?.toUpperCase()} is unavailable.`
                                   : `No top holders data available for ${selectedToken?.symbol?.toUpperCase() || "selected token"} on ${chains.find((c) => c.value === selectedChain)?.label || "selected chain"}.`}
@@ -1670,10 +1612,10 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                         <LoadingOverlay isLoading={isLoadingTickers && !tickerData?.length} isMobile={isMobile} className="!absolute h-full w-full" />
                         {tickerError ? (
                           <div className="text-[10px] sm:text-xs text-center p-6">
-                            <p className="text-white/60 mb-4">Unable to load CEX markets data. Please try again.</p>
+                            <p className="text-[#D4D4D4] mb-4">Unable to load CEX markets data. Please try again.</p>
                             <button
                               onClick={() => fetchTickerData(selectedToken?.id)}
-                              className="px-4 py-2 text-white text-sm border border-white/20 rounded-xl hover:bg-white/10 transition-all duration-300 group hover:scale-105 active:scale-95"
+                              className="px-4 py-2 text-[#FFF] text-sm border border-[#FFFFFF20] rounded-xl hover:bg-[#FFFFFF]/10 transition-all duration-300 group hover:scale-105 active:scale-95"
                             >
                               Retry
                             </button>
@@ -1688,7 +1630,7 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                             itemContent={(index, ticker) => {
                               const TickerRow = React.memo(() => (
                                 <div
-                                  className="flex border-t border-white/10 hover:bg-black/80 px-3 py-2 text-[9px] sm:text-[11px]"
+                                  className="flex border-t border-[#FFFFFF10] hover:bg-[#0A0A0A]/80 px-3 py-2 text-[9px] sm:text-[11px]"
                                 >
                                   <div className="flex-[2] flex items-center justify-center gap-2">
                                     {ticker.market.logo && (
@@ -1703,22 +1645,22 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                                       href={ticker.trade_url}
                                       target="_blank"
                                       rel="noreferrer"
-                                      className="text-white hover:text-white/80 transition-colors font-medium truncate text-[9px] sm:text-[11px]"
+                                      className="text-[#FFF] hover:text-[#FFF]/80 transition-colors font-medium truncate text-[9px] sm:text-[11px]"
                                       title={ticker.market.name}
                                     >
                                       {ticker.market.name}
                                     </a>
                                   </div>
-                                  <div className="flex-1 text-center text-white/90 font-medium text-[9px] sm:text-[11px]">
-                                    <span className="bg-white/5 px-1.5 py-0.5 rounded-md">{ticker.base}/{ticker.target}</span>
+                                  <div className="flex-1 text-center text-[#FFF] font-medium text-[9px] sm:text-[11px]">
+                                    <span className="bg-[#FFFFFF]/5 px-1.5 py-0.5 rounded-md">{ticker.base}/{ticker.target}</span>
                                   </div>
-                                  <div className="flex-1 text-center text-white font-semibold text-[9px] sm:text-[11px]">
+                                  <div className="flex-1 text-center text-[#FFF] font-semibold text-[9px] sm:text-[11px]">
                                     {ticker.converted_last.usd != null ? formatPrice(ticker.converted_last.usd, "usd", 8) : "N/A"}
                                   </div>
-                                  <div className="flex-1 text-center text-white/90 text-[9px] sm:text-[11px]">
+                                  <div className="flex-1 text-center text-[#FFF] text-[9px] sm:text-[11px]">
                                     ${ticker.converted_volume.usd?.toLocaleString("en-US", { minimumFractionDigits: 0, maximumFractionDigits: 0 }) || "N/A"}
                                   </div>
-                                  <div className="flex-1 text-center text-white/70 text-[9px] sm:text-[11px]">
+                                  <div className="flex-1 text-center text-[#D4D4D4] text-[9px] sm:text-[11px]">
                                     {ticker.last_traded_at ? new Date(ticker.last_traded_at).toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" }) : "N/A"}
                                   </div>
                                 </div>
@@ -1727,7 +1669,7 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                             }}
                             components={{
                               Header: () => (
-                                <div className="flex bg-black/80 border-b border-white/10 p-2 font-semibold text-white text-[9px] sm:text-[11px]">
+                                <div className="flex bg-[#0A0A0A]/80 border-b border-[#FFFFFF10] p-2 font-semibold text-[#FFF] text-[9px] sm:text-[11px]">
                                   <div className="flex-[2] text-center">Market</div>
                                   <div className="flex-1 text-center">Pair</div>
                                   <div className="flex-1 text-center">Price</div>
@@ -1739,7 +1681,7 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                           />
                         ) : (
                           !isLoadingTickers && (
-                            <div className="text-sm text-white/60 text-center p-6">
+                            <div className="text-sm text-[#D4D4D4] text-center p-6">
                               {selectedToken
                                 ? `No CEX data available for ${selectedToken.symbol?.toUpperCase() || "selected token"}.`
                                 : "Please select a token to view CEX data."}
@@ -1757,23 +1699,23 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                   >
                     {activeMarketTab === "dex" && (
                       <>
-                        <div className="p-2 text-[9px] text-white/60 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 sm:gap-0 sticky top-0 bg-black/80 z-10 border-b border-white/10">
+                        <div className="p-2 text-[9px] text-[#D4D4D4] flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 sm:gap-0 sticky top-0 bg-[#0A0A0A]/80 z-10 border-b border-[#FFFFFF10]">
                           <div className="flex items-center justify-start gap-1 order-1 sm:order-1 text-[8px]">
                             <button
                               onClick={handlePrevPage}
                               disabled={currentDexPage === 1 || isLoadingPage}
-                              className="px-1 py-0.5 text-white/60 hover:text-white disabled:opacity-30 disabled:cursor-not-allowed bg-white/5 rounded transition-all group hover:scale-105 active:scale-95"
+                              className="px-1 py-0.5 text-[#D4D4D4] hover:text-[#FFF] disabled:opacity-30 disabled:cursor-not-allowed bg-[#FFFFFF]/5 rounded transition-all group hover:scale-105 active:scale-95"
                               title="Previous Page"
                             >
                               ‹
                             </button>
-                            <span className="px-2 py-0.5 bg-white/10 rounded text-white">
+                            <span className="px-2 py-0.5 bg-[#FFFFFF]/10 rounded text-[#FFF]">
                               Page {currentDexPage} / {getTotalDexPages()}
                             </span>
                             <button
                               onClick={handleNextPage}
                               disabled={currentDexPage >= getTotalDexPages() || isLoadingPage}
-                              className="px-1 py-0.5 text-white/60 hover:text-white disabled:opacity-30 disabled:cursor-not-allowed bg-white/5 rounded transition-all group hover:scale-105 active:scale-95"
+                              className="px-1 py-0.5 text-[#D4D4D4] hover:text-[#FFF] disabled:opacity-30 disabled:cursor-not-allowed bg-[#FFFFFF]/5 rounded transition-all group hover:scale-105 active:scale-95"
                               title="Next Page"
                             >
                               ›
@@ -1810,7 +1752,7 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                                 return trades.length > 0 ? (
                                   <>
                                     <div className="flex flex-col h-[600px]">
-                                      <div className="flex bg-black/80 border-b border-white/10 p-2 font-semibold text-white text-[9px] sm:text-[11px] sticky top-0 z-10">
+                                      <div className="flex bg-[#0A0A0A]/80 border-b border-[#FFFFFF10] p-2 font-semibold text-[#FFF] text-[9px] sm:text-[11px] sticky top-0 z-10">
                                         {!isBitcoin && (
                                           <>
                                             <div className="flex-1 text-center">Tx/Time</div>
@@ -1842,24 +1784,23 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                                           const explorerInfo = getExplorerInfo(chain, txHash, null);
                                           const fromAddressInfo = getNameTagInfo(isBitcoin ? item.inputs?.[0]?.address : item.tx_from_address?.address, chain);
                                           const toAddressInfo = getNameTagInfo(isBitcoin ? item.outputs?.[0]?.address : item.to_token_address?.address, chain);
-
                                           const TradeRow = React.memo(() => (
                                             <div
-                                              className="flex border-t border-white/10 bg-black/80 py-1.5 px-2 text-[9px] sm:text-[11px]"
+                                              className="flex border-t border-[#FFFFFF10] bg-[#0A0A0A]/80 py-1.5 px-2 text-[9px] sm:text-[11px]"
                                             >
                                               {/* Tx/Time */}
                                               <div className="flex-1 flex flex-col gap-1 items-center justify-center group relative">
-                                                <a href={explorerInfo.url} target="_blank" rel="noreferrer" className="p-1 rounded-md hover:bg-white/10 transition-all duration-300">
+                                                <a href={explorerInfo.url} target="_blank" rel="noreferrer" className="p-1 rounded-md hover:bg-[#FFFFFF]/10 transition-all duration-300">
                                                   <img src={explorerInfo.logo} alt="Explorer" className="w-3 h-3 rounded" onError={(e) => e.target.style.display = 'none'} />
                                                 </a>
-                                                <span className="text-[7px] sm:text-[9px] text-white/60 text-center">{formatDistanceToNow(new Date(timestamp), { addSuffix: true })}</span>
+                                                <span className="text-[7px] sm:text-[9px] text-[#D4D4D4] text-center">{formatDistanceToNow(new Date(timestamp), { addSuffix: true })}</span>
                                                 {txHash && (
                                                   <button
                                                     onClick={() => {
                                                       navigator.clipboard.writeText(txHash);
                                                       toast.success("Transaction hash copied!", { autoClose: 2000 });
                                                     }}
-                                                    className="absolute right-0 top-0 text-white/40 hover:text-white/80 opacity-0 group-hover:opacity-100 p-1 rounded-md hover:bg-white/10 group hover:scale-110 active:scale-90"
+                                                    className="absolute right-0 top-0 text-[#D4D4D4] hover:text-[#FFF]/80 opacity-0 group-hover:opacity-100 p-1 rounded-md hover:bg-[#FFFFFF]/10 group hover:scale-110 active:scale-90"
                                                     title="Copy transaction hash"
                                                   >
                                                     <svg xmlns="http://www.w3.org/2000/svg" className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -1868,7 +1809,6 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                                                   </button>
                                                 )}
                                               </div>
-
                                               {/* From Address */}
                                               <div className="flex-[2] flex items-center justify-center gap-2 group relative">
                                                 {fromAddressInfo.image && <img src={fromAddressInfo.image} alt={`${fromAddressInfo.nameTag || 'Address'} logo`} className="w-3 h-3 rounded-md" onError={(e) => e.target.style.display = 'none'} />}
@@ -1876,7 +1816,7 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                                                   href={isBitcoin ? `https://mempool.space/address/${item.inputs?.[0]?.address}` : getExplorerUrls(chain, null, item.tx_from_address?.address).addressUrl}
                                                   target="_blank"
                                                   rel="noreferrer"
-                                                  className="text-white hover:text-white/80 transition-colors font-medium text-[9px] sm:text-[11px]"
+                                                  className="text-[#FFF] hover:text-[#FFF]/80 transition-colors font-medium text-[9px] sm:text-[11px]"
                                                   title={isBitcoin ? item.inputs?.[0]?.address : item.tx_from_address?.address}
                                                 >
                                                   {fromAddressInfo.nameTag ? (
@@ -1889,7 +1829,7 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                                                 </a>
                                                 <button
                                                   onClick={() => navigator.clipboard.writeText(isBitcoin ? item.inputs?.[0]?.address : item.tx_from_address?.address) && toast.success("Address copied!", { autoClose: 2000 })}
-                                                  className="absolute right-0 text-white/40 hover:text-white/80 opacity-0 group-hover:opacity-100 p-1 rounded-md hover:bg-white/10 group hover:scale-110 active:scale-90"
+                                                  className="absolute right-0 text-[#D4D4D4] hover:text-[#FFF]/80 opacity-0 group-hover:opacity-100 p-1 rounded-md hover:bg-[#FFFFFF]/10 group hover:scale-110 active:scale-90"
                                                   title="Copy address"
                                                 >
                                                   <svg xmlns="http://www.w3.org/2000/svg" className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -1897,7 +1837,6 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                                                   </svg>
                                                 </button>
                                               </div>
-
                                               {/* To Address */}
                                               <div className="flex-[2] flex items-center justify-center gap-2 group relative">
                                                 {toAddressInfo.image && <img src={toAddressInfo.image} alt={`${toAddressInfo.nameTag || 'Address'} logo`} className="w-3 h-3 rounded-md" onError={(e) => e.target.style.display = 'none'} />}
@@ -1905,7 +1844,7 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                                                   href={isBitcoin ? `https://mempool.space/address/${item.outputs?.[0]?.address}` : getExplorerUrls(chain, null, item.to_token_address?.address).addressUrl}
                                                   target="_blank"
                                                   rel="noreferrer"
-                                                  className="text-white hover:text-white/80 transition-colors font-medium text-[10px]"
+                                                  className="text-[#FFF] hover:text-[#FFF]/80 transition-colors font-medium text-[10px]"
                                                   title={isBitcoin ? item.outputs?.[0]?.address : item.to_token_address?.address}
                                                 >
                                                   {toAddressInfo.nameTag ? (
@@ -1918,7 +1857,7 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                                                 </a>
                                                 <button
                                                   onClick={() => navigator.clipboard.writeText(isBitcoin ? item.outputs?.[0]?.address : item.to_token_address?.address) && toast.success("Address copied!", { autoClose: 2000 })}
-                                                  className="absolute right-0 text-white/40 hover:text-white/80 opacity-0 group-hover:opacity-100 p-1 rounded-md hover:bg-white/10 group hover:scale-110 active:scale-90"
+                                                  className="absolute right-0 text-[#D4D4D4] hover:text-[#FFF]/80 opacity-0 group-hover:opacity-100 p-1 rounded-md hover:bg-[#FFFFFF]/10 group hover:scale-110 active:scale-90"
                                                   title="Copy address"
                                                 >
                                                   <svg xmlns="http://www.w3.org/2000/svg" className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -1926,7 +1865,6 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                                                   </svg>
                                                 </button>
                                               </div>
-
                                               {/* Value */}
                                               <div className="flex-1 flex flex-col gap-1 items-center justify-center text-[10px]">
                                                 <span className="font-semibold flex items-center gap-2 text-[8px] sm:text-[10px]">
@@ -1944,14 +1882,13 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                                                   )}
                                                 </span>
                                                 <div className="flex items-center gap-2 text-[7px] sm:text-[9px]">
-                                                  <span className="text-white/60">${(Number.parseFloat(isBitcoin ? item.value_usd : item.volume_in_usd || 0) || 0).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                                                  <span className="text-[#D4D4D4]">${(Number.parseFloat(isBitcoin ? item.value_usd : item.volume_in_usd || 0) || 0).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                                                 </div>
                                               </div>
-
                                               {/* Fee/Status */}
                                               <div className="flex-1 flex flex-col gap-1 items-center justify-center text-center text-[9px] sm:text-[11px]">
                                                 {isBitcoin && (
-                                                  <div className="text-[7px] sm:text-[9px] text-white/70 text-center">Fee: {item.fee.toLocaleString("en-US")} sat</div>
+                                                  <div className="text-[7px] sm:text-[9px] text-[#D4D4D4] text-center">Fee: {item.fee.toLocaleString("en-US")} sat</div>
                                                 )}
                                                 {isBitcoin ? (
                                                   <span className={`px-1 py-0.5 rounded-full text-[7px] sm:text-[9px] font-semibold text-center ${item.status.confirmed ? "bg-emerald-400/10 text-emerald-400" : "bg-yellow-500/10 text-yellow-500"}`}>
@@ -1983,7 +1920,7 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                                   </>
                                 ) : (
                                   !(isBitcoin ? isLoadingMempool : isLoadingDex || isLoadingMoreDex || isLoadingPage) && (
-                                    <div className="text-[9px] sm:text-[11px] text-white/60 text-center p-6">
+                                    <div className="text-[9px] sm:text-[11px] text-[#D4D4D4] text-center p-6">
                                       No {isBitcoin ? "mempool transactions" : "DEX data"} available for{" "}
                                       {selectedToken?.symbol?.toUpperCase() || "selected token"} on{" "}
                                       {isBitcoin
@@ -2012,7 +1949,6 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
           </div>
         </div>
       )}
-
       {/* Dynamic WalletBalances */}
       <Suspense fallback={<SkeletonLoader count={2} />}>
         <WalletBalances
@@ -2045,7 +1981,6 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
           setIsLoadingWalletBalances={setIsLoadingWalletBalances}
         />
       </Suspense>
-
       <Suspense fallback={null}>
         <Modal
           isOpen={isAnalyzing || !!analysis}
@@ -2056,7 +1991,7 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
           }}
           title="Market Analysis"
           content={
-            <div className="prose prose-invert max-w-none text-white/90 leading-relaxed">
+            <div className="prose prose-invert max-w-none text-[#FFF] leading-relaxed">
               <ReactMarkdown
                 remarkPlugins={[remarkGfm]}
                 components={{
@@ -2064,13 +1999,13 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                   h2: ({ node, ...props }) => <h2 className="text-lg sm:text-xl font-semibold mt-3 mb-1" {...props} />,
                   p: ({ node, ...props }) => <p className="mb-2" {...props} />,
                   table: ({ node, ...props }) => (
-                    <table className="table-auto w-full border-collapse border border-white/20 my-2" {...props} />
+                    <table className="table-auto w-full border-collapse border border-[#FFFFFF20] my-2" {...props} />
                   ),
                   th: ({ node, ...props }) => (
-                    <th className="border border-white/20 px-4 py-2 bg-white/5" {...props} />
+                    <th className="border border-[#FFFFFF20] px-4 py-2 bg-[#FFFFFF]/5" {...props} />
                   ),
                   td: ({ node, ...props }) => (
-                    <td className="border border-white/20 px-4 py-2" {...props} />
+                    <td className="border border-[#FFFFFF20] px-4 py-2" {...props} />
                   ),
                   a: ({ node, href, ...props }) => (
                     <a
@@ -2094,7 +2029,6 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
           actionType="analyze"
         />
       </Suspense>
-
       {/* Modal for Price Prediction */}
       <Suspense fallback={null}>
         <Modal
@@ -2105,7 +2039,7 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
           }}
           title="Price Prediction"
           content={
-            <div className="prose prose-invert max-w-none text-white/90 leading-relaxed">
+            <div className="prose prose-invert max-w-none text-[#FFF] leading-relaxed">
               <ReactMarkdown
                 remarkPlugins={[remarkGfm]}
                 components={{
@@ -2113,13 +2047,13 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                   h2: ({ node, ...props }) => <h2 className="text-lg sm:text-xl font-semibold mt-3 mb-1" {...props} />,
                   p: ({ node, ...props }) => <p className="mb-2" {...props} />,
                   table: ({ node, ...props }) => (
-                    <table className="table-auto w-full border-collapse border border-white/20 my-2" {...props} />
+                    <table className="table-auto w-full border-collapse border border-[#FFFFFF20] my-2" {...props} />
                   ),
                   th: ({ node, ...props }) => (
-                    <th className="border border-white/20 px-4 py-2 bg-white/5" {...props} />
+                    <th className="border border-[#FFFFFF20] px-4 py-2 bg-[#FFFFFF]/5" {...props} />
                   ),
                   td: ({ node, ...props }) => (
-                    <td className="border border-white/20 px-4 py-2" {...props} />
+                    <td className="border border-[#FFFFFF20] px-4 py-2" {...props} />
                   ),
                   a: ({ node, href, ...props }) => (
                     <a
@@ -2170,7 +2104,23 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
     </section>
   )
 }
-
 export default React.memo(MarketTab, (prev, next) => {
   return prev.selectedToken?.id === next.selectedToken?.id && prev.initialTokenSlug === next.initialTokenSlug;
 });
+
+<style jsx global>{`
+  /* Scrollbar mượt */
+  .custom-scrollbar::-webkit-scrollbar {
+    width: 5px;
+  }
+  .custom-scrollbar::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  .custom-scrollbar::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.25);
+    border-radius: 3px;
+  }
+  .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+    background: rgba(255, 255, 255, 0.4);
+  }
+`}</style>

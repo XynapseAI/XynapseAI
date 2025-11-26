@@ -211,7 +211,7 @@ export default function Header({ activeTab, setActiveTab, handleSignOut, selecte
   };
 
   return (
-    <header className="sticky top-0 z-50 w-full"> {/* Changed top-4 to top-0 for better overlap prevention */}
+    <header className="sticky top-1 z-50 w-full"> {/* Changed top-4 to top-0 for better overlap prevention */}
       <div className="w-[80%] mx-auto h-[4.5vh] sm:h-[4.5vh] bg-gradient-to-br from-black/80 to-gray-900/80 backdrop-blur-sm border border-white/20 rounded-xl flex justify-between items-center px-4 font-inter shadow-2xl">
         <div className="block sm:hidden">
           <motion.button

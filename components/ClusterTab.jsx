@@ -110,13 +110,13 @@ const CustomTooltip = ({ active, payload, label, currency }) => {
   if (active && payload && payload.length) {
     return (
       <motion.div
-        className="bg-black/95 backdrop-blur-xl border border-white/20 p-3 rounded-2xl text-white text-sm font-medium shadow-2xl"
+        className="bg-[#0A0A0A]/95 backdrop-blur-xl border border-[#FFFFFF20] p-3 rounded-2xl text-[#FFF] text-sm font-medium shadow-2xl"
         initial={{ opacity: 0, scale: 0.9 }}
         animate={{ opacity: 1, scale: 1 }}
         transition={{ duration: 0.2 }}
       >
-        <p className="text-white/70 text-xs mb-1">{label}</p>
-        <p className="text-white font-semibold">
+        <p className="text-[#D4D4D4] text-xs mb-1">{label}</p>
+        <p className="text-[#FFF] font-semibold">
           Volume: <span className="text-emerald-400">{formatLargeNumber(payload[0].value, currency, 2)} {currency.toUpperCase()}</span>
         </p>
       </motion.div>
@@ -460,10 +460,8 @@ const ClusterTab = ({ recaptchaRef, initialClusterId, activeTab: propActiveTab, 
         try {
           const result = JSON.parse(text);
           errorMessage = result.detail || errorMessage;
-          logger.error(`API error response: ${errorMessage}`, { clusterId, status: response.status, text });
         } catch {
           errorMessage = `Failed to fetch portfolio/wallet data: Invalid JSON response`;
-          logger.error(`Invalid JSON response: ${text}`, { clusterId, status: response.status });
         }
         throw new Error(errorMessage);
       }
@@ -1193,7 +1191,7 @@ const ClusterTab = ({ recaptchaRef, initialClusterId, activeTab: propActiveTab, 
               navigator.clipboard.writeText(address);
               toast.success("Address copied!", { autoClose: 2000 });
             }}
-            className="ml-1 text-white/40 hover:text-white/80 opacity-0 group-hover:opacity-100 p-1 rounded-lg cursor-pointer"
+            className="ml-1 text-[#D4D4D4] hover:text-[#FFF]/80 opacity-0 group-hover:opacity-100 p-1 rounded-lg cursor-pointer"
             whileHover={{ scale: 1.05 }}
             whileTap={{ scale: 0.95 }}
             role="button"
@@ -1226,7 +1224,7 @@ const ClusterTab = ({ recaptchaRef, initialClusterId, activeTab: propActiveTab, 
             navigator.clipboard.writeText(address);
             toast.success("Address copied!", { autoClose: 2000 });
           }}
-          className="ml-1 text-white/40 hover:text-white/80 opacity-0 group-hover:opacity-100 p-1 rounded-lg cursor-pointer"
+          className="ml-1 text-[#D4D4D4] hover:text-[#FFF]/80 opacity-0 group-hover:opacity-100 p-1 rounded-lg cursor-pointer"
           whileHover={{ scale: 1.05 }}
           whileTap={{ scale: 0.95 }}
           role="button"
@@ -1253,7 +1251,7 @@ const ClusterTab = ({ recaptchaRef, initialClusterId, activeTab: propActiveTab, 
   const renderPortfolioContent = () => {
     return (
       <div className="flex flex-col relative" ref={portfolioRef}>
-        <div className="bg-gradient-to-br from-black/80 to-gray-900/80 overflow-y-auto min-h-[calc(50vh)] sm:min-h-[calc(30vh)] max-h-[calc(50vh)] sm:max-h-[calc(50vh-5rem)] hide-scrollbar">
+        <div className="bg-[#0A0A0A]/80 backdrop-blur-md overflow-y-auto min-h-[calc(50vh)] sm:min-h-[calc(30vh)] max-h-[calc(50vh)] sm:max-h-[calc(50vh-5rem)] hide-scrollbar">
           {isLoadingPortfolio && (
             <LoadingOverlay
               isLoading={isLoadingPortfolio}
@@ -1264,26 +1262,26 @@ const ClusterTab = ({ recaptchaRef, initialClusterId, activeTab: propActiveTab, 
           {isLoadingPortfolio ? (
             <SkeletonLoader count={5} isMobile={isMobile} />
           ) : groupedPortfolio.length > 0 ? (
-            <table className="w-full table-fixed text-[9px] sm:text-[11px] bg-black/80 rounded-xl">
-              <thead className="border-b border-white/10 bg-gradient-to-br from-black/80 to-gray-900/80">
+            <table className="w-full table-fixed text-[9px] sm:text-[11px] bg-[#0A0A0A]/80 rounded-xl">
+              <thead className="border-b border-[#FFFFFF10] bg-[#0A0A0A]/80 backdrop-blur-md">
                 <tr>
-                  <th className={`${isMobile ? "w-[20%]" : "w-[25%]"} px-3 py-2 text-white text-left font-semibold truncate`}>Token</th>
-                  <th className={`${isMobile ? "w-[30%]" : "w-[25%]"} px-3 py-2 text-white text-left font-semibold truncate`}>Balance</th>
-                  <th className={`${isMobile ? "w-[30%]" : "w-[25%]"} px-3 py-2 text-white text-left font-semibold truncate`}>Value ({currency.toUpperCase()})</th>
-                  <th className={`${isMobile ? "w-[20%]" : "w-[25%]"} px-3 py-2 text-white text-left font-semibold truncate`}>Percentage</th>
+                  <th className={`${isMobile ? "w-[20%]" : "w-[25%]"} px-3 py-2 text-[#FFF] text-left font-semibold truncate`}>Token</th>
+                  <th className={`${isMobile ? "w-[30%]" : "w-[25%]"} px-3 py-2 text-[#FFF] text-left font-semibold truncate`}>Balance</th>
+                  <th className={`${isMobile ? "w-[30%]" : "w-[25%]"} px-3 py-2 text-[#FFF] text-left font-semibold truncate`}>Value ({currency.toUpperCase()})</th>
+                  <th className={`${isMobile ? "w-[20%]" : "w-[25%]"} px-3 py-2 text-[#FFF] text-left font-semibold truncate`}>Percentage</th>
                 </tr>
               </thead>
               <tbody>
                 {groupedPortfolio.map((group, index) => (
                   <motion.tr
                     key={group.key}
-                    className="border-t border-white/10 hover:bg-gradient-to-r hover:from-white/10 hover:to-neon-blue/10 transition-all duration-300"
+                    className="border-t border-[#FFFFFF10] hover:bg-[#FFFFFF]/10 transition-all duration-300"
                     initial={{ opacity: 0, y: 10 }}
                     animate={{ opacity: 1, y: 0 }}
                     whileHover={{ backgroundColor: "rgba(255, 255, 255, 0.05)" }}
                     transition={{ duration: 0.3, delay: index * 0.01 }}
                   >
-                    <td className="px-3 py-2.5 text-white truncate">
+                    <td className="px-3 py-2.5 text-[#FFF] truncate">
                       <div className="flex items-center gap-2">
                         <img
                           src={group.logo}
@@ -1294,18 +1292,18 @@ const ClusterTab = ({ recaptchaRef, initialClusterId, activeTab: propActiveTab, 
                         {group.symbol}
                       </div>
                     </td>
-                    <td className="px-3 py-2.5 text-white truncate">
+                    <td className="px-3 py-2.5 text-[#FFF] truncate">
                       <span className="font-semibold">{group.total_balance.toLocaleString("en-US", { maximumFractionDigits: 2 })}</span>
                     </td>
-                    <td className="px-3 py-2.5 text-white truncate">
+                    <td className="px-3 py-2.5 text-[#FFF] truncate">
                       <span className="font-semibold">{formatPrice(group.total_balance_usd || 0, currency, 2)}</span>
                     </td>
-                    <td className="px-3 py-2.5 text-white truncate">
+                    <td className="px-3 py-2.5 text-[#FFF] truncate">
                       <div className="flex items-center gap-2">
                         <span className="font-semibold">{group.percentage.toFixed(2)}%</span>
-                        <div className="w-full bg-white/10 rounded-full h-1.5">
+                        <div className="w-full bg-[#FFFFFF]/10 rounded-full h-1.5">
                           <motion.div
-                            className="bg-gradient-to-r from-neon-blue to-emerald-400 h-1.5 rounded-full"
+                            className="bg-gradient-to-r from-[#00FFFF20] to-emerald-400/20 h-1.5 rounded-full"
                             style={{ width: `${group.percentage}%` }}
                             initial={{ width: 0 }}
                             animate={{ width: `${group.percentage}%` }}
@@ -1319,7 +1317,7 @@ const ClusterTab = ({ recaptchaRef, initialClusterId, activeTab: propActiveTab, 
               </tbody>
             </table>
           ) : (
-            <p className="text-[10px] sm:text-sm text-white/60 text-center py-4">No portfolio data available for this cluster.</p>
+            <p className="text-[10px] sm:text-sm text-[#D4D4D4] text-center py-4">No portfolio data available for this cluster.</p>
           )}
         </div>
       </div>
@@ -1331,7 +1329,7 @@ const ClusterTab = ({ recaptchaRef, initialClusterId, activeTab: propActiveTab, 
     }
     const totalValue = uniqueWalletData.reduce((sum, wallet) => sum + (Number(wallet.total_value_usd) || 0), 0);
     return (
-      <div className="relative bg-gradient-to-br from-black/80 to-gray-900/80 overflow-y-auto min-h-[calc(50vh)] sm:min-h-[calc(30vh)] max-h-[calc(50vh)] sm:max-h-[calc(50vh-5rem)] hide-scrollbar">
+      <div className="relative bg-[#0A0A0A]/80 backdrop-blur-md overflow-y-auto min-h-[calc(50vh)] sm:min-h-[calc(30vh)] max-h-[calc(50vh)] sm:max-h-[calc(50vh-5rem)] hide-scrollbar">
         {isLoadingWallets && (
           <LoadingOverlay
             isLoading={isLoadingWallets}
@@ -1342,13 +1340,13 @@ const ClusterTab = ({ recaptchaRef, initialClusterId, activeTab: propActiveTab, 
         {isLoadingWallets ? (
           <SkeletonLoader count={5} isMobile={isMobile} />
         ) : uniqueWalletData.length > 0 ? (
-          <table className="w-full table-fixed text-[9px] sm:text-[11px] bg-black/5 rounded-xl">
-            <thead className="border-b border-white/10 bg-gradient-to-br from-black/80 to-gray-900/80">
+          <table className="w-full table-fixed text-[9px] sm:text-[11px] bg-[#0A0A0A]/80 rounded-xl">
+            <thead className="border-b border-[#FFFFFF10] bg-[#0A0A0A]/80 backdrop-blur-md">
               <tr>
-                <th className={`${isMobile ? "w-[40%]" : "w-[50%]"} px-3 py-2 text-white text-left font-semibold truncate`}>Wallet</th>
-                {/* <th className={`${isMobile ? "w-[20%]" : "w-[20%]"} px-3 py-2 text-white text-left font-semibold truncate`}>Chain</th> */}
-                <th className={`${isMobile ? "w-[20%]" : "w-[15%]"} px-3 py-2 text-white text-left font-semibold truncate`}>Value ({currency.toUpperCase()})</th>
-                <th className={`${isMobile ? "w-[20%]" : "w-[15%]"} px-3 py-2 text-white text-left font-semibold truncate`}>Tokens</th>
+                <th className={`${isMobile ? "w-[40%]" : "w-[50%]"} px-3 py-2 text-[#FFF] text-left font-semibold truncate`}>Wallet</th>
+                {/* <th className={`${isMobile ? "w-[20%]" : "w-[20%]"} px-3 py-2 text-[#FFF] text-left font-semibold truncate`}>Chain</th> */}
+                <th className={`${isMobile ? "w-[20%]" : "w-[15%]"} px-3 py-2 text-[#FFF] text-left font-semibold truncate`}>Value ({currency.toUpperCase()})</th>
+                <th className={`${isMobile ? "w-[20%]" : "w-[15%]"} px-3 py-2 text-[#FFF] text-left font-semibold truncate`}>Tokens</th>
               </tr>
             </thead>
             <tbody>
@@ -1363,14 +1361,14 @@ const ClusterTab = ({ recaptchaRef, initialClusterId, activeTab: propActiveTab, 
                 return (
                   <motion.tr
                     key={wallet.key}
-                    className="border-t border-white/10 hover:bg-gradient-to-r hover:from-white/10 hover:to-neon-blue/10 transition-all duration-300 cursor-pointer"
+                    className="border-t border-[#FFFFFF10] hover:bg-[#FFFFFF]/10 transition-all duration-300 cursor-pointer"
                     initial={{ opacity: 0, y: 10 }}
                     animate={{ opacity: 1, y: 0 }}
-                    whileHover={{ backgroundColor: "rgba(255, 255, 255, 0.05)", scale: 1.01 }}
-                    transition={{ duration: 0.3, delay: index * 0.02 }}
+                    whileHover={{ backgroundColor: "rgba(255, 255, 255, 0.05)" }}
+                    transition={{ duration: 0.3, delay: index * 0.01 }}
                     onClick={() => handleWalletClick(wallet)}
                   >
-                    <td className="px-3 py-2.5 text-white truncate">
+                    <td className="px-3 py-2.5 text-[#FFF] truncate">
                       <div className="flex items-center gap-1">
                         {/* FIX: Hiển thị hai logo cho BTC/Doge/LTC (cluster bên trái + chain bên phải), một logo cho EVM. Sử dụng object-contain để tránh bóp méo, giảm kích thước trên mobile nếu cần */}
                         {(() => {
@@ -1407,7 +1405,7 @@ const ClusterTab = ({ recaptchaRef, initialClusterId, activeTab: propActiveTab, 
                         </div>
                       </div>
                     </td>
-                    {/* <td className="px-3 py-2.5 text-white truncate">
+                    {/* <td className="px-3 py-2.5 text-[#FFF] truncate">
                       <div className="flex items-center gap-1">
                         <img
                           src={chainLogos[chainLower] || "/fallback-image.webp"}
@@ -1418,10 +1416,10 @@ const ClusterTab = ({ recaptchaRef, initialClusterId, activeTab: propActiveTab, 
                         <span className="font-semibold">{CHAIN_ID_TO_NAME[chainLower] || chainLower || "Unknown"}</span>
                       </div>
                     </td> */}
-                    <td className="px-3 py-2.5 text-white truncate">
+                    <td className="px-3 py-2.5 text-[#FFF] truncate">
                       <span className="font-semibold">{formatPrice(Number(wallet.total_value_usd) || 0, currency, 2)}</span>
                     </td>
-                    <td className="px-3 py-2.5 text-white truncate">
+                    <td className="px-3 py-2.5 text-[#FFF] truncate">
                       <span className="font-semibold">{wallet.token_count || 0}</span>
                     </td>
                   </motion.tr>
@@ -1430,12 +1428,12 @@ const ClusterTab = ({ recaptchaRef, initialClusterId, activeTab: propActiveTab, 
             </tbody>
           </table>
         ) : (
-          <p className="text-[10px] sm:text-sm text-white/60 text-center py-4">No wallet data available for this cluster.</p>
+          <p className="text-[10px] sm:text-sm text-[#D4D4D4] text-center py-4">No wallet data available for this cluster.</p>
         )}
       </div>
     );
   };
-  
+ 
   const renderTransactionsContent = () => {
     if (status !== "authenticated") {
       return <LoginPrompt />;
@@ -1468,7 +1466,7 @@ const ClusterTab = ({ recaptchaRef, initialClusterId, activeTab: propActiveTab, 
       const isOutgoing = hasFromCluster && !hasToCluster;
       const isIncoming = hasToCluster && !hasFromCluster;
       const isInternal = hasFromCluster && hasToCluster;
-      const directionColor = isInternal ? 'text-white' : isOutgoing ? 'text-red-400' : isIncoming ? 'text-green-400' : 'text-gray-400';
+      const directionColor = isInternal ? 'text-[#FFF]' : isOutgoing ? 'text-red-400' : isIncoming ? 'text-green-400' : 'text-gray-400';
       // FIX: Custom flow icon - half cylinder on left (rounded rect), reduced height, arrow at end
       const transferIcon = (
         <svg
@@ -1515,13 +1513,13 @@ const ClusterTab = ({ recaptchaRef, initialClusterId, activeTab: propActiveTab, 
       return (
         <motion.div
           key={`${isBitcoin ? tx.txid : tx.hash}-${index}`}
-          className="flex border-t border-white/10 hover:bg-gradient-to-r hover:from-white/5 hover:to-neon-blue/5 transition-all duration-300 py-2"
+          className="flex border-t border-[#FFFFFF10] hover:bg-[#FFFFFF]/10 transition-all duration-300 py-2"
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
           whileHover={{ scale: 1 }}
           transition={{ duration: 0.3, delay: index * 0.02 }}
         >
-          <div className="w-[12%] sm:w-[15%] px-2 sm:px-3 text-white/80 text-[9px] sm:text-[10px] text-center overflow-hidden text-ellipsis">
+          <div className="w-[12%] sm:w-[15%] px-2 sm:px-3 text-[#FFF]/80 text-[9px] sm:text-[10px] text-center overflow-hidden text-ellipsis">
             <div className="flex flex-col items-center justify-center gap-1 relative">
               <div className="relative flex-shrink-0">
                 <img
@@ -1547,7 +1545,7 @@ const ClusterTab = ({ recaptchaRef, initialClusterId, activeTab: propActiveTab, 
               <span className="text-[7px] sm:text-[9px] truncate max-w-[60px] sm:max-w-[80px]">{tokenSymbol}</span>
             </div>
           </div>
-          <div className="w-[30%] sm:w-[25%] px-2 sm:px-3 text-white/80 text-[8px] sm:text-[10px] text-center overflow-hidden text-ellipsis flex items-center justify-center">
+          <div className="w-[30%] sm:w-[25%] px-2 sm:px-3 text-[#FFF]/80 text-[8px] sm:text-[10px] text-center overflow-hidden text-ellipsis flex items-center justify-center">
             <div className="flex items-center gap-1 min-w-0 flex-1">
               <div className={`flex flex-col items-center gap-0.5 ${directionColor}`}>
                 <div className="-mt-0.5">{transferIcon}</div>
@@ -1564,7 +1562,7 @@ const ClusterTab = ({ recaptchaRef, initialClusterId, activeTab: propActiveTab, 
                   />
                   <span
                     onClick={() => handleWalletClick(fromWallet)}
-                    className="text-white hover:text-white/80 cursor-pointer no-hover-effect truncate"
+                    className="text-[#FFF] hover:text-[#FFF]/80 cursor-pointer no-hover-effect truncate"
                   >
                     {truncateAddressWithHover(tx.from, fromNtag.name, isBitcoin ? 'Blockchair' : undefined)}
                   </span>
@@ -1579,7 +1577,7 @@ const ClusterTab = ({ recaptchaRef, initialClusterId, activeTab: propActiveTab, 
                   />
                   <span
                     onClick={() => handleWalletClick(toWallet)}
-                    className="text-white hover:text-white/80 cursor-pointer no-hover-effect truncate"
+                    className="text-[#FFF] hover:text-[#FFF]/80 cursor-pointer no-hover-effect truncate"
                   >
                     {truncateAddressWithHover(tx.to, toNtag.name, isBitcoin ? 'Blockchair' : undefined)}
                   </span>
@@ -1587,18 +1585,18 @@ const ClusterTab = ({ recaptchaRef, initialClusterId, activeTab: propActiveTab, 
               </div>
             </div>
           </div>
-          <div className="w-[20%] sm:w-[20%] px-2 sm:px-3 text-white/80 text-[9px] sm:text-[10px] text-center overflow-hidden text-ellipsis">
+          <div className="w-[20%] sm:w-[20%] px-2 sm:px-3 text-[#FFF]/80 text-[9px] sm:text-[10px] text-center overflow-hidden text-ellipsis">
             <div className="flex flex-col items-center gap-1">
-              <span className={`inline-flex px-1 sm:px-1.5 py-0.5 rounded-full text-[7px] sm:text-[9px] font-medium bg-neon-blue/20 text-neon-blue`}>
+              <span className={`inline-flex px-1 sm:px-1.5 py-0.5 rounded-full text-[7px] sm:text-[9px] font-medium bg-[#00FFFF20]/20 text-[#00FFFF20]`}>
                 {typeDisplay}
               </span>
               <span className={`truncate font-semibold text-[8px] sm:text-[10px] ${directionColor}`}>{displayValue}</span>
             </div>
           </div>
-          <div className="w-[30%] sm:w-[25%] px-2 sm:px-3 text-white/80 text-[8px] sm:text-[10px] text-center overflow-hidden text-ellipsis">
+          <div className="w-[30%] sm:w-[25%] px-2 sm:px-3 text-[#FFF]/80 text-[9px] sm:text-[10px] text-center overflow-hidden text-ellipsis">
             <span className="font-semibold">{formatPrice(Number(tx.value_usd) || 0, currency, 2)}</span>
           </div>
-          <div className="w-[10%] sm:w-[15%] px-2 sm:px-3 text-white/80 text-[9px] sm:text-[10px] text-center overflow-hidden text-ellipsis">
+          <div className="w-[10%] sm:w-[15%] px-2 sm:px-3 text-[#FFF]/80 text-[9px] sm:text-[10px] text-center overflow-hidden text-ellipsis">
             <div className="flex flex-col items-center gap-0.5">
               <a href={txUrl} target="_blank" rel="noopener noreferrer">
                 <img
@@ -1611,7 +1609,7 @@ const ClusterTab = ({ recaptchaRef, initialClusterId, activeTab: propActiveTab, 
                   loading="lazy"
                 />
               </a>
-              <span className="text-[6px] sm:text-[9px] text-white/60 truncate">
+              <span className="text-[6px] sm:text-[9px] text-[#D4D4D4] truncate">
                 {(() => {
                   if (time && !isNaN(time)) {
                     try {
@@ -1649,7 +1647,7 @@ const ClusterTab = ({ recaptchaRef, initialClusterId, activeTab: propActiveTab, 
       );
     };
     return (
-      <div className="relative overflow-y-auto min-h-[calc(50vh)] sm:min-h-[calc(30vh)] max-h-[calc(50vh)] sm:max-h-[calc(50vh-5rem)] hide-scrollbar bg-gradient-to-br from-black/80 to-gray-900/80 rounded-xl">
+      <div className="relative overflow-y-auto min-h-[calc(50vh)] sm:min-h-[calc(30vh)] max-h-[calc(50vh)] sm:max-h-[calc(50vh-5rem)] hide-scrollbar bg-[#0A0A0A]/80 backdrop-blur-md rounded-xl">
         {isLoadingTransactions && (
           <LoadingOverlay
             isLoading={isLoadingTransactions}
@@ -1659,14 +1657,14 @@ const ClusterTab = ({ recaptchaRef, initialClusterId, activeTab: propActiveTab, 
         )}
         {isLoadingTransactions ? (
           <div className="w-full table-fixed text-[9px] sm:text-[11px]">
-            <div className="border-b border-white/10 bg-gradient-to-br from-black/80 to-gray-900/80 flex">
-              <div className="w-[12%] sm:w-[15%] px-3 py-2 text-white font-medium text-center">Token</div>
-              <div className="w-[30%] sm:w-[25%] px-3 py-2 text-white font-medium text-center">From/To</div>
-              <div className="w-[20%] sm:w-[20%] px-3 py-2 text-white font-medium text-center">Token Value</div>
-              <div className="w-[30%] sm:w-[25%] px-3 py-2 text-white font-medium text-center">Value ({currency.toUpperCase()})</div>
-              <div className="w-[10%] sm:w-[15%] px-3 py-2 text-white font-medium text-center">Details</div>
+            <div className="border-b border-[#FFFFFF10] bg-[#0A0A0A]/80 backdrop-blur-md flex">
+              <div className="w-[12%] sm:w-[15%] px-3 py-2 text-[#FFF] font-medium text-center">Token</div>
+              <div className="w-[30%] sm:w-[25%] px-3 py-2 text-[#FFF] font-medium text-center">From/To</div>
+              <div className="w-[20%] sm:w-[20%] px-3 py-2 text-[#FFF] font-medium text-center">Token Value</div>
+              <div className="w-[30%] sm:w-[25%] px-3 py-2 text-[#FFF] font-medium text-center">Value ({currency.toUpperCase()})</div>
+              <div className="w-[10%] sm:w-[15%] px-3 py-2 text-[#FFF] font-medium text-center">Details</div>
             </div>
-            <div className="flex items-center justify-center py-8 text-white/60 text-center">
+            <div className="flex items-center justify-center py-8 text-[#D4D4D4] text-center">
               <p className="text-[10px] sm:text-sm">Loading transactions...</p>
             </div>
           </div>
@@ -1676,35 +1674,35 @@ const ClusterTab = ({ recaptchaRef, initialClusterId, activeTab: propActiveTab, 
           </p>
         ) : transactions.length > 0 ? (
           <div className="w-full table-fixed text-[9px] sm:text-[11px]">
-            <div className="border-b border-white/10 bg-gradient-to-br from-black/80 to-gray-900/80 flex">
-              <div className="w-[12%] sm:w-[15%] px-3 py-2 text-white font-medium text-center">Token</div>
-              <div className="w-[30%] sm:w-[25%] px-3 py-2 text-white font-medium text-center">From/To</div>
-              <div className="w-[20%] sm:w-[20%] px-3 py-2 text-white font-medium text-center">Token Value</div>
-              <div className="w-[30%] sm:w-[25%] px-3 py-2 text-white font-medium text-center">Value ({currency.toUpperCase()})</div>
-              <div className="w-[10%] sm:w-[15%] px-3 py-2 text-white font-medium text-center">Details</div>
+            <div className="border-b border-[#FFFFFF10] bg-[#0A0A0A]/80 backdrop-blur-md flex">
+              <div className="w-[12%] sm:w-[15%] px-3 py-2 text-[#FFF] font-medium text-center">Token</div>
+              <div className="w-[30%] sm:w-[25%] px-3 py-2 text-[#FFF] font-medium text-center">From/To</div>
+              <div className="w-[20%] sm:w-[20%] px-3 py-2 text-[#FFF] font-medium text-center">Token Value</div>
+              <div className="w-[30%] sm:w-[25%] px-3 py-2 text-[#FFF] font-medium text-center">Value ({currency.toUpperCase()})</div>
+              <div className="w-[10%] sm:w-[15%] px-3 py-2 text-[#FFF] font-medium text-center">Details</div>
             </div>
             <Virtuoso
-              className="bg-gradient-to-br from-black/80 to-gray-900/80 hide-scrollbar virtuoso-container"
+              className="bg-[#0A0A0A]/80 backdrop-blur-md hide-scrollbar virtuoso-container"
               style={{ height: 'calc(50vh - 5rem)' }}
               data={transactions}
               itemContent={renderTransactionRow}
               overscan={400}
               components={{
                 EmptyPlaceholder: () => (
-                  <p className="text-[10px] sm:text-xs text-white/60 text-center">No transactions available.</p>
+                  <p className="text-[10px] sm:text-xs text-[#D4D4D4] text-center">No transactions available.</p>
                 ),
               }}
             />
           </div>
         ) : (
-          <p className="text-[10px] sm:text-xs text-white/60 text-center">No large transactions available for this cluster.</p>
+          <p className="text-[10px] sm:text-xs text-[#D4D4D4] text-center">No large transactions available for this cluster.</p>
         )}
       </div>
     );
   };
   // NEW: Function to get trust score badge class (inspired by Arkham/Nansen trust indicators)
   const getTrustScoreBadge = (score) => {
-    if (score === "N/A" || !score) return "bg-gray-600 text-white/70";
+    if (score === "N/A" || !score) return "bg-gray-600 text-[#D4D4D4]";
     const numScore = Number(score);
     if (numScore >= 9) return "bg-emerald-500/20 text-emerald-400 border-emerald-500/30";
     if (numScore >= 7) return "bg-yellow-500/20 text-yellow-400 border-yellow-500/30";
@@ -1716,7 +1714,7 @@ const ClusterTab = ({ recaptchaRef, initialClusterId, activeTab: propActiveTab, 
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.6, ease: "easeOut" }}
-      className="font-inter w-full max-w-9xl mx-auto p-2 sm:p-3 bg-gradient-to-br from-black/80 to-gray-900/80 backdrop-blur-xs flex flex-col h-[calc(100vh-3rem)] overflow-y-auto hide-scrollbar"
+      className="font-inter w-full max-w-9xl mx-auto p-2 sm:p-3 bg-[#0A0A0A]/80 backdrop-blur-md flex flex-col h-[calc(100vh-3rem)] overflow-y-auto hide-scrollbar"
     >
       <div className="w-full mb-2">
         <UniversalSearch
@@ -1738,7 +1736,7 @@ const ClusterTab = ({ recaptchaRef, initialClusterId, activeTab: propActiveTab, 
       )}
       <div className="flex flex-col flex-1 gap-4 sm:gap-5">
         <motion.div
-          className="min-h-[30vh] border border-white/10 rounded-xl bg-gradient-to-br from-black/80 to-gray-900/80 backdrop-blur-sm flex flex-col md:flex-row shadow-2xl"
+          className="min-h-[30vh] border border-[#FFFFFF20] rounded-xl bg-[#0A0A0A]/80 backdrop-blur-md flex flex-col md:flex-row shadow-[0_4px_12px_rgba(0,0,0,0.3)] glow-[#FFFFFF15]"
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5 }}
@@ -1759,16 +1757,16 @@ const ClusterTab = ({ recaptchaRef, initialClusterId, activeTab: propActiveTab, 
                       whileHover={{ scale: 1.05, rotate: 5 }}
                       transition={{ duration: 0.2 }}
                     />
-                    <h4 className="ml-2 text-lg sm:text-xl font-bold text-white uppercase tracking-wide">{exchangeData.name}</h4>
+                    <h4 className="ml-2 text-lg sm:text-xl font-bold text-[#FFF] uppercase tracking-wide">{exchangeData.name}</h4>
                   </div>
                   <motion.div
                     className="ml-12 sm:ml-0"
                     initial={{ scale: 0.9 }}
                     animate={{ scale: 1 }}
                   >
-                    <div className="flex items-center gap-1 p-1 bg-gradient-to-br from-black/80 to-gray-900/80 rounded-xl border border-white/10 shadow-md shadow-neon-blue/10 max-w-full">
+                    <div className="flex items-center gap-1 p-1 bg-[#0A0A0A]/50 rounded-xl border border-[#FFFFFF20] shadow-[0_4px_12px_rgba(0,0,0,0.3)] glow-[#FFFFFF15] max-w-full">
                       <div className="flex items-center gap-1 flex-wrap min-w-0">
-                        <span className="p-1 flex items-center font-bold text-white text-[11px] sm:text-xs whitespace-nowrap">
+                        <span className="p-1 flex items-center font-bold text-[#FFF] text-[11px] sm:text-xs whitespace-nowrap">
                           <svg
                             xmlns="http://www.w3.org/2000/svg"
                             className="h-4 w-4 text-emerald-400 flex-shrink-0 m-1"
@@ -1785,7 +1783,7 @@ const ClusterTab = ({ recaptchaRef, initialClusterId, activeTab: propActiveTab, 
                           </svg>
                           Total Value:
                         </span>
-                        <span className="font-bold m-1 bg-gradient-to-r from-neon-blue to-emerald-400 bg-clip-text text-transparent text-xs sm:text-sm truncate">
+                        <span className="font-bold m-1 bg-gradient-to-r from-[#D4D4D4] to-emerald-400 bg-clip-text text-transparent text-xs sm:text-sm truncate">
                           {formatPrice(totalPortfolioValue, currency, 2)}
                         </span>
                       </div>
@@ -1794,9 +1792,9 @@ const ClusterTab = ({ recaptchaRef, initialClusterId, activeTab: propActiveTab, 
                 </div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <motion.div
-                    className="bg-white/5 rounded-xl p-3 border border-white/10 hover:border-white/20 transition-colors"
+                    className="bg-[#FFFFFF]/5 rounded-xl p-3 border border-[#FFFFFF10] hover:border-[#FFFFFF20] transition-colors"
                   >
-                    <h5 className="text-[10px] font-bold text-white uppercase mb-2 flex items-center gap-1">
+                    <h5 className="text-[10px] font-bold text-[#FFF] uppercase mb-2 flex items-center gap-1">
                       <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
                       </svg>
@@ -1804,26 +1802,26 @@ const ClusterTab = ({ recaptchaRef, initialClusterId, activeTab: propActiveTab, 
                     </h5>
                     <div className="space-y-2 text-[10px] sm:text-xs">
                       <div className="flex justify-between">
-                        <span className="text-white/60">Country:</span>
-                        <span className="text-white">{exchangeData.country || "Not available"}</span>
+                        <span className="text-[#D4D4D4]">Country:</span>
+                        <span className="text-[#FFF]">{exchangeData.country || "Not available"}</span>
                       </div>
                       {/* NEW: Added Trust Score badge, inspired by Arkham's trust indicators */}
                       <div className="flex justify-between items-center">
-                        <span className="text-white/60">Trust Score:</span>
+                        <span className="text-[#D4D4D4]">Trust Score:</span>
                         <span className={`px-2 py-1 rounded-lg text-xs font-semibold ${getTrustScoreBadge(exchangeData.trust_score)}`}>
                           {exchangeData.trust_score || "N/A"}
                         </span>
                       </div>
                       <div className="flex justify-between">
-                        <span className="text-white/60">Number of Wallets:</span>
-                        <span className="text-white">{uniqueWalletData.length}</span>
+                        <span className="text-[#D4D4D4]">Number of Wallets:</span>
+                        <span className="text-[#FFF]">{uniqueWalletData.length}</span>
                       </div>
                     </div>
                   </motion.div>
                   <motion.div
-                    className="bg-white/5 rounded-xl p-3 border border-white/10 hover:border-white/20 transition-colors"
+                    className="bg-[#FFFFFF]/5 rounded-xl p-3 border border-[#FFFFFF10] hover:border-[#FFFFFF20] transition-colors"
                   >
-                    <h5 className="text-[10px] font-bold text-white uppercase mb-2 flex items-center gap-1">
+                    <h5 className="text-[10px] font-bold text-[#FFF] uppercase mb-2 flex items-center gap-1">
                       <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
                       </svg>
@@ -1831,16 +1829,16 @@ const ClusterTab = ({ recaptchaRef, initialClusterId, activeTab: propActiveTab, 
                     </h5>
                     <div className="space-y-2 text-[10px] sm:text-xs">
                       <div className="flex justify-between">
-                        <span className="text-white/60">24h USD Volume:</span>
-                        <span className="text-white">
+                        <span className="text-[#D4D4D4]">24h USD Volume:</span>
+                        <span className="text-[#FFF]">
                           {btcPrice && exchangeData.trade_volume_24h_btc
                             ? formatPrice(Number(exchangeData.trade_volume_24h_btc) * btcPrice, currency, 2)
                             : "Not available"}
                         </span>
                       </div>
                       <div className="flex justify-between">
-                        <span className="text-white/60">Centralized:</span>
-                        <span className="text-white">{exchangeData.centralized ? "Yes" : "No"}</span>
+                        <span className="text-[#D4D4D4]">Centralized:</span>
+                        <span className="text-[#FFF]">{exchangeData.centralized ? "Yes" : "No"}</span>
                       </div>
                     </div>
                   </motion.div>
@@ -1851,7 +1849,7 @@ const ClusterTab = ({ recaptchaRef, initialClusterId, activeTab: propActiveTab, 
                       href={`https://twitter.com/${exchangeData.twitter_handle}`}
                       target="_blank"
                       rel="noreferrer"
-                      className="p-1 bg-white/10 rounded-lg hover:bg-white/20 border border-white/20"
+                      className="p-1 bg-[#FFFFFF]/10 rounded-lg hover:bg-[#FFFFFF]/20 border border-[#FFFFFF20]"
                       whileHover={{ scale: 1.05, y: -2, backgroundColor: "rgba(255,255,255,0.2)" }}
                       whileTap={{ scale: 0.95 }}
                       transition={{ duration: 0.2 }}
@@ -1864,7 +1862,7 @@ const ClusterTab = ({ recaptchaRef, initialClusterId, activeTab: propActiveTab, 
                       href={exchangeData.url}
                       target="_blank"
                       rel="noreferrer"
-                      className="p-1 bg-white/10 rounded-lg hover:bg-white/20 border border-white/20"
+                      className="p-1 bg-[#FFFFFF]/10 rounded-lg hover:bg-[#FFFFFF]/20 border border-[#FFFFFF20]"
                       whileHover={{ scale: 1.05, y: -2, backgroundColor: "rgba(255,255,255,0.2)" }}
                       whileTap={{ scale: 0.95 }}
                       transition={{ duration: 0.2 }}
@@ -1875,7 +1873,7 @@ const ClusterTab = ({ recaptchaRef, initialClusterId, activeTab: propActiveTab, 
                 </div>
               </div>
             ) : (
-              <p className="text-[10px] sm:text-xs text-white/60 text-center">No cluster data available. Please select another cluster.</p>
+              <p className="text-[10px] sm:text-xs text-[#D4D4D4] text-center">No cluster data available. Please select another cluster.</p>
             )}
           </div>
           <div className="flex-1 p-2 sm:p-4 mr-2 sm:mr-0">
@@ -1912,25 +1910,25 @@ const ClusterTab = ({ recaptchaRef, initialClusterId, activeTab: propActiveTab, 
                 </AreaChart>
               </ResponsiveContainer>
             ) : (
-              <p className="text-[10px] sm:text-xs text-white/60 text-center">No volume data available for this cluster.</p>
+              <p className="text-[10px] sm:text-xs text-[#D4D4D4] text-center">No volume data available for this cluster.</p>
             )}
           </div>
         </motion.div>
         <div className="flex flex-col md:flex-row gap-4 flex-1">
           <motion.div
-            className="flex-1 border border-white/10 rounded-xl bg-gradient-to-br from-black/80 to-gray-900/80 backdrop-blur-sm flex flex-col"
+            className="flex-1 border border-[#FFFFFF20] rounded-xl bg-[#0A0A0A]/80 backdrop-blur-md flex flex-col shadow-[0_4px_12px_rgba(0,0,0,0.3)] glow-[#FFFFFF15]"
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.5, delay: 0.2 }}
           >
-            <div className="p-0 border-b border-white/10 bg-black/10 flex gap-4 items-end h-[52px]">
+            <div className="p-0 border-b border-[#FFFFFF10] bg-[#0A0A0A]/80 backdrop-blur-md flex gap-4 items-end h-[52px]">
               <motion.button
                 onClick={() => {
                   currentSetActiveTab("portfolio");
                   // Update URL preserve subtab
                   router.push(`${window.location.pathname}?tab=cluster&subtab=portfolio&clusterId=${encodeURIComponent(clusterIdFromQuery)}`, { scroll: false });
                 }}
-                className={`text-xs font-bold text-white uppercase tracking-wider px-4 py-2 no-hover-effect flex items-center ${currentActiveTab === "portfolio" ? "border-b-2 border-white/60" : "text-white/80 hover:text-neon-blue"}`} // Sử dụng currentActiveTab
+                className={`text-xs font-bold text-[#FFF] uppercase tracking-wider px-4 py-2 no-hover-effect flex items-center ${currentActiveTab === "portfolio" ? "border-b-2 border-[#FFF]/60" : "text-[#D4D4D4] hover:text-[#00FFFF20]"}`} // Sử dụng currentActiveTab
               >
                 <svg className="w-4 h-4 mr-2" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
                   <path d="M12 2V12H2C2 6.47715 6.47715 2 12 2Z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
@@ -1944,7 +1942,7 @@ const ClusterTab = ({ recaptchaRef, initialClusterId, activeTab: propActiveTab, 
                   // Update URL
                   router.push(`${window.location.pathname}?tab=cluster&subtab=wallets&clusterId=${encodeURIComponent(clusterIdFromQuery)}`, { scroll: false });
                 }}
-                className={`text-xs font-bold text-white uppercase tracking-wider px-4 py-2 no-hover-effect flex items-center ${currentActiveTab === "wallets" ? "border-b-2 border-white/60" : "text-white/80 hover:text-neon-blue"}`} // Sử dụng currentActiveTab
+                className={`text-xs font-bold text-[#FFF] uppercase tracking-wider px-4 py-2 no-hover-effect flex items-center ${currentActiveTab === "wallets" ? "border-b-2 border-[#FFF]/60" : "text-[#D4D4D4] hover:text-[#00FFFF20]"}`} // Sử dụng currentActiveTab
               >
                 <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
@@ -1955,16 +1953,16 @@ const ClusterTab = ({ recaptchaRef, initialClusterId, activeTab: propActiveTab, 
             {currentActiveTab === "portfolio" ? renderPortfolioContent() : renderWalletsContent()}
           </motion.div>
           <motion.div
-            className="flex-1 border border-white/10 rounded-xl bg-gradient-to-br from-black/80 to-gray-900/80 backdrop-blur-sm flex flex-col"
+            className="flex-1 border border-[#FFFFFF20] rounded-xl bg-[#0A0A0A]/80 backdrop-blur-md flex flex-col shadow-[0_4px_12px_rgba(0,0,0,0.3)] glow-[#FFFFFF15]"
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.5, delay: 0.3 }}
           >
-            <div className="p-2 border-b border-white/10 bg-gradient-to-br from-black/80 to-gray-900/80 flex items-center h-[52px]">
+            <div className="p-2 border-b border-[#FFFFFF10] bg-[#0A0A0A]/80 backdrop-blur-md flex items-center h-[52px]">
               <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" />
               </svg>
-              <h4 className="text-xs font-bold text-white uppercase tracking-wider">Large Flow</h4>
+              <h4 className="text-xs font-bold text-[#FFF] uppercase tracking-wider">Large Flow</h4>
             </div>
             {renderTransactionsContent()}
           </motion.div>
@@ -1980,7 +1978,6 @@ const ClusterTab = ({ recaptchaRef, initialClusterId, activeTab: propActiveTab, 
           transactions={walletTransactions}
           isLoadingTransactions={isLoadingWalletTransactions}
           transactionsError={walletTransactionsError}
-          fetchTransactions={fetchWalletTransactions}
           chains={chains}
           setSelectedWallet={setSelectedWallet}
           setWalletBalances={setWalletBalances}
@@ -2031,3 +2028,20 @@ const ClusterTab = ({ recaptchaRef, initialClusterId, activeTab: propActiveTab, 
   );
 };
 export default React.memo(ClusterTab);
+
+<style jsx global>{`
+  /* Scrollbar mượt */
+  .custom-scrollbar::-webkit-scrollbar {
+    width: 5px;
+  }
+  .custom-scrollbar::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  .custom-scrollbar::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.25);
+    border-radius: 3px;
+  }
+  .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+    background: rgba(255, 255, 255, 0.4);
+  }
+`}</style>
