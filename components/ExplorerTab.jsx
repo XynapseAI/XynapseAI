@@ -1,9 +1,10 @@
 // components/ExplorerTab.jsx
 'use client';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Search, Clock, Hash as HashIcon, AlertCircle, Wallet, Coins, Activity, Check, Copy, X, DollarSign } from 'lucide-react';
+import { Search, Clock, Hash as HashIcon, AlertCircle, Wallet, Coins, Activity, Check, Copy, X, DollarSign, ChevronDown } from 'lucide-react';
 import { useSearchParams } from 'next/navigation';
 
 export default function ExplorerTab({ initialQuery, initialChain, isStandalone = false }) {
@@ -18,6 +19,10 @@ export default function ExplorerTab({ initialQuery, initialChain, isStandalone =
     const [error, setError] = useState(null);
     const [isMobile, setIsMobile] = useState(false);
     const [logMessages, setLogMessages] = useState([]);
+    const [isChainMenuOpen, setIsChainMenuOpen] = useState(false);
+    const buttonRef = useRef(null);
+    const menuRef = useRef(null);
+    const [menuPosition, setMenuPosition] = useState({ top: 0, left: 0, width: 0 });
 
     const basePath = isStandalone ? '/explorer' : '/dashboard?tab=explorer';
     const origin = typeof window !== 'undefined' ? window.location.origin : 'https://xynapseai.net';
@@ -32,6 +37,16 @@ export default function ExplorerTab({ initialQuery, initialChain, isStandalone =
         base: { id: 8453, apiBase: '/api/etherscan-explorer' },
         solana: { id: null, apiBase: '/api/solana' },
         monad: { id: 143, apiBase: '/api/etherscan-explorer' },
+        avalanche: { id: 43114, apiBase: '/api/etherscan-explorer' },
+        celo: { id: 42220, apiBase: '/api/etherscan-explorer' },
+        gnosis: { id: 100, apiBase: '/api/etherscan-explorer' },
+        zksync: { id: 324, apiBase: '/api/etherscan-explorer' },
+        linea: { id: 59144, apiBase: '/api/etherscan-explorer' },
+        abstract: { id: 2741, apiBase: '/api/etherscan-explorer' },
+        apechain: { id: 33139, apiBase: '/api/etherscan-explorer' },
+        hyperevm: { id: 999, apiBase: '/api/etherscan-explorer' },
+        unichain: { id: 130, apiBase: '/api/etherscan-explorer' },
+        world: { id: 480, apiBase: '/api/etherscan-explorer' },
     };
 
     const chainLogos = {
@@ -44,16 +59,16 @@ export default function ExplorerTab({ initialQuery, initialChain, isStandalone =
         base: 'https://assets.coingecko.com/asset_platforms/images/131/standard/base.png?1759905869',
         solana: 'https://assets.coingecko.com/coins/images/4128/small/solana.png',
         // Add
-        avalanche: 'https://assets.coingecko.com/asset_platforms/images/12/standard/avalanche.png?1706606775',  // AVAX
-        celo: 'https://assets.coingecko.com/asset_platforms/images/21/standard/celo.jpeg?1711358666',  // CELO
-        gnosis: 'https://assets.coingecko.com/coins/images/662/standard/logo_square_simple_300px.png?1696501854',  // GNO (xDAI chain)
-        zksync: 'https://assets.coingecko.com/asset_platforms/images/121/standard/zksync.jpeg?1706606814',  // ZK
-        linea: 'https://assets.coingecko.com/asset_platforms/images/135/standard/linea.jpeg?1706606705',  // Linea (L2, dùng project logo)
-        abstract: 'https://assets.coingecko.com/asset_platforms/images/22196/standard/abstract.jpg?1735611808',  // Abstract (L2, project logo)
-        apechain: 'https://assets.coingecko.com/coins/images/34445/small/apechain.png',  // ApeChain (dùng APE variant)
-        hyperevm: 'https://assets.coingecko.com/coins/images/662/standard/logo_square_simple_300px.png?1696501854',  // HyperEVM (project logo)
-        monad: 'https://assets.coingecko.com/coins/images/38927/standard/monad.jpg?1719547722',  // MON (L1)
-        unichain: 'https://assets.coingecko.com/asset_platforms/images/22206/standard/unichain.png?1739323630',  // Unichain (L2)
+        avalanche: 'https://assets.coingecko.com/asset_platforms/images/12/standard/avalanche.png?1706606775', // AVAX
+        celo: 'https://assets.coingecko.com/asset_platforms/images/21/standard/celo.jpeg?1711358666', // CELO
+        gnosis: 'https://assets.coingecko.com/coins/images/662/standard/logo_square_simple_300px.png?1696501854', // GNO (xDAI chain)
+        zksync: 'https://assets.coingecko.com/asset_platforms/images/121/standard/zksync.jpeg?1706606814', // ZK
+        linea: 'https://assets.coingecko.com/asset_platforms/images/135/standard/linea.jpeg?1706606705', // Linea (L2, dùng project logo)
+        abstract: 'https://assets.coingecko.com/asset_platforms/images/22196/standard/abstract.jpg?1735611808', // Abstract (L2, project logo)
+        apechain: 'https://assets.coingecko.com/coins/images/34445/small/apechain.png', // ApeChain (dùng APE variant)
+        hyperevm: 'https://assets.coingecko.com/coins/images/662/standard/logo_square_simple_300px.png?1696501854', // HyperEVM (project logo)
+        monad: 'https://assets.coingecko.com/coins/images/38927/standard/monad.jpg?1719547722', // MON (L1)
+        unichain: 'https://assets.coingecko.com/asset_platforms/images/22206/standard/unichain.png?1739323630', // Unichain (L2)
         world: 'https://assets.coingecko.com/asset_platforms/images/22180/standard/Worldcoin-logomark-light.png?1728377966',
     };
 
@@ -91,13 +106,36 @@ export default function ExplorerTab({ initialQuery, initialChain, isStandalone =
     const evmChainsOrder = ['ethereum', 'arbitrum', 'bsc', 'optimism', 'polygon', 'base', "monad"];
 
     useEffect(() => {
+        const handleClickOutside = (event) => {
+            if (isChainMenuOpen && menuRef.current && !menuRef.current.contains(event.target) && !buttonRef.current.contains(event.target)) {
+                setIsChainMenuOpen(false);
+            }
+        };
+        document.addEventListener('mousedown', handleClickOutside);
+        return () => {
+            document.removeEventListener('mousedown', handleClickOutside);
+        };
+    }, [isChainMenuOpen]);
+
+    // Calculate menu position for portal
+    useEffect(() => {
+        if (isChainMenuOpen && buttonRef.current) {
+            const rect = buttonRef.current.getBoundingClientRect();
+            setMenuPosition({
+                top: rect.bottom + 8 + window.scrollY, // mt-2 equivalent (8px)
+                left: rect.left + window.scrollX,
+                width: rect.width
+            });
+        }
+    }, [isChainMenuOpen]);
+
+    useEffect(() => {
         if (results && results.data) {
             const txHash = results.data.hash || results.data.txid || results.data.signature || 'Unknown';
             const chainName = selectedChain.toUpperCase();
             const status = results.data.status || 'Pending';
             const truncatedQuery = query.length > 10 ? `${query.slice(0, 8)}...${query.slice(-6)}` : query;
             document.title = `Transaction ${truncatedQuery} on ${chainName} | Xynapse Explorer`;
-
             let metaDesc = `Explore transaction ${truncatedQuery} on ${chainName} blockchain. Status: ${status}. View details, token transfers, and more on Xynapse Explorer.`;
             if (results.data.value || results.data.nativeValue) {
                 const value = results.data.value || results.data.nativeValue || 0;
@@ -107,26 +145,20 @@ export default function ExplorerTab({ initialQuery, initialChain, isStandalone =
             if (metaTag) {
                 metaTag.setAttribute('content', metaDesc);
             }
-
             const ogTitle = document.querySelector('meta[property="og:title"]');
             if (ogTitle) ogTitle.setAttribute('content', document.title);
-
             const ogDesc = document.querySelector('meta[property="og:description"]');
             if (ogDesc) ogDesc.setAttribute('content', metaDesc);
-
             const ogImagePrimary = document.querySelector('meta[property="og:image"]') || createMetaTag('property', 'og:image', 'https://xynapseai.net/explorer.png');
             ogImagePrimary.setAttribute('content', 'https://xynapseai.net/explorer.png');
-
             let ogImageSecondary = document.querySelector('meta[property="og:image"][content*="coingecko"]');
             if (!ogImageSecondary) {
                 ogImageSecondary = createMetaTag('property', 'og:image', chainLogos[selectedChain] || 'https://xynapseai.net/explorer.png');
             }
             ogImageSecondary.setAttribute('content', chainLogos[selectedChain] || 'https://xynapseai.net/explorer.png');
-
             const currentUrl = `${origin}${basePath}?query=${encodeURIComponent(query)}&chain=${selectedChain}`;
             const ogUrl = document.querySelector('meta[property="og:url"]');
             if (ogUrl) ogUrl.setAttribute('content', currentUrl);
-
             let canonical = document.querySelector('link[rel="canonical"]');
             if (canonical) {
                 canonical.setAttribute('href', currentUrl);
@@ -142,14 +174,11 @@ export default function ExplorerTab({ initialQuery, initialChain, isStandalone =
             if (metaTag) {
                 metaTag.setAttribute('content', 'Xynapse Explorer: Search and analyze transactions on Bitcoin, Ethereum, BSC, and Solana blockchains. Real-time data, nametags, and insights.');
             }
-
             const ogImage = document.querySelector('meta[property="og:image"]') || createMetaTag('property', 'og:image', 'https://xynapseai.net/explorer.png');
             ogImage.setAttribute('content', 'https://xynapseai.net/explorer.png');
-
             const defaultUrl = `${origin}${basePath}`;
             const ogUrl = document.querySelector('meta[property="og:url"]');
             if (ogUrl) ogUrl.setAttribute('content', defaultUrl);
-
             let canonical = document.querySelector('link[rel="canonical"]');
             if (canonical) {
                 canonical.setAttribute('href', defaultUrl);
@@ -244,16 +273,13 @@ export default function ExplorerTab({ initialQuery, initialChain, isStandalone =
         const addresses = new Set();
         let tx = txData;
         if (Array.isArray(txData)) tx = txData[0];
-
         const addAddress = (addr) => {
             if (addr) {
                 addresses.add(isEVMChain(chain) ? addr.toLowerCase() : addr);
             }
         };
-
         if (tx.from) addAddress(tx.from);
         if (tx.to) addAddress(tx.to);
-
         if (isEVMChain(chain)) {
             if (tx.tokenTransfers) {
                 tx.tokenTransfers.forEach(t => {
@@ -298,7 +324,6 @@ export default function ExplorerTab({ initialQuery, initialChain, isStandalone =
                 });
             }
         }
-
         return Array.from(addresses).slice(0, 50);
     };
 
@@ -336,14 +361,13 @@ export default function ExplorerTab({ initialQuery, initialChain, isStandalone =
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
             };
-
             const config = chainConfig[ch];
             if (!config) throw new Error(`Unsupported chain: ${ch}`);
-
             let endpoint = config.apiBase;
             let body;
             if (config.apiBase === '/api/etherscan-explorer') {
-                body = { action: 'tx-details', chain: ch, txHash: q };
+                body = { action: 'tx-details', txHash: q };
+                if (selectedChain) body.chain = selectedChain;
             } else if (ch === 'bitcoin') {
                 body = { action: 'tx-details', txHash: q };
             } else if (ch === 'solana') {
@@ -361,17 +385,15 @@ export default function ExplorerTab({ initialQuery, initialChain, isStandalone =
             } else {
                 data = resJson;
             }
-
             const detectedChain = data.detectedChain || ch;
             setResults({ data, chain: detectedChain });
             setSelectedChain(detectedChain);
-
             const addresses = extractAddresses(data, detectedChain);
             if (addresses.length > 0) {
                 await fetchNametags(addresses, detectedChain);
             }
         } catch (err) {
-            if (isEVMChain(ch) && err.message.includes('not found') && fallbackIndex < evmChainsOrder.length - 1) {
+            if (isEVMChain(ch) && err.message.includes('not found') && fallbackIndex < evmChainsOrder.length - 1 && !selectedChain) {
                 const nextChain = evmChainsOrder[fallbackIndex + 1];
                 await fetchData(q, nextChain, fallbackIndex + 1);
                 return;
@@ -397,9 +419,7 @@ export default function ExplorerTab({ initialQuery, initialChain, isStandalone =
             const ch = selectedChain || detectChainForTx(query);
             setSelectedChain(ch);
             setNametags({});
-
             router.push(`/dashboard?tab=explorer&query=${encodeURIComponent(query)}&chain=${ch}`, { scroll: false });
-
             fetchData(query, ch, 0);
         } catch (err) {
             setError(err.message);
@@ -431,7 +451,7 @@ export default function ExplorerTab({ initialQuery, initialChain, isStandalone =
             <>
                 <span className="font-mono break-all mr-1">{displayAddr}</span>
                 {tag && tag['Name Tag'] && (
-                    <span className="flex items-center text-xs text-neon-blue">
+                    <span className="flex items-center text-xs text-emerald-400">
                         {tag.image && <img src={tag.image} alt={tag['Name Tag']} className="w-3 h-3 mr-1 rounded" />}
                         ({tag['Name Tag']})
                     </span>
@@ -446,6 +466,7 @@ export default function ExplorerTab({ initialQuery, initialChain, isStandalone =
     };
 
     const renderValueWithUSD = (tokenValue, usdValue, symbol, logoUrl = null, isToken = false) => {
+        tokenValue = Number(tokenValue);
         const nativeLogo = nativeTokenLogos[symbol] || logoUrl || chainLogos['ethereum'];
         const formattedUSD = formatUSD(usdValue);
         const logoElement = nativeLogo ? (
@@ -462,13 +483,13 @@ export default function ExplorerTab({ initialQuery, initialChain, isStandalone =
         if (!usdValue || usdValue === 0) return (
             <span className="flex items-center">
                 {logoElement}
-                {tokenValue.toFixed(6)} {symbol}
+                {tokenValue.toFixed(2)} {symbol}
             </span>
         );
         return (
             <span className="flex items-center">
                 {logoElement}
-                {tokenValue.toFixed(6)} {symbol}
+                {tokenValue.toFixed(2)} {symbol}
                 <span className="ml-1 text-xs text-green-400">({formattedUSD})</span>
                 {isToken && <span className="ml-1 text-xs text-gray-400">(Tokens)</span>}
             </span>
@@ -485,7 +506,7 @@ export default function ExplorerTab({ initialQuery, initialChain, isStandalone =
                     e.target.src = `https://via.placeholder.com/16?text=${symbol || 'T'}`;
                 }}
             />
-            {amount} {symbol || ''}
+            {Number(amount).toFixed(2)} {symbol || ''}
         </span>
     );
 
@@ -499,7 +520,6 @@ export default function ExplorerTab({ initialQuery, initialChain, isStandalone =
             const block = txData.block || null;
             const internalTxs = Array.isArray(txData.internalTxs) ? txData.internalTxs : [];
             const tokenTransfers = Array.isArray(txData.tokenTransfers) ? txData.tokenTransfers : [];
-
             const isConfirmed = (receipt && receipt.blockNumber) || (transaction && transaction.blockNumber);
             let status = 'Pending';
             let isSuccess = false;
@@ -508,7 +528,6 @@ export default function ExplorerTab({ initialQuery, initialChain, isStandalone =
                 status = receiptStatus === 1 ? 'Success' : 'Failed';
                 isSuccess = status === 'Success';
             }
-
             const blockNumber = transaction.blockNumber ? parseInt(transaction.blockNumber, 16) : null;
             const timestamp = block ? parseInt(block.timestamp || '0x0', 16) * 1000 : Date.now();
             const gasUsed = receipt ? (parseInt(receipt.gasUsed || '0x0', 16) || 0) : 0;
@@ -518,29 +537,27 @@ export default function ExplorerTab({ initialQuery, initialChain, isStandalone =
             const fee = (gasUsed * effectiveGasPrice) / 1e18;
             const nativeValue = Number(parseInt(transaction.value || '0x0', 16)) / 1e18;
             const symbol = nativeSymbols[detectedChain] || 'ETH';
-
             txData.nativeValueUSD = txData.nativeValueUSD || 0;
             txData.feeUSD = txData.feeUSD || 0;
             tx = { ...transaction, receipt, internalTxs, tokenTransfers };
-
             return (
                 <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-4 text-sm">
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div className="md:col-span-2 bg-black/50 p-3 rounded-lg border border-white/10 shadow-md hover:shadow-lg transition-shadow flex items-center justify-between backdrop-blur-sm">
+                        <div className="md:col-span-2 bg-[#FFFFFF]/5 backdrop-blur-md p-3 rounded-lg border border-[#FFFFFF20] shadow-[0_4px_12px_rgba(0,0,0,0.3)] glow-[#FFFFFF15] hover:shadow-[0_0_8px_rgba(255,255,255,0.15)] transition-shadow flex items-center justify-between">
                             <div className="flex items-center">
-                                <HashIcon className="w-4 h-4 text-neon-blue mr-2" />
-                                <span className="text-white/70 mr-2">Hash:</span>
+                                <HashIcon className="w-4 h-4 text-emerald-400 mr-2" />
+                                <span className="text-[#D4D4D4] mr-2">Hash:</span>
                                 <span className="font-mono break-all mr-2">{isMobile && tx.hash.length > 10 ? truncateText(tx.hash) : tx.hash}</span>
-                                <Copy onClick={() => copyToClipboard(tx.hash)} className="w-4 h-4 cursor-pointer hover:text-neon-blue" />
+                                <Copy onClick={() => copyToClipboard(tx.hash)} className="w-4 h-4 cursor-pointer hover:text-emerald-400" />
                             </div>
-                            <h2 className="text-base font-semibold flex items-center gap-2">
-                                <img src={chainLogos[detectedChain]} alt={detectedChain} className="w-6 h-6 inline mx-1" />
-                                <span className="text-neon-blue">{detectedChain.toUpperCase()}</span>
+                            <h2 className="text-xs font-semibold flex items-center gap-2">
+                                <img src={chainLogos[detectedChain]} alt={detectedChain} className="w-5 h-5 inline mx-1" />
+                                <span className="text-[#D4D4D4]">{detectedChain.toUpperCase()}</span>
                             </h2>
                         </div>
-                        <div className="md:col-span-2 bg-black/50 p-3 rounded-lg border border-white/10 shadow-md hover:shadow-lg transition-shadow flex items-center backdrop-blur-sm">
-                            <Activity className="w-4 h-4 text-neon-blue mr-2" />
-                            <span className="text-white/70 mr-2">Status:</span>
+                        <div className="md:col-span-2 bg-[#FFFFFF]/5 backdrop-blur-md p-3 rounded-lg border border-[#FFFFFF20] shadow-[0_4px_12px_rgba(0,0,0,0.3)] glow-[#FFFFFF15] hover:shadow-[0_0_8px_rgba(255,255,255,0.15)] transition-shadow flex items-center">
+                            <Activity className="w-4 h-4 text-emerald-400 mr-2" />
+                            <span className="text-[#D4D4D4] mr-2">Status:</span>
                             <div className="flex items-center">
                                 <span className={isSuccess ? 'text-green-500' : status === 'Pending' ? 'text-yellow-500' : 'text-red-400'}>{status}</span>
                                 <div className={`w-4 h-4 rounded-full flex items-center justify-center ml-1 ${isSuccess ? 'bg-green-500' : status === 'Pending' ? 'bg-yellow-500' : 'bg-red-500'}`}>
@@ -549,9 +566,9 @@ export default function ExplorerTab({ initialQuery, initialChain, isStandalone =
                             </div>
                         </div>
                         {tokenTransfers.length === 0 && (
-                            <div className="bg-black/50 p-3 rounded-lg border border-white/10 shadow-md hover:shadow-lg transition-shadow flex items-center backdrop-blur-sm">
-                                <Coins className="w-4 h-4 text-neon-blue mr-2" />
-                                <span className="text-white/70 mr-2">Value:</span>
+                            <div className="bg-[#FFFFFF]/5 backdrop-blur-md p-3 rounded-lg border border-[#FFFFFF20] shadow-[0_4px_12px_rgba(0,0,0,0.3)] glow-[#FFFFFF15] hover:shadow-[0_0_8px_rgba(255,255,255,0.15)] transition-shadow flex items-center">
+                                <Coins className="w-4 h-4 text-emerald-400 mr-2" />
+                                <span className="text-[#D4D4D4] mr-2">Value:</span>
                                 <div className="flex flex-col">
                                     <div className="flex items-center flex-wrap gap-1">
                                         {renderValueWithUSD(nativeValue, txData.nativeValueUSD, symbol, null)}
@@ -559,46 +576,45 @@ export default function ExplorerTab({ initialQuery, initialChain, isStandalone =
                                 </div>
                             </div>
                         )}
-                        <div className={`bg-black/50 p-3 rounded-lg border border-white/10 shadow-md hover:shadow-lg transition-shadow flex items-center ${blockNumber ? 'justify-between' : ''} backdrop-blur-sm`}>
+                        <div className={`bg-[#FFFFFF]/5 backdrop-blur-md p-3 rounded-lg border border-[#FFFFFF20] shadow-[0_4px_12px_rgba(0,0,0,0.3)] glow-[#FFFFFF15] hover:shadow-[0_0_8px_rgba(255,255,255,0.15)] transition-shadow flex items-center ${blockNumber ? 'justify-between' : ''}`}>
                             {blockNumber && (
                                 <div className="flex items-center">
-                                    <HashIcon className="w-4 h-4 text-neon-blue mr-1" />
+                                    <HashIcon className="w-4 h-4 text-emerald-400 mr-1" />
                                     <span>Block: {blockNumber}</span>
                                 </div>
                             )}
-                            <span className="flex items-center"><Clock className="w-4 h-4 text-neon-blue mr-1" />{status === 'Pending' ? 'Submitted: ' : 'Time: '} {new Date(timestamp).toLocaleString()}</span>
+                            <span className="flex items-center"><Clock className="w-4 h-4 text-emerald-400 mr-1" />{status === 'Pending' ? 'Submitted: ' : 'Time: '} {new Date(timestamp).toLocaleString()}</span>
                         </div>
-                        <div className="bg-black/50 p-3 rounded-lg border border-white/10 shadow-md hover:shadow-lg transition-shadow flex items-center backdrop-blur-sm">
-                            <Wallet className="w-4 h-4 text-neon-blue mr-2" />
-                            <span className="text-white/70 mr-2">From:</span>
+                        <div className="bg-[#FFFFFF]/5 backdrop-blur-md p-3 rounded-lg border border-[#FFFFFF20] shadow-[0_4px_12px_rgba(0,0,0,0.3)] glow-[#FFFFFF15] hover:shadow-[0_0_8px_rgba(255,255,255,0.15)] transition-shadow flex items-center">
+                            <Wallet className="w-4 h-4 text-emerald-400 mr-2" />
+                            <span className="text-[#D4D4D4] mr-2">From:</span>
                             <div className="flex items-center ml-2">
                                 {renderAddress(tx.from, detectedChain)}
-                                <Copy onClick={() => copyToClipboard(tx.from)} className="ml-2 w-4 h-4 cursor-pointer hover:text-neon-blue" />
+                                <Copy onClick={() => copyToClipboard(tx.from)} className="ml-2 w-4 h-4 cursor-pointer hover:text-emerald-400" />
                             </div>
                         </div>
-                        <div className="bg-black/50 p-3 rounded-lg border border-white/10 shadow-md hover:shadow-lg transition-shadow flex items-center backdrop-blur-sm">
-                            <Wallet className="w-4 h-4 text-neon-blue mr-2" />
-                            <span className="text-white/70 mr-2">To:</span>
+                        <div className="bg-[#FFFFFF]/5 backdrop-blur-md p-3 rounded-lg border border-[#FFFFFF20] shadow-[0_4px_12px_rgba(0,0,0,0.3)] glow-[#FFFFFF15] hover:shadow-[0_0_8px_rgba(255,255,255,0.15)] transition-shadow flex items-center">
+                            <Wallet className="w-4 h-4 text-emerald-400 mr-2" />
+                            <span className="text-[#D4D4D4] mr-2">To:</span>
                             <div className="flex items-center ml-2">
                                 {renderAddress(tx.to, detectedChain)}
-                                <Copy onClick={() => copyToClipboard(tx.to)} className="ml-2 w-4 h-4 cursor-pointer hover:text-neon-blue" />
+                                <Copy onClick={() => copyToClipboard(tx.to)} className="ml-2 w-4 h-4 cursor-pointer hover:text-emerald-400" />
                             </div>
                         </div>
-                        <div className="md:col-span-2 bg-black/50 p-3 rounded-lg border border-white/10 shadow-md hover:shadow-lg transition-shadow flex items-center backdrop-blur-sm">
-                            <Activity className="w-4 h-4 text-neon-blue mr-2" />
-                            <span className="text-white/70 mr-2">Fee:</span>
+                        <div className="md:col-span-2 bg-[#FFFFFF]/5 backdrop-blur-md p-3 rounded-lg border border-[#FFFFFF20] shadow-[0_4px_12px_rgba(0,0,0,0.3)] glow-[#FFFFFF15] hover:shadow-[0_0_8px_rgba(255,255,255,0.15)] transition-shadow flex items-center">
+                            <Activity className="w-4 h-4 text-emerald-400 mr-2" />
+                            <span className="text-[#D4D4D4] mr-2">Fee:</span>
                             <div className="flex flex-col">
                                 {renderValueWithUSD(fee, txData.feeUSD, symbol, null)}
                             </div>
                         </div>
                     </div>
-
                     {tokenTransfers.length > 0 && (
                         <div className="mt-4">
-                            <h3 className="text-md font-semibold flex items-center uppercase"><Coins className="w-4 h-4 mr-2 text-neon-blue" />Token Transfers</h3>
-                            <table className="w-full border-collapse border border-white/10 mt-2">
+                            <h3 className="text-md font-semibold flex items-center uppercase"><Coins className="w-4 h-4 mr-2 text-emerald-400" />Token Transfers</h3>
+                            <table className="w-full border-collapse border border-[#FFFFFF20] mt-2">
                                 <thead>
-                                    <tr className="bg-black/70">
+                                    <tr className="bg-[#0A0A0A]/80">
                                         <th className="p-2 text-left">Token</th>
                                         <th className="p-2 text-left">From</th>
                                         <th className="p-2 text-left">To</th>
@@ -610,8 +626,8 @@ export default function ExplorerTab({ initialQuery, initialChain, isStandalone =
                                     {tokenTransfers.map((t, i) => {
                                         const amount = Number(t.amount || (BigInt(t.value || 0) / 10 ** (t.decimals || 18)));
                                         return (
-                                            <tr key={i} className="hover:bg-white/5">
-                                                <td className="p-2 border border-white/10 text-left flex items-center">
+                                            <tr key={i} className="hover:bg-[#FFFFFF]/10">
+                                                <td className="p-2 border border-[#FFFFFF20] text-left flex items-center">
                                                     <img
                                                         src={t.logo || `https://via.placeholder.com/16?text=${t.symbol || 'T'}`}
                                                         alt={`${t.symbol || t.name || 'Token'} Logo`}
@@ -620,15 +636,14 @@ export default function ExplorerTab({ initialQuery, initialChain, isStandalone =
                                                     />
                                                     {t.symbol || t.name || (t.type === 'ERC721' ? `${t.name} (ID: ${t.tokenId})` : t.tokenAddress?.slice(0, 2) + '...')}
                                                 </td>
-                                                <td className="p-2 border border-white/10 text-left">{renderAddress(t.from, detectedChain)}</td>
-                                                <td className="p-2 border border-white/10 text-left">{renderAddress(t.to, detectedChain)}</td>
-                                                <td className="p-2 border border-white/10 text-left">
-                                                    {renderTokenAmount(amount.toFixed(6), t.symbol || '', t.logo)}
+                                                <td className="p-2 border border-[#FFFFFF20] text-left">{renderAddress(t.from, detectedChain)}</td>
+                                                <td className="p-2 border border-[#FFFFFF20] text-left">{renderAddress(t.to, detectedChain)}</td>
+                                                <td className="p-2 border border-[#FFFFFF20] text-left">
+                                                    {renderTokenAmount(amount, t.symbol || '', t.logo)}
                                                 </td>
-                                                <td className="p-2 border border-white/10 text-left">
+                                                <td className="p-2 border border-[#FFFFFF20] text-left">
                                                     {t.valueUSD !== null && t.valueUSD !== undefined ? (
                                                         <span className="flex items-center text-xs text-green-400">
-                                                            <DollarSign className="w-3 h-3 mr-1" />
                                                             {formatUSD(t.valueUSD)}
                                                         </span>
                                                     ) : 'N/A'}
@@ -640,23 +655,22 @@ export default function ExplorerTab({ initialQuery, initialChain, isStandalone =
                             </table>
                         </div>
                     )}
-
                     {tx.input && (
                         <div>
                             <h4 className="flex items-center"><Activity className="w-4 h-4 mr-1" />Input Data</h4>
-                            <pre className="text-xs bg-black/70 p-2 rounded overflow-auto max-h-40 custom-scrollbar">{tx.input}</pre>
+                            <pre className="text-xs bg-[#0A0A0A]/80 p-2 rounded overflow-auto max-h-40 custom-scrollbar">{tx.input}</pre>
                         </div>
                     )}
                     {receipt?.logs && (
                         <div>
                             <h4 className="flex items-center"><Activity className="w-4 h-4 mr-1" />Logs</h4>
-                            <pre className="text-xs bg-black/70 p-2 rounded overflow-auto max-h-40 custom-scrollbar">{JSON.stringify(receipt.logs, null, 2)}</pre>
+                            <pre className="text-xs bg-[#0A0A0A]/80 p-2 rounded overflow-auto max-h-40 custom-scrollbar">{JSON.stringify(receipt.logs, null, 2)}</pre>
                         </div>
                     )}
                     {internalTxs.length > 0 && (
                         <div>
                             <h4 className="flex items-center"><Activity className="w-4 h-4 mr-1" />Internal Transactions</h4>
-                            <pre className="text-xs bg-black/70 p-2 rounded overflow-auto max-h-40 custom-scrollbar">
+                            <pre className="text-xs bg-[#0A0A0A]/80 p-2 rounded overflow-auto max-h-40 custom-scrollbar">
                                 {internalTxs.map((itx, idx) => (
                                     <div key={idx}>
                                         From: {renderAddress(itx.from, detectedChain)} | To: {renderAddress(itx.to, detectedChain)} | Value: {renderValueWithUSD(Number(itx.value || 0) / 1e18, itx.valueUSD || 0, symbol, null)}
@@ -677,10 +691,8 @@ export default function ExplorerTab({ initialQuery, initialChain, isStandalone =
             const fromAddress = tx.vin?.[0]?.prevout?.scriptpubkey_address || 'Multiple Inputs';
             const toAddress = tx.vout?.[0]?.scriptpubkey_address || 'Multiple Outputs';
             const blockNumber = tx.status?.block_height || null;
-
             const totalValueUSD = tx.valueUSD || 0;
             const feeUSD = tx.feeUSD || 0;
-
             tx.hash = tx.txid;
             tx.status = status;
             tx.timestamp = timestamp;
@@ -690,25 +702,24 @@ export default function ExplorerTab({ initialQuery, initialChain, isStandalone =
             tx.to = toAddress;
             tx.blockNumber = blockNumber;
             const isSuccess = isConfirmed;
-
             return (
                 <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-4 text-sm">
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div className="md:col-span-2 bg-black/50 p-3 rounded-lg border border-white/10 shadow-md hover:shadow-lg transition-shadow flex items-center justify-between backdrop-blur-sm">
+                        <div className="md:col-span-2 bg-[#FFFFFF]/5 backdrop-blur-md p-3 rounded-lg border border-[#FFFFFF20] shadow-[0_4px_12px_rgba(0,0,0,0.3)] glow-[#FFFFFF15] hover:shadow-[0_0_8px_rgba(255,255,255,0.15)] transition-shadow flex items-center justify-between">
                             <div className="flex items-center">
-                                <HashIcon className="w-4 h-4 text-neon-blue mr-2" />
-                                <span className="text-white/70 mr-2">Hash:</span>
+                                <HashIcon className="w-4 h-4 text-emerald-400 mr-2" />
+                                <span className="text-[#D4D4D4] mr-2">Hash:</span>
                                 <span className="font-mono break-all mr-2">{isMobile && tx.hash.length > 10 ? truncateText(tx.hash) : tx.hash}</span>
-                                <Copy onClick={() => copyToClipboard(tx.hash)} className="w-4 h-4 cursor-pointer hover:text-neon-blue" />
+                                <Copy onClick={() => copyToClipboard(tx.hash)} className="w-4 h-4 cursor-pointer hover:text-emerald-400" />
                             </div>
-                            <h2 className="text-base font-semibold flex items-center gap-2">
+                            <h2 className="text-xs font-semibold flex items-center gap-2">
                                 <img src={chainLogos[chain]} alt={chain} className="w-6 h-6 inline mx-1" />
-                                <span className="text-neon-blue">{chain.toUpperCase()}</span>
+                                <span className="text-[#D4D4D4]">{chain.toUpperCase()}</span>
                             </h2>
                         </div>
-                        <div className="md:col-span-2 bg-black/50 p-3 rounded-lg border border-white/10 shadow-md hover:shadow-lg transition-shadow flex items-center backdrop-blur-sm">
-                            <Activity className="w-4 h-4 text-neon-blue mr-2" />
-                            <span className="text-white/70 mr-2">Status:</span>
+                        <div className="md:col-span-2 bg-[#FFFFFF]/5 backdrop-blur-md p-3 rounded-lg border border-[#FFFFFF20] shadow-[0_4px_12px_rgba(0,0,0,0.3)] glow-[#FFFFFF15] hover:shadow-[0_0_8px_rgba(255,255,255,0.15)] transition-shadow flex items-center">
+                            <Activity className="w-4 h-4 text-emerald-400 mr-2" />
+                            <span className="text-[#D4D4D4] mr-2">Status:</span>
                             <div className="flex items-center">
                                 <span className={isSuccess ? 'text-green-500' : status === 'Pending' ? 'text-yellow-500' : 'text-red-400'}>{status}</span>
                                 <div className={`w-4 h-4 rounded-full flex items-center justify-center ml-1 ${isSuccess ? 'bg-green-500' : status === 'Pending' ? 'bg-yellow-500' : 'bg-red-500'}`}>
@@ -716,57 +727,56 @@ export default function ExplorerTab({ initialQuery, initialChain, isStandalone =
                                 </div>
                             </div>
                         </div>
-                        <div className="bg-black/50 p-3 rounded-lg border border-white/10 shadow-md hover:shadow-lg transition-shadow flex items-center backdrop-blur-sm">
-                            <Coins className="w-4 h-4 text-neon-blue mr-2" />
-                            <span className="text-white/70 mr-2">Value:</span>
+                        <div className="bg-[#FFFFFF]/5 backdrop-blur-md p-3 rounded-lg border border-[#FFFFFF20] shadow-[0_4px_12px_rgba(0,0,0,0.3)] glow-[#FFFFFF15] hover:shadow-[0_0_8px_rgba(255,255,255,0.15)] transition-shadow flex items-center">
+                            <Coins className="w-4 h-4 text-emerald-400 mr-2" />
+                            <span className="text-[#D4D4D4] mr-2">Value:</span>
                             <div className="flex flex-col">
                                 {renderValueWithUSD(totalValue, totalValueUSD, 'BTC', nativeTokenLogos['BTC'])}
                             </div>
                         </div>
                         {blockNumber && (
-                            <div className="bg-black/50 p-3 rounded-lg border border-white/10 shadow-md hover:shadow-lg transition-shadow flex items-center justify-between backdrop-blur-sm">
+                            <div className="bg-[#FFFFFF]/5 backdrop-blur-md p-3 rounded-lg border border-[#FFFFFF20] shadow-[0_4px_12px_rgba(0,0,0,0.3)] glow-[#FFFFFF15] hover:shadow-[0_0_8px_rgba(255,255,255,0.15)] transition-shadow flex items-center justify-between">
                                 <div className="flex items-center">
-                                    <HashIcon className="w-4 h-4 text-neon-blue mr-1" />
+                                    <HashIcon className="w-4 h-4 text-emerald-400 mr-1" />
                                     <span>Block: {blockNumber}</span>
                                 </div>
                                 <span className="flex items-center"><Clock className="w-4 h-4 mr-1" /> {new Date(timestamp).toLocaleString()}</span>
                             </div>
                         )}
-                        <div className="bg-black/50 p-3 rounded-lg border border-white/10 shadow-md hover:shadow-lg transition-shadow flex items-center backdrop-blur-sm">
-                            <Wallet className="w-4 h-4 text-neon-blue mr-2" />
-                            <span className="text-white/70 mr-2">From:</span>
+                        <div className="bg-[#FFFFFF]/5 backdrop-blur-md p-3 rounded-lg border border-[#FFFFFF20] shadow-[0_4px_12px_rgba(0,0,0,0.3)] glow-[#FFFFFF15] hover:shadow-[0_0_8px_rgba(255,255,255,0.15)] transition-shadow flex items-center">
+                            <Wallet className="w-4 h-4 text-emerald-400 mr-2" />
+                            <span className="text-[#D4D4D4] mr-2">From:</span>
                             <div className="flex items-center ml-2">
                                 {renderAddress(fromAddress, chain)}
-                                {fromAddress !== 'Multiple Inputs' && <Copy onClick={() => copyToClipboard(fromAddress)} className="ml-2 w-4 h-4 cursor-pointer hover:text-neon-blue" />}
+                                {fromAddress !== 'Multiple Inputs' && <Copy onClick={() => copyToClipboard(fromAddress)} className="ml-2 w-4 h-4 cursor-pointer hover:text-emerald-400" />}
                             </div>
                         </div>
-                        <div className="bg-black/50 p-3 rounded-lg border border-white/10 shadow-md hover:shadow-lg transition-shadow flex items-center backdrop-blur-sm">
-                            <Wallet className="w-4 h-4 text-neon-blue mr-2" />
-                            <span className="text-white/70 mr-2">To:</span>
+                        <div className="bg-[#FFFFFF]/5 backdrop-blur-md p-3 rounded-lg border border-[#FFFFFF20] shadow-[0_4px_12px_rgba(0,0,0,0.3)] glow-[#FFFFFF15] hover:shadow-[0_0_8px_rgba(255,255,255,0.15)] transition-shadow flex items-center">
+                            <Wallet className="w-4 h-4 text-emerald-400 mr-2" />
+                            <span className="text-[#D4D4D4] mr-2">To:</span>
                             <div className="flex items-center ml-2">
                                 {renderAddress(toAddress, chain)}
-                                {toAddress !== 'Multiple Outputs' && <Copy onClick={() => copyToClipboard(toAddress)} className="ml-2 w-4 h-4 cursor-pointer hover:text-neon-blue" />}
+                                {toAddress !== 'Multiple Outputs' && <Copy onClick={() => copyToClipboard(toAddress)} className="ml-2 w-4 h-4 cursor-pointer hover:text-emerald-400" />}
                             </div>
                         </div>
-                        <div className="md:col-span-2 bg-black/50 p-3 rounded-lg border border-white/10 shadow-md hover:shadow-lg transition-shadow flex items-center backdrop-blur-sm">
-                            <Activity className="w-4 h-4 text-neon-blue mr-2" />
-                            <span className="text-white/70 mr-2">Fee:</span>
+                        <div className="md:col-span-2 bg-[#FFFFFF]/5 backdrop-blur-md p-3 rounded-lg border border-[#FFFFFF20] shadow-[0_4px_12px_rgba(0,0,0,0.3)] glow-[#FFFFFF15] hover:shadow-[0_0_8px_rgba(255,255,255,0.15)] transition-shadow flex items-center">
+                            <Activity className="w-4 h-4 text-emerald-400 mr-2" />
+                            <span className="text-[#D4D4D4] mr-2">Fee:</span>
                             <div className="flex flex-col">
                                 {renderValueWithUSD(fee, feeUSD, 'BTC', nativeTokenLogos['BTC'])}
                             </div>
                         </div>
                     </div>
-
                     {tx.vin && tx.vin.length > 0 && (
                         <div>
                             <h4 className="flex items-center"><Wallet className="w-4 h-4 mr-1" />Inputs</h4>
-                            <table className="w-full border-collapse border border-white/10">
+                            <table className="w-full border-collapse border border-[#FFFFFF20]">
                                 <thead><tr><th className="text-left">From</th><th className="text-left">Value</th></tr></thead>
                                 <tbody>
                                     {tx.vin.map((input, i) => (
                                         <tr key={i}>
-                                            <td className="p-2 border border-white/10 text-left">{renderAddress(input.prevout?.scriptpubkey_address || 'Coinbase', chain)}</td>
-                                            <td className="p-2 border border-white/10 text-left">
+                                            <td className="p-2 border border-[#FFFFFF20] text-left">{renderAddress(input.prevout?.scriptpubkey_address || 'Coinbase', chain)}</td>
+                                            <td className="p-2 border border-[#FFFFFF20] text-left">
                                                 <div className="flex flex-col">
                                                     {renderValueWithUSD((input.prevout?.value || 0) / 1e8, input.prevout?.valueUSD || 0, 'BTC', nativeTokenLogos['BTC'])}
                                                 </div>
@@ -780,13 +790,13 @@ export default function ExplorerTab({ initialQuery, initialChain, isStandalone =
                     {tx.vout && tx.vout.length > 0 && (
                         <div>
                             <h4 className="flex items-center"><Wallet className="w-4 h-4 mr-1" />Outputs</h4>
-                            <table className="w-full border-collapse border border-white/10">
+                            <table className="w-full border-collapse border border-[#FFFFFF20]">
                                 <thead><tr><th className="text-left">To</th><th className="text-left">Value</th></tr></thead>
                                 <tbody>
                                     {tx.vout.map((output, i) => (
                                         <tr key={i}>
-                                            <td className="p-2 border border-white/10 text-left">{renderAddress(output.scriptpubkey_address || 'Unknown', chain)}</td>
-                                            <td className="p-2 border border-white/10 text-left">
+                                            <td className="p-2 border border-[#FFFFFF20] text-left">{renderAddress(output.scriptpubkey_address || 'Unknown', chain)}</td>
+                                            <td className="p-2 border border-[#FFFFFF20] text-left">
                                                 <div className="flex flex-col">
                                                     {renderValueWithUSD((output.value || 0) / 1e8, output.valueUSD || 0, 'BTC', nativeTokenLogos['BTC'])}
                                                 </div>
@@ -811,25 +821,24 @@ export default function ExplorerTab({ initialQuery, initialChain, isStandalone =
             const tokenTransfers = Array.isArray(tx.tokenTransfers) ? tx.tokenTransfers : []; // FIXED: Ensure array
             const nativeTransfers = Array.isArray(tx.nativeTransfers) ? tx.nativeTransfers : []; // FIXED: Ensure array
             const solPrice = tx.solPrice || 0;
-
             return (
                 <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-4 text-sm">
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div className="md:col-span-2 bg-black/50 p-3 rounded-lg border border-white/10 shadow-md hover:shadow-lg transition-shadow flex items-center justify-between backdrop-blur-sm">
+                        <div className="md:col-span-2 bg-[#FFFFFF]/5 backdrop-blur-md p-3 rounded-lg border border-[#FFFFFF20] shadow-[0_4px_12px_rgba(0,0,0,0.3)] glow-[#FFFFFF15] hover:shadow-[0_0_8px_rgba(255,255,255,0.15)] transition-shadow flex items-center justify-between">
                             <div className="flex items-center">
-                                <HashIcon className="w-4 h-4 text-neon-blue mr-2" />
-                                <span className="text-white/70 mr-2">Hash:</span>
+                                <HashIcon className="w-4 h-4 text-emerald-400 mr-2" />
+                                <span className="text-[#D4D4D4] mr-2">Hash:</span>
                                 <span className="font-mono break-all mr-2">{isMobile && tx.hash?.length > 10 ? truncateText(tx.hash) : tx.hash}</span>
-                                <Copy onClick={() => copyToClipboard(tx.hash)} className="w-4 h-4 cursor-pointer hover:text-neon-blue" />
+                                <Copy onClick={() => copyToClipboard(tx.hash)} className="w-4 h-4 cursor-pointer hover:text-emerald-400" />
                             </div>
-                            <h2 className="text-base font-semibold flex items-center gap-2">
+                            <h2 className="text-xs font-semibold flex items-center gap-2">
                                 <img src={chainLogos[chain]} alt={chain} className="w-6 h-6 inline mx-1" />
-                                <span className="text-neon-blue">{chain.toUpperCase()}</span>
+                                <span className="text-[#D4D4D4]">{chain.toUpperCase()}</span>
                             </h2>
                         </div>
-                        <div className="md:col-span-2 bg-black/50 p-3 rounded-lg border border-white/10 shadow-md hover:shadow-lg transition-shadow flex items-center backdrop-blur-sm">
-                            <Activity className="w-4 h-4 text-neon-blue mr-2" />
-                            <span className="text-white/70 mr-2">Status:</span>
+                        <div className="md:col-span-2 bg-[#FFFFFF]/5 backdrop-blur-md p-3 rounded-lg border border-[#FFFFFF20] shadow-[0_4px_12px_rgba(0,0,0,0.3)] glow-[#FFFFFF15] hover:shadow-[0_0_8px_rgba(255,255,255,0.15)] transition-shadow flex items-center">
+                            <Activity className="w-4 h-4 text-emerald-400 mr-2" />
+                            <span className="text-[#D4D4D4] mr-2">Status:</span>
                             <div className="flex items-center">
                                 <span className={isSuccess ? 'text-green-500' : status === 'Pending' ? 'text-yellow-500' : 'text-red-400'}>{status}</span>
                                 <div className={`w-4 h-4 rounded-full flex items-center justify-center ml-1 ${isSuccess ? 'bg-green-500' : status === 'Pending' ? 'bg-yellow-500' : 'bg-red-500'}`}>
@@ -838,54 +847,53 @@ export default function ExplorerTab({ initialQuery, initialChain, isStandalone =
                             </div>
                         </div>
                         {nativeValue > 0 && (
-                            <div className="bg-black/50 p-3 rounded-lg border border-white/10 shadow-md hover:shadow-lg transition-shadow flex items-center backdrop-blur-sm">
-                                <Coins className="w-4 h-4 text-neon-blue mr-2" />
-                                <span className="text-white/70 mr-2">Value:</span>
+                            <div className="bg-[#FFFFFF]/5 backdrop-blur-md p-3 rounded-lg border border-[#FFFFFF20] shadow-[0_4px_12px_rgba(0,0,0,0.3)] glow-[#FFFFFF15] hover:shadow-[0_0_8px_rgba(255,255,255,0.15)] transition-shadow flex items-center">
+                                <Coins className="w-4 h-4 text-emerald-400 mr-2" />
+                                <span className="text-[#D4D4D4] mr-2">Value:</span>
                                 <div className="flex flex-col">
                                     {renderValueWithUSD(nativeValue, nativeValueUSD, symbol, nativeTokenLogos['SOL'])}
                                 </div>
                             </div>
                         )}
-                        <div className={`bg-black/50 p-3 rounded-lg border border-white/10 shadow-md hover:shadow-lg transition-shadow flex items-center ${tx.blockNumber ? 'justify-between' : ''} backdrop-blur-sm`}>
+                        <div className={`bg-[#FFFFFF]/5 backdrop-blur-md p-3 rounded-lg border border-[#FFFFFF20] shadow-[0_4px_12px_rgba(0,0,0,0.3)] glow-[#FFFFFF15] hover:shadow-[0_0_8px_rgba(255,255,255,0.15)] transition-shadow flex items-center ${tx.blockNumber ? 'justify-between' : ''}`}>
                             {tx.blockNumber && (
                                 <div className="flex items-center">
-                                    <HashIcon className="w-4 h-4 text-neon-blue mr-1" />
+                                    <HashIcon className="w-4 h-4 text-emerald-400 mr-1" />
                                     <span>Slot: {tx.blockNumber}</span>
                                 </div>
                             )}
-                            <span className="flex items-center"><Clock className="w-4 h-4 text-neon-blue mr-1" />Time: {new Date(timestamp).toLocaleString()}</span>
+                            <span className="flex items-center"><Clock className="w-4 h-4 text-emerald-400 mr-1" />Time: {new Date(timestamp).toLocaleString()}</span>
                         </div>
-                        <div className="bg-black/50 p-3 rounded-lg border border-white/10 shadow-md hover:shadow-lg transition-shadow flex items-center backdrop-blur-sm">
-                            <Wallet className="w-4 h-4 text-neon-blue mr-2" />
-                            <span className="text-white/70 mr-2">From:</span>
+                        <div className="bg-[#FFFFFF]/5 backdrop-blur-md p-3 rounded-lg border border-[#FFFFFF20] shadow-[0_4px_12px_rgba(0,0,0,0.3)] glow-[#FFFFFF15] hover:shadow-[0_0_8px_rgba(255,255,255,0.15)] transition-shadow flex items-center">
+                            <Wallet className="w-4 h-4 text-emerald-400 mr-2" />
+                            <span className="text-[#D4D4D4] mr-2">From:</span>
                             <div className="flex items-center ml-2">
                                 {renderAddress(tx.from, chain)}
-                                <Copy onClick={() => copyToClipboard(tx.from)} className="ml-2 w-4 h-4 cursor-pointer hover:text-neon-blue" />
+                                <Copy onClick={() => copyToClipboard(tx.from)} className="ml-2 w-4 h-4 cursor-pointer hover:text-emerald-400" />
                             </div>
                         </div>
-                        <div className="bg-black/50 p-3 rounded-lg border border-white/10 shadow-md hover:shadow-lg transition-shadow flex items-center backdrop-blur-sm">
-                            <Wallet className="w-4 h-4 text-neon-blue mr-2" />
-                            <span className="text-white/70 mr-2">To:</span>
+                        <div className="bg-[#FFFFFF]/5 backdrop-blur-md p-3 rounded-lg border border-[#FFFFFF20] shadow-[0_4px_12px_rgba(0,0,0,0.3)] glow-[#FFFFFF15] hover:shadow-[0_0_8px_rgba(255,255,255,0.15)] transition-shadow flex items-center">
+                            <Wallet className="w-4 h-4 text-emerald-400 mr-2" />
+                            <span className="text-[#D4D4D4] mr-2">To:</span>
                             <div className="flex items-center ml-2">
                                 {renderAddress(tx.to, chain)}
-                                <Copy onClick={() => copyToClipboard(tx.to)} className="ml-2 w-4 h-4 cursor-pointer hover:text-neon-blue" />
+                                <Copy onClick={() => copyToClipboard(tx.to)} className="ml-2 w-4 h-4 cursor-pointer hover:text-emerald-400" />
                             </div>
                         </div>
-                        <div className="md:col-span-2 bg-black/50 p-3 rounded-lg border border-white/10 shadow-md hover:shadow-lg transition-shadow flex items-center backdrop-blur-sm">
-                            <Activity className="w-4 h-4 text-neon-blue mr-2" />
-                            <span className="text-white/70 mr-2">Fee:</span>
+                        <div className="md:col-span-2 bg-[#FFFFFF]/5 backdrop-blur-md p-3 rounded-lg border border-[#FFFFFF20] shadow-[0_4px_12px_rgba(0,0,0,0.3)] glow-[#FFFFFF15] hover:shadow-[0_0_8px_rgba(255,255,255,0.15)] transition-shadow flex items-center">
+                            <Activity className="w-4 h-4 text-emerald-400 mr-2" />
+                            <span className="text-[#D4D4D4] mr-2">Fee:</span>
                             <div className="flex flex-col">
                                 {renderValueWithUSD(fee, feeUSD, symbol, nativeTokenLogos['SOL'])}
                             </div>
                         </div>
                     </div>
-
                     {tokenTransfers.length > 0 && (
                         <div className="mt-4">
-                            <h3 className="text-md font-semibold flex items-center uppercase"><Coins className="w-4 h-4 mr-2 text-neon-blue" />Token Transfers</h3>
-                            <table className="w-full border-collapse border border-white/10 mt-2">
+                            <h3 className="text-md font-semibold flex items-center uppercase"><Coins className="w-4 h-4 mr-2 text-emerald-400" />Token Transfers</h3>
+                            <table className="w-full border-collapse border border-[#FFFFFF20] mt-2">
                                 <thead>
-                                    <tr className="bg-black/70">
+                                    <tr className="bg-[#0A0A0A]/80">
                                         <th className="p-2 text-left">Token</th>
                                         <th className="p-2 text-left">From</th>
                                         <th className="p-2 text-left">To</th>
@@ -895,8 +903,8 @@ export default function ExplorerTab({ initialQuery, initialChain, isStandalone =
                                 </thead>
                                 <tbody>
                                     {tokenTransfers.map((t, i) => (
-                                        <tr key={i} className="hover:bg-white/5">
-                                            <td className="p-2 border border-white/10 text-left flex items-center">
+                                        <tr key={i} className="hover:bg-[#FFFFFF]/10">
+                                            <td className="p-2 border border-[#FFFFFF20] text-left flex items-center">
                                                 <img
                                                     src={t.logo || `https://via.placeholder.com/16?text=${t.symbol || 'T'}`}
                                                     alt={`${t.symbol || t.name || 'Token'} Logo`} // FIXED: Better alt
@@ -905,15 +913,14 @@ export default function ExplorerTab({ initialQuery, initialChain, isStandalone =
                                                 />
                                                 {t.symbol || t.name || t.mint?.slice(0, 4) + '...'}
                                             </td>
-                                            <td className="p-2 border border-white/10 text-left">{renderAddress(t.fromUserAccount || t.from, chain)}</td>
-                                            <td className="p-2 border border-white/10 text-left">{renderAddress(t.toUserAccount || t.to, chain)}</td>
-                                            <td className="p-2 border border-white/10 text-left">
-                                                {renderTokenAmount((t.amount || 0).toFixed(6), t.symbol || '', t.logo)}
+                                            <td className="p-2 border border-[#FFFFFF20] text-left">{renderAddress(t.fromUserAccount || t.from, chain)}</td>
+                                            <td className="p-2 border border-[#FFFFFF20] text-left">{renderAddress(t.toUserAccount || t.to, chain)}</td>
+                                            <td className="p-2 border border-[#FFFFFF20] text-left">
+                                                {renderTokenAmount(t.amount || 0, t.symbol || '', t.logo)}
                                             </td>
-                                            <td className="p-2 border border-white/10 text-left">
+                                            <td className="p-2 border border-[#FFFFFF20] text-left">
                                                 {t.valueUSD !== null && t.valueUSD !== undefined ? (
                                                     <span className="flex items-center text-xs text-green-400">
-                                                        <DollarSign className="w-3 h-3 mr-1" />
                                                         {formatUSD(t.valueUSD)}
                                                     </span>
                                                 ) : 'N/A'}
@@ -924,19 +931,18 @@ export default function ExplorerTab({ initialQuery, initialChain, isStandalone =
                             </table>
                         </div>
                     )}
-
-                    <h3 className="text-md font-semibold flex items-center mt-4 uppercase"><Activity className="w-4 h-4 mr-2 text-neon-blue" />Native Transfers</h3>
+                    <h3 className="text-md font-semibold flex items-center mt-4 uppercase"><Activity className="w-4 h-4 mr-2 text-emerald-400" />Native Transfers</h3>
                     {nativeTransfers.length > 0 && (
                         <div>
-                            <table className="w-full border-collapse border border-white/10">
+                            <table className="w-full border-collapse border border-[#FFFFFF20]">
                                 <thead><tr><th className="p-2 text-left">From</th><th className="p-2 text-left">To</th><th className="p-2 text-left">Amount</th></tr></thead>
                                 <tbody>
                                     {nativeTransfers.map((transfer, i) => (
-                                        <tr key={i} className="hover:bg-white/5">
-                                            <td className="p-2 border border-white/10 text-left">{renderAddress(transfer.fromUserAccount, chain)}</td>
-                                            <td className="p-2 border border-white/10 text-left">{renderAddress(transfer.toUserAccount, chain)}</td>
-                                            <td className="p-2 border border-white/10 text-left">
-                                                {renderValueWithUSD((transfer.amount || 0) / 1e9, ((transfer.amount || 0) / 1e9) * solPrice, symbol, nativeTokenLogos['SOL'])} {/* FIXED: Native logo */}
+                                        <tr key={i} className="hover:bg-[#FFFFFF]/10">
+                                            <td className="p-2 border border-[#FFFFFF20] text-left">{renderAddress(transfer.fromUserAccount, chain)}</td>
+                                            <td className="p-2 border border-[#FFFFFF20] text-left">{renderAddress(transfer.toUserAccount, chain)}</td>
+                                            <td className="p-2 border border-[#FFFFFF20] text-left">
+                                                {renderValueWithUSD((transfer.amount || 0) / 1e9, ((transfer.amount || 0) / 1e9) * solPrice, symbol, nativeTokenLogos['SOL'])}
                                             </td>
                                         </tr>
                                     ))}
@@ -944,24 +950,22 @@ export default function ExplorerTab({ initialQuery, initialChain, isStandalone =
                             </table>
                         </div>
                     )}
-
                     {tx.instructions && (
                         <div>
                             <h4 className="flex items-center"><Activity className="w-4 h-4 mr-1" />Instructions</h4>
-                            <pre className="text-xs bg-black/70 p-2 rounded overflow-auto max-h-40 custom-scrollbar">{JSON.stringify(tx.instructions, null, 2)}</pre>
+                            <pre className="text-xs bg-[#0A0A0A]/80 p-2 rounded overflow-auto max-h-40 custom-scrollbar">{JSON.stringify(tx.instructions, null, 2)}</pre>
                         </div>
                     )}
                 </motion.div>
             );
         }
-
         return <div>Unsupported chain</div>;
     };
 
     const isOverallLoading = loading || nametagsLoading;
 
     return (
-        <div className="font-inter w-full max-w-9xl mx-auto p-2 sm:p-3 bg-gradient-to-br from-black/80 to-gray-900/80 backdrop-blur-xs flex flex-col h-full overflow-y-auto hide-scrollbar relative">
+        <div className="font-inter w-full max-w-9xl mx-auto p-2 sm:p-3 bg-[#0A0A0A]/80 backdrop-blur-md flex flex-col h-full overflow-y-auto custom-scrollbar relative">
             <div className="mb-4 relative z-10 bg-inherit">
                 <h1 className="text-lg font-bold flex items-center gap-2 mb-2 uppercase">
                     <img src="/logos/logo.webp" alt="Project Logo" className="w-8 h-8" />
@@ -969,19 +973,74 @@ export default function ExplorerTab({ initialQuery, initialChain, isStandalone =
                 </h1>
                 <div className="flex gap-2">
                     <div className="relative flex-1">
-                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-white/50" />
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#D4D4D4]" />
                         <input
                             type="text"
                             placeholder="Enter transaction hash..."
                             value={query}
                             onChange={(e) => setQuery(e.target.value)}
-                            className="w-full h-[4.5vh] pl-10 pr-4 py-2 text-white/50 border border-white/40 rounded-lg bg-black/50 backdrop-blur-sm focus:outline-none focus:ring-2 focus:ring-neon-blue/50 shadow-sm text-xs"
+                            className="w-full h-[4.5vh] pl-10 pr-4 py-2 text-[#D4D4D4] border border-[#FFFFFF20] rounded-lg bg-[#FFFFFF]/5 backdrop-blur-md focus:outline-none focus:ring-2 focus:ring-emerald-400/50 shadow-[0_4px_12px_rgba(0,0,0,0.3)] glow-[#FFFFFF15] text-xs"
                             onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
                         />
                     </div>
                     <button
+                        ref={buttonRef}
+                        onClick={() => setIsChainMenuOpen(!isChainMenuOpen)}
+                        className="relative h-[4.5vh] px-3 py-1 bg-[#FFFFFF]/5 backdrop-blur-md border border-[#FFFFFF20] text-[#FFF] rounded-lg hover:bg-[#FFFFFF]/10 transition-colors font-medium shadow-[0_4px_12px_rgba(0,0,0,0.3)] glow-[#FFFFFF15] flex items-center justify-between text-xs cursor-pointer min-w-[120px]"
+                    >
+                        <span className="flex items-center">
+                            {selectedChain ? (
+                                <>
+                                    <img src={chainLogos[selectedChain]} alt={selectedChain} className="w-4 h-4 mr-2 rounded" />
+                                    {selectedChain.toUpperCase()}
+                                </>
+                            ) : 'Auto Detect'}
+                        </span>
+                        <ChevronDown className="w-4 h-4 ml-2" />
+                    </button>
+
+                    {/* Render menu via portal to body for higher z-index */}
+                    {isChainMenuOpen && createPortal(
+                        <AnimatePresence>
+                            <motion.div
+                                ref={menuRef}
+                                initial={{ opacity: 0, y: -10 }}
+                                animate={{ opacity: 1, y: 0 }}
+                                exit={{ opacity: 0, y: -10 }}
+                                style={{
+                                    position: 'absolute',
+                                    top: menuPosition.top,
+                                    left: menuPosition.left,
+                                    width: menuPosition.width,
+                                }}
+                                className="text-xs bg-[#0A0A0A]/90 backdrop-blur-md border border-[#FFFFFF20] rounded-lg shadow-lg overflow-y-auto max-h-60 z-[9999] custom-scrollbar"
+                            >
+                                <ul>
+                                    <li
+                                        className="px-3 py-2 hover:bg-[#FFFFFF]/10 cursor-pointer flex items-center text-[#D4D4D4]"
+                                        onClick={() => { setSelectedChain(''); setIsChainMenuOpen(false); }}
+                                    >
+                                        Auto Detect
+                                    </li>
+                                    {Object.keys(chainConfig).map(ch => (
+                                        <li
+                                            key={ch}
+                                            className="px-3 py-2 hover:bg-[#FFFFFF]/10 cursor-pointer flex items-center text-[#D4D4D4]"
+                                            onClick={() => { setSelectedChain(ch); setIsChainMenuOpen(false); }}
+                                        >
+                                            <img src={chainLogos[ch]} alt={ch} className="w-5 h-5 mr-2 rounded" />
+                                            {ch.toUpperCase()}
+                                        </li>
+                                    ))}
+                                </ul>
+                            </motion.div>
+                        </AnimatePresence>,
+                        document.body
+                    )}
+
+                    <button
                         onClick={handleSearch}
-                        className="h-[4.5vh] px-4 py-1 bg-transparent border border-white/40 text-white rounded-lg hover:bg-white/10 transition-colors font-medium shadow-sm flex items-center justify-center"
+                        className="h-[4.5vh] px-4 py-1 bg-transparent border border-[#FFFFFF20] text-[#FFF] rounded-lg hover:bg-[#FFFFFF]/10 transition-colors font-medium shadow-[0_4px_12px_rgba(0,0,0,0.3)] glow-[#FFFFFF15] flex items-center justify-center"
                     >
                         <Search className="w-4 h-4" />
                     </button>
@@ -996,12 +1055,12 @@ export default function ExplorerTab({ initialQuery, initialChain, isStandalone =
                     transition={{ duration: 0.3 }}
                     className="absolute inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm pointer-events-none"
                 >
-                    <div className="w-[80%] max-w-lg h-64 bg-black/10 backdrop-blur-xl border border-white/20 rounded-xl p-6 relative overflow-hidden shadow-2xl animate-pulse">
+                    <div className="w-[80%] max-w-lg h-64 bg-[#FFFFFF]/5 backdrop-blur-md border border-[#FFFFFF20] rounded-xl p-6 relative overflow-hidden shadow-2xl animate-pulse">
                         <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-transparent via-emerald-400 to-transparent animate-scan" />
                         <div className="absolute inset-0 bg-black/10 backdrop-blur-sm animate-pulse opacity-50" />
                         <div className="flex items-center gap-2 mb-4">
                             <div className="w-2 h-2 bg-blue-500 rounded-full animate-pulse" />
-                            <h3 className="text-white text-sm sm:text-base font-semibold">
+                            <h3 className="text-[#FFF] text-sm sm:text-base font-semibold">
                                 {nametagsLoading ? 'Loading Nametags' : 'Searching Transaction'}
                             </h3>
                         </div>
@@ -1010,9 +1069,9 @@ export default function ExplorerTab({ initialQuery, initialChain, isStandalone =
                                 {logMessages.map((log, index) => (
                                     <motion.p
                                         key={log.id}
-                                        className={`text-white/80 text-xs font-inter mb-2 ${index === logMessages.length - 1
+                                        className={`text-[#D4D4D4] text-xs font-inter mb-2 ${index === logMessages.length - 1
                                             ? 'text-blue-400 font-semibold animate-pulse'
-                                            : 'text-white/60'
+                                            : 'text-[#D4D4D4]'
                                             }`}
                                         initial={{ opacity: 0, y: 10 }}
                                         animate={{

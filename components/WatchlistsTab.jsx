@@ -1806,17 +1806,17 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
                         ) : filteredTransactions.length > 0 ? (
                           <>
                             {/* Pagination chỉ hiện ở Activity */}
-                            <div className="flex items-center justify-center gap-4 p-3 border-b border-[#FFFFFF20] bg-[#0A0A0A]/50 shrink-0">
+                            <div className="flex items-center justify-center gap-2 p-2 border-b border-[#FFFFFF20] bg-[#0A0A0A]/50 shrink-0">
                               <motion.button
                                 onClick={() => handlePageChange(Math.max(1, currentPage - 1))}
                                 disabled={currentPage === 1}
                                 whileHover={{ scale: 1.05 }}
                                 whileTap={{ scale: 0.95 }}
-                                className="p-1.5 text-[#FFF] border border-[#FFFFFF20] bg-[#FFFFFF]/5 rounded-xl disabled:opacity-50 hover:bg-[#FFFFFF]/10"
+                                className="p-1 text-[#FFF] border border-[#FFFFFF20] bg-[#FFFFFF]/5 rounded-xl disabled:opacity-50 hover:bg-[#FFFFFF]/10"
                               >
-                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" /></svg>
+                                <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" /></svg>
                               </motion.button>
-                              <span className="px-3 py-1 text-sm border border-[#FFFFFF20] bg-[#FFFFFF]/5 rounded-xl">
+                              <span className="px-3 py-1 text-[10px] border border-[#FFFFFF20] bg-[#FFFFFF]/5 rounded-xl">
                                 {currentPage}/{totalPages}
                               </span>
                               <motion.button
@@ -1824,9 +1824,9 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
                                 disabled={currentPage === totalPages}
                                 whileHover={{ scale: 1.05 }}
                                 whileTap={{ scale: 0.95 }}
-                                className="p-1.5 text-[#FFF] border border-[#FFFFFF20] bg-[#FFFFFF]/5 rounded-xl disabled:opacity-50 hover:bg-[#FFFFFF]/10"
+                                className="p-1 text-[#FFF] border border-[#FFFFFF20] bg-[#FFFFFF]/5 rounded-xl disabled:opacity-50 hover:bg-[#FFFFFF]/10"
                               >
-                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
+                                <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
                               </motion.button>
                             </div>
 
@@ -1859,7 +1859,7 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
             </div>
           </>
         ) : (
-          <div className="h-full flex items-center justify-center border border-[#FFFFFF20] bg-[#FFFFFF]/5 rounded-xl shadow-[0_4px_12px_rgba(0,0,0,0.3)] glow-[#FFFFFF15]">
+          <div className="h-full flex items-center justify-center border border-[#FFFFFF20] bg-[#0A0A0A]/80 rounded-xl shadow-[0_4px_12px_rgba(0,0,0,0.3)] glow-[#FFFFFF15]">
             <p className="text-[9px] sm:text-[10px] text-[#D4D4D4] text-center">
               {watchlists.length === 0 ? (isAtLimit ? 'Watchlist full. Upgrade to add more!' : 'Add a wallet to your watchlist to get started.') : 'Select a wallet from the watchlist.'}
             </p>

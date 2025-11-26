@@ -1,10 +1,11 @@
-// app/api/etherscan/route.js
+// app/api/etherscan-explorer/route.js
 import { NextResponse } from 'next/server';
 import axios from 'axios';
 import { z } from 'zod';
 import { logger } from '../../../utils/serverLogger';
 import Bottleneck from 'bottleneck';
 import { isAddress } from 'ethers';
+import { createClient } from 'redis';
 
 const limiterBottleneck = new Bottleneck({
   maxConcurrent: 10,
@@ -33,6 +34,23 @@ const fetchWithRateLimit = limiterBottleneck.wrap(async (url, config = {}) => {
     throw error;
   }
 });
+
+// Redis Client
+let redisClient;
+async function getRedisClient() {
+  if (!redisClient) {
+    redisClient = createClient({
+      url: process.env.REDIS_URL || 'redis://localhost:6379',
+    });
+    redisClient.on('error', (err) => logger.error('Redis Client Error', { error: err.message }));
+    await redisClient.connect();
+    logger.info('Redis connected for etherscan-explorer');
+  } else if (!redisClient.isOpen) {
+    await redisClient.connect();
+    logger.info('Redis reconnected for etherscan-explorer');
+  }
+  return redisClient;
+}
 
 // FIXED: CoinGecko platform map (same as CMC slugs) - Added more chains
 const platformIdMap = {
@@ -134,7 +152,6 @@ async function fetchNativePrice(chain) {
     gnosis: '16547', // xDAI
     zksync: '1027', // ETH
     linea: '1027', // ETH
-    scroll: '1027', // 
     monad: '143', // MONAD
   };
   const nativeId = nativeIdMap[chain];
@@ -294,7 +311,7 @@ function isAllowedOrigin(origin, referer) {
 
 const bodySchema = z.object({
   action: z.enum(['wallet-balances', 'token-balances', 'transactions', 'tx-details', 'address-overview', 'token-supply', 'token-info', 'token-transactions'], { message: 'Invalid action' }),
-  chain: z.string().nonempty('Chain is required'),
+  chain: z.string().optional(),
   address: z.string().optional().refine((val) => !val || isAddress(val), { message: 'Wallet address must be a valid EVM address' }),
   txHash: z.string().optional().refine((val) => !val || /^0x[a-f0-9]{64}$/.test(val), { message: 'Invalid transaction hash' }),
   tokenAddress: z.string().optional().refine((val) => !val || isAddress(val), { message: 'Token address must be a valid EVM address' }),
@@ -306,6 +323,9 @@ const bodySchema = z.object({
 ).refine(
   (data) => (data.action === 'tx-details' ? !!data.txHash : true),
   { message: 'Transaction hash is required for tx-details', path: ['txHash'] }
+).refine(
+  (data) => !(['tx-details'].includes(data.action)) ? !!data.chain : true,
+  { message: 'Chain is required for this action', path: ['chain'] }
 ).refine(
   (data) => (['token-supply', 'token-info', 'token-transactions'].includes(data.action) ? !!data.tokenAddress : true),
   { message: 'Token address is required for token-supply, token-info and token-transactions', path: ['tokenAddress'] }
@@ -409,7 +429,7 @@ const handlerWrapper = (handler) =>
     const origin = req.headers.get('origin');
     const referer = req.headers.get('referer');
     const startTime = Date.now();
-    logger.info(`Request to /api/etherscan from IP ${ip}, Origin: ${origin || 'null'}, Referer: ${referer || 'null'}`);
+    logger.info(`Request to /api/etherscan-explorer from IP ${ip}, Origin: ${origin || 'null'}, Referer: ${referer || 'null'}`);
 
     if (!isAllowedOrigin(origin, referer)) {
       return NextResponse.json({ detail: 'Not allowed by CORS' }, { status: 403 });
@@ -421,7 +441,7 @@ const handlerWrapper = (handler) =>
     res.headers.set('Access-Control-Allow-Methods', 'POST');
     res.headers.set('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Internal-Token');
     res.headers.set('Content-Security-Policy', "default-src 'self'");
-    logger.info(`Response for /api/etherscan, time: ${Date.now() - startTime}ms`, { ip });
+    logger.info(`Response for /api/etherscan-explorer, time: ${Date.now() - startTime}ms`, { ip });
     return res;
   });
 
@@ -445,7 +465,7 @@ export const POST = handlerWrapper(async (request) => {
 
   const { chain, action, address, txHash, tokenAddress, page, offset } = parsedBody;
   const chainId = chainIdMap[chain?.toLowerCase()];
-  if (!chainId) {
+  if (!chainId && action !== 'tx-details') {
     logger.warn(`Unsupported chain for Etherscan V2: ${chain}`, { ip });
     return NextResponse.json({ detail: `Unsupported chain for Etherscan V2: ${chain}` }, { status: 400 });
   }
@@ -464,107 +484,30 @@ export const POST = handlerWrapper(async (request) => {
           let apiUrl = `${ETHERSCAN_V2_BASE_URL}?chainid=${chainId}`;
           let data = {};
 
-          if (action === 'transactions' && address) {
-            const apiModule = 'account';
-            const apiAction = 'txlist';
-            apiUrl += `&module=${apiModule}&action=${apiAction}&address=${address}&startblock=0&endblock=99999999&page=${page}&offset=${offset}&sort=desc&apikey=${process.env.ETHERSCAN_API_KEY}`;
-            logger.info('Calling Etherscan V2 API for transactions', { module: apiModule, action: apiAction, chain, address, ip });
-            const response = await fetchWithRateLimit(apiUrl, { timeout: 15000 });
-            logger.info(`API fetch for transactions: status ${response.status}`);
-
-            if (response.data.status === '1' && Array.isArray(response.data.result)) {
-              data = response.data.result.map((tx) => ({
-                chain,
-                hash: tx.hash,
-                from: tx.from,
-                to: tx.to,
-                value: tx.value,
-                blockNumber: tx.blockNumber,
-                timeStamp: tx.timeStamp,
-                gasUsed: tx.gasUsed,
-                gasPrice: tx.gasPrice,
-                input: tx.input,
-                isError: tx.isError === '1',
-                txreceipt_status: tx.txreceipt_status,
-              }));
-            } else {
-              logger.warn(`Etherscan V2 API returned status ${response.data.status} for transactions: ${response.data.message}`, { ip, address });
+          if (action === 'tx-details' && txHash) {
+            const redis = await getRedisClient();
+            const cacheKey = `explorer:tx:${chain}:${txHash.toLowerCase()}`;
+            const cached = await redis.get(cacheKey);
+            if (cached) {
+              data = JSON.parse(cached);
+              logger.info(`Cache hit for tx-details: ${cacheKey}`);
+              controller.enqueue(JSON.stringify({ success: true, data }));
+              controller.close();
+              return;
             }
-            controller.enqueue(JSON.stringify({ success: true, data }));
-          } else if (action === 'wallet-balances' && address) {
-            const apiModule = 'account';
-            const apiAction = 'balance';
-            apiUrl += `&module=${apiModule}&action=${apiAction}&address=${address}&tag=latest&apikey=${process.env.ETHERSCAN_API_KEY}`;
-            logger.info('Calling Etherscan V2 API for native balance', { module: apiModule, action: apiAction, chain, address, ip });
-            const response = await fetchWithRateLimit(apiUrl, { timeout: 15000 });
-            logger.info(`API fetch for balance: status ${response.status}`);
 
-            if (response.data.status === '1' && typeof response.data.result === 'string') {
-              const ethBalanceWei = BigInt(response.data.result);
-              const nativePrice = await fetchNativePrice(chain);
-              data = {
-                chain,
-                address,
-                symbol: chain === 'ethereum' ? 'ETH' : chain === 'bnb' || chain === 'bsc' ? 'BNB' : 'Native',
-                decimals: 18,
-                amount: Number(ethBalanceWei) / 1e18,
-                balanceWei: ethBalanceWei.toString(),
-                priceUSD: nativePrice || null,
-                valueUSD: nativePrice ? (Number(ethBalanceWei) / 1e18) * nativePrice : null,
-              };
+            let supportedChains;
+            if (chain) {
+              const lowerChain = chain.toLowerCase();
+              const providedId = chainIdMap[lowerChain];
+              if (!providedId) {
+                throw new Error(`Unsupported chain: ${chain}`);
+              }
+              const providedName = primaryChainNameMap[providedId] || lowerChain;
+              supportedChains = [[providedId, providedName]];
             } else {
-              logger.warn(`Etherscan V2 API returned status ${response.data.status} for balance: ${response.data.message}`, { ip, address });
+              supportedChains = Object.entries(primaryChainNameMap);
             }
-            controller.enqueue(JSON.stringify({ success: true, data }));
-          } else if (action === 'token-balances' && address) {
-            const apiModule = 'account';
-            const apiAction = 'tokentx';
-            apiUrl += `&module=${apiModule}&action=${apiAction}&address=${address}&startblock=0&endblock=99999999&page=1&offset=10000&sort=desc&apikey=${process.env.ETHERSCAN_API_KEY}`;
-            logger.info('Calling Etherscan V2 API for token balances via tokentx', { module: apiModule, action: apiAction, chain, address, ip });
-            const response = await fetchWithRateLimit(apiUrl, { timeout: 15000 });
-            logger.info(`API fetch for tokentx: status ${response.status}`);
-
-            if (response.data.status === '1' && Array.isArray(response.data.result)) {
-              const balances = {};
-              response.data.result.forEach((tx) => {
-                const contract = tx.contractAddress.toLowerCase();
-                if (!balances[contract]) {
-                  balances[contract] = {
-                    tokenAddress: tx.contractAddress,
-                    symbol: tx.tokenSymbol,
-                    name: tx.tokenName,
-                    decimals: parseInt(tx.tokenDecimal) || 18,
-                    balanceRaw: BigInt(0).toString(),
-                  };
-                }
-                const value = BigInt(tx.value);
-                if (tx.to.toLowerCase() === address.toLowerCase()) {
-                  balances[contract].balanceRaw = (BigInt(balances[contract].balanceRaw) + value).toString();
-                }
-                if (tx.from.toLowerCase() === address.toLowerCase()) {
-                  balances[contract].balanceRaw = (BigInt(balances[contract].balanceRaw) - value).toString();
-                }
-              });
-              let tokenData = Object.entries(balances)
-                .filter(([, bal]) => BigInt(bal.balanceRaw) > 0)
-                .map(([contract, bal]) => ({
-                  chain,
-                  contractAddress: contract,
-                  symbol: bal.symbol,
-                  name: bal.name,
-                  decimals: bal.decimals,
-                  amount: Number(BigInt(bal.balanceRaw)) / 10 ** bal.decimals,
-                  balanceRaw: bal.balanceRaw,
-                  value: bal.balanceRaw,
-                }));
-              tokenData = await enrichWithCoinGecko(tokenData);
-              data = tokenData;
-            } else {
-              logger.warn(`Etherscan V2 API returned status ${response.data.status} for tokentx: ${response.data.message}`, { ip, address });
-            }
-            controller.enqueue(JSON.stringify({ success: true, data }));
-          } else if (action === 'tx-details' && txHash) {
-            const supportedChains = Object.entries(primaryChainNameMap);
             const priorityOrder = ['1', '8453', '10', '42161', '56', '137'];
             const sortedChains = supportedChains.sort((a, b) => {
               const priA = priorityOrder.indexOf(a[0]);
@@ -596,7 +539,8 @@ export const POST = handlerWrapper(async (request) => {
             logger.info(`Found ${candidates.length} tx candidates for ${txHash.slice(0, 10)}...`);
 
             if (candidates.length === 0) {
-              const baseId = '8453';
+  if (!chain) {
+    const baseId = '8453';
               const baseName = primaryChainNameMap[baseId];
               logger.info(`No candidates, retrying Base (${baseId})`);
               const retryUrl = `${ETHERSCAN_V2_BASE_URL}?chainid=${baseId}&module=proxy&action=eth_getTransactionByHash&txhash=${txHash}&apikey=${process.env.ETHERSCAN_API_KEY}`;
@@ -605,7 +549,10 @@ export const POST = handlerWrapper(async (request) => {
                 candidates = [{ chainName: baseName, chainId: baseId, transaction: retryRes.data.result }];
                 logger.info(`Retry found on Base`);
               }
-            }
+  } else {
+    throw new Error('Transaction not found on selected chain');
+  }
+}
 
             if (candidates.length === 0) {
               throw new Error('Transaction not found on any supported chain');
@@ -627,7 +574,7 @@ export const POST = handlerWrapper(async (request) => {
             }
 
             if (validCandidates.length === 0) {
-              throw new Error('Transaction not found on any supported chain (verification failed)');
+              throw new Error(chain ? 'Transaction not found on selected chain' : 'Transaction not found on any supported chain');
             }
             if (validCandidates.length > 1) {
               validCandidates.sort((a, b) => b.numLogs - a.numLogs);
@@ -733,6 +680,80 @@ export const POST = handlerWrapper(async (request) => {
               logger.info(`Native ${foundChainName} enriched: value USD ${data.nativeValueUSD}, fee USD ${data.feeUSD}`);
             }
 
+            await redis.set(cacheKey, JSON.stringify(data), 'EX', 3600);
+            logger.info(`Cached tx-details: ${cacheKey}`);
+
+            controller.enqueue(JSON.stringify({ success: true, data }));
+          } else if (action === 'wallet-balances' && address) {
+            const apiModule = 'account';
+            const apiAction = 'balance';
+            apiUrl += `&module=${apiModule}&action=${apiAction}&address=${address}&tag=latest&apikey=${process.env.ETHERSCAN_API_KEY}`;
+            logger.info('Calling Etherscan V2 API for native balance', { module: apiModule, action: apiAction, chain, address, ip });
+            const response = await fetchWithRateLimit(apiUrl, { timeout: 15000 });
+            logger.info(`API fetch for balance: status ${response.status}`);
+
+            if (response.data.status === '1' && typeof response.data.result === 'string') {
+              const ethBalanceWei = BigInt(response.data.result);
+              const nativePrice = await fetchNativePrice(chain);
+              data = {
+                chain,
+                address,
+                symbol: chain === 'ethereum' ? 'ETH' : chain === 'bnb' || chain === 'bsc' ? 'BNB' : 'Native',
+                decimals: 18,
+                amount: Number(ethBalanceWei) / 1e18,
+                balanceWei: ethBalanceWei.toString(),
+                priceUSD: nativePrice || null,
+                valueUSD: nativePrice ? (Number(ethBalanceWei) / 1e18) * nativePrice : null,
+              };
+            } else {
+              logger.warn(`Etherscan V2 API returned status ${response.data.status} for balance: ${response.data.message}`, { ip, address });
+            }
+            controller.enqueue(JSON.stringify({ success: true, data }));
+          } else if (action === 'token-balances' && address) {
+            const apiModule = 'account';
+            const apiAction = 'tokentx';
+            apiUrl += `&module=${apiModule}&action=${apiAction}&address=${address}&startblock=0&endblock=99999999&page=1&offset=10000&sort=desc&apikey=${process.env.ETHERSCAN_API_KEY}`;
+            logger.info('Calling Etherscan V2 API for token balances via tokentx', { module: apiModule, action: apiAction, chain, address, ip });
+            const response = await fetchWithRateLimit(apiUrl, { timeout: 15000 });
+            logger.info(`API fetch for tokentx: status ${response.status}`);
+
+            if (response.data.status === '1' && Array.isArray(response.data.result)) {
+              const balances = {};
+              response.data.result.forEach((tx) => {
+                const contract = tx.contractAddress.toLowerCase();
+                if (!balances[contract]) {
+                  balances[contract] = {
+                    tokenAddress: tx.contractAddress,
+                    symbol: tx.tokenSymbol,
+                    name: tx.tokenName,
+                    decimals: parseInt(tx.tokenDecimal) || 18,
+                    balanceRaw: BigInt(0).toString(),
+                  };
+                }
+                const value = BigInt(tx.value);
+                if (tx.to.toLowerCase() === address.toLowerCase()) {
+                  balances[contract].balanceRaw = (BigInt(balances[contract].balanceRaw) + value).toString();
+                }
+                if (tx.from.toLowerCase() === address.toLowerCase()) {
+                  balances[contract].balanceRaw = (BigInt(balances[contract].balanceRaw) - value).toString();
+                }
+              });
+              let tokenData = Object.entries(balances)
+                .filter(([, bal]) => BigInt(bal.balanceRaw) > 0)
+                .map(([contract, bal]) => ({
+                  chain,
+                  contractAddress: contract,
+                  symbol: bal.symbol,
+                  name: bal.name,
+                  decimals: bal.decimals,
+                  amount: Number(BigInt(bal.balanceRaw)) / 10 ** bal.decimals,
+                  value: bal.balanceRaw,
+                }));
+              tokenData = await enrichWithCoinGecko(tokenData);
+              data = tokenData;
+            } else {
+              logger.warn(`Etherscan V2 API returned status ${response.data.status} for tokentx: ${response.data.message}`, { ip, address });
+            }
             controller.enqueue(JSON.stringify({ success: true, data }));
           } else if (action === 'address-overview' && address) {
             const overview = {};

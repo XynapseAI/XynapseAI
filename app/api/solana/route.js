@@ -2,13 +2,15 @@
 // Proxy for Helius Enhanced Transactions API
 // Integrates with CoinGecko for USD values, logos, symbols (supports Solana mints via /coins/solana/contract/{mint})
 // Based on Helius docs (Nov 2025): POST /v0/transactions?api-key=KEY
-// UPDATED: Switched from CMC to CoinGecko for token enrichment (consistent with Etherscan)
+// UPDATED: POST /v0/transactions?api-key=KEY
+// ADDED: Redis caching similar to etherscan-explorer
 
 import { NextResponse } from 'next/server';
 import axios from 'axios';
 import { z } from 'zod';
 import { logger } from '../../../utils/serverLogger';
 import Bottleneck from 'bottleneck';
+import { createClient } from 'redis';
 
 const limiterBottleneck = new Bottleneck({
   maxConcurrent: 5,
@@ -25,6 +27,23 @@ const fetchWithRateLimit = limiterBottleneck.wrap(async (url, config) => {
     throw error;
   }
 });
+
+// Redis Client
+let redisClient;
+async function getRedisClient() {
+  if (!redisClient) {
+    redisClient = createClient({
+      url: process.env.REDIS_URL || 'redis://localhost:6379',
+    });
+    redisClient.on('error', (err) => logger.error('Redis Client Error', { error: err.message }));
+    await redisClient.connect();
+    logger.info('Redis connected for solana');
+  } else if (!redisClient.isOpen) {
+    await redisClient.connect();
+    logger.info('Redis reconnected for solana');
+  }
+  return redisClient;
+}
 
 // CoinGecko functions for Solana
 const platformIdMap = {
@@ -214,6 +233,16 @@ export const POST = handlerWrapper(async (request) => {
       async start(controller) {
         try {
           if (action === 'tx-details') {
+            const redis = await getRedisClient();
+            const cacheKey = `explorer:tx:solana:${txHash}`;
+            const cached = await redis.get(cacheKey);
+            if (cached) {
+              logger.info(`Cache hit for tx-details: ${cacheKey}`);
+              controller.enqueue(cached);
+              controller.close();
+              return;
+            }
+
             const url = `https://api-mainnet.helius-rpc.com/v0/transactions?api-key=${process.env.HELIUS_API_KEY}`;
             logger.info('Calling Helius Enhanced Transactions API', { txHash, ip });
             const response = await fetchWithRateLimit(url, {
@@ -282,7 +311,10 @@ export const POST = handlerWrapper(async (request) => {
               });
             }
 
-            controller.enqueue(JSON.stringify({ success: true, data: tx }));
+            const data = { success: true, data: tx };
+            await redis.set(cacheKey, JSON.stringify(data), 'EX', 3600);
+            logger.info(`Cached tx-details: ${cacheKey}`);
+            controller.enqueue(JSON.stringify(data));
           } else {
             throw new Error(`Invalid action: ${action}`);
           }

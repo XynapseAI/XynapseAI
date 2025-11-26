@@ -1265,10 +1265,10 @@ const ClusterTab = ({ recaptchaRef, initialClusterId, activeTab: propActiveTab, 
             <table className="w-full table-fixed text-[9px] sm:text-[11px] bg-[#0A0A0A]/80 rounded-xl">
               <thead className="border-b border-[#FFFFFF10] bg-[#0A0A0A]/80 backdrop-blur-md">
                 <tr>
-                  <th className={`${isMobile ? "w-[20%]" : "w-[25%]"} px-3 py-2 text-[#FFF] text-left font-semibold truncate`}>Token</th>
-                  <th className={`${isMobile ? "w-[30%]" : "w-[25%]"} px-3 py-2 text-[#FFF] text-left font-semibold truncate`}>Balance</th>
-                  <th className={`${isMobile ? "w-[30%]" : "w-[25%]"} px-3 py-2 text-[#FFF] text-left font-semibold truncate`}>Value ({currency.toUpperCase()})</th>
-                  <th className={`${isMobile ? "w-[20%]" : "w-[25%]"} px-3 py-2 text-[#FFF] text-left font-semibold truncate`}>Percentage</th>
+                  <th className={`${isMobile ? "w-[25%]" : "w-[25%]"} px-3 py-2 text-[#FFF] text-left font-semibold truncate`}>Token</th>
+                  <th className={`${isMobile ? "w-[25%]" : "w-[25%]"} px-3 py-2 text-[#FFF] text-left font-semibold truncate`}>Balance</th>
+                  <th className={`${isMobile ? "w-[25%]" : "w-[25%]"} px-3 py-2 text-[#FFF] text-left font-semibold truncate`}>Value ({currency.toUpperCase()})</th>
+                  <th className={`${isMobile ? "w-[25%]" : "w-[25%]"} px-3 py-2 text-[#FFF] text-left font-semibold truncate`}>Percentage</th>
                 </tr>
               </thead>
               <tbody>
@@ -1343,10 +1343,9 @@ const ClusterTab = ({ recaptchaRef, initialClusterId, activeTab: propActiveTab, 
           <table className="w-full table-fixed text-[9px] sm:text-[11px] bg-[#0A0A0A]/80 rounded-xl">
             <thead className="border-b border-[#FFFFFF10] bg-[#0A0A0A]/80 backdrop-blur-md">
               <tr>
-                <th className={`${isMobile ? "w-[40%]" : "w-[50%]"} px-3 py-2 text-[#FFF] text-left font-semibold truncate`}>Wallet</th>
-                {/* <th className={`${isMobile ? "w-[20%]" : "w-[20%]"} px-3 py-2 text-[#FFF] text-left font-semibold truncate`}>Chain</th> */}
-                <th className={`${isMobile ? "w-[20%]" : "w-[15%]"} px-3 py-2 text-[#FFF] text-left font-semibold truncate`}>Value ({currency.toUpperCase()})</th>
-                <th className={`${isMobile ? "w-[20%]" : "w-[15%]"} px-3 py-2 text-[#FFF] text-left font-semibold truncate`}>Tokens</th>
+                <th className={`${isMobile ? "w-[50%]" : "w-[50%]"} px-3 py-2 text-[#FFF] text-left font-semibold truncate`}>Wallet</th>
+                <th className={`${isMobile ? "w-[25%]" : "w-[25%]"} px-3 py-2 text-[#FFF] text-left font-semibold truncate`}>Value ({currency.toUpperCase()})</th>
+                <th className={`${isMobile ? "w-[25%]" : "w-[25%]"} px-3 py-2 text-[#FFF] text-left font-semibold truncate`}>Tokens</th>
               </tr>
             </thead>
             <tbody>
@@ -1433,7 +1432,6 @@ const ClusterTab = ({ recaptchaRef, initialClusterId, activeTab: propActiveTab, 
       </div>
     );
   };
- 
   const renderTransactionsContent = () => {
     if (status !== "authenticated") {
       return <LoginPrompt />;
@@ -1457,8 +1455,8 @@ const ClusterTab = ({ recaptchaRef, initialClusterId, activeTab: propActiveTab, 
       let tokenSymbol = isBitcoin ? 'BTC' : tx.token_metadata?.symbol || tx.token || 'Unknown';
       const typeDisplay = tx.type ? tx.type.charAt(0).toUpperCase() + tx.type.slice(1) : 'Transfer';
       let displayValue = isBitcoin
-        ? `${(Number(tx.value_btc) || 0).toLocaleString('en-US', { maximumFractionDigits: 8 })} BTC`
-        : Number(tx.value || 0).toLocaleString('en-US', { maximumFractionDigits: 1 });
+        ? `${(Number(tx.value_btc) || 0).toLocaleString('en-US', { maximumFractionDigits: 2 })} BTC`
+        : Number(tx.value || 0).toLocaleString('en-US', { maximumFractionDigits: 2 });
       let tokenLogo = isBitcoin ? BITCOIN_LOGO : tx.token_metadata?.logo || '/fallback-image.webp';
       // Determine transaction type relative to cluster
       const hasFromCluster = !!fromWallet.holder_address || !!fromWallet.name_tag;
@@ -1488,15 +1486,15 @@ const ClusterTab = ({ recaptchaRef, initialClusterId, activeTab: propActiveTab, 
         const sent = tx.swap_details.sent[0];
         const received = tx.swap_details.received[0];
         if (sent && received) {
-          displayValue = `${Number(sent.amount).toLocaleString('en-US', { maximumFractionDigits: 1 })} ${sent.symbol} → ${Number(received.amount).toLocaleString('en-US', { maximumFractionDigits: 1 })} ${received.symbol}`;
+          displayValue = `${Number(sent.amount).toLocaleString('en-US', { maximumFractionDigits: 2 })} ${sent.symbol} → ${Number(received.amount).toLocaleString('en-US', { maximumFractionDigits: 2 })} ${received.symbol}`;
           tokenSymbol = `${sent.symbol}/${received.symbol}`;
           tokenLogo = sent.logo || received.logo || '/fallback-image.webp';
         } else if (sent) {
-          displayValue = `${Number(sent.amount).toLocaleString('en-US', { maximumFractionDigits: 1 })} ${sent.symbol}`;
+          displayValue = `${Number(sent.amount).toLocaleString('en-US', { maximumFractionDigits: 2 })} ${sent.symbol}`;
           tokenSymbol = sent.symbol;
           tokenLogo = sent.logo || '/fallback-image.webp';
         } else if (received) {
-          displayValue = `${Number(received.amount).toLocaleString('en-US', { maximumFractionDigits: 1 })} ${received.symbol}`;
+          displayValue = `${Number(received.amount).toLocaleString('en-US', { maximumFractionDigits: 2 })} ${received.symbol}`;
           tokenSymbol = received.symbol;
           tokenLogo = received.logo || '/fallback-image.webp';
         }
@@ -1519,7 +1517,7 @@ const ClusterTab = ({ recaptchaRef, initialClusterId, activeTab: propActiveTab, 
           whileHover={{ scale: 1 }}
           transition={{ duration: 0.3, delay: index * 0.02 }}
         >
-          <div className="w-[12%] sm:w-[15%] px-2 sm:px-3 text-[#FFF]/80 text-[9px] sm:text-[10px] text-center overflow-hidden text-ellipsis">
+          <div className="w-[15%] sm:w-[15%] px-2 sm:px-3 text-[#FFF]/80 text-[9px] sm:text-[10px] text-center overflow-hidden text-ellipsis">
             <div className="flex flex-col items-center justify-center gap-1 relative">
               <div className="relative flex-shrink-0">
                 <img
@@ -1545,11 +1543,11 @@ const ClusterTab = ({ recaptchaRef, initialClusterId, activeTab: propActiveTab, 
               <span className="text-[7px] sm:text-[9px] truncate max-w-[60px] sm:max-w-[80px]">{tokenSymbol}</span>
             </div>
           </div>
-          <div className="w-[30%] sm:w-[25%] px-2 sm:px-3 text-[#FFF]/80 text-[8px] sm:text-[10px] text-center overflow-hidden text-ellipsis flex items-center justify-center">
+          <div className="w-[45%] sm:w-[40%] px-2 sm:px-3 text-[#FFF]/80 text-[8px] sm:text-[10px] text-center overflow-hidden text-ellipsis flex items-center justify-center">
             <div className="flex items-center gap-1 min-w-0 flex-1">
-              <div className={`flex flex-col items-center gap-0.5 ${directionColor}`}>
+              {/* <div className={`flex flex-col items-center gap-0.5 ${directionColor}`}>
                 <div className="-mt-0.5">{transferIcon}</div>
-              </div>
+              </div> */}
               {/* Wallets stack on right */}
               <div className="flex flex-col gap-1 min-w-0 flex-1">
                 <div className="flex items-center gap-2 group relative">
@@ -1585,16 +1583,14 @@ const ClusterTab = ({ recaptchaRef, initialClusterId, activeTab: propActiveTab, 
               </div>
             </div>
           </div>
-          <div className="w-[20%] sm:w-[20%] px-2 sm:px-3 text-[#FFF]/80 text-[9px] sm:text-[10px] text-center overflow-hidden text-ellipsis">
+          <div className="w-[30%] sm:w-[30%] px-2 sm:px-3 text-[#FFF]/80 text-[9px] sm:text-[10px] text-center overflow-hidden text-ellipsis">
             <div className="flex flex-col items-center gap-1">
               <span className={`inline-flex px-1 sm:px-1.5 py-0.5 rounded-full text-[7px] sm:text-[9px] font-medium bg-[#00FFFF20]/20 text-[#00FFFF20]`}>
                 {typeDisplay}
               </span>
-              <span className={`truncate font-semibold text-[8px] sm:text-[10px] ${directionColor}`}>{displayValue}</span>
+              <span className="truncate font-semibold text-[8px] sm:text-[10px]">{displayValue}</span>
+              <span className="font-semibold">{formatPrice(Number(tx.value_usd) || 0, currency, 2)}</span>
             </div>
-          </div>
-          <div className="w-[30%] sm:w-[25%] px-2 sm:px-3 text-[#FFF]/80 text-[9px] sm:text-[10px] text-center overflow-hidden text-ellipsis">
-            <span className="font-semibold">{formatPrice(Number(tx.value_usd) || 0, currency, 2)}</span>
           </div>
           <div className="w-[10%] sm:w-[15%] px-2 sm:px-3 text-[#FFF]/80 text-[9px] sm:text-[10px] text-center overflow-hidden text-ellipsis">
             <div className="flex flex-col items-center gap-0.5">
@@ -1658,11 +1654,10 @@ const ClusterTab = ({ recaptchaRef, initialClusterId, activeTab: propActiveTab, 
         {isLoadingTransactions ? (
           <div className="w-full table-fixed text-[9px] sm:text-[11px]">
             <div className="border-b border-[#FFFFFF10] bg-[#0A0A0A]/80 backdrop-blur-md flex">
-              <div className="w-[12%] sm:w-[15%] px-3 py-2 text-[#FFF] font-medium text-center">Token</div>
-              <div className="w-[30%] sm:w-[25%] px-3 py-2 text-[#FFF] font-medium text-center">From/To</div>
-              <div className="w-[20%] sm:w-[20%] px-3 py-2 text-[#FFF] font-medium text-center">Token Value</div>
-              <div className="w-[30%] sm:w-[25%] px-3 py-2 text-[#FFF] font-medium text-center">Value ({currency.toUpperCase()})</div>
-              <div className="w-[10%] sm:w-[15%] px-3 py-2 text-[#FFF] font-medium text-center">Details</div>
+              <div className="w-[20%] sm:w-[20%] px-3 py-2 text-[#FFF] font-medium text-center">Token</div>
+              <div className="w-[40%] sm:w-[40%] px-3 py-2 text-[#FFF] font-medium text-center">From/To</div>
+              <div className="w-[25%] sm:w-[25%] px-3 py-2 text-[#FFF] font-medium text-center">Value (Token/USD)</div>
+              <div className="w-[15%] sm:w-[15%] px-3 py-2 text-[#FFF] font-medium text-center">Details</div>
             </div>
             <div className="flex items-center justify-center py-8 text-[#D4D4D4] text-center">
               <p className="text-[10px] sm:text-sm">Loading transactions...</p>
@@ -1675,10 +1670,9 @@ const ClusterTab = ({ recaptchaRef, initialClusterId, activeTab: propActiveTab, 
         ) : transactions.length > 0 ? (
           <div className="w-full table-fixed text-[9px] sm:text-[11px]">
             <div className="border-b border-[#FFFFFF10] bg-[#0A0A0A]/80 backdrop-blur-md flex">
-              <div className="w-[12%] sm:w-[15%] px-3 py-2 text-[#FFF] font-medium text-center">Token</div>
-              <div className="w-[30%] sm:w-[25%] px-3 py-2 text-[#FFF] font-medium text-center">From/To</div>
-              <div className="w-[20%] sm:w-[20%] px-3 py-2 text-[#FFF] font-medium text-center">Token Value</div>
-              <div className="w-[30%] sm:w-[25%] px-3 py-2 text-[#FFF] font-medium text-center">Value ({currency.toUpperCase()})</div>
+              <div className="w-[15%] sm:w-[15%] px-3 py-2 text-[#FFF] font-medium text-center">Token</div>
+              <div className="w-[45%] sm:w-[40%] px-3 py-2 text-[#FFF] font-medium text-center">From/To</div>
+              <div className="w-[30%] sm:w-[30%] px-3 py-2 text-[#FFF] font-medium text-center">Value (Token/USD)</div>
               <div className="w-[10%] sm:w-[15%] px-3 py-2 text-[#FFF] font-medium text-center">Details</div>
             </div>
             <Virtuoso
@@ -2028,7 +2022,6 @@ const ClusterTab = ({ recaptchaRef, initialClusterId, activeTab: propActiveTab, 
   );
 };
 export default React.memo(ClusterTab);
-
 <style jsx global>{`
   /* Scrollbar mượt */
   .custom-scrollbar::-webkit-scrollbar {

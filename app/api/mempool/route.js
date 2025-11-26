@@ -1,10 +1,12 @@
-// app/api/mempool/route.js
 // app/api/mempool/route.js - Simplified for speed
 // NEW: Added CoinMarketCap integration for BTC price and USD value calculation
 // (Already public, no changes needed for auth)
+// ADDED: Redis caching similar to etherscan-explorer
+
 import { NextResponse } from 'next/server';
 import { logger } from '../../../utils/serverLogger';
 import { z } from 'zod';
+import { createClient } from 'redis';
 
 const bodySchema = z.object({
   action: z.literal('tx-details'),
@@ -43,6 +45,23 @@ function isAllowedOrigin(origin, referer) {
   } catch {
     return false; 
   }
+}
+
+// Redis Client
+let redisClient;
+async function getRedisClient() {
+  if (!redisClient) {
+    redisClient = createClient({
+      url: process.env.REDIS_URL || 'redis://localhost:6379',
+    });
+    redisClient.on('error', (err) => logger.error('Redis Client Error', { error: err.message }));
+    await redisClient.connect();
+    logger.info('Redis connected for mempool');
+  } else if (!redisClient.isOpen) {
+    await redisClient.connect();
+    logger.info('Redis reconnected for mempool');
+  }
+  return redisClient;
 }
 
 // NEW: Fetch BTC price from CoinMarketCap
@@ -182,7 +201,27 @@ export async function POST(request) {
   }
 
   try {
+    const redis = await getRedisClient();
+    const cacheKey = `explorer:tx:bitcoin:${txHash.toLowerCase()}`;
+    const cached = await redis.get(cacheKey);
+    if (cached) {
+      logger.info(`Cache hit for tx-details: ${cacheKey}`);
+      const result = JSON.parse(cached);
+      const overallDuration = Date.now() - startOverall;
+      logger.info(`Full API handler completed in ${overallDuration}ms (cache hit)`, { txHash });
+
+      const res = NextResponse.json(result);
+      const allowOrigin = origin || (referer ? new URL(referer).origin : process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000');
+      res.headers.set('Access-Control-Allow-Origin', allowOrigin);
+      res.headers.set('Access-Control-Allow-Methods', 'POST');
+      res.headers.set('Access-Control-Allow-Headers', 'Content-Type');
+      return res;
+    }
+
     const result = await fetchTx(txHash);
+    await redis.set(cacheKey, JSON.stringify(result), 'EX', 3600);
+    logger.info(`Cached tx-details: ${cacheKey}`);
+
     const overallDuration = Date.now() - startOverall;
     logger.info(`Full API handler completed in ${overallDuration}ms`, { txHash });
 
