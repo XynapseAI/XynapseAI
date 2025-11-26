@@ -43,7 +43,17 @@ export default function ExplorerTab({ initialQuery, initialChain, isStandalone =
         polygon: 'https://assets.coingecko.com/asset_platforms/images/15/standard/polygon_pos.png?1706606645',
         base: 'https://assets.coingecko.com/asset_platforms/images/131/standard/base.png?1759905869',
         solana: 'https://assets.coingecko.com/coins/images/4128/small/solana.png',
-        monad: 'https://assets.coingecko.com/coins/images/38927/standard/monad.jpg?1719547722',
+        avalanche: 'https://assets.coingecko.com/asset_platforms/images/12/standard/avalanche.png?1706606775', // AVAX
+        celo: 'https://assets.coingecko.com/asset_platforms/images/21/standard/celo.jpeg?1711358666', // CELO
+        gnosis: 'https://assets.coingecko.com/coins/images/662/standard/logo_square_simple_300px.png?1696501854', // GNO (xDAI chain)
+        zksync: 'https://assets.coingecko.com/asset_platforms/images/121/standard/zksync.jpeg?1706606814', // ZK
+        linea: 'https://assets.coingecko.com/asset_platforms/images/135/standard/linea.jpeg?1706606705', // Linea (L2, dùng project logo)
+        abstract: 'https://assets.coingecko.com/asset_platforms/images/22196/standard/abstract.jpg?1735611808', // Abstract (L2, project logo)
+        apechain: 'https://assets.coingecko.com/coins/images/34445/small/apechain.png', // ApeChain (dùng APE variant)
+        hyperevm: 'https://assets.coingecko.com/coins/images/662/standard/logo_square_simple_300px.png?1696501854', // HyperEVM (project logo)
+        monad: 'https://assets.coingecko.com/coins/images/38927/standard/monad.jpg?1719547722', // MON (L1)
+        unichain: 'https://assets.coingecko.com/asset_platforms/images/22206/standard/unichain.png?1739323630', // Unichain (L2)
+        world: 'https://assets.coingecko.com/asset_platforms/images/22180/standard/Worldcoin-logomark-light.png?1728377966',
     };
 
     const nativeTokenLogos = {
@@ -78,6 +88,79 @@ export default function ExplorerTab({ initialQuery, initialChain, isStandalone =
     };
 
     const evmChainsOrder = ['ethereum', 'arbitrum', 'bsc', 'optimism', 'polygon', 'base', 'monad'];
+
+    useEffect(() => {
+        if (results && results.data) {
+            const txHash = results.data.hash || results.data.txid || results.data.signature || 'Unknown';
+            const chainName = selectedChain.toUpperCase();
+            const status = results.data.status || 'Pending';
+            const truncatedQuery = query.length > 10 ? `${query.slice(0, 8)}...${query.slice(-6)}` : query;
+            document.title = `Transaction ${truncatedQuery} on ${chainName} | Xynapse Explorer`;
+            let metaDesc = `Explore transaction ${truncatedQuery} on ${chainName} blockchain. Status: ${status}. View details, token transfers, and more on Xynapse Explorer.`;
+            if (results.data.value || results.data.nativeValue) {
+                const value = results.data.value || results.data.nativeValue || 0;
+                metaDesc += ` Value: ${value.toFixed(6)} ${chainSymbols[selectedChain] || 'Native'}.`;
+            }
+            const metaTag = document.querySelector('meta[name="description"]');
+            if (metaTag) {
+                metaTag.setAttribute('content', metaDesc);
+            }
+            const ogTitle = document.querySelector('meta[property="og:title"]');
+            if (ogTitle) ogTitle.setAttribute('content', document.title);
+            const ogDesc = document.querySelector('meta[property="og:description"]');
+            if (ogDesc) ogDesc.setAttribute('content', metaDesc);
+            const ogImagePrimary = document.querySelector('meta[property="og:image"]') || createMetaTag('property', 'og:image', 'https://xynapseai.net/explorer.png');
+            ogImagePrimary.setAttribute('content', 'https://xynapseai.net/explorer.png');
+            let ogImageSecondary = document.querySelector('meta[property="og:image"][content*="coingecko"]');
+            if (!ogImageSecondary) {
+                ogImageSecondary = createMetaTag('property', 'og:image', chainLogos[selectedChain] || 'https://xynapseai.net/explorer.png');
+            }
+            ogImageSecondary.setAttribute('content', chainLogos[selectedChain] || 'https://xynapseai.net/explorer.png');
+            const currentUrl = `${origin}${basePath}?query=${encodeURIComponent(query)}&chain=${selectedChain}`;
+            const ogUrl = document.querySelector('meta[property="og:url"]');
+            if (ogUrl) ogUrl.setAttribute('content', currentUrl);
+            let canonical = document.querySelector('link[rel="canonical"]');
+            if (canonical) {
+                canonical.setAttribute('href', currentUrl);
+            } else {
+                canonical = document.createElement('link');
+                canonical.rel = 'canonical';
+                canonical.href = currentUrl;
+                document.head.appendChild(canonical);
+            }
+        } else {
+            document.title = 'Blockchain Explorer - Search Transactions | Xynapse';
+            const metaTag = document.querySelector('meta[name="description"]');
+            if (metaTag) {
+                metaTag.setAttribute('content', 'Xynapse Explorer: Search and analyze transactions on Bitcoin, Ethereum, BSC, and Solana blockchains. Real-time data, nametags, and insights.');
+            }
+            const ogImage = document.querySelector('meta[property="og:image"]') || createMetaTag('property', 'og:image', 'https://xynapseai.net/explorer.png');
+            ogImage.setAttribute('content', 'https://xynapseai.net/explorer.png');
+            const defaultUrl = `${origin}${basePath}`;
+            const ogUrl = document.querySelector('meta[property="og:url"]');
+            if (ogUrl) ogUrl.setAttribute('content', defaultUrl);
+            let canonical = document.querySelector('link[rel="canonical"]');
+            if (canonical) {
+                canonical.setAttribute('href', defaultUrl);
+            } else {
+                canonical = document.createElement('link');
+                canonical.rel = 'canonical';
+                canonical.href = defaultUrl;
+                document.head.appendChild(canonical);
+            }
+        }
+    }, [results, selectedChain, query, basePath]);
+
+    const createMetaTag = (attr, value, content) => {
+        let tag = document.querySelector(`meta[${attr}="${value}"]`);
+        if (!tag) {
+            tag = document.createElement('meta');
+            tag.setAttribute(attr, value);
+            document.head.appendChild(tag);
+        }
+        tag.setAttribute('content', content);
+        return tag;
+    };
 
     useEffect(() => {
         const checkMobile = () => setIsMobile(window.innerWidth < 768);
@@ -138,16 +221,48 @@ export default function ExplorerTab({ initialQuery, initialChain, isStandalone =
         if (tx.to) addAddress(tx.to);
 
         if (isEVMChain(chain)) {
-            tx.tokenTransfers?.forEach(t => { addAddress(t.from); addAddress(t.to); });
-            tx.internalTxs?.forEach(itx => { addAddress(itx.from); addAddress(itx.to); });
+            if (tx.tokenTransfers) {
+                tx.tokenTransfers.forEach(t => {
+                    addAddress(t.from);
+                    addAddress(t.to);
+                });
+            }
+            if (tx.internalTxs && Array.isArray(tx.internalTxs)) {
+                tx.internalTxs.forEach(itx => {
+                    addAddress(itx.from);
+                    addAddress(itx.to);
+                });
+            }
         } else if (chain === 'bitcoin') {
-            tx.vin?.forEach(vin => addAddress(vin.prevout?.scriptpubkey_address));
-            tx.vout?.forEach(vout => addAddress(vout.scriptpubkey_address));
+            if (tx.vin && Array.isArray(tx.vin)) {
+                tx.vin.forEach(vin => {
+                    addAddress(vin.prevout?.scriptpubkey_address);
+                });
+            }
+            if (tx.vout && Array.isArray(tx.vout)) {
+                tx.vout.forEach(vout => {
+                    addAddress(vout.scriptpubkey_address);
+                });
+            }
         } else if (chain === 'solana') {
-            addAddress(tx.feePayer);
-            tx.nativeTransfers?.forEach(t => { addAddress(t.fromUserAccount); addAddress(t.toUserAccount); });
-            tx.tokenTransfers?.forEach(t => { addAddress(t.fromUserAccount); addAddress(t.toUserAccount); });
-            tx.accountData?.forEach(acc => addAddress(acc.account));
+            if (tx.feePayer) addAddress(tx.feePayer);
+            if (tx.nativeTransfers) {
+                tx.nativeTransfers.forEach(t => {
+                    addAddress(t.fromUserAccount);
+                    addAddress(t.toUserAccount);
+                });
+            }
+            if (tx.tokenTransfers) {
+                tx.tokenTransfers.forEach(t => {
+                    addAddress(t.fromUserAccount);
+                    addAddress(t.toUserAccount);
+                });
+            }
+            if (tx.accountData) {
+                tx.accountData.forEach(acc => {
+                    addAddress(acc.account);
+                });
+            }
         }
 
         return Array.from(addresses).slice(0, 50);
@@ -214,8 +329,16 @@ export default function ExplorerTab({ initialQuery, initialChain, isStandalone =
                 await fetchData(q, nextChain, fallbackIndex + 1);
                 return;
             }
-            setError(err.message.includes('timeout') ? 'Bitcoin query timeout, retrying...' : err.message);
-            if (err.message.includes('timeout')) setTimeout(() => fetchData(q, ch), 2000);
+            let userMsg = err.message;
+            if (ch === 'bitcoin' && (err.message.includes('timeout') || err.message.includes('AbortError'))) {
+                userMsg = 'Bitcoin query timeout (network lag), retrying in 2s...';
+                setTimeout(() => fetchData(q, ch), 2000);
+                return;
+            }
+            if (isEVMChain(ch) && fallbackIndex === evmChainsOrder.length - 1) {
+                userMsg = 'Transaction not found on supported EVM chains';
+            }
+            setError(userMsg);
         } finally {
             setLoading(false);
         }
@@ -301,26 +424,59 @@ export default function ExplorerTab({ initialQuery, initialChain, isStandalone =
         const isBTC = detectedChain === 'bitcoin';
         const isSOL = detectedChain === 'solana';
 
-        const isConfirmed = isEVM ? (tx.receipt?.blockNumber || tx.transaction?.blockNumber) :
-                            isBTC ? (tx.status?.confirmed || tx.status?.block_height > 0) :
-                            (tx.isSuccess !== false);
+        let isConfirmed = false;
+        let status = 'Pending';
+        let isSuccess = false;
+        let timestamp = Date.now();
+        let nativeValue = 0;
+        let fee = 0;
+        let symbol = chainSymbols[detectedChain] || 'ETH';
+        let blockNumber = null;
+        let fromAddress = 'Unknown';
+        let toAddress = 'Unknown';
 
-        const status = isConfirmed ? 'Success' : 'Pending';
-        const isSuccess = status === 'Success';
-
-        const timestamp = isEVM ? (tx.block?.timestamp ? parseInt(tx.block.timestamp, 16) * 1000 : Date.now()) :
-                          isBTC ? (tx.status?.block_time ? tx.status.block_time * 1000 : Date.now()) :
-                          (tx.timestamp || Date.now());
-
-        const nativeValue = isEVM ? Number(parseInt(tx.transaction?.value || '0x0', 16)) / 1e18 :
-                            isBTC ? (tx.vout?.reduce((s, o) => s + (o.value || 0), 0) || 0) / 1e8 :
-                            (tx.nativeValue || 0);
-
-        const fee = isEVM ? ((parseInt(tx.receipt?.gasUsed || '0x0', 16) || 0) * (parseInt(tx.receipt?.effectiveGasPrice || tx.transaction?.gasPrice || '0x0', 16) || 0)) / 1e18 :
-                    isBTC ? (tx.fee || 0) / 1e8 :
-                    (tx.fee || 0);
-
-        const symbol = chainSymbols[detectedChain] || 'ETH';
+        if (isEVM) {
+            const transaction = txData.transaction || {};
+            const receipt = txData.receipt || {};
+            const block = txData.block || {};
+            isConfirmed = (receipt.blockNumber || transaction.blockNumber);
+            if (isConfirmed) {
+                const receiptStatus = receipt ? parseInt(receipt.status || '0x0', 16) : 0;
+                status = receiptStatus === 1 ? 'Success' : 'Failed';
+                isSuccess = status === 'Success';
+            }
+            blockNumber = transaction.blockNumber ? parseInt(transaction.blockNumber, 16) : null;
+            timestamp = block.timestamp ? parseInt(block.timestamp, 16) * 1000 : Date.now();
+            const gasUsed = receipt.gasUsed ? parseInt(receipt.gasUsed, 16) : 0;
+            const effectiveGasPrice = receipt.effectiveGasPrice 
+                ? parseInt(receipt.effectiveGasPrice, 16)
+                : parseInt(transaction.gasPrice || '0x0', 16);
+            fee = (gasUsed * effectiveGasPrice) / 1e18;
+            nativeValue = Number(parseInt(transaction.value || '0x0', 16)) / 1e18;
+            fromAddress = transaction.from || 'Unknown';
+            toAddress = transaction.to || 'Unknown';
+            tx = { ...transaction, receipt, internalTxs: txData.internalTxs || [], tokenTransfers: txData.tokenTransfers || [] };
+        } else if (isBTC) {
+            isConfirmed = tx.status?.confirmed || tx.status?.block_height > 0;
+            status = isConfirmed ? 'Success' : 'Pending';
+            isSuccess = isConfirmed;
+            timestamp = tx.status?.block_time ? tx.status.block_time * 1000 : Date.now();
+            nativeValue = tx.vout?.reduce((s, o) => s + (o.value || 0), 0) / 1e8 || 0;
+            fee = (tx.fee || 0) / 1e8;
+            fromAddress = tx.vin?.[0]?.prevout?.scriptpubkey_address || 'Multiple Inputs';
+            toAddress = tx.vout?.[0]?.scriptpubkey_address || 'Multiple Outputs';
+            blockNumber = tx.status?.block_height || null;
+        } else if (isSOL) {
+            status = tx.isSuccess !== false ? 'Success' : 'Failed';
+            isSuccess = status === 'Success';
+            isConfirmed = true; // Solana tx are usually confirmed quickly
+            timestamp = tx.timestamp || Date.now();
+            nativeValue = tx.nativeValue || 0;
+            fee = tx.fee || 0;
+            fromAddress = tx.from || tx.feePayer || 'Unknown';
+            toAddress = tx.to || 'Unknown';
+            blockNumber = tx.blockNumber || null;
+        }
 
         return (
             <motion.div
@@ -348,8 +504,8 @@ export default function ExplorerTab({ initialQuery, initialChain, isStandalone =
                     <div className="mt-4 flex items-center gap-3">
                         <Activity className="w-5 h-5 text-emerald-400" />
                         <span className="text-[#D4D4D4] text-xs">Status</span>
-                        <div className={`flex items-center gap-2 px-3 py-1.5 rounded-full ${isSuccess ? 'bg-emerald-400/10 text-emerald-400' : 'bg-yellow-500/10 text-yellow-500'}`}>
-                            <div className={`w-3 h-3 rounded-full ${isSuccess ? 'bg-emerald-400' : 'bg-yellow-500'} animate-pulse`} />
+                        <div className={`flex items-center gap-2 px-3 py-1.5 rounded-full ${isSuccess ? 'bg-emerald-400/10 text-emerald-400' : status === 'Failed' ? 'bg-red-500/10 text-red-500' : 'bg-yellow-500/10 text-yellow-500'}`}>
+                            <div className={`w-3 h-3 rounded-full ${isSuccess ? 'bg-emerald-400' : status === 'Failed' ? 'bg-red-500' : 'bg-yellow-500'} animate-pulse`} />
                             <span className="font-semibold">{status}</span>
                         </div>
                     </div>
@@ -357,6 +513,22 @@ export default function ExplorerTab({ initialQuery, initialChain, isStandalone =
 
                 {/* Main Grid */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                    {/* Block and Time */}
+                    <div className="bg-[#0A0A0A]/80 backdrop-blur-md border border-[#FFFFFF20] rounded-2xl p-5 shadow-[0_4px_20px_rgba(0,0,0,0.3)] glow-[#FFFFFF15]">
+                        <div className="flex items-center gap-3 mb-2">
+                            <HashIcon className="w-5 h-5 text-emerald-400" />
+                            <span className="text-[#D4D4D4] text-xs uppercase tracking-wider">Block</span>
+                        </div>
+                        <span>{blockNumber || 'Pending'}</span>
+                    </div>
+                    <div className="bg-[#0A0A0A]/80 backdrop-blur-md border border-[#FFFFFF20] rounded-2xl p-5 shadow-[0_4px_20px_rgba(0,0,0,0.3)] glow-[#FFFFFF15]">
+                        <div className="flex items-center gap-3 mb-2">
+                            <Clock className="w-5 h-5 text-emerald-400" />
+                            <span className="text-[#D4D4D4] text-xs uppercase tracking-wider">Time</span>
+                        </div>
+                        <span>{new Date(timestamp).toLocaleString()}</span>
+                    </div>
+
                     {/* Value */}
                     {(nativeValue > 0 || txData.nativeValueUSD > 0) && (
                         <div className="bg-[#0A0A0A]/80 backdrop-blur-md border border-[#FFFFFF20] rounded-2xl p-5 shadow-[0_4px_20px_rgba(0,0,0,0.3)] glow-[#FFFFFF15]">
@@ -383,7 +555,7 @@ export default function ExplorerTab({ initialQuery, initialChain, isStandalone =
                             <Wallet className="w-5 h-5 text-emerald-400" />
                             <span className="text-[#D4D4D4] text-xs uppercase tracking-wider">From</span>
                         </div>
-                        {renderAddress(tx.from || (isBTC ? tx.vin?.[0]?.prevout?.scriptpubkey_address : 'Unknown'), detectedChain)}
+                        {renderAddress(fromAddress, detectedChain)}
                     </div>
 
                     {/* To */}
@@ -392,12 +564,12 @@ export default function ExplorerTab({ initialQuery, initialChain, isStandalone =
                             <Wallet className="w-5 h-5 text-emerald-400" />
                             <span className="text-[#D4D4D4] text-xs uppercase tracking-wider">To</span>
                         </div>
-                        {renderAddress(tx.to || (isBTC ? tx.vout?.[0]?.scriptpubkey_address : 'Unknown'), detectedChain)}
+                        {renderAddress(toAddress, detectedChain)}
                     </div>
                 </div>
 
                 {/* Token Transfers */}
-                {(tx.tokenTransfers?.length > 0 || tx.nativeTransfers?.length > 0) && (
+                {(tx.tokenTransfers?.length > 0) && (
                     <div className="bg-[#0A0A0A]/80 backdrop-blur-md border border-[#FFFFFF20] rounded-2xl p-5 shadow-[0_4px_20px_rgba(0,0,0,0.3)] glow-[#FFFFFF15]">
                         <h3 className="flex items-center gap-3 text-lg font-bold text-[#FFF] mb-4 uppercase tracking-wider">
                             <Coins className="w-5 h-5 text-emerald-400" />
@@ -411,23 +583,27 @@ export default function ExplorerTab({ initialQuery, initialChain, isStandalone =
                                         <th className="text-left py-2 text-[#D4D4D4]">From</th>
                                         <th className="text-left py-2 text-[#D4D4D4]">To</th>
                                         <th className="text-left py-2 text-[#D4D4D4]">Amount</th>
+                                        <th className="text-left py-2 text-[#D4D4D4]">USD Value</th>
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    {(tx.tokenTransfers || tx.nativeTransfers || []).map((t, i) => {
+                                    {tx.tokenTransfers.map((t, i) => {
                                         const amount = Number(t.amount || (BigInt(t.value || 0) / BigInt(10 ** (t.decimals || 18))));
                                         const logo = t.logo || nativeTokenLogos[t.symbol] || '/fallback-image.webp';
+                                        const tokenDisplay = t.type === 'ERC721' ? `${t.name} (ID: ${t.tokenId})` : t.symbol || t.name || 'Unknown';
                                         return (
                                             <tr key={i} className="border-t border-[#FFFFFF10] hover:bg-[#FFFFFF]/5 transition-colors">
                                                 <td className="py-3 flex items-center gap-2">
-                                                    <img src={logo} alt={t.symbol} className="w-5 h-5 rounded-full" />
-                                                    <span>{t.symbol || 'Unknown'}</span>
+                                                    <img src={logo} alt={tokenDisplay} className="w-5 h-5 rounded-full" />
+                                                    <span>{tokenDisplay}</span>
                                                 </td>
                                                 <td className="py-3">{renderAddress(t.from || t.fromUserAccount, detectedChain)}</td>
                                                 <td className="py-3">{renderAddress(t.to || t.toUserAccount, detectedChain)}</td>
                                                 <td className="py-3">
                                                     {amount.toFixed(6)} {t.symbol}
-                                                    {t.valueUSD > 0 && <span className="ml-2 text-emerald-400 text-xs">({formatUSD(t.valueUSD)})</span>}
+                                                </td>
+                                                <td className="py-3">
+                                                    {t.valueUSD > 0 ? formatUSD(t.valueUSD) : 'N/A'}
                                                 </td>
                                             </tr>
                                         );
@@ -435,6 +611,183 @@ export default function ExplorerTab({ initialQuery, initialChain, isStandalone =
                                 </tbody>
                             </table>
                         </div>
+                    </div>
+                )}
+
+                {/* Native Transfers (for Solana) */}
+                {isSOL && (tx.nativeTransfers?.length > 0) && (
+                    <div className="bg-[#0A0A0A]/80 backdrop-blur-md border border-[#FFFFFF20] rounded-2xl p-5 shadow-[0_4px_20px_rgba(0,0,0,0.3)] glow-[#FFFFFF15]">
+                        <h3 className="flex items-center gap-3 text-lg font-bold text-[#FFF] mb-4 uppercase tracking-wider">
+                            <Coins className="w-5 h-5 text-emerald-400" />
+                            Native Transfers
+                        </h3>
+                        <div className="overflow-x-auto">
+                            <table className="w-full text-xs">
+                                <thead className="border-b border-[#FFFFFF10]">
+                                    <tr>
+                                        <th className="text-left py-2 text-[#D4D4D4]">From</th>
+                                        <th className="text-left py-2 text-[#D4D4D4]">To</th>
+                                        <th className="text-left py-2 text-[#D4D4D4]">Amount</th>
+                                        <th className="text-left py-2 text-[#D4D4D4]">USD Value</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {tx.nativeTransfers.map((t, i) => {
+                                        const amount = Number(t.amount) / 1e9;
+                                        const usdValue = amount * (tx.solPrice || 0);
+                                        return (
+                                            <tr key={i} className="border-t border-[#FFFFFF10] hover:bg-[#FFFFFF]/5 transition-colors">
+                                                <td className="py-3">{renderAddress(t.fromUserAccount, detectedChain)}</td>
+                                                <td className="py-3">{renderAddress(t.toUserAccount, detectedChain)}</td>
+                                                <td className="py-3">
+                                                    {amount.toFixed(6)} SOL
+                                                </td>
+                                                <td className="py-3">
+                                                    {usdValue > 0 ? formatUSD(usdValue) : 'N/A'}
+                                                </td>
+                                            </tr>
+                                        );
+                                    })}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                )}
+
+                {/* Inputs (for Bitcoin) */}
+                {isBTC && (tx.vin?.length > 0) && (
+                    <div className="bg-[#0A0A0A]/80 backdrop-blur-md border border-[#FFFFFF20] rounded-2xl p-5 shadow-[0_4px_20px_rgba(0,0,0,0.3)] glow-[#FFFFFF15]">
+                        <h3 className="flex items-center gap-3 text-lg font-bold text-[#FFF] mb-4 uppercase tracking-wider">
+                            <Wallet className="w-5 h-5 text-emerald-400" />
+                            Inputs
+                        </h3>
+                        <div className="overflow-x-auto">
+                            <table className="w-full text-xs">
+                                <thead className="border-b border-[#FFFFFF10]">
+                                    <tr>
+                                        <th className="text-left py-2 text-[#D4D4D4]">From</th>
+                                        <th className="text-left py-2 text-[#D4D4D4]">Value</th>
+                                        <th className="text-left py-2 text-[#D4D4D4]">USD Value</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {tx.vin.map((vin, i) => {
+                                        const value = (vin.prevout?.value || 0) / 1e8;
+                                        const usdValue = vin.prevout?.valueUSD || 0;
+                                        return (
+                                            <tr key={i} className="border-t border-[#FFFFFF10] hover:bg-[#FFFFFF]/5 transition-colors">
+                                                <td className="py-3">{renderAddress(vin.prevout?.scriptpubkey_address || 'Coinbase', detectedChain)}</td>
+                                                <td className="py-3">{value.toFixed(6)} BTC</td>
+                                                <td className="py-3">{usdValue > 0 ? formatUSD(usdValue) : 'N/A'}</td>
+                                            </tr>
+                                        );
+                                    })}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                )}
+
+                {/* Outputs (for Bitcoin) */}
+                {isBTC && (tx.vout?.length > 0) && (
+                    <div className="bg-[#0A0A0A]/80 backdrop-blur-md border border-[#FFFFFF20] rounded-2xl p-5 shadow-[0_4px_20px_rgba(0,0,0,0.3)] glow-[#FFFFFF15]">
+                        <h3 className="flex items-center gap-3 text-lg font-bold text-[#FFF] mb-4 uppercase tracking-wider">
+                            <Wallet className="w-5 h-5 text-emerald-400" />
+                            Outputs
+                        </h3>
+                        <div className="overflow-x-auto">
+                            <table className="w-full text-xs">
+                                <thead className="border-b border-[#FFFFFF10]">
+                                    <tr>
+                                        <th className="text-left py-2 text-[#D4D4D4]">To</th>
+                                        <th className="text-left py-2 text-[#D4D4D4]">Value</th>
+                                        <th className="text-left py-2 text-[#D4D4D4]">USD Value</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {tx.vout.map((vout, i) => {
+                                        const value = (vout.value || 0) / 1e8;
+                                        const usdValue = vout.valueUSD || 0;
+                                        return (
+                                            <tr key={i} className="border-t border-[#FFFFFF10] hover:bg-[#FFFFFF]/5 transition-colors">
+                                                <td className="py-3">{renderAddress(vout.scriptpubkey_address || 'Unknown', detectedChain)}</td>
+                                                <td className="py-3">{value.toFixed(6)} BTC</td>
+                                                <td className="py-3">{usdValue > 0 ? formatUSD(usdValue) : 'N/A'}</td>
+                                            </tr>
+                                        );
+                                    })}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                )}
+
+                {/* Internal Transactions (for EVM) */}
+                {isEVM && (tx.internalTxs?.length > 0) && (
+                    <div className="bg-[#0A0A0A]/80 backdrop-blur-md border border-[#FFFFFF20] rounded-2xl p-5 shadow-[0_4px_20px_rgba(0,0,0,0.3)] glow-[#FFFFFF15]">
+                        <h3 className="flex items-center gap-3 text-lg font-bold text-[#FFF] mb-4 uppercase tracking-wider">
+                            <Activity className="w-5 h-5 text-emerald-400" />
+                            Internal Transactions
+                        </h3>
+                        <div className="overflow-x-auto">
+                            <table className="w-full text-xs">
+                                <thead className="border-b border-[#FFFFFF10]">
+                                    <tr>
+                                        <th className="text-left py-2 text-[#D4D4D4]">From</th>
+                                        <th className="text-left py-2 text-[#D4D4D4]">To</th>
+                                        <th className="text-left py-2 text-[#D4D4D4]">Value</th>
+                                        <th className="text-left py-2 text-[#D4D4D4]">USD Value</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {tx.internalTxs.map((itx, i) => {
+                                        const value = Number(itx.value || 0) / 1e18;
+                                        const usdValue = itx.valueUSD || 0;
+                                        return (
+                                            <tr key={i} className="border-t border-[#FFFFFF10] hover:bg-[#FFFFFF]/5 transition-colors">
+                                                <td className="py-3">{renderAddress(itx.from, detectedChain)}</td>
+                                                <td className="py-3">{renderAddress(itx.to, detectedChain)}</td>
+                                                <td className="py-3">{value.toFixed(6)} {symbol}</td>
+                                                <td className="py-3">{usdValue > 0 ? formatUSD(usdValue) : 'N/A'}</td>
+                                            </tr>
+                                        );
+                                    })}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                )}
+
+                {/* Input Data (for EVM) */}
+                {isEVM && tx.input && (
+                    <div className="bg-[#0A0A0A]/80 backdrop-blur-md border border-[#FFFFFF20] rounded-2xl p-5 shadow-[0_4px_20px_rgba(0,0,0,0.3)] glow-[#FFFFFF15]">
+                        <h3 className="flex items-center gap-3 text-lg font-bold text-[#FFF] mb-4 uppercase tracking-wider">
+                            <Activity className="w-5 h-5 text-emerald-400" />
+                            Input Data
+                        </h3>
+                        <pre className="text-xs bg-[#0A0A0A]/50 p-3 rounded overflow-auto max-h-40">{tx.input}</pre>
+                    </div>
+                )}
+
+                {/* Logs (for EVM) */}
+                {isEVM && tx.receipt?.logs?.length > 0 && (
+                    <div className="bg-[#0A0A0A]/80 backdrop-blur-md border border-[#FFFFFF20] rounded-2xl p-5 shadow-[0_4px_20px_rgba(0,0,0,0.3)] glow-[#FFFFFF15]">
+                        <h3 className="flex items-center gap-3 text-lg font-bold text-[#FFF] mb-4 uppercase tracking-wider">
+                            <Activity className="w-5 h-5 text-emerald-400" />
+                            Logs
+                        </h3>
+                        <pre className="text-xs bg-[#0A0A0A]/50 p-3 rounded overflow-auto max-h-40">{JSON.stringify(tx.receipt.logs, null, 2)}</pre>
+                    </div>
+                )}
+
+                {/* Instructions (for Solana) */}
+                {isSOL && tx.instructions && (
+                    <div className="bg-[#0A0A0A]/80 backdrop-blur-md border border-[#FFFFFF20] rounded-2xl p-5 shadow-[0_4px_20px_rgba(0,0,0,0.3)] glow-[#FFFFFF15]">
+                        <h3 className="flex items-center gap-3 text-lg font-bold text-[#FFF] mb-4 uppercase tracking-wider">
+                            <Activity className="w-5 h-5 text-emerald-400" />
+                            Instructions
+                        </h3>
+                        <pre className="text-xs bg-[#0A0A0A]/50 p-3 rounded overflow-auto max-h-40">{JSON.stringify(tx.instructions, null, 2)}</pre>
                     </div>
                 )}
             </motion.div>
@@ -451,11 +804,11 @@ export default function ExplorerTab({ initialQuery, initialChain, isStandalone =
                 animate={{ opacity: 1, y: 0 }}
                 className="mb-8 text-center"
             >
-                <h1 className="text-2xl sm:text-3xl font-bold text-[#FFF] uppercase tracking-wider mb-2 flex items-center justify-center gap-3">
+                <h1 className="text-xl sm:text-2xl font-bold text-[#FFF] uppercase tracking-wider mb-2 flex items-center justify-center gap-3">
                     <img src="/logos/logo.webp" alt="Logo" className="w-10 h-10" />
                     Xynapse Explorer
                 </h1>
-                <p className="text-[#D4D4D4] text-sm">Search any transaction across major chains</p>
+                <p className="text-[#D4D4D4] text-xs">Search any transaction across major chains</p>
             </motion.div>
 
             {/* Search Bar */}
@@ -473,16 +826,16 @@ export default function ExplorerTab({ initialQuery, initialChain, isStandalone =
                             value={query}
                             onChange={(e) => setQuery(e.target.value)}
                             onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
-                            className="w-full pl-12 pr-4 py-4 bg-[#0A0A0A]/80 backdrop-blur-md border border-[#FFFFFF20] rounded-2xl text-[#FFF] placeholder-[#D4D4D4]/60 focus:outline-none focus:border-[#FFFFFF40] focus:shadow-[0_0_20px_rgba(255,255,255,0.1)] transition-all text-base"
+                            className="w-full pl-8 pr-3 py-3 bg-[#0A0A0A]/80 backdrop-blur-md border border-[#FFFFFF20] rounded-2xl text-[#FFF] placeholder-[#D4D4D4]/60 focus:outline-none focus:border-[#FFFFFF40] focus:shadow-[0_0_20px_rgba(255,255,255,0.1)] transition-all text-sm"
                         />
                     </div>
                     <motion.button
                         whileHover={{ scale: 1.02 }}
                         whileTap={{ scale: 0.98 }}
                         onClick={handleSearch}
-                        className="px-8 py-4 bg-gradient-to-r from-[#00FFFF20]/20 to-emerald-400/20 border border-[#FFFFFF20] rounded-2xl text-[#FFF] font-medium hover:shadow-[0_0_20px_rgba(0,255,255,0.2)] transition-all flex items-center gap-2"
+                        className="px-4 py-2 bg-gradient-to-r from-[#00FFFF20]/20 to-emerald-400/20 border border-[#FFFFFF20] rounded-2xl text-[#FFF] font-medium hover:shadow-[0_0_20px_rgba(0,255,255,0.2)] transition-all flex items-center gap-2"
                     >
-                        <Search className="w-5 h-5" />
+                        <Search className="w-3 h-3" />
                         Search
                     </motion.button>
                 </div>
