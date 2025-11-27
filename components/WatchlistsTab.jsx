@@ -1242,7 +1242,7 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
                   href={addressUrl}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="text-[#FFF]/80 hover:text-[#00FFFF20]/80 truncate"
+                  className="text-[9px] text-[#FFF]/80 hover:text-[#00FFFF20]/80 truncate"
                   title={addressToShow}
                 >
                   {displayAddress}
@@ -1271,7 +1271,7 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
                   loading="lazy"
                 />
               </a>
-              <span className="text-[8px] sm:text-[10px] text-[#D4D4D4]">
+              <span className="text-[7px] sm:text-[10px] text-[#D4D4D4]">
                 {tx.block_time ? formatDistanceToNow(new Date(tx.block_time), { addSuffix: true }) : 'N/A'}
               </span>
             </div>

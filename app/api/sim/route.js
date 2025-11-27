@@ -878,7 +878,185 @@ export async function POST(request) {
                 // Process collected transactions (giữ nguyên logic filter/processing từ new code)
                 const filteredTransactions = await Promise.all(
                   allTransactions.slice(0, perAddressLimit).map(async (tx) => {
-                    // ... (giữ nguyên toàn bộ phần process tx cho EVM và SVM, không thay đổi)
+                    if (isEVM) {
+                      const decimals = tx.asset_type === "native" ? 18 : tx.token_metadata?.decimals || 18;
+                      const value_usd = Number(tx.value_usd || 0);
+                      if (minValueUsd && value_usd < minValueUsd) return null;
+                      const tokenSymbol = tx.token_metadata?.symbol ||
+                        (tx.asset_type === "native" ? NATIVE_TOKEN_METADATA[tx.chain]?.symbol || "Native" : "Unknown");
+                      if (!isValidTokenSymbol(tokenSymbol) && !IMPORTANT_TOKENS.some((t) => t.chain === tx.chain && t.address === "native")) {
+                        logger.info(`Filtered out invalid token symbol: ${tokenSymbol} on ${tx.chain}`, { ip });
+                        return null;
+                      }
+                      return {
+                        chain: Object.keys(CHAIN_ID_MAP).find((key) => CHAIN_ID_MAP[key] === tx.chain_id) || tx.chain_id || "Unknown",
+                        hash: tx.tx_hash || "Unknown",
+                        from: tx.from || tx.tx_from || "Unknown",
+                        to: tx.to || tx.tx_to || "None",
+                        value: Number(tx.value || 0) / Math.pow(10, decimals),
+                        value_usd,
+                        block_time: tx.block_time || null,
+                        block_slot: tx.block_number || null,
+                        token: tokenSymbol,
+                        type: tx.type || "Unknown",
+                        token_metadata: {
+                          symbol: tokenSymbol,
+                          logo: tx.token_metadata?.logo || NATIVE_TOKEN_METADATA[tx.chain]?.logo || null,
+                          name: tx.token_metadata?.name || NATIVE_TOKEN_METADATA[tx.chain]?.name || "Unknown",
+                        },
+                      };
+                    } else {
+                      // SVM processing logic remains the same (unchanged)
+                      let toAddress = "None";
+                      let fromAddress = tx.from || tx.address || "Unknown";
+                      let value = "0";
+                      let value_usd = 0;
+                      let type = "Unknown";
+                      let tokenSymbol = NATIVE_TOKEN_METADATA[tx.chain]?.symbol || "Unknown";
+                      let tokenLogo = NATIVE_TOKEN_METADATA[tx.chain]?.logo || null;
+                      let tokenName = NATIVE_TOKEN_METADATA[tx.chain]?.name || "Unknown";
+                      let swap_details = null;
+
+                      const sentTokens = [];
+                      const receivedTokens = [];
+                      if (tx.meta?.postTokenBalances && tx.meta?.preTokenBalances) {
+                        tx.meta.postTokenBalances.forEach((postBalance) => {
+                          if (postBalance.owner === addr) {
+                            const preBalance = tx.meta.preTokenBalances.find(
+                              (pre) => pre.mint === postBalance.mint && pre.owner === postBalance.owner,
+                            );
+                            if (preBalance) {
+                              const delta =
+                                Number(postBalance.uiTokenAmount.amount) - Number(preBalance.uiTokenAmount.amount);
+                              if (delta > 0) {
+                                const symbol = postBalance.mint.slice(0, 4) + "..." || "Unknown";
+                                if (!isValidTokenSymbol(symbol) && !IMPORTANT_TOKENS.some((t) => t.chain === tx.chain && t.address === "native")) {
+                                  logger.info(`Filtered out invalid token symbol: ${symbol} on ${tx.chain}`, { ip });
+                                  return;
+                                }
+                                receivedTokens.push({
+                                  mint: postBalance.mint,
+                                  amount: delta / Math.pow(10, postBalance.uiTokenAmount.decimals || 9),
+                                  symbol,
+                                  logo: null,
+                                  decimals: postBalance.uiTokenAmount.decimals || 9,
+                                });
+                              } else if (delta < 0) {
+                                const symbol = postBalance.mint.slice(0, 4) + "..." || "Unknown";
+                                if (!isValidTokenSymbol(symbol) && !IMPORTANT_TOKENS.some((t) => t.chain === tx.chain && t.address === "native")) {
+                                  logger.info(`Filtered out invalid token symbol: ${symbol} on ${tx.chain}`, { ip });
+                                  return;
+                                }
+                                sentTokens.push({
+                                  mint: postBalance.mint,
+                                  amount: -delta / Math.pow(10, postBalance.uiTokenAmount.decimals || 9),
+                                  symbol,
+                                  logo: null,
+                                  decimals: postBalance.uiTokenAmount.decimals || 9,
+                                });
+                              }
+                            }
+                          }
+                        });
+                      }
+
+                      if (
+                        tx.meta?.postBalances &&
+                        tx.meta?.preBalances &&
+                        tx.raw_transaction?.transaction?.message?.accountKeys
+                      ) {
+                        const deltas = tx.meta.postBalances.map((post, i) => post - (tx.meta.preBalances[i] || 0));
+                        const accountKeys = tx.raw_transaction.transaction.message.accountKeys;
+                        const userIndex = accountKeys.findIndex((key) => key === addr);
+                        if (userIndex !== -1) {
+                          const nativeDelta = deltas[userIndex];
+                          const priceUsd = tx.price_usd || 0;
+                          if (nativeDelta > 0) {
+                            value_usd = (nativeDelta / 1e9) * priceUsd;
+                            if (minValueUsd && value_usd < minValueUsd) return null;
+                            receivedTokens.push({
+                              mint: "native",
+                              amount: nativeDelta / 1e9,
+                              symbol: tokenSymbol,
+                              logo: tokenLogo,
+                              decimals: 9,
+                            });
+                          } else if (nativeDelta < 0) {
+                            value_usd = (-nativeDelta / 1e9) * priceUsd;
+                            if (minValueUsd && value_usd < minValueUsd) return null;
+                            sentTokens.push({
+                              mint: "native",
+                              amount: -nativeDelta / 1e9,
+                              symbol: tokenSymbol,
+                              logo: tokenLogo,
+                              decimals: 9,
+                            });
+                          }
+                        }
+                      }
+
+                      if (sentTokens.length > 0 && receivedTokens.length > 0) {
+                        type = "swap";
+                        swap_details = { sent: sentTokens, received: receivedTokens };
+                        tokenSymbol = `${sentTokens[0]?.symbol || "Unknown"}/${receivedTokens[0]?.symbol || "Unknown"}`;
+                        tokenLogo = sentTokens[0]?.logo || receivedTokens[0]?.logo || tokenLogo;
+                        toAddress = "Swap";
+                        value = sentTokens[0]?.amount.toFixed(6) || "0";
+                        value_usd = sentTokens[0]?.amount * (sentTokens[0]?.price_usd || 0) || value_usd;
+                      } else if (receivedTokens.length > 0) {
+                        type = "receive";
+                        const received = receivedTokens[0];
+                        value = received.amount.toFixed(6);
+                        value_usd = received.amount * (received.price_usd || 0) || value_usd;
+                        tokenSymbol = received.symbol;
+                        tokenLogo = received.logo || tokenLogo;
+                        tokenName = received.mint === "native" ? tokenName : "Unknown Token";
+                        fromAddress =
+                          tx.meta?.postTokenBalances?.find((b) => b.mint === received.mint && b.owner !== addr)?.owner ||
+                          fromAddress;
+                        toAddress = addr;
+                      } else if (sentTokens.length > 0) {
+                        type = "send";
+                        const sent = sentTokens[0];
+                        value = sent.amount.toFixed(6);
+                        value_usd = sent.amount * (sent.price_usd || 0) || value_usd;
+                        tokenSymbol = sent.symbol;
+                        tokenLogo = sent.logo || tokenLogo;
+                        tokenName = sent.mint === "native" ? tokenName : "Unknown Token";
+                        toAddress =
+                          tx.meta?.postTokenBalances?.find((b) => b.mint === sent.mint && b.owner !== addr)?.owner ||
+                          toAddress;
+                        fromAddress = addr;
+                      } else {
+                        type = "other";
+                        value = "N/A";
+                        value_usd = 0;
+                      }
+
+                      if (!isValidTokenSymbol(tokenSymbol) && !IMPORTANT_TOKENS.some((t) => t.chain === tx.chain && t.address === "native")) {
+                        logger.info(`Filtered out invalid token symbol: ${tokenSymbol} on ${tx.chain}`, { ip });
+                        return null;
+                      }
+
+                      return {
+                        chain: tx.chain,
+                        hash: tx.raw_transaction?.transaction?.signatures?.[0] || "Unknown",
+                        from: fromAddress,
+                        to: toAddress,
+                        value,
+                        value_usd,
+                        block_time: tx.block_time ? new Date(tx.block_time / 1000).toISOString() : null,
+                        block_slot: tx.block_slot || null,
+                        token: tokenSymbol,
+                        type,
+                        swap_details,
+                        token_metadata: {
+                          symbol: tokenSymbol,
+                          logo: tokenLogo,
+                          name: tokenName,
+                        },
+                      };
+                    }
                   })
                 );
 

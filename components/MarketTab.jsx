@@ -1286,7 +1286,7 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                   <div className="flex space-x-2 mb-2 sm:mb-0 justify-start sm:justify-center w-full sm:w-auto">
                     <button
                       onClick={debouncedHandleAnalysis}
-                      className={`px-2 sm:px-4 py-1 sm:py-1.5 text-[10px] sm:text-xs font-medium transition-all duration-300 border rounded-xl group hover:scale-105 active:scale-95 ${selectedToken
+                      className={`px-2 sm:px-4 py-1 sm:py-1.5 text-[10px] sm:text-xs font-medium transition-all duration-300 border rounded-xl group ${selectedToken
                         ? 'text-[#FFF] border-[#FFFFFF20] bg-[#FFFFFF]/5 hover:bg-[#FFFFFF]/10'
                         : 'text-[#D4D4D4] border-[#FFFFFF10] cursor-not-allowed opacity-50'
                         }`}
@@ -1297,7 +1297,7 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                     </button>
                     <button
                       onClick={debouncedHandlePrediction}
-                      className={`px-2 sm:px-4 py-1 sm:py-1.5 text-[10px] sm:text-xs font-medium transition-all duration-300 border rounded-xl group hover:scale-105 active:scale-95 ${selectedToken
+                      className={`px-2 sm:px-4 py-1 sm:py-1.5 text-[10px] sm:text-xs font-medium transition-all duration-300 border rounded-xl group ${selectedToken
                         ? 'text-black border-[#FFF] bg-[#D4D4D4] hover:bg-[#D4D4D4]/90'
                         : 'text-[#D4D4D4] border-[#FFFFFF10] cursor-not-allowed opacity-50'
                         }`}
