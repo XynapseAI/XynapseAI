@@ -59,7 +59,7 @@ async function isAllowedOrigin(origin, referer, pathname, ip) {
   try {
     if (!origin && !referer) {
       await trackViolation(ip, 'Missing origin and referer in production');
-      return false; 
+      return false;
     }
 
     if (origin && origin !== 'null') {
@@ -215,7 +215,16 @@ export async function GET(request) {
     const offset = (page - 1) * limit;
     logger.info(`Using params: maxAgeSeconds=${maxAgeSeconds}, limit=${limit}, page=${page} for request`);
 
+    // NEW: Tích hợp Redis cache cho paginated results - chỉ nếu logged in
     const redisClient = await getRedisClient();
+    const cacheKey = `mempool:paginated:${maxAgeSeconds}:${limit}:${page}`; // Shared key dựa trên params
+    const cachedData = await redisClient.get(cacheKey);
+    if (cachedData) {
+      logger.info(`Cache hit for mempool paginated: ${cacheKey}`, { ip });
+      return NextResponse.json(JSON.parse(cachedData), { headers });
+    }
+
+    // Nếu không hit cache, process như cũ
     const now = Math.floor(Date.now() / 1000);
     const minTs = now - maxAgeSeconds;
     const cleanupMinScore = -minTs + 1;
@@ -270,6 +279,11 @@ export async function GET(request) {
         totalPages: Math.ceil(totalCount / limit),
       },
     };
+
+    // NEW: Cache response với TTL 300s (5 phút), chỉ nếu logged in
+    await redisClient.setEx(cacheKey, 300, JSON.stringify(responseData));
+    logger.info(`Cached mempool paginated: ${cacheKey}`, { ip });
+
     logger.info(`Fetched mempool transactions`, { transactionCount: paginatedData.length, maxAgeSeconds, page, totalCount });
     return NextResponse.json(responseData, { headers });
   } catch (error) {

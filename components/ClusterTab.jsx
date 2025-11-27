@@ -452,7 +452,7 @@ const ClusterTab = ({ recaptchaRef, initialClusterId, activeTab: propActiveTab, 
       const response = await fetch(`/api/token-cluster?exchange=${encodeURIComponent(clusterId)}&currency=${encodeURIComponent(currency)}`, {
         headers,
         credentials: 'include',
-        signal: AbortSignal.timeout(50000),
+        signal: AbortSignal.timeout(100000),
       });
       if (!response.ok) {
         const text = await response.text();
@@ -668,7 +668,7 @@ const ClusterTab = ({ recaptchaRef, initialClusterId, activeTab: propActiveTab, 
           addresses: topEvmWallets,
           minValueUsd: 1000000,
         }),
-        signal: AbortSignal.timeout(70000),
+        signal: AbortSignal.timeout(100000),
       });
       if (!response.ok) {
         const text = await response.text();
@@ -1432,6 +1432,7 @@ const ClusterTab = ({ recaptchaRef, initialClusterId, activeTab: propActiveTab, 
       </div>
     );
   };
+
   const renderTransactionsContent = () => {
     if (status !== "authenticated") {
       return <LoginPrompt />;
@@ -1465,10 +1466,10 @@ const ClusterTab = ({ recaptchaRef, initialClusterId, activeTab: propActiveTab, 
       const isIncoming = hasToCluster && !hasFromCluster;
       const isInternal = hasFromCluster && hasToCluster;
       const directionColor = isInternal ? 'text-[#FFF]' : isOutgoing ? 'text-red-400' : isIncoming ? 'text-green-400' : 'text-gray-400';
-      // FIX: Custom flow icon - half cylinder on left (rounded rect), reduced height, arrow at end
+      // Updated transfer icon: arrow down for vertical flow
       const transferIcon = (
         <svg
-          className={`w-4 h-4 ${directionColor} flex-shrink-0`}
+          className={`w-3 h-3 ${directionColor} flex-shrink-0`}
           fill="none"
           stroke="currentColor"
           viewBox="0 0 24 24"
@@ -1478,7 +1479,7 @@ const ClusterTab = ({ recaptchaRef, initialClusterId, activeTab: propActiveTab, 
             strokeLinecap="round"
             strokeLinejoin="round"
             strokeWidth="2"
-            d="M8 7h12m0 0l-4-4m4 4l-4 4m-4 4H4m0 0l4 4m-4-4l4-4"
+            d="M19 14l-7 7m0 0l-7-7m7 7V3"
           />
         </svg>
       );
@@ -1517,7 +1518,7 @@ const ClusterTab = ({ recaptchaRef, initialClusterId, activeTab: propActiveTab, 
           whileHover={{ scale: 1 }}
           transition={{ duration: 0.3, delay: index * 0.02 }}
         >
-          <div className="w-[15%] sm:w-[15%] px-2 sm:px-3 text-[#FFF]/80 text-[9px] sm:text-[10px] text-center overflow-hidden text-ellipsis">
+          <div className="w-[20%] sm:w-[20%] px-2 sm:px-3 text-[#FFF]/80 text-[9px] sm:text-[10px] text-center overflow-hidden text-ellipsis">
             <div className="flex flex-col items-center justify-center gap-1 relative">
               <div className="relative flex-shrink-0">
                 <img
@@ -1543,14 +1544,11 @@ const ClusterTab = ({ recaptchaRef, initialClusterId, activeTab: propActiveTab, 
               <span className="text-[7px] sm:text-[9px] truncate max-w-[60px] sm:max-w-[80px]">{tokenSymbol}</span>
             </div>
           </div>
-          <div className="w-[45%] sm:w-[40%] px-2 sm:px-3 text-[#FFF]/80 text-[8px] sm:text-[10px] text-center overflow-hidden text-ellipsis flex items-center justify-center">
+          <div className="w-[35%] sm:w-[35%] px-2 sm:px-3 text-[#FFF]/80 text-[8px] sm:text-[10px] text-center overflow-hidden text-ellipsis flex items-center justify-center">
             <div className="flex items-center gap-1 min-w-0 flex-1">
-              {/* <div className={`flex flex-col items-center gap-0.5 ${directionColor}`}>
-                <div className="-mt-0.5">{transferIcon}</div>
-              </div> */}
-              {/* Wallets stack on right */}
-              <div className="flex flex-col gap-1 min-w-0 flex-1">
-                <div className="flex items-center gap-2 group relative">
+              {/* Wallets stack with icon in between */}
+              <div className="flex flex-col gap-1 min-w-0 flex-1 items-center">
+                <div className="flex items-center gap-2 group relative w-full justify-center">
                   <img
                     src={fromNtag.image}
                     alt="From wallet logo"
@@ -1565,7 +1563,10 @@ const ClusterTab = ({ recaptchaRef, initialClusterId, activeTab: propActiveTab, 
                     {truncateAddressWithHover(tx.from, fromNtag.name, isBitcoin ? 'Blockchair' : undefined)}
                   </span>
                 </div>
-                <div className="flex items-center gap-2 group relative">
+                <div className="flex justify-center my-1">
+                  {transferIcon}
+                </div>
+                <div className="flex items-center gap-2 group relative w-full justify-center">
                   <img
                     src={toNtag.image}
                     alt="To wallet logo"
@@ -1583,16 +1584,15 @@ const ClusterTab = ({ recaptchaRef, initialClusterId, activeTab: propActiveTab, 
               </div>
             </div>
           </div>
-          <div className="w-[30%] sm:w-[30%] px-2 sm:px-3 text-[#FFF]/80 text-[9px] sm:text-[10px] text-center overflow-hidden text-ellipsis">
+          <div className="w-[25%] sm:w-[25%] px-2 sm:px-3 text-[#FFF]/80 text-[9px] sm:text-[10px] text-center overflow-hidden text-ellipsis">
             <div className="flex flex-col items-center gap-1">
               <span className={`inline-flex px-1 sm:px-1.5 py-0.5 rounded-full text-[7px] sm:text-[9px] font-medium bg-[#00FFFF20]/20 text-[#00FFFF20]`}>
                 {typeDisplay}
               </span>
               <span className="truncate font-semibold text-[8px] sm:text-[10px]">{displayValue}</span>
-              <span className="font-semibold">{formatPrice(Number(tx.value_usd) || 0, currency, 2)}</span>
             </div>
           </div>
-          <div className="w-[10%] sm:w-[15%] px-2 sm:px-3 text-[#FFF]/80 text-[9px] sm:text-[10px] text-center overflow-hidden text-ellipsis">
+          <div className="w-[20%] sm:w-[20%] px-2 sm:px-3 text-[#FFF]/80 text-[9px] sm:text-[10px] text-center overflow-hidden text-ellipsis">
             <div className="flex flex-col items-center gap-0.5">
               <a href={txUrl} target="_blank" rel="noopener noreferrer">
                 <img
@@ -1655,9 +1655,9 @@ const ClusterTab = ({ recaptchaRef, initialClusterId, activeTab: propActiveTab, 
           <div className="w-full table-fixed text-[9px] sm:text-[11px]">
             <div className="border-b border-[#FFFFFF10] bg-[#0A0A0A]/80 backdrop-blur-md flex">
               <div className="w-[20%] sm:w-[20%] px-3 py-2 text-[#FFF] font-medium text-center">Token</div>
-              <div className="w-[40%] sm:w-[40%] px-3 py-2 text-[#FFF] font-medium text-center">From/To</div>
-              <div className="w-[25%] sm:w-[25%] px-3 py-2 text-[#FFF] font-medium text-center">Value (Token/USD)</div>
-              <div className="w-[15%] sm:w-[15%] px-3 py-2 text-[#FFF] font-medium text-center">Details</div>
+              <div className="w-[35%] sm:w-[35%] px-3 py-2 text-[#FFF] font-medium text-center">From/To</div>
+              <div className="w-[25%] sm:w-[25%] px-3 py-2 text-[#FFF] font-medium text-center">Value (Token)</div>
+              <div className="w-[20%] sm:w-[20%] px-3 py-2 text-[#FFF] font-medium text-center">Details</div>
             </div>
             <div className="flex items-center justify-center py-8 text-[#D4D4D4] text-center">
               <p className="text-[10px] sm:text-sm">Loading transactions...</p>
@@ -1670,10 +1670,10 @@ const ClusterTab = ({ recaptchaRef, initialClusterId, activeTab: propActiveTab, 
         ) : transactions.length > 0 ? (
           <div className="w-full table-fixed text-[9px] sm:text-[11px]">
             <div className="border-b border-[#FFFFFF10] bg-[#0A0A0A]/80 backdrop-blur-md flex">
-              <div className="w-[15%] sm:w-[15%] px-3 py-2 text-[#FFF] font-medium text-center">Token</div>
-              <div className="w-[45%] sm:w-[40%] px-3 py-2 text-[#FFF] font-medium text-center">From/To</div>
-              <div className="w-[30%] sm:w-[30%] px-3 py-2 text-[#FFF] font-medium text-center">Value (Token/USD)</div>
-              <div className="w-[10%] sm:w-[15%] px-3 py-2 text-[#FFF] font-medium text-center">Details</div>
+              <div className="w-[20%] sm:w-[20%] px-3 py-2 text-[#FFF] font-medium text-center">Token</div>
+              <div className="w-[35%] sm:w-[35%] px-3 py-2 text-[#FFF] font-medium text-center">From/To</div>
+              <div className="w-[25%] sm:w-[25%] px-3 py-2 text-[#FFF] font-medium text-center">Value (Token)</div>
+              <div className="w-[20%] sm:w-[20%] px-3 py-2 text-[#FFF] font-medium text-center">Details</div>
             </div>
             <Virtuoso
               className="bg-[#0A0A0A]/80 backdrop-blur-md hide-scrollbar virtuoso-container"
@@ -1694,6 +1694,7 @@ const ClusterTab = ({ recaptchaRef, initialClusterId, activeTab: propActiveTab, 
       </div>
     );
   };
+
   // NEW: Function to get trust score badge class (inspired by Arkham/Nansen trust indicators)
   const getTrustScoreBadge = (score) => {
     if (score === "N/A" || !score) return "bg-gray-600 text-[#D4D4D4]";
