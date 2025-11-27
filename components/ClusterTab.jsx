@@ -1528,14 +1528,13 @@ const ClusterTab = ({ recaptchaRef, initialClusterId, activeTab: propActiveTab, 
               <span className="text-[7px] sm:text-[9px] truncate max-w-[60px] sm:max-w-[80px]">{tokenSymbol}</span>
             </div>
           </div>
-          {/* From/To Column – ĐÃ ĐƯỢC CHỈNH SỬA HOÀN TOÀN */}
           {/* From/To Column – PHIÊN BẢN ĐƠN GIẢN, CHỈ 1 MŨI TÊN XUỐNG MÀU XANH */}
           <div className="w-[35%] sm:w-[35%] px-2 sm:px-3 text-[#FFF]/80 text-[8px] sm:text-[10px] flex items-center">
             <div className="flex items-center gap-2 w-full">
               {/* Icon mũi tên xuống đơn giản, màu xanh neon */}
               <div className="flex-shrink-0">
-                <svg width="20" height="28" viewBox="0 0 20 28" fill="none" xmlns="http://www.w3.org/2000/svg">
-                  <path d="M10 0 V22 M10 22 L4 16 M10 22 L16 16" stroke="#00FF88" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
+                <svg width="10" height="14" viewBox="0 0 20 28" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <path d="M10 0 V22 M10 22 L4 16 M10 22 L16 16" stroke="#00e77bff" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
                 </svg>
               </div>
 
@@ -1577,9 +1576,7 @@ const ClusterTab = ({ recaptchaRef, initialClusterId, activeTab: propActiveTab, 
           </div>
           <div className="w-[25%] sm:w-[25%] px-2 sm:px-3 text-[#FFF]/80 text-[9px] sm:text-[10px] text-center overflow-hidden text-ellipsis">
             <div className="flex flex-col items-center gap-1">
-              <span className={`
-  inline-flex items-center px-2 py-0.5 rounded-full text-[7px] sm:text-[8px] font-bold uppercase tracking-wider
-  ${tx.type === 'swap'
+              <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[7px] sm:text-[8px] font-bold uppercase tracking-wider ${tx.type === 'swap'
                   ? 'bg-gradient-to-r from-purple-600 to-pink-600 text-white shadow-lg shadow-purple-500/30'
                   : tx.type === 'received' || isIncoming
                     ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 shadow-lg shadow-emerald-500/20'
@@ -1592,7 +1589,7 @@ const ClusterTab = ({ recaptchaRef, initialClusterId, activeTab: propActiveTab, 
 `}>
                 {typeDisplay}
               </span>
-              <span className="truncate font-semibold text-[8px] sm:text-[10px]">{displayValue}</span>
+              <span className="truncate font-semibold text-[9px] sm:text-[11px]">{displayValue}</span>
             </div>
           </div>
           <div className="w-[20%] sm:w-[20%] px-2 sm:px-3 text-[#FFF]/80 text-[9px] sm:text-[10px] text-center overflow-hidden text-ellipsis">

@@ -65,8 +65,8 @@ export default function ExplorerTab({ initialQuery, initialChain, isStandalone =
         zksync: 'https://assets.coingecko.com/asset_platforms/images/121/standard/zksync.jpeg?1706606814', // ZK
         linea: 'https://assets.coingecko.com/asset_platforms/images/135/standard/linea.jpeg?1706606705', // Linea (L2, dùng project logo)
         abstract: 'https://assets.coingecko.com/asset_platforms/images/22196/standard/abstract.jpg?1735611808', // Abstract (L2, project logo)
-        apechain: 'https://assets.coingecko.com/coins/images/34445/small/apechain.png', // ApeChain (dùng APE variant)
-        hyperevm: 'https://assets.coingecko.com/coins/images/662/standard/logo_square_simple_300px.png?1696501854', // HyperEVM (project logo)
+        apechain: 'https://assets.coingecko.com/coins/images/24383/standard/APECOIN.png?1756551529', // ApeChain (dùng APE variant)
+        hyperevm: 'https://assets.coingecko.com/coins/images/50882/standard/hyperliquid.jpg?1729431300', // HyperEVM (project logo)
         monad: 'https://assets.coingecko.com/coins/images/38927/standard/monad.jpg?1719547722', // MON (L1)
         unichain: 'https://assets.coingecko.com/asset_platforms/images/22206/standard/unichain.png?1739323630', // Unichain (L2)
         world: 'https://assets.coingecko.com/asset_platforms/images/22180/standard/Worldcoin-logomark-light.png?1728377966',
