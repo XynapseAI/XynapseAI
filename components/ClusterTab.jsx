@@ -1157,6 +1157,7 @@ const ClusterTab = ({ recaptchaRef, initialClusterId, activeTab: propActiveTab, 
     }));
   }, [memoizedPortfolioData, memoizedWalletData, chainLogos]);
   // FIX: Di chuyển logic hiển thị nameTag ra ngoài để áp dụng cho cả Blockchair (Bitcoin)
+
   const truncateAddressWithHover = (address, nameTag, source) => {
     if (!address || address === 'None' || typeof address !== 'string' || address === 'N/A') {
       return (
@@ -1466,23 +1467,6 @@ const ClusterTab = ({ recaptchaRef, initialClusterId, activeTab: propActiveTab, 
       const isIncoming = hasToCluster && !hasFromCluster;
       const isInternal = hasFromCluster && hasToCluster;
       const directionColor = isInternal ? 'text-[#FFF]' : isOutgoing ? 'text-red-400' : isIncoming ? 'text-green-400' : 'text-gray-400';
-      // Updated transfer icon: arrow down for vertical flow
-      const transferIcon = (
-        <svg
-          className={`w-3 h-3 ${directionColor} flex-shrink-0`}
-          fill="none"
-          stroke="currentColor"
-          viewBox="0 0 24 24"
-          xmlns="http://www.w3.org/2000/svg"
-        >
-          <path
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            strokeWidth="2"
-            d="M19 14l-7 7m0 0l-7-7m7 7V3"
-          />
-        </svg>
-      );
       if (!isBitcoin && tx.type === 'swap' && tx.swap_details) {
         const sent = tx.swap_details.sent[0];
         const received = tx.swap_details.received[0];
@@ -1544,39 +1528,46 @@ const ClusterTab = ({ recaptchaRef, initialClusterId, activeTab: propActiveTab, 
               <span className="text-[7px] sm:text-[9px] truncate max-w-[60px] sm:max-w-[80px]">{tokenSymbol}</span>
             </div>
           </div>
-          <div className="w-[35%] sm:w-[35%] px-2 sm:px-3 text-[#FFF]/80 text-[8px] sm:text-[10px] text-center overflow-hidden text-ellipsis flex items-center justify-center">
-            <div className="flex items-center gap-1 min-w-0 flex-1">
-              {/* Wallets stack with icon in between */}
-              <div className="flex flex-col gap-1 min-w-0 flex-1 items-center">
-                <div className="flex items-center gap-2 group relative w-full justify-center">
+          {/* From/To Column – ĐÃ ĐƯỢC CHỈNH SỬA HOÀN TOÀN */}
+          {/* From/To Column – PHIÊN BẢN ĐƠN GIẢN, CHỈ 1 MŨI TÊN XUỐNG MÀU XANH */}
+          <div className="w-[35%] sm:w-[35%] px-2 sm:px-3 text-[#FFF]/80 text-[8px] sm:text-[10px] flex items-center">
+            <div className="flex items-center gap-2 w-full">
+              {/* Icon mũi tên xuống đơn giản, màu xanh neon */}
+              <div className="flex-shrink-0">
+                <svg width="20" height="28" viewBox="0 0 20 28" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <path d="M10 0 V22 M10 22 L4 16 M10 22 L16 16" stroke="#00FF88" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
+                </svg>
+              </div>
+
+              {/* From (trên) & To (dưới) – xếp dọc bên phải mũi tên */}
+              <div className="flex flex-col justify-center flex-1 min-w-0 leading-tight">
+                {/* FROM */}
+                <div className="flex items-center gap-1.5 group">
                   <img
                     src={fromNtag.image}
-                    alt="From wallet logo"
-                    className="w-3 h-3 rounded-full"
+                    alt="From"
+                    className="w-3 h-3 rounded-full flex-shrink-0"
                     onError={(e) => (e.target.src = '/fallback-image.webp')}
-                    loading="lazy"
                   />
                   <span
-                    onClick={() => handleWalletClick(fromWallet)}
-                    className="text-[#FFF] hover:text-[#FFF]/80 cursor-pointer no-hover-effect truncate"
+                    onClick={(e) => { e.stopPropagation(); handleWalletClick(fromWallet); }}
+                    className="text-[#FF6666] hover:text-[#FF8888] cursor-pointer truncate text-[9px]"
                   >
                     {truncateAddressWithHover(tx.from, fromNtag.name, isBitcoin ? 'Blockchair' : undefined)}
                   </span>
                 </div>
-                <div className="flex justify-center my-1">
-                  {transferIcon}
-                </div>
-                <div className="flex items-center gap-2 group relative w-full justify-center">
+
+                {/* TO */}
+                <div className="flex items-center gap-1.5 group mt-0.5">
                   <img
                     src={toNtag.image}
-                    alt="To wallet logo"
-                    className="w-3 h-3 rounded-full"
+                    alt="To"
+                    className="w-3 h-3 rounded-full flex-shrink-0"
                     onError={(e) => (e.target.src = '/fallback-image.webp')}
-                    loading="lazy"
                   />
                   <span
-                    onClick={() => handleWalletClick(toWallet)}
-                    className="text-[#FFF] hover:text-[#FFF]/80 cursor-pointer no-hover-effect truncate"
+                    onClick={(e) => { e.stopPropagation(); handleWalletClick(toWallet); }}
+                    className="text-[#66FFAA] hover:text-[#88FFCC] cursor-pointer truncate text-[9px]"
                   >
                     {truncateAddressWithHover(tx.to, toNtag.name, isBitcoin ? 'Blockchair' : undefined)}
                   </span>
@@ -1586,7 +1577,19 @@ const ClusterTab = ({ recaptchaRef, initialClusterId, activeTab: propActiveTab, 
           </div>
           <div className="w-[25%] sm:w-[25%] px-2 sm:px-3 text-[#FFF]/80 text-[9px] sm:text-[10px] text-center overflow-hidden text-ellipsis">
             <div className="flex flex-col items-center gap-1">
-              <span className={`inline-flex px-1 sm:px-1.5 py-0.5 rounded-full text-[7px] sm:text-[9px] font-medium bg-[#00FFFF20]/20 text-[#00FFFF20]`}>
+              <span className={`
+  inline-flex items-center px-2 py-0.5 rounded-full text-[7px] sm:text-[8px] font-bold uppercase tracking-wider
+  ${tx.type === 'swap'
+                  ? 'bg-gradient-to-r from-purple-600 to-pink-600 text-white shadow-lg shadow-purple-500/30'
+                  : tx.type === 'received' || isIncoming
+                    ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 shadow-lg shadow-emerald-500/20'
+                    : tx.type === 'sent' || isOutgoing
+                      ? 'bg-red-500/20 text-red-300 border border-red-500/40 shadow-lg shadow-red-500/20'
+                      : isInternal
+                        ? 'bg-yellow-500/20 text-yellow-300 border border-yellow-500/40 shadow-lg shadow-yellow-500/20'
+                        : 'bg-gray-500/20 text-gray-300 border border-gray-500/40'
+                }
+`}>
                 {typeDisplay}
               </span>
               <span className="truncate font-semibold text-[8px] sm:text-[10px]">{displayValue}</span>
