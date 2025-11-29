@@ -4,14 +4,16 @@ import { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Search, Clock, Hash as HashIcon, AlertCircle, Wallet, Coins, Activity, Check, Copy, X, DollarSign, ChevronDown } from 'lucide-react';
+import { Search, Clock, Hash as HashIcon, AlertCircle, Wallet, Coins, Activity, Check, Copy, X, DollarSign, ChevronDown, Globe, Fuel } from 'lucide-react';
+import { toast, ToastContainer } from 'react-toastify';
+import 'react-toastify/dist/ReactToastify.css';
 import { useSearchParams } from 'next/navigation';
-
+import { ethers } from 'ethers';
 export default function ExplorerTab({ initialQuery, initialChain, isStandalone = false }) {
     const searchParams = useSearchParams();
     const router = useRouter();
     const [query, setQuery] = useState(initialQuery || '');
-    const [selectedChain, setSelectedChain] = useState(initialChain || '');
+    const [selectedChain, setSelectedChain] = useState(initialChain || 'ethereum');
     const [results, setResults] = useState(null);
     const [nametags, setNametags] = useState({});
     const [nametagsLoading, setNametagsLoading] = useState(false);
@@ -23,10 +25,17 @@ export default function ExplorerTab({ initialQuery, initialChain, isStandalone =
     const buttonRef = useRef(null);
     const menuRef = useRef(null);
     const [menuPosition, setMenuPosition] = useState({ top: 0, left: 0, width: 0 });
-
     const basePath = isStandalone ? '/explorer' : '/dashboard?tab=explorer';
     const origin = typeof window !== 'undefined' ? window.location.origin : 'https://xynapseai.net';
-
+    const [chainStats, setChainStats] = useState({ blockNumber: 0, gasPrice: '0', nativePrice: 0 });
+    const [latestBlocks, setLatestBlocks] = useState([]); // newest first
+    const [latestTxs, setLatestTxs] = useState([]); // newest first
+    const [blocksPage, setBlocksPage] = useState(1);
+    const [txsPage, setTxsPage] = useState(1);
+    const [dashboardLoading, setDashboardLoading] = useState(false);
+    const itemsPerPage = 20;
+    const apiKey = process.env.NEXT_PUBLIC_ALCHEMY_API_KEY || 'demo';
+    const isDemoKey = !apiKey || apiKey === 'demo';
     const chainConfig = {
         bitcoin: { id: null, apiBase: '/api/mempool' },
         ethereum: { id: 1, apiBase: '/api/etherscan-explorer' },
@@ -48,7 +57,6 @@ export default function ExplorerTab({ initialQuery, initialChain, isStandalone =
         unichain: { id: 130, apiBase: '/api/etherscan-explorer' },
         world: { id: 480, apiBase: '/api/etherscan-explorer' },
     };
-
     const chainLogos = {
         bitcoin: 'https://assets.coingecko.com/coins/images/1/small/bitcoin.png',
         ethereum: 'https://assets.coingecko.com/coins/images/279/small/ethereum.png',
@@ -58,20 +66,18 @@ export default function ExplorerTab({ initialQuery, initialChain, isStandalone =
         polygon: 'https://assets.coingecko.com/asset_platforms/images/15/standard/polygon_pos.png?1706606645',
         base: 'https://assets.coingecko.com/asset_platforms/images/131/standard/base.png?1759905869',
         solana: 'https://assets.coingecko.com/coins/images/4128/small/solana.png',
-        // Add
-        avalanche: 'https://assets.coingecko.com/asset_platforms/images/12/standard/avalanche.png?1706606775', // AVAX
-        celo: 'https://assets.coingecko.com/asset_platforms/images/21/standard/celo.jpeg?1711358666', // CELO
-        gnosis: 'https://assets.coingecko.com/coins/images/662/standard/logo_square_simple_300px.png?1696501854', // GNO (xDAI chain)
-        zksync: 'https://assets.coingecko.com/asset_platforms/images/121/standard/zksync.jpeg?1706606814', // ZK
-        linea: 'https://assets.coingecko.com/asset_platforms/images/135/standard/linea.jpeg?1706606705', // Linea (L2, dùng project logo)
-        abstract: 'https://assets.coingecko.com/asset_platforms/images/22196/standard/abstract.jpg?1735611808', // Abstract (L2, project logo)
-        apechain: 'https://assets.coingecko.com/coins/images/24383/standard/APECOIN.png?1756551529', // ApeChain (dùng APE variant)
-        hyperevm: 'https://assets.coingecko.com/coins/images/50882/standard/hyperliquid.jpg?1729431300', // HyperEVM (project logo)
-        monad: 'https://assets.coingecko.com/coins/images/38927/standard/monad.jpg?1719547722', // MON (L1)
-        unichain: 'https://assets.coingecko.com/asset_platforms/images/22206/standard/unichain.png?1739323630', // Unichain (L2)
+        avalanche: 'https://assets.coingecko.com/asset_platforms/images/12/standard/avalanche.png?1706606775',
+        celo: 'https://assets.coingecko.com/asset_platforms/images/21/standard/celo.jpeg?1711358666',
+        gnosis: 'https://assets.coingecko.com/coins/images/662/standard/logo_square_simple_300px.png?1696501854',
+        zksync: 'https://assets.coingecko.com/asset_platforms/images/121/standard/zksync.jpeg?1706606814',
+        linea: 'https://assets.coingecko.com/asset_platforms/images/135/standard/linea.jpeg?1706606705',
+        abstract: 'https://assets.coingecko.com/asset_platforms/images/22196/standard/abstract.jpg?1735611808',
+        apechain: 'https://assets.coingecko.com/coins/images/24383/standard/APECOIN.png?1756551529',
+        hyperevm: 'https://assets.coingecko.com/coins/images/50882/standard/hyperliquid.jpg?1729431300',
+        monad: 'https://assets.coingecko.com/coins/images/38927/standard/monad.jpg?1719547722',
+        unichain: 'https://assets.coingecko.com/asset_platforms/images/22206/standard/unichain.png?1739323630',
         world: 'https://assets.coingecko.com/asset_platforms/images/22180/standard/Worldcoin-logomark-light.png?1728377966',
     };
-
     const nativeTokenLogos = {
         ETH: 'https://assets.coingecko.com/coins/images/279/small/ethereum.png',
         BNB: 'https://assets.coingecko.com/coins/images/825/small/bnb.png',
@@ -79,8 +85,13 @@ export default function ExplorerTab({ initialQuery, initialChain, isStandalone =
         BTC: 'https://assets.coingecko.com/coins/images/1/small/bitcoin.png',
         SOL: 'https://assets.coingecko.com/coins/images/4128/small/solana.png',
         MON: 'https://assets.coingecko.com/coins/images/38927/small/monad.jpg?1719547722',
+        AVAX: 'https://assets.coingecko.com/coins/images/12559/small/AVAXLOGO.png',
+        CELO: 'https://assets.coingecko.com/coins/images/11090/small/icon-celo-CELO-color-500.png',
+        xDAI: 'https://assets.coingecko.com/coins/images/11062/small/StableGDAI_icon.png',
+        APE: 'https://assets.coingecko.com/coins/images/24383/small/APECOIN.png',
+        HYPER: 'https://assets.coingecko.com/coins/images/50882/small/hyperliquid.jpg',
+        WORLD: 'https://assets.coingecko.com/coins/images/37060/small/WORLD_Token_Icon.png',
     };
-
     const nativeSymbols = {
         ethereum: 'ETH',
         bsc: 'BNB',
@@ -89,8 +100,17 @@ export default function ExplorerTab({ initialQuery, initialChain, isStandalone =
         polygon: 'MATIC',
         base: 'ETH',
         monad: 'MON',
+        avalanche: 'AVAX',
+        celo: 'CELO',
+        gnosis: 'xDAI',
+        zksync: 'ETH',
+        linea: 'ETH',
+        abstract: 'ETH',
+        apechain: 'APE',
+        hyperevm: 'HYPER',
+        unichain: 'ETH',
+        world: 'ETH',
     };
-
     const chainSymbols = {
         bitcoin: 'BTC',
         ethereum: 'ETH',
@@ -101,10 +121,135 @@ export default function ExplorerTab({ initialQuery, initialChain, isStandalone =
         base: 'ETH',
         solana: 'SOL',
         monad: 'MON',
+        avalanche: 'AVAX',
+        celo: 'CELO',
+        gnosis: 'xDAI',
+        zksync: 'ETH',
+        linea: 'ETH',
+        abstract: 'ETH',
+        apechain: 'APE',
+        hyperevm: 'HYPER',
+        unichain: 'ETH',
+        world: 'ETH',
     };
-
     const evmChainsOrder = ['ethereum', 'arbitrum', 'bsc', 'optimism', 'polygon', 'base', "monad"];
+    const rpcMap = {
+        ethereum: `https://eth-mainnet.g.alchemy.com/v2/${apiKey}`,
+        polygon: `https://polygon-mainnet.g.alchemy.com/v2/${apiKey}`,
+        arbitrum: `https://arb-mainnet.g.alchemy.com/v2/${apiKey}`,
+        optimism: `https://opt-mainnet.g.alchemy.com/v2/${apiKey}`,
+        base: `https://base-mainnet.g.alchemy.com/v2/${apiKey}`,
+        avalanche: `https://avax-mainnet.g.alchemy.com/v2/${apiKey}`,
+        celo: `https://celo-mainnet.g.alchemy.com/v2/${apiKey}`,
+        gnosis: `https://gnosis-mainnet.g.alchemy.com/v2/${apiKey}`,
+        zksync: `https://zksync-mainnet.g.alchemy.com/v2/${apiKey}`,
+        linea: `https://linea-mainnet.g.alchemy.com/v2/${apiKey}`,
+        bsc: `https://bnb-mainnet.g.alchemy.com/v2/${apiKey}`,
+        abstract: `https://abstract-mainnet.g.alchemy.com/v2/${apiKey}`,
+        apechain: `https://apechain-mainnet.g.alchemy.com/v2/${apiKey}`,
+        hyperevm: `https://hyperliquid-mainnet.g.alchemy.com/v2/${apiKey}`,
+        monad: `https://monad-mainnet.g.alchemy.com/v2/${apiKey}`,
+        unichain: `https://linea-mainnet.g.alchemy.com/v2/${apiKey}`,
+        world: `https://worldchain-mainnet.g.alchemy.com/v2/${apiKey}`,
+    };
+    const fetchNativePrice = async () => {
+        try {
+            const priceRes = await fetch('/api/alchemy', {
+                method: 'POST',
+                body: JSON.stringify({ action: 'native-price', chain: selectedChain })
+            });
+            const priceData = priceRes.ok ? await priceRes.json() : { price: 0 };
+            // Cập nhật giá vào chainStats (giữ nguyên các giá trị khác)
+            setChainStats(prevStats => ({
+                ...prevStats,
+                nativePrice: priceData.price
+            }));
+        } catch (error) {
+            console.error("Price polling error:", error);
+        }
+    };
+    const collectDashboardAddresses = () => {
+        const miners = latestBlocks.map(b => b.miner?.toLowerCase() ?? '');
+        const froms = latestTxs.map(tx => tx.from?.toLowerCase() ?? '');
+        const tos = latestTxs.map(tx => tx.to?.toLowerCase() ?? '');
+        const all = [...miners, ...froms, ...tos].filter(a => a);
+        return [...new Set(all)].slice(0, 50);
+    };
+    const fetchDashboardData = async () => {
+        try {
+            const [blocksRes, txsRes, statsRes] = await Promise.all([
+                fetch('/api/alchemy', {
+                    method: 'POST', body: JSON.stringify({ action: 'latest-blocks', chain: selectedChain })
+                }),
+                fetch('/api/alchemy', {
+                    method: 'POST', body: JSON.stringify({ action: 'latest-txs', chain: selectedChain })
+                }),
+                fetch('/api/alchemy', {
+                    method: 'POST', body: JSON.stringify({ action: 'chain-stats', chain: selectedChain })
+                }),
+            ]);
+            const blocks = blocksRes.ok ? await blocksRes.json() : [];
+            const txsRaw = txsRes.ok ? await txsRes.json() : [];
+            const statsData = statsRes.ok ? await statsRes.json() : { blockNumber: 0, gasPrice: '0' };
 
+            let txs = txsRaw;
+            if (isEVMChain(selectedChain)) {
+                txs = txsRaw.map(tx => ({
+                    ...tx,
+                    value: tx.value ? Number(ethers.formatEther(tx.value)) : 0
+                }));
+            } else {
+                txs = txsRaw.map(tx => ({
+                    ...tx,
+                    value: tx.value ? parseFloat(tx.value) : 0
+                }));
+            }
+
+            if (blocks.length > 0) setLatestBlocks(blocks);
+            if (txs.length > 0) setLatestTxs(txs);
+            setChainStats(prevStats => ({
+                ...prevStats,
+                blockNumber: statsData.blockNumber,
+                gasPrice: statsData.gasPrice,
+            }));
+            setDashboardLoading(false);
+            const addresses = collectDashboardAddresses();
+            if (addresses.length > 0) {
+                await fetchNametags(addresses, selectedChain);
+            }
+        } catch (error) {
+            console.error("Polling error:", error);
+            setDashboardLoading(false);
+        }
+    };
+    useEffect(() => {
+        // 1. Fetch giá lần đầu ngay lập tức
+        fetchNativePrice();
+        // 2. Thiết lập Polling Giá (Mỗi 1 giờ)
+        const ONE_HOUR_MS = 3600000;
+        const priceIntervalId = setInterval(() => {
+            fetchNativePrice();
+        }, ONE_HOUR_MS);
+        // 3. Cleanup
+        return () => clearInterval(priceIntervalId);
+    }, [selectedChain]);
+    useEffect(() => {
+        // 1. Reset loading khi đổi chain
+        setDashboardLoading(true);
+        setLatestBlocks([]);
+        setLatestTxs([]);
+        setNametags({});
+        // Không reset nativePrice ở đây để tránh bị 0 trong lúc chờ fetch price mới (vì giá chỉ fetch 1h/lần)
+        setChainStats(prev => ({ blockNumber: 0, gasPrice: '0', nativePrice: prev.nativePrice || 0 }));
+        // 2. Fetch Dashboard Data (không bao gồm price) lần đầu ngay lập tức
+        fetchDashboardData();
+        // 3. Thiết lập Polling cho Blocks/Txs/Stats (Mỗi 5 giây)
+        const dataIntervalId = setInterval(() => {
+            fetchDashboardData();
+        }, 60000);
+        // 4. Cleanup
+        return () => clearInterval(dataIntervalId);
+    }, [selectedChain]);
     useEffect(() => {
         const handleClickOutside = (event) => {
             if (isChainMenuOpen && menuRef.current && !menuRef.current.contains(event.target) && !buttonRef.current.contains(event.target)) {
@@ -116,19 +261,16 @@ export default function ExplorerTab({ initialQuery, initialChain, isStandalone =
             document.removeEventListener('mousedown', handleClickOutside);
         };
     }, [isChainMenuOpen]);
-
-    // Calculate menu position for portal
     useEffect(() => {
         if (isChainMenuOpen && buttonRef.current) {
             const rect = buttonRef.current.getBoundingClientRect();
             setMenuPosition({
-                top: rect.bottom + 8 + window.scrollY, // mt-2 equivalent (8px)
+                top: rect.bottom + 8 + window.scrollY,
                 left: rect.left + window.scrollX,
                 width: rect.width
             });
         }
     }, [isChainMenuOpen]);
-
     useEffect(() => {
         if (results && results.data) {
             const txHash = results.data.hash || results.data.txid || results.data.signature || 'Unknown';
@@ -190,7 +332,6 @@ export default function ExplorerTab({ initialQuery, initialChain, isStandalone =
             }
         }
     }, [results, selectedChain, query, basePath]);
-
     const createMetaTag = (attr, value, content) => {
         let tag = document.querySelector(`meta[${attr}="${value}"]`);
         if (!tag) {
@@ -201,14 +342,12 @@ export default function ExplorerTab({ initialQuery, initialChain, isStandalone =
         tag.setAttribute('content', content);
         return tag;
     };
-
     useEffect(() => {
         const checkMobile = () => setIsMobile(window.innerWidth < 768);
         checkMobile();
         window.addEventListener('resize', checkMobile);
         return () => window.removeEventListener('resize', checkMobile);
     }, []);
-
     useEffect(() => {
         if (initialQuery) {
             setQuery(initialQuery);
@@ -217,14 +356,17 @@ export default function ExplorerTab({ initialQuery, initialChain, isStandalone =
             setSelectedChain(initialChain);
         }
     }, [initialQuery, initialChain]);
-
     useEffect(() => {
         let interval;
-        if (loading || nametagsLoading) {
+        if (loading || nametagsLoading || dashboardLoading) {
             const messages = nametagsLoading ? [
                 'Loading nametags...',
                 'Resolving addresses...',
                 'Fetching labels...',
+            ] : dashboardLoading ? [
+                'Loading dashboard...',
+                'Fetching chain stats...',
+                'Connecting to node...',
             ] : [
                 'Searching transaction...',
                 'Fetching from chain...',
@@ -243,13 +385,11 @@ export default function ExplorerTab({ initialQuery, initialChain, isStandalone =
         return () => {
             if (interval) clearInterval(interval);
         };
-    }, [loading, nametagsLoading]);
-
+    }, [loading, nametagsLoading, dashboardLoading]);
     const truncateText = (text, start = 5, end = 5) => {
         if (!text || text.length <= start + end) return text;
         return `${text.slice(0, start)}...${text.slice(-end)}`;
     };
-
     const detectChainForTx = (txHash) => {
         const trimmed = txHash.trim();
         if (trimmed.startsWith('0x') && /^0x[a-fA-F0-9]{64}$/.test(trimmed)) {
@@ -262,13 +402,15 @@ export default function ExplorerTab({ initialQuery, initialChain, isStandalone =
             throw new Error('Invalid transaction hash format');
         }
     };
-
-    const copyToClipboard = (text) => {
-        navigator.clipboard.writeText(text);
+    const copyToClipboard = (text, type = 'Item') => {
+        navigator.clipboard.writeText(text).then(() => {
+            toast.success(`${type} copied to clipboard!`, { autoClose: 1500, position: 'top-right' });
+        }).catch(err => {
+            toast.error('Failed to copy', { autoClose: 1500, position: 'top-right' });
+            console.error('Copy error:', err);
+        });
     };
-
     const isEVMChain = (chain) => !!nativeSymbols[chain];
-
     const extractAddresses = (txData, chain) => {
         const addresses = new Set();
         let tx = txData;
@@ -326,7 +468,6 @@ export default function ExplorerTab({ initialQuery, initialChain, isStandalone =
         }
         return Array.from(addresses).slice(0, 50);
     };
-
     const fetchNametags = async (addresses, chain) => {
         if (addresses.length === 0) return;
         setNametagsLoading(true);
@@ -346,12 +487,11 @@ export default function ExplorerTab({ initialQuery, initialChain, isStandalone =
             });
             setNametags(prev => ({ ...prev, ...newNametags }));
         } catch (err) {
-            // Silent error
+            console.error('Nametags fetch error:', err);
         } finally {
             setNametagsLoading(false);
         }
     };
-
     const fetchData = async (q, ch, fallbackIndex = 0) => {
         setLoading(true);
         setError(null);
@@ -412,7 +552,6 @@ export default function ExplorerTab({ initialQuery, initialChain, isStandalone =
             setLoading(false);
         }
     };
-
     const handleSearch = () => {
         if (!query.trim()) return;
         try {
@@ -425,7 +564,6 @@ export default function ExplorerTab({ initialQuery, initialChain, isStandalone =
             setError(err.message);
         }
     };
-
     useEffect(() => {
         const q = initialQuery || searchParams.get('query');
         const ch = initialChain || searchParams.get('chain');
@@ -439,32 +577,41 @@ export default function ExplorerTab({ initialQuery, initialChain, isStandalone =
             }
         }
     }, [initialQuery, initialChain]);
-
     const renderAddress = (addr, chain) => {
         if (!addr || addr === 'Coinbase' || addr === 'Multiple Inputs' || addr === 'Multiple Outputs') {
-            return <span className="font-mono break-all">{addr}</span>;
+            return <span className="font-mono break-all text-[10px] sm:text-[12px]">{addr}</span>;
         }
         const normalized = addr.toLowerCase();
         const tag = nametags[normalized];
-        const displayAddr = isMobile && addr.length > 10 ? truncateText(addr) : addr;
-        return (
-            <>
-                <span className="font-mono break-all mr-1">{displayAddr}</span>
-                {tag && tag['Name Tag'] && (
-                    <span className="flex items-center text-xs text-emerald-400">
-                        {tag.image && <img src={tag.image} alt={tag['Name Tag']} className="w-3 h-3 mr-1 rounded" />}
-                        ({tag['Name Tag']})
-                    </span>
-                )}
-            </>
-        );
+        const displayAddr = truncateText(addr, 5, 5);
+        const copyContent = addr; // Always copy the full address
+        if (tag && tag['Name Tag']) {
+            return (
+                <div className="flex items-center gap-1 relative group">
+                    {tag.image && <img src={tag.image} alt={tag['Name Tag']} className="w-3 h-3 mr-1 rounded-full" />}
+                    <span className="font-mono break-all text-[10px] sm:text-[12px]">{tag['Name Tag']}</span>
+                    <Copy
+                        className="absolute right-0 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity w-3 h-3 cursor-pointer text-gray-400 hover:text-emerald-400"
+                        onClick={(e) => { e.stopPropagation(); copyToClipboard(copyContent, 'Address'); }}
+                    />
+                </div>
+            );
+        } else {
+            return (
+                <div className="flex items-center gap-1 relative group">
+                    <span className="font-mono break-all text-[10px] sm:text-[12px]">{displayAddr}</span>
+                    <Copy
+                        className="absolute right-0 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity w-3 h-3 cursor-pointer text-gray-400 hover:text-emerald-400"
+                        onClick={(e) => { e.stopPropagation(); copyToClipboard(copyContent, 'Address'); }}
+                    />
+                </div>
+            );
+        }
     };
-
     const formatUSD = (value) => {
         if (value == null || isNaN(value)) return '$0.00';
         return `$${value.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
     };
-
     const renderValueWithUSD = (tokenValue, usdValue, symbol, logoUrl = null, isToken = false) => {
         tokenValue = Number(tokenValue);
         const nativeLogo = nativeTokenLogos[symbol] || logoUrl || chainLogos['ethereum'];
@@ -473,7 +620,7 @@ export default function ExplorerTab({ initialQuery, initialChain, isStandalone =
             <img
                 src={nativeLogo}
                 alt={symbol}
-                className="w-3 h-3 mr-1 rounded"
+                className="w-4 h-4 mr-1 rounded-full"
                 onError={(e) => {
                     e.target.src = `https://via.placeholder.com/16?text=${symbol}`;
                     e.target.alt = `${symbol} Logo`;
@@ -481,27 +628,26 @@ export default function ExplorerTab({ initialQuery, initialChain, isStandalone =
             />
         ) : null;
         if (!usdValue || usdValue === 0) return (
-            <span className="flex items-center">
+            <span className="flex items-center text-[10px] sm:text-[12px]">
                 {logoElement}
                 {tokenValue.toFixed(2)} {symbol}
             </span>
         );
         return (
-            <span className="flex items-center">
+            <span className="flex items-center text-[10px] sm:text-[12px]">
                 {logoElement}
                 {tokenValue.toFixed(2)} {symbol}
-                <span className="ml-1 text-xs text-green-400">({formattedUSD})</span>
-                {isToken && <span className="ml-1 text-xs text-gray-400">(Tokens)</span>}
+                <span className="ml-1 text-[9px] text-green-400">({formattedUSD})</span>
+                {isToken && <span className="ml-1 text-[9px] text-gray-400">(Tokens)</span>}
             </span>
         );
     };
-
     const renderTokenAmount = (amount, symbol, logo) => (
-        <span className="flex items-center">
+        <span className="flex items-center text-[10px] sm:text-[12px]">
             <img
                 src={logo || `https://via.placeholder.com/16?text=${symbol || 'T'}`}
                 alt={`${symbol || 'Token'} Logo`}
-                className="w-3 h-3 mr-1 rounded"
+                className="w-4 h-4 mr-1 rounded-full"
                 onError={(e) => {
                     e.target.src = `https://via.placeholder.com/16?text=${symbol || 'T'}`;
                 }}
@@ -509,7 +655,6 @@ export default function ExplorerTab({ initialQuery, initialChain, isStandalone =
             {Number(amount).toFixed(2)} {symbol || ''}
         </span>
     );
-
     const renderTxDetails = (txData, chain) => {
         let tx = txData;
         if (Array.isArray(txData)) tx = txData[0];
@@ -537,25 +682,37 @@ export default function ExplorerTab({ initialQuery, initialChain, isStandalone =
             const fee = (gasUsed * effectiveGasPrice) / 1e18;
             const nativeValue = Number(parseInt(transaction.value || '0x0', 16)) / 1e18;
             const symbol = nativeSymbols[detectedChain] || 'ETH';
-            txData.nativeValueUSD = txData.nativeValueUSD || 0;
-            txData.feeUSD = txData.feeUSD || 0;
+            // Bổ sung: Lấy giá từ chainStats
+            const nativePrice = chainStats.nativePrice || 0; // <--- Truy cập chainStats
+            // Bổ sung: Tính toán USD
+            const nativeValueUSD = nativeValue * nativePrice;
+            const feeUSD = fee * nativePrice;
+            txData.nativeValueUSD = nativeValueUSD; // <-- Cập nhật lại
+            txData.feeUSD = feeUSD;
             tx = { ...transaction, receipt, internalTxs, tokenTransfers };
             return (
-                <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-4 text-sm">
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div className="md:col-span-2 bg-[#FFFFFF]/5 backdrop-blur-md p-3 rounded-lg border border-[#FFFFFF20] shadow-[0_4px_12px_rgba(0,0,0,0.3)] glow-[#FFFFFF15] hover:shadow-[0_0_8px_rgba(255,255,255,0.15)] transition-shadow flex items-center justify-between">
+                <motion.div
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    className="space-y-4 text-[10px] sm:text-[12px]"
+                >
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                        <div className="md:col-span-2 bg-[#FFFFFF]/5 backdrop-blur-md p-3 rounded-xl border border-[#FFFFFF20] shadow-[0_4px_12px_rgba(0,0,0,0.3)] glow-[#FFFFFF15] hover:shadow-[0_0_8px_rgba(255,255,255,0.15)] transition-all duration-200 flex items-center justify-between relative group">
                             <div className="flex items-center">
                                 <HashIcon className="w-4 h-4 text-emerald-400 mr-2" />
                                 <span className="text-[#D4D4D4] mr-2">Hash:</span>
-                                <span className="font-mono break-all mr-2">{isMobile && tx.hash.length > 10 ? truncateText(tx.hash) : tx.hash}</span>
-                                <Copy onClick={() => copyToClipboard(tx.hash)} className="w-4 h-4 cursor-pointer hover:text-emerald-400" />
+                                <span className="font-mono break-all mr-2 text-[9px] sm:text-[10px]">{isMobile && tx.hash.length > 10 ? truncateText(tx.hash) : tx.hash}</span>
                             </div>
-                            <h2 className="text-xs font-semibold flex items-center gap-2">
-                                <img src={chainLogos[detectedChain]} alt={detectedChain} className="w-5 h-5 inline mx-1" />
+                            <Copy
+                                className="opacity-0 group-hover:opacity-100 transition-opacity w-4 h-4 cursor-pointer text-gray-400 hover:text-emerald-400 absolute right-2 top-1/2 -translate-y-1/2"
+                                onClick={(e) => { e.stopPropagation(); copyToClipboard(tx.hash, 'Transaction Hash'); }}
+                            />
+                            <h2 className="text-[9px] font-semibold flex items-center gap-2">
+                                <img src={chainLogos[detectedChain]} alt={detectedChain} className="w-5 h-5 rounded-full" />
                                 <span className="text-[#D4D4D4]">{detectedChain.toUpperCase()}</span>
                             </h2>
                         </div>
-                        <div className="md:col-span-2 bg-[#FFFFFF]/5 backdrop-blur-md p-3 rounded-lg border border-[#FFFFFF20] shadow-[0_4px_12px_rgba(0,0,0,0.3)] glow-[#FFFFFF15] hover:shadow-[0_0_8px_rgba(255,255,255,0.15)] transition-shadow flex items-center">
+                        <div className="md:col-span-2 bg-[#FFFFFF]/5 backdrop-blur-md p-3 rounded-xl border border-[#FFFFFF20] shadow-[0_4px_12px_rgba(0,0,0,0.3)] glow-[#FFFFFF15] hover:shadow-[0_0_8px_rgba(255,255,255,0.15)] transition-all duration-200 flex items-center">
                             <Activity className="w-4 h-4 text-emerald-400 mr-2" />
                             <span className="text-[#D4D4D4] mr-2">Status:</span>
                             <div className="flex items-center">
@@ -566,7 +723,7 @@ export default function ExplorerTab({ initialQuery, initialChain, isStandalone =
                             </div>
                         </div>
                         {tokenTransfers.length === 0 && (
-                            <div className="bg-[#FFFFFF]/5 backdrop-blur-md p-3 rounded-lg border border-[#FFFFFF20] shadow-[0_4px_12px_rgba(0,0,0,0.3)] glow-[#FFFFFF15] hover:shadow-[0_0_8px_rgba(255,255,255,0.15)] transition-shadow flex items-center">
+                            <div className="bg-[#FFFFFF]/5 backdrop-blur-md p-3 rounded-xl border border-[#FFFFFF20] shadow-[0_4px_12px_rgba(0,0,0,0.3)] glow-[#FFFFFF15] hover:shadow-[0_0_8px_rgba(255,255,255,0.15)] transition-all duration-200 flex items-center">
                                 <Coins className="w-4 h-4 text-emerald-400 mr-2" />
                                 <span className="text-[#D4D4D4] mr-2">Value:</span>
                                 <div className="flex flex-col">
@@ -576,7 +733,7 @@ export default function ExplorerTab({ initialQuery, initialChain, isStandalone =
                                 </div>
                             </div>
                         )}
-                        <div className={`bg-[#FFFFFF]/5 backdrop-blur-md p-3 rounded-lg border border-[#FFFFFF20] shadow-[0_4px_12px_rgba(0,0,0,0.3)] glow-[#FFFFFF15] hover:shadow-[0_0_8px_rgba(255,255,255,0.15)] transition-shadow flex items-center ${blockNumber ? 'justify-between' : ''}`}>
+                        <div className={`bg-[#FFFFFF]/5 backdrop-blur-md p-3 rounded-xl border border-[#FFFFFF20] shadow-[0_4px_12px_rgba(0,0,0,0.3)] glow-[#FFFFFF15] hover:shadow-[0_0_8px_rgba(255,255,255,0.15)] transition-all duration-200 flex items-center ${blockNumber ? 'justify-between' : ''}`}>
                             {blockNumber && (
                                 <div className="flex items-center">
                                     <HashIcon className="w-4 h-4 text-emerald-400 mr-1" />
@@ -585,24 +742,30 @@ export default function ExplorerTab({ initialQuery, initialChain, isStandalone =
                             )}
                             <span className="flex items-center"><Clock className="w-4 h-4 text-emerald-400 mr-1" />{status === 'Pending' ? 'Submitted: ' : 'Time: '} {new Date(timestamp).toLocaleString()}</span>
                         </div>
-                        <div className="bg-[#FFFFFF]/5 backdrop-blur-md p-3 rounded-lg border border-[#FFFFFF20] shadow-[0_4px_12px_rgba(0,0,0,0.3)] glow-[#FFFFFF15] hover:shadow-[0_0_8px_rgba(255,255,255,0.15)] transition-shadow flex items-center">
+                        <div className="bg-[#FFFFFF]/5 backdrop-blur-md p-3 rounded-xl border border-[#FFFFFF20] shadow-[0_4px_12px_rgba(0,0,0,0.3)] glow-[#FFFFFF15] hover:shadow-[0_0_8px_rgba(255,255,255,0.15)] transition-all duration-200 flex items-center">
                             <Wallet className="w-4 h-4 text-emerald-400 mr-2" />
                             <span className="text-[#D4D4D4] mr-2">From:</span>
-                            <div className="flex items-center ml-2">
+                            <div className="flex items-center ml-2 relative group">
                                 {renderAddress(tx.from, detectedChain)}
-                                <Copy onClick={() => copyToClipboard(tx.from)} className="ml-2 w-4 h-4 cursor-pointer hover:text-emerald-400" />
+                                <Copy
+                                    className="opacity-0 group-hover:opacity-100 transition-opacity ml-2 w-4 h-4 cursor-pointer text-gray-400 hover:text-emerald-400 absolute right-0 top-1/2 -translate-y-1/2"
+                                    onClick={(e) => { e.stopPropagation(); copyToClipboard(tx.from, 'From Address'); }}
+                                />
                             </div>
                         </div>
-                        <div className="bg-[#FFFFFF]/5 backdrop-blur-md p-3 rounded-lg border border-[#FFFFFF20] shadow-[0_4px_12px_rgba(0,0,0,0.3)] glow-[#FFFFFF15] hover:shadow-[0_0_8px_rgba(255,255,255,0.15)] transition-shadow flex items-center">
+                        <div className="bg-[#FFFFFF]/5 backdrop-blur-md p-3 rounded-xl border border-[#FFFFFF20] shadow-[0_4px_12px_rgba(0,0,0,0.3)] glow-[#FFFFFF15] hover:shadow-[0_0_8px_rgba(255,255,255,0.15)] transition-all duration-200 flex items-center">
                             <Wallet className="w-4 h-4 text-emerald-400 mr-2" />
                             <span className="text-[#D4D4D4] mr-2">To:</span>
-                            <div className="flex items-center ml-2">
+                            <div className="flex items-center ml-2 relative group">
                                 {renderAddress(tx.to, detectedChain)}
-                                <Copy onClick={() => copyToClipboard(tx.to)} className="ml-2 w-4 h-4 cursor-pointer hover:text-emerald-400" />
+                                <Copy
+                                    className="opacity-0 group-hover:opacity-100 transition-opacity ml-2 w-4 h-4 cursor-pointer text-gray-400 hover:text-emerald-400 absolute right-0 top-1/2 -translate-y-1/2"
+                                    onClick={(e) => { e.stopPropagation(); copyToClipboard(tx.to, 'To Address'); }}
+                                />
                             </div>
                         </div>
-                        <div className="md:col-span-2 bg-[#FFFFFF]/5 backdrop-blur-md p-3 rounded-lg border border-[#FFFFFF20] shadow-[0_4px_12px_rgba(0,0,0,0.3)] glow-[#FFFFFF15] hover:shadow-[0_0_8px_rgba(255,255,255,0.15)] transition-shadow flex items-center">
-                            <Activity className="w-4 h-4 text-emerald-400 mr-2" />
+                        <div className="md:col-span-2 bg-[#FFFFFF]/5 backdrop-blur-md p-3 rounded-xl border border-[#FFFFFF20] shadow-[0_4px_12px_rgba(0,0,0,0.3)] glow-[#FFFFFF15] hover:shadow-[0_0_8px_rgba(255,255,255,0.15)] transition-all duration-200 flex items-center">
+                            <Fuel className="w-4 h-4 text-emerald-400 mr-2" />
                             <span className="text-[#D4D4D4] mr-2">Fee:</span>
                             <div className="flex flex-col">
                                 {renderValueWithUSD(fee, txData.feeUSD, symbol, null)}
@@ -611,66 +774,62 @@ export default function ExplorerTab({ initialQuery, initialChain, isStandalone =
                     </div>
                     {tokenTransfers.length > 0 && (
                         <div className="mt-4">
-                            <h3 className="text-md font-semibold flex items-center uppercase"><Coins className="w-4 h-4 mr-2 text-emerald-400" />Token Transfers</h3>
-                            <table className="w-full border-collapse border border-[#FFFFFF20] mt-2">
-                                <thead>
-                                    <tr className="bg-[#0A0A0A]/80">
-                                        <th className="p-2 text-left">Token</th>
-                                        <th className="p-2 text-left">From</th>
-                                        <th className="p-2 text-left">To</th>
-                                        <th className="p-2 text-left">Amount</th>
-                                        <th className="p-2 text-left">USD Value</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {tokenTransfers.map((t, i) => {
-                                        const amount = Number(t.amount || (BigInt(t.value || 0) / 10 ** (t.decimals || 18)));
-                                        return (
-                                            <tr key={i} className="hover:bg-[#FFFFFF]/10">
-                                                <td className="p-2 border border-[#FFFFFF20] text-left flex items-center">
-                                                    <img
-                                                        src={t.logo || `https://via.placeholder.com/16?text=${t.symbol || 'T'}`}
-                                                        alt={`${t.symbol || t.name || 'Token'} Logo`}
-                                                        className="w-6 h-6 mr-1 rounded"
-                                                        onError={(e) => { e.target.src = `https://via.placeholder.com/16?text=${t.symbol || 'T'}`; }}
-                                                    />
-                                                    {t.symbol || t.name || (t.type === 'ERC721' ? `${t.name} (ID: ${t.tokenId})` : t.tokenAddress?.slice(0, 2) + '...')}
-                                                </td>
-                                                <td className="p-2 border border-[#FFFFFF20] text-left">{renderAddress(t.from, detectedChain)}</td>
-                                                <td className="p-2 border border-[#FFFFFF20] text-left">{renderAddress(t.to, detectedChain)}</td>
-                                                <td className="p-2 border border-[#FFFFFF20] text-left">
-                                                    {renderTokenAmount(amount, t.symbol || '', t.logo)}
-                                                </td>
-                                                <td className="p-2 border border-[#FFFFFF20] text-left">
-                                                    {t.valueUSD !== null && t.valueUSD !== undefined ? (
-                                                        <span className="flex items-center text-xs text-green-400">
-                                                            {formatUSD(t.valueUSD)}
-                                                        </span>
-                                                    ) : 'N/A'}
-                                                </td>
-                                            </tr>
-                                        );
-                                    })}
-                                </tbody>
-                            </table>
+                            <h3 className="text-[12px] font-semibold flex items-center uppercase"><Coins className="w-4 h-4 mr-2 text-emerald-400" />Token Transfers</h3>
+                            <div className="w-full border border-[#FFFFFF20] mt-2 rounded-xl overflow-hidden">
+                                <div className="bg-[#0A0A0A]/80 grid grid-cols-5 px-3 py-2 text-[9px] font-semibold text-[#FFF]">
+                                    <span className="text-left">Token</span>
+                                    <span className="text-left">From</span>
+                                    <span className="text-left">To</span>
+                                    <span className="text-left">Amount</span>
+                                    <span className="text-left">USD Value</span>
+                                </div>
+                                {tokenTransfers.map((t, i) => {
+                                    const amount = Number(t.amount || (BigInt(t.value || 0) / 10n ** BigInt(t.decimals || 18)));
+                                    return (
+                                        <motion.div key={i} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="hover:bg-[#FFFFFF]/10 grid grid-cols-5 px-3 py-2 border-t border-[#FFFFFF20] text-[10px]">
+                                            <div className="flex items-center">
+                                                <img
+                                                    src={t.logo || `https://via.placeholder.com/16?text=${t.symbol || 'T'}`}
+                                                    alt={`${t.symbol || t.name || 'Token'} Logo`}
+                                                    className="w-4 h-4 mr-1 rounded-full"
+                                                    onError={(e) => { e.target.src = `https://via.placeholder.com/16?text=${t.symbol || 'T'}`; }}
+                                                />
+                                                <span>{t.symbol || t.name || (t.type === 'ERC721' ? `${t.name} (ID: ${t.tokenId})` : t.tokenAddress?.slice(0, 2) + '...')}</span>
+                                            </div>
+                                            <div>{renderAddress(t.from, detectedChain)}</div>
+                                            <div>{renderAddress(t.to, detectedChain)}</div>
+                                            <div>
+                                                {renderTokenAmount(amount, t.symbol || '', t.logo)}
+                                            </div>
+                                            <div>
+                                                {t.valueUSD !== null && t.valueUSD !== undefined ? (
+                                                    <span className="text-[9px] text-green-400">
+                                                        {formatUSD(t.valueUSD)}
+                                                    </span>
+                                                ) : 'N/A'}
+                                            </div>
+                                        </motion.div>
+                                    );
+                                })}
+                            </div>
                         </div>
                     )}
                     {tx.input && (
                         <div>
-                            <h4 className="flex items-center"><Activity className="w-4 h-4 mr-1" />Input Data</h4>
-                            <pre className="text-xs bg-[#0A0A0A]/80 p-2 rounded overflow-auto max-h-40 custom-scrollbar">{tx.input}</pre>
+                            <h4 className="flex items-center text-[12px] font-semibold"><Activity className="w-4 h-4 mr-1" />Input Data</h4>
+                            <pre className="text-[9px] bg-[#0A0A0A]/80 p-2 rounded-xl overflow-auto max-h-40 custom-scrollbar">{tx.input}</pre>
                         </div>
                     )}
                     {receipt?.logs && (
                         <div>
-                            <h4 className="flex items-center"><Activity className="w-4 h-4 mr-1" />Logs</h4>
-                            <pre className="text-xs bg-[#0A0A0A]/80 p-2 rounded overflow-auto max-h-40 custom-scrollbar">{JSON.stringify(receipt.logs, null, 2)}</pre>
+                            <h4 className="flex items-center text-[12px] font-semibold"><Activity className="w-4 h-4 mr-1" />Logs</h4>
+                            <pre className="text-[9px] bg-[#0A0A0A]/80 p-2 rounded-xl overflow-auto max-h-40 custom-scrollbar">{JSON.stringify(receipt.logs, null, 2)}</pre>
                         </div>
                     )}
                     {internalTxs.length > 0 && (
                         <div>
-                            <h4 className="flex items-center"><Activity className="w-4 h-4 mr-1" />Internal Transactions</h4>
-                            <pre className="text-xs bg-[#0A0A0A]/80 p-2 rounded overflow-auto max-h-40 custom-scrollbar">
+                            <h4 className="flex items-center text-[12px] font-semibold"><Activity className="w-4 h-4 mr-1" />Internal Transactions</h4>
+                            <pre className="text-[9px] bg-[#0A0A0A]/80 p-2 rounded-xl overflow-auto max-h-40 custom-scrollbar">
                                 {internalTxs.map((itx, idx) => (
                                     <div key={idx}>
                                         From: {renderAddress(itx.from, detectedChain)} | To: {renderAddress(itx.to, detectedChain)} | Value: {renderValueWithUSD(Number(itx.value || 0) / 1e18, itx.valueUSD || 0, symbol, null)}
@@ -682,7 +841,6 @@ export default function ExplorerTab({ initialQuery, initialChain, isStandalone =
                 </motion.div>
             );
         } else if (chain === 'bitcoin') {
-            // ... (unchanged bitcoin part, use detectedChain if needed, but bitcoin no detect)
             const isConfirmed = tx.status?.confirmed || tx.status?.block_height > 0;
             const status = isConfirmed ? 'Success' : 'Pending';
             const timestamp = tx.status?.block_time ? tx.status.block_time * 1000 : Date.now();
@@ -703,17 +861,20 @@ export default function ExplorerTab({ initialQuery, initialChain, isStandalone =
             tx.blockNumber = blockNumber;
             const isSuccess = isConfirmed;
             return (
-                <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-4 text-sm">
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div className="md:col-span-2 bg-[#FFFFFF]/5 backdrop-blur-md p-3 rounded-lg border border-[#FFFFFF20] shadow-[0_4px_12px_rgba(0,0,0,0.3)] glow-[#FFFFFF15] hover:shadow-[0_0_8px_rgba(255,255,255,0.15)] transition-shadow flex items-center justify-between">
+                <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="space-y-4 text-[10px] sm:text-[12px]">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                        <div className="md:col-span-2 bg-[#FFFFFF]/5 backdrop-blur-md p-3 rounded-xl border border-[#FFFFFF20] shadow-[0_4px_12px_rgba(0,0,0,0.3)] glow-[#FFFFFF15] hover:shadow-[0_0_8px_rgba(255,255,255,0.15)] transition-all duration-200 flex items-center justify-between relative group">
                             <div className="flex items-center">
                                 <HashIcon className="w-4 h-4 text-emerald-400 mr-2" />
                                 <span className="text-[#D4D4D4] mr-2">Hash:</span>
-                                <span className="font-mono break-all mr-2">{isMobile && tx.hash.length > 10 ? truncateText(tx.hash) : tx.hash}</span>
-                                <Copy onClick={() => copyToClipboard(tx.hash)} className="w-4 h-4 cursor-pointer hover:text-emerald-400" />
+                                <span className="font-mono break-all mr-2 text-[9px] sm:text-[10px]">{isMobile && tx.hash.length > 10 ? truncateText(tx.hash) : tx.hash}</span>
                             </div>
-                            <h2 className="text-xs font-semibold flex items-center gap-2">
-                                <img src={chainLogos[chain]} alt={chain} className="w-6 h-6 inline mx-1" />
+                            <Copy
+                                className="opacity-0 group-hover:opacity-100 transition-opacity w-4 h-4 cursor-pointer text-gray-400 hover:text-emerald-400 absolute right-2 top-1/2 -translate-y-1/2"
+                                onClick={(e) => { e.stopPropagation(); copyToClipboard(tx.hash, 'Transaction Hash'); }}
+                            />
+                            <h2 className="text-[9px] font-semibold flex items-center gap-2">
+                                <img src={chainLogos[chain]} alt={chain} className="w-5 h-5 rounded-full" />
                                 <span className="text-[#D4D4D4]">{chain.toUpperCase()}</span>
                             </h2>
                         </div>
@@ -787,29 +948,9 @@ export default function ExplorerTab({ initialQuery, initialChain, isStandalone =
                             </table>
                         </div>
                     )}
-                    {tx.vout && tx.vout.length > 0 && (
-                        <div>
-                            <h4 className="flex items-center"><Wallet className="w-4 h-4 mr-1" />Outputs</h4>
-                            <table className="w-full border-collapse border border-[#FFFFFF20]">
-                                <thead><tr><th className="text-left">To</th><th className="text-left">Value</th></tr></thead>
-                                <tbody>
-                                    {tx.vout.map((output, i) => (
-                                        <tr key={i}>
-                                            <td className="p-2 border border-[#FFFFFF20] text-left">{renderAddress(output.scriptpubkey_address || 'Unknown', chain)}</td>
-                                            <td className="p-2 border border-[#FFFFFF20] text-left">
-                                                <div className="flex flex-col">
-                                                    {renderValueWithUSD((output.value || 0) / 1e8, output.valueUSD || 0, 'BTC', nativeTokenLogos['BTC'])}
-                                                </div>
-                                            </td>
-                                        </tr>
-                                    ))}
-                                </tbody>
-                            </table>
-                        </div>
-                    )}
                 </motion.div>
             );
-        } else if (chain === 'solana') {
+        } else if (chain === 'solana') { } else if (chain === 'solana') {
             const status = tx.status || 'Success';
             const isSuccess = tx.isSuccess || status === 'Success';
             const timestamp = tx.timestamp || Date.now();
@@ -961,14 +1102,210 @@ export default function ExplorerTab({ initialQuery, initialChain, isStandalone =
         }
         return <div>Unsupported chain</div>;
     };
-
-    const isOverallLoading = loading || nametagsLoading;
-
+    const isOverallLoading = loading || nametagsLoading || dashboardLoading;
+    const currentBlocks = latestBlocks.slice((blocksPage - 1) * itemsPerPage, blocksPage * itemsPerPage);
+    const totalBlocksPages = Math.ceil(latestBlocks.length / itemsPerPage);
+    const currentTxs = latestTxs.slice((txsPage - 1) * itemsPerPage, txsPage * itemsPerPage);
+    const totalTxsPages = Math.ceil(latestTxs.length / itemsPerPage);
+    const SkeletonBlockRow = ({ index }) => (
+        <motion.div
+            key={`skeleton-block-${index}`}
+            className="flex hover:bg-[#FFFFFF]/10 transition-all duration-200 py-2 border-t border-[#FFFFFF20]"
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.3 }}
+        >
+            <div className="w-1/4 px-3 flex items-center gap-2">
+                <div className="w-4 h-4 bg-[#FFFFFF]/10 rounded animate-pulse" />
+                <div className="w-12 h-2 bg-[#FFFFFF]/10 rounded animate-pulse" />
+            </div>
+            <div className="w-1/4 px-3">
+                <div className="w-16 h-2 bg-[#FFFFFF]/10 rounded animate-pulse" />
+            </div>
+            <div className="w-1/4 px-3">
+                <div className="w-12 h-2 bg-[#FFFFFF]/10 rounded animate-pulse" />
+            </div>
+            <div className="w-1/4 px-3">
+                <div className="w-20 h-2 bg-[#FFFFFF]/10 rounded animate-pulse" />
+            </div>
+        </motion.div>
+    );
+    const SkeletonTxRow = ({ index }) => (
+        <motion.div
+            key={`skeleton-tx-${index}`}
+            className="flex hover:bg-[#FFFFFF]/10 transition-all duration-200 py-2 border-t border-[#FFFFFF20]"
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.3 }}
+        >
+            <div className="w-1/4 px-3 relative group">
+                <div className="w-20 h-2 bg-[#FFFFFF]/10 rounded animate-pulse" />
+                <Copy className="absolute right-0 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 w-3 h-3 cursor-pointer text-gray-400" />
+            </div>
+            <div className="w-1/4 px-3 relative group">
+                <div className="w-16 h-2 bg-[#FFFFFF]/10 rounded animate-pulse" />
+                <Copy className="absolute right-0 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 w-3 h-3 cursor-pointer text-gray-400" />
+            </div>
+            <div className="w-1/4 px-3 relative group">
+                <div className="w-16 h-2 bg-[#FFFFFF]/10 rounded animate-pulse" />
+                <Copy className="absolute right-0 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 w-3 h-3 cursor-pointer text-gray-400" />
+            </div>
+            <div className="w-1/4 px-3">
+                <div className="w-12 h-2 bg-[#FFFFFF]/10 rounded animate-pulse" />
+            </div>
+        </motion.div>
+    );
+    const renderBlockRow = (block, index) => (
+        <motion.div
+            key={block.number}
+            initial={{ opacity: 0, y: -10 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="flex hover:bg-[#FFFFFF]/10 transition-all duration-200 py-2 px-3 border-t border-[#FFFFFF20] text-[10px] relative group"
+        >
+            <span className="w-1/4 flex items-center gap-2">
+                <HashIcon className="w-3 h-3 text-emerald-400" />
+                {block.number}
+            </span>
+            <span className="w-1/4">{new Date(block.timestamp * 1000).toLocaleTimeString()}</span>
+            <span className="w-1/4">{block.transactions.length}</span>
+            <span className="w-1/4 font-mono relative group">
+                {renderAddress(block.miner, selectedChain)}
+                <Copy
+                    className="absolute right-0 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity w-3 h-3 cursor-pointer text-gray-400 hover:text-emerald-400"
+                    onClick={(e) => { e.stopPropagation(); copyToClipboard(block.miner, 'Miner Address'); }}
+                />
+            </span>
+        </motion.div>
+    );
+    const renderTxRow = (tx, index) => (
+        <motion.div
+            key={tx.hash}
+            initial={{ opacity: 0, y: -10 }}
+            animate={{ opacity: 1, y: 0 }}
+            onClick={() => {
+                setQuery(tx.hash);
+                handleSearch();
+            }}
+            className="flex hover:bg-[#FFFFFF]/10 transition-all duration-200 py-2 px-3 border-t border-[#FFFFFF20] text-[10px] relative group cursor-pointer"
+        >
+            <span className="w-1/4 font-mono relative group">
+                {truncateText(tx.hash)}
+                <Copy
+                    className="absolute right-0 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity w-3 h-3 cursor-pointer text-gray-400 hover:text-emerald-400"
+                    onClick={(e) => { e.stopPropagation(); copyToClipboard(tx.hash, 'Transaction Hash'); }}
+                />
+            </span>
+            <span className="w-1/4 font-mono relative group">
+                {renderAddress(tx.from, selectedChain)}
+                <Copy
+                    className="absolute right-0 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity w-3 h-3 cursor-pointer text-gray-400 hover:text-emerald-400"
+                    onClick={(e) => { e.stopPropagation(); copyToClipboard(tx.from, 'From Address'); }}
+                />
+            </span>
+            <span className="w-1/4 font-mono relative group">
+                {renderAddress(tx.to, selectedChain)}
+                <Copy
+                    className="absolute right-0 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity w-3 h-3 cursor-pointer text-gray-400 hover:text-emerald-400"
+                    onClick={(e) => { e.stopPropagation(); copyToClipboard(tx.to, 'To Address'); }}
+                />
+            </span>
+            <span className="w-1/4">{(tx.value || 0).toFixed(6)} {chainSymbols[selectedChain] || 'Native'}</span>
+        </motion.div>
+    );
+    const renderPagination = (page, setPage, totalPages) => (
+        <div className="flex justify-center gap-2 mt-2">
+            <button
+                onClick={() => setPage(Math.max(1, page - 1))}
+                disabled={page === 1}
+                className="px-2 py-1 text-[10px] bg-[#FFFFFF]/10 rounded disabled:opacity-50"
+            >
+                Prev
+            </button>
+            <span className="px-2 py-1 text-[10px]">{page} / {totalPages}</span>
+            <button
+                onClick={() => setPage(Math.min(totalPages, page + 1))}
+                disabled={page === totalPages}
+                className="px-2 py-1 text-[10px] bg-[#FFFFFF]/10 rounded disabled:opacity-50"
+            >
+                Next
+            </button>
+        </div>
+    );
+    const renderDashboard = () => (
+        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="space-y-6">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="md:col-span-3 bg-[#FFFFFF]/5 backdrop-blur-md p-4 rounded-xl border border-[#FFFFFF20] shadow-[0_4px_12px_rgba(0,0,0,0.3)] glow-[#FFFFFF15] hover:shadow-[0_0_8px_rgba(255,255,255,0.15)] transition-all duration-200">
+                    <h3 className="flex items-center text-[12px] font-semibold text-[#FFF] mb-3">
+                        <img src={chainLogos[selectedChain]} alt={selectedChain} className="w-5 h-5 mr-2 rounded-full" />
+                        {selectedChain.toUpperCase()} Chain Stats
+                    </h3>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-[10px]">
+                        <div className="flex items-center">
+                            <HashIcon className="w-3 h-3 mr-1 text-emerald-400" />
+                            <span className="text-[#D4D4D4]">Block Height:</span>
+                            <span className="ml-1 text-[#FFF]">{chainStats.blockNumber}</span>
+                        </div>
+                        <div className="flex items-center">
+                            <Fuel className="w-3 h-3 mr-1 text-emerald-400" />
+                            <span className="text-[#D4D4D4]">Gas Price:</span>
+                            <span className="ml-1 text-[#FFF]">{Number(chainStats.gasPrice) / 1e9} Gwei</span>
+                        </div>
+                        <div className="flex items-center">
+                            <img src={nativeTokenLogos[nativeSymbols[selectedChain]] || chainLogos[selectedChain]} alt={nativeSymbols[selectedChain]} className="w-3 h-3 mr-1 rounded-full" />
+                            <span className="text-[#D4D4D4]">{nativeSymbols[selectedChain]} Price:</span>
+                            <span className="ml-1 text-[#FFF]">${chainStats.nativePrice.toFixed(2)}</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                <div className="bg-[#FFFFFF]/5 backdrop-blur-md p-4 rounded-xl border border-[#FFFFFF20] shadow-[0_4px_12px_rgba(0,0,0,0.3)] glow-[#FFFFFF15]">
+                    <h2 className="text-[12px] font-bold mb-3 flex items-center uppercase"><HashIcon className="w-4 h-4 mr-2 text-emerald-400" />Latest Blocks</h2>
+                    <div className="border border-[#FFFFFF20] rounded-xl overflow-hidden max-h-80 overflow-y-auto">
+                        <div className="bg-[#0A0A0A]/80 flex px-3 py-2 text-[9px] font-semibold text-[#FFF] sticky top-0">
+                            <span className="w-1/4 text-left">Block</span>
+                            <span className="w-1/4 text-left">Age</span>
+                            <span className="w-1/4 text-left">Tx Count</span>
+                            <span className="w-1/4 text-left">Miner</span>
+                        </div>
+                        <AnimatePresence>
+                            {dashboardLoading ? (
+                                Array.from({ length: itemsPerPage }).map((_, i) => <SkeletonBlockRow key={`load-${i}`} index={i} />)
+                            ) : (
+                                currentBlocks.map((block, i) => renderBlockRow(block, i))
+                            )}
+                        </AnimatePresence>
+                    </div>
+                    {totalBlocksPages > 1 && renderPagination(blocksPage, setBlocksPage, totalBlocksPages)}
+                </div>
+                <div className="bg-[#FFFFFF]/5 backdrop-blur-md p-4 rounded-xl border border-[#FFFFFF20] shadow-[0_4px_12px_rgba(0,0,0,0.3)] glow-[#FFFFFF15]">
+                    <h2 className="text-[12px] font-bold mb-3 flex items-center uppercase"><Activity className="w-4 h-4 mr-2 text-emerald-400" />Latest Transactions</h2>
+                    <div className="border border-[#FFFFFF20] rounded-xl overflow-hidden max-h-80 overflow-y-auto">
+                        <div className="bg-[#0A0A0A]/80 flex px-3 py-2 text-[9px] font-semibold text-[#FFF] sticky top-0">
+                            <span className="w-1/4 text-left">Hash</span>
+                            <span className="w-1/4 text-left">From</span>
+                            <span className="w-1/4 text-left">To</span>
+                            <span className="w-1/4 text-left">Value</span>
+                        </div>
+                        <AnimatePresence>
+                            {dashboardLoading ? (
+                                Array.from({ length: itemsPerPage }).map((_, i) => <SkeletonTxRow key={`load-tx-${i}`} index={i} />)
+                            ) : (
+                                currentTxs.map((tx, i) => renderTxRow(tx, i))
+                            )}
+                        </AnimatePresence>
+                    </div>
+                    {totalTxsPages > 1 && renderPagination(txsPage, setTxsPage, totalTxsPages)}
+                </div>
+            </div>
+        </motion.div>
+    );
     return (
         <div className="font-inter w-full max-w-9xl mx-auto p-2 sm:p-3 bg-[#0A0A0A]/80 backdrop-blur-md flex flex-col h-full overflow-y-auto custom-scrollbar relative">
-            <div className="mb-4 relative z-10 bg-inherit">
-                <h1 className="text-lg font-bold flex items-center gap-2 mb-2 uppercase">
-                    <img src="/logos/logo.webp" alt="Project Logo" className="w-8 h-8" />
+            <ToastContainer position="top-right" autoClose={1500} theme="dark" />
+            <div className="mb-4 relative z-10">
+                <h1 className="text-[14px] sm:text-[16px] font-bold flex items-center gap-2 mb-2 uppercase tracking-wider">
+                    <img src="/logos/logo.webp" alt="Project Logo" className="w-8 h-8 rounded-xl" />
                     Xynapse Explorer
                 </h1>
                 <div className="flex gap-2">
@@ -979,27 +1316,25 @@ export default function ExplorerTab({ initialQuery, initialChain, isStandalone =
                             placeholder="Enter transaction hash..."
                             value={query}
                             onChange={(e) => setQuery(e.target.value)}
-                            className="w-full h-[4.5vh] pl-10 pr-4 py-2 text-[#D4D4D4] border border-[#FFFFFF20] rounded-lg bg-[#FFFFFF]/5 backdrop-blur-md focus:outline-none focus:ring-2 focus:ring-emerald-400/50 shadow-[0_4px_12px_rgba(0,0,0,0.3)] glow-[#FFFFFF15] text-xs"
+                            className="w-full h-[4.5vh] pl-10 pr-4 py-2 text-[#D4D4D4] border border-[#FFFFFF20] rounded-xl bg-[#FFFFFF]/5 backdrop-blur-md focus:outline-none focus:ring-2 focus:ring-emerald-400/50 shadow-[0_4px_12px_rgba(0,0,0,0.3)] glow-[#FFFFFF15] text-[10px] sm:text-[12px]"
                             onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
                         />
                     </div>
                     <button
                         ref={buttonRef}
                         onClick={() => setIsChainMenuOpen(!isChainMenuOpen)}
-                        className="relative h-[4.5vh] px-3 py-1 bg-[#FFFFFF]/5 backdrop-blur-md border border-[#FFFFFF20] text-[#FFF] rounded-lg hover:bg-[#FFFFFF]/10 transition-colors font-medium shadow-[0_4px_12px_rgba(0,0,0,0.3)] glow-[#FFFFFF15] flex items-center justify-between text-xs cursor-pointer min-w-[120px]"
+                        className="relative h-[4.5vh] px-3 py-1 bg-[#FFFFFF]/5 backdrop-blur-md border border-[#FFFFFF20] text-[#FFF] rounded-xl hover:bg-[#FFFFFF]/10 transition-all duration-200 font-medium shadow-[0_4px_12px_rgba(0,0,0,0.3)] glow-[#FFFFFF15] flex items-center justify-between text-[10px] sm:text-[12px] min-w-[120px]"
                     >
                         <span className="flex items-center">
                             {selectedChain ? (
                                 <>
-                                    <img src={chainLogos[selectedChain]} alt={selectedChain} className="w-4 h-4 mr-2 rounded" />
+                                    <img src={chainLogos[selectedChain]} alt={selectedChain} className="w-4 h-4 mr-2 rounded-full" />
                                     {selectedChain.toUpperCase()}
                                 </>
                             ) : 'Auto Detect'}
                         </span>
                         <ChevronDown className="w-4 h-4 ml-2" />
                     </button>
-
-                    {/* Render menu via portal to body for higher z-index */}
                     {isChainMenuOpen && createPortal(
                         <AnimatePresence>
                             <motion.div
@@ -1013,7 +1348,7 @@ export default function ExplorerTab({ initialQuery, initialChain, isStandalone =
                                     left: menuPosition.left,
                                     width: menuPosition.width,
                                 }}
-                                className="text-xs bg-[#0A0A0A]/90 backdrop-blur-md border border-[#FFFFFF20] rounded-lg shadow-lg overflow-y-auto max-h-60 z-[9999] custom-scrollbar"
+                                className="text-[10px] bg-[#0A0A0A]/90 backdrop-blur-md border border-[#FFFFFF20] rounded-xl shadow-[0_4px_12px_rgba(0,0,0,0.3)] glow-[#FFFFFF15] overflow-y-auto max-h-60 z-[9999] custom-scrollbar"
                             >
                                 <ul>
                                     <li
@@ -1028,7 +1363,7 @@ export default function ExplorerTab({ initialQuery, initialChain, isStandalone =
                                             className="px-3 py-2 hover:bg-[#FFFFFF]/10 cursor-pointer flex items-center text-[#D4D4D4]"
                                             onClick={() => { setSelectedChain(ch); setIsChainMenuOpen(false); }}
                                         >
-                                            <img src={chainLogos[ch]} alt={ch} className="w-5 h-5 mr-2 rounded" />
+                                            <img src={chainLogos[ch]} alt={ch} className="w-5 h-5 mr-2 rounded-full" />
                                             {ch.toUpperCase()}
                                         </li>
                                     ))}
@@ -1037,16 +1372,16 @@ export default function ExplorerTab({ initialQuery, initialChain, isStandalone =
                         </AnimatePresence>,
                         document.body
                     )}
-
-                    <button
+                    <motion.button
                         onClick={handleSearch}
-                        className="h-[4.5vh] px-4 py-1 bg-transparent border border-[#FFFFFF20] text-[#FFF] rounded-lg hover:bg-[#FFFFFF]/10 transition-colors font-medium shadow-[0_4px_12px_rgba(0,0,0,0.3)] glow-[#FFFFFF15] flex items-center justify-center"
+                        whileHover={{ scale: 1.05 }}
+                        whileTap={{ scale: 0.95 }}
+                        className="h-[4.5vh] px-4 py-1 bg-[#FFFFFF]/5 backdrop-blur-md border border-[#FFFFFF20] text-[#FFF] rounded-xl hover:bg-[#FFFFFF]/10 transition-all duration-200 font-medium shadow-[0_4px_12px_rgba(0,0,0,0.3)] glow-[#FFFFFF15] flex items-center justify-center"
                     >
                         <Search className="w-4 h-4" />
-                    </button>
+                    </motion.button>
                 </div>
             </div>
-
             {isOverallLoading && (
                 <motion.div
                     initial={{ opacity: 0, y: 20 }}
@@ -1060,8 +1395,8 @@ export default function ExplorerTab({ initialQuery, initialChain, isStandalone =
                         <div className="absolute inset-0 bg-black/10 backdrop-blur-sm animate-pulse opacity-50" />
                         <div className="flex items-center gap-2 mb-4">
                             <div className="w-2 h-2 bg-blue-500 rounded-full animate-pulse" />
-                            <h3 className="text-[#FFF] text-sm sm:text-base font-semibold">
-                                {nametagsLoading ? 'Loading Nametags' : 'Searching Transaction'}
+                            <h3 className="text-[#FFF] text-[10px] sm:text-[12px] font-semibold">
+                                {nametagsLoading ? 'Loading Nametags' : dashboardLoading ? 'Loading Dashboard' : 'Searching Transaction'}
                             </h3>
                         </div>
                         <div className="h-32 overflow-y-hidden custom-scrollbar log-container relative">
@@ -1069,7 +1404,7 @@ export default function ExplorerTab({ initialQuery, initialChain, isStandalone =
                                 {logMessages.map((log, index) => (
                                     <motion.p
                                         key={log.id}
-                                        className={`text-[#D4D4D4] text-xs font-inter mb-2 ${index === logMessages.length - 1
+                                        className={`text-[#D4D4D4] text-[9px] sm:text-[10px] font-inter mb-2 ${index === logMessages.length - 1
                                             ? 'text-blue-400 font-semibold animate-pulse'
                                             : 'text-[#D4D4D4]'
                                             }`}
@@ -1080,7 +1415,7 @@ export default function ExplorerTab({ initialQuery, initialChain, isStandalone =
                                             scale: 1,
                                             transition: {
                                                 duration: 0.5,
-                                                ease: [0.25, 0.46, 0.45, 0.94], // easeInOut cubic
+                                                ease: [0.25, 0.46, 0.45, 0.94],
                                                 delay: index * 0.05
                                             }
                                         }}
@@ -1100,24 +1435,21 @@ export default function ExplorerTab({ initialQuery, initialChain, isStandalone =
                     </div>
                 </motion.div>
             )}
-
             {error && (
-                <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="text-red-400 flex items-center gap-2 p-4 bg-red-500/10 rounded border border-red-500/20 relative z-10">
+                <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="text-red-400 flex items-center gap-2 p-4 bg-red-500/10 rounded-xl border border-red-500/20 relative z-10 shadow-[0_4px_12px_rgba(0,0,0,0.3)] glow-[#FFFFFF15]">
                     <AlertCircle className="w-4 h-4" /> {error}
                 </motion.div>
             )}
-
             <AnimatePresence>
-                {results && !error && (
+                {results && !error ? (
                     <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="space-y-6 relative z-10 p-4">
                         {renderTxDetails(results.data, results.chain)}
                     </motion.div>
+                ) : (
+                    renderDashboard()
                 )}
             </AnimatePresence>
-
             <style jsx>{`
-                table th, table td { border: 1px solid rgba(255,255,255,0.1); padding: 8px; }
-                table tr:hover { background: rgba(255,255,255,0.05); }
                 .break-all { word-break: break-all; }
                 .custom-scrollbar::-webkit-scrollbar {
                   width: 6px;
@@ -1129,24 +1461,13 @@ export default function ExplorerTab({ initialQuery, initialChain, isStandalone =
                 .custom-scrollbar::-webkit-scrollbar-thumb:hover {
                   background: rgba(255, 255, 255, 0.3);
                 }
-                .hide-scrollbar::-webkit-scrollbar {
-                  display: none;
-                }
-                .hide-scrollbar {
-                  -ms-overflow-style: none;
-                  scrollbar-width: none;
-                }
                 .log-container {
                   -webkit-mask-image: linear-gradient(to bottom, transparent 0%, white 20%, white 80%, transparent 100%);
                   mask-image: linear-gradient(to bottom, transparent 0%, white 20%, white 80%, transparent 100%);
                 }
                 @keyframes scan {
-                  0% {
-                    transform: translateX(-100%);
-                  }
-                  100% {
-                    transform: translateX(100%);
-                  }
+                  0% { transform: translateX(-100%); }
+                  100% { transform: translateX(100%); }
                 }
                 .animate-scan {
                   animation: scan 2s linear infinite;

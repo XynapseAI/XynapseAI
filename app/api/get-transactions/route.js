@@ -66,7 +66,7 @@ async function checkRateLimit(ip) {
   if (ip === '::1' || ip === '127.0.0.1') return;
   const redisClient = await getRedisClient();
   const key = `rate_limit:get_transactions:ip:${ip}`;
-  const maxRequests = 300;
+  const maxRequests = 200;
   const windowMs = 30 * 60 * 1000;
   const pipeline = redisClient.multi();
   pipeline.incr(key);

@@ -135,7 +135,7 @@ async function checkRateLimit(ip) {
   const redisClient = await getRedisClient();
   const key = `rate_limit:mempool:${ip}`;
   const windowMs = 60 * 1000;
-  const maxRequests = 25;
+  const maxRequests = 50;
   const requests = parseInt(await redisClient.get(key)) || 0;
   if (requests >= maxRequests) {
     const ttl = await redisClient.ttl(key);
