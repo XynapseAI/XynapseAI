@@ -86,24 +86,23 @@ async function updateAllPrices() {
 }
 
 // Xử lý logic cho EVM chain
+// Xử lý logic cho EVM chain — ĐÃ FIX: chỉ fetch tối đa 20 block mới + txs từ 5 block gần nhất
 async function processEVMChain(chain, rpcUrl) {
     try {
         console.log(`[${chain}] Updating...`);
 
-        // 1. Lấy Block Number mới nhất
         const latestHex = await fetchRPC(rpcUrl, 'eth_blockNumber');
         const latest = parseInt(latestHex, 16);
 
-        // Lấy danh sách blocks hiện tại từ Redis
         let existingBlocks = JSON.parse(await redis.get(`blocks:${chain}`)) || [];
         let existingTxs = JSON.parse(await redis.get(`txs:${chain}`)) || [];
 
-        // Nếu rỗng, fetch initial count
+        // Nếu chưa có dữ liệu → fetch initial 20 blocks
         if (existingBlocks.length === 0) {
             const promises = [];
             for (let i = 0; i < INITIAL_FETCH_COUNT; i++) {
                 const blockNumHex = '0x' + (latest - i).toString(16);
-                promises.push(fetchRPC(rpcUrl, 'eth_getBlockByNumber', [blockNumHex, true])); // Lấy full tx cho initial
+                promises.push(fetchRPC(rpcUrl, 'eth_getBlockByNumber', [blockNumHex, true]));
             }
             const results = await Promise.all(promises);
 
@@ -116,9 +115,9 @@ async function processEVMChain(chain, rpcUrl) {
                 baseFeePerGas: b.baseFeePerGas ? { type: 'BigNumber', hex: b.baseFeePerGas } : null,
             }));
 
-            // Txs từ tất cả initial blocks
+            // Lấy txs từ tất cả 20 blocks initial
             results.forEach(block => {
-                if (block && block.transactions) {
+                if (block?.transactions) {
                     const blockTxs = block.transactions.map(tx => ({
                         ...tx,
                         from: tx.from?.toLowerCase() || null,
@@ -130,14 +129,15 @@ async function processEVMChain(chain, rpcUrl) {
                 }
             });
         } else {
-            // Chỉ fetch blocks mới
+            // Chỉ fetch tối đa 20 blocks mới (không fetch hàng trăm)
             const storedLatest = existingBlocks[0]?.number || 0;
             const newBlocksCount = latest - storedLatest;
             if (newBlocksCount > 0) {
+                const blocksToFetch = Math.min(newBlocksCount, 10); // ← CHỈ 20 BLOCK MỚI
                 const promises = [];
-                for (let i = 0; i < Math.min(newBlocksCount, MAX_BLOCKS); i++) {
+                for (let i = 0; i < blocksToFetch; i++) {
                     const blockNumHex = '0x' + (latest - i).toString(16);
-                    promises.push(fetchRPC(rpcUrl, 'eth_getBlockByNumber', [blockNumHex, true])); // Lấy full tx cho new blocks
+                    promises.push(fetchRPC(rpcUrl, 'eth_getBlockByNumber', [blockNumHex, true]));
                 }
                 const newResults = await Promise.all(promises);
 
@@ -150,12 +150,11 @@ async function processEVMChain(chain, rpcUrl) {
                     baseFeePerGas: b.baseFeePerGas ? { type: 'BigNumber', hex: b.baseFeePerGas } : null,
                 }));
 
-                // Prepend new blocks
                 existingBlocks = [...newBlocks, ...existingBlocks].slice(0, MAX_BLOCKS);
 
-                // Txs từ new blocks
-                newResults.forEach(block => {
-                    if (block && block.transactions) {
+                // Chỉ lấy transaction từ 5 blocks gần nhất để tránh quá tải
+                newResults.slice(0, 1).forEach(block => {
+                    if (block?.transactions) {
                         const blockTxs = block.transactions.map(tx => ({
                             ...tx,
                             from: tx.from?.toLowerCase() || null,
@@ -169,7 +168,6 @@ async function processEVMChain(chain, rpcUrl) {
             }
         }
 
-        // LƯU VÀO REDIS
         const pipeline = redis.pipeline();
         pipeline.set(`blocks:${chain}`, JSON.stringify(existingBlocks));
         pipeline.set(`txs:${chain}`, JSON.stringify(existingTxs));
@@ -180,7 +178,6 @@ async function processEVMChain(chain, rpcUrl) {
         await pipeline.exec();
 
         console.log(`[${chain}] Updated successfully. Block: ${latest}, Total blocks: ${existingBlocks.length}, Total txs: ${existingTxs.length}`);
-
     } catch (err) {
         console.error(`[${chain}] Error:`, err.message);
     }
