@@ -303,6 +303,8 @@ const CHAIN_ID_MAP = {
   zksync: "324",
   zora: "7777777",
   monad: "143",
+  plasma: "9745",
+  hyper_evm: "999",
 };
 
 const LIMIT_CONFIG = {

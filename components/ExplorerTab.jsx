@@ -9,6 +9,8 @@ import { toast, ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 import { useSearchParams } from 'next/navigation';
 import { ethers } from 'ethers';
+import { LoadingOverlay } from '@/utils/helpers';
+
 export default function ExplorerTab({ initialQuery, initialChain, isStandalone = false }) {
     const searchParams = useSearchParams();
     const router = useRouter();
@@ -191,7 +193,6 @@ export default function ExplorerTab({ initialQuery, initialChain, isStandalone =
             const blocks = blocksRes.ok ? await blocksRes.json() : [];
             const txsRaw = txsRes.ok ? await txsRes.json() : [];
             const statsData = statsRes.ok ? await statsRes.json() : { blockNumber: 0, gasPrice: '0' };
-
             let txs = txsRaw;
             if (isEVMChain(selectedChain)) {
                 txs = txsRaw.map(tx => ({
@@ -204,7 +205,6 @@ export default function ExplorerTab({ initialQuery, initialChain, isStandalone =
                     value: tx.value ? parseFloat(tx.value) : 0
                 }));
             }
-
             if (blocks.length > 0) setLatestBlocks(blocks);
             if (txs.length > 0) setLatestTxs(txs);
             setChainStats(prevStats => ({
@@ -246,7 +246,7 @@ export default function ExplorerTab({ initialQuery, initialChain, isStandalone =
         // 3. Thiết lập Polling cho Blocks/Txs/Stats (Mỗi 5 giây)
         const dataIntervalId = setInterval(() => {
             fetchDashboardData();
-        }, 60000);
+        }, 300000);
         // 4. Cleanup
         return () => clearInterval(dataIntervalId);
     }, [selectedChain]);
@@ -581,10 +581,16 @@ export default function ExplorerTab({ initialQuery, initialChain, isStandalone =
         if (!addr || addr === 'Coinbase' || addr === 'Multiple Inputs' || addr === 'Multiple Outputs') {
             return <span className="font-mono break-all text-[10px] sm:text-[12px]">{addr}</span>;
         }
+        if (!addr) {
+            return <span className="font-mono text-gray-500 text-[10px] sm:text-[12px]">N/A</span>; // Sửa: Không hiển thị "Unknown", thay bằng "N/A"
+        }
         const normalized = addr.toLowerCase();
         const tag = nametags[normalized];
         const displayAddr = truncateText(addr, 5, 5);
         const copyContent = addr; // Always copy the full address
+        if (addr.includes(', ')) {
+            return <span className="font-mono break-all text-[10px] sm:text-[12px]">Multiple ({addr.split(', ').length})</span>;
+        }
         if (tag && tag['Name Tag']) {
             return (
                 <div className="flex items-center gap-1 relative group">
@@ -846,8 +852,8 @@ export default function ExplorerTab({ initialQuery, initialChain, isStandalone =
             const timestamp = tx.status?.block_time ? tx.status.block_time * 1000 : Date.now();
             const totalValue = tx.vout ? tx.vout.reduce((sum, out) => sum + (out.value || 0), 0) / 1e8 : 0;
             const fee = (tx.fee || 0) / 1e8;
-            const fromAddress = tx.vin?.[0]?.prevout?.scriptpubkey_address || 'Multiple Inputs';
-            const toAddress = tx.vout?.[0]?.scriptpubkey_address || 'Multiple Outputs';
+            const fromAddress = tx.vin?.length > 1 ? 'Multiple Inputs' : (tx.vin?.[0]?.prevout?.scriptpubkey_address || null);
+            const toAddress = tx.vout?.length > 1 ? 'Multiple Outputs' : (tx.vout?.[0]?.scriptpubkey_address || null);
             const blockNumber = tx.status?.block_height || null;
             const totalValueUSD = tx.valueUSD || 0;
             const feeUSD = tx.feeUSD || 0;
@@ -909,7 +915,7 @@ export default function ExplorerTab({ initialQuery, initialChain, isStandalone =
                             <span className="text-[#D4D4D4] mr-2">From:</span>
                             <div className="flex items-center ml-2">
                                 {renderAddress(fromAddress, chain)}
-                                {fromAddress !== 'Multiple Inputs' && <Copy onClick={() => copyToClipboard(fromAddress)} className="ml-2 w-4 h-4 cursor-pointer hover:text-emerald-400" />}
+                                {fromAddress && fromAddress !== 'Multiple Inputs' && <Copy onClick={() => copyToClipboard(fromAddress)} className="ml-2 w-4 h-4 cursor-pointer hover:text-emerald-400" />}
                             </div>
                         </div>
                         <div className="bg-[#FFFFFF]/5 backdrop-blur-md p-3 rounded-lg border border-[#FFFFFF20] shadow-[0_4px_12px_rgba(0,0,0,0.3)] glow-[#FFFFFF15] hover:shadow-[0_0_8px_rgba(255,255,255,0.15)] transition-shadow flex items-center">
@@ -917,7 +923,7 @@ export default function ExplorerTab({ initialQuery, initialChain, isStandalone =
                             <span className="text-[#D4D4D4] mr-2">To:</span>
                             <div className="flex items-center ml-2">
                                 {renderAddress(toAddress, chain)}
-                                {toAddress !== 'Multiple Outputs' && <Copy onClick={() => copyToClipboard(toAddress)} className="ml-2 w-4 h-4 cursor-pointer hover:text-emerald-400" />}
+                                {toAddress && toAddress !== 'Multiple Outputs' && <Copy onClick={() => copyToClipboard(toAddress)} className="ml-2 w-4 h-4 cursor-pointer hover:text-emerald-400" />}
                             </div>
                         </div>
                         <div className="md:col-span-2 bg-[#FFFFFF]/5 backdrop-blur-md p-3 rounded-lg border border-[#FFFFFF20] shadow-[0_4px_12px_rgba(0,0,0,0.3)] glow-[#FFFFFF15] hover:shadow-[0_0_8px_rgba(255,255,255,0.15)] transition-shadow flex items-center">
@@ -948,9 +954,29 @@ export default function ExplorerTab({ initialQuery, initialChain, isStandalone =
                             </table>
                         </div>
                     )}
+                    {tx.vout && tx.vout.length > 0 && (
+                        <div>
+                            <h4 className="flex items-center"><Wallet className="w-4 h-4 mr-1" />Outputs</h4>
+                            <table className="w-full border-collapse border border-[#FFFFFF20]">
+                                <thead><tr><th className="text-left">To</th><th className="text-left">Value</th></tr></thead>
+                                <tbody>
+                                    {tx.vout.map((output, i) => (
+                                        <tr key={i}>
+                                            <td className="p-2 border border-[#FFFFFF20] text-left">{renderAddress(output.scriptpubkey_address || 'OP_RETURN', chain)}</td>
+                                            <td className="p-2 border border-[#FFFFFF20] text-left">
+                                                <div className="flex flex-col">
+                                                    {renderValueWithUSD((output.value || 0) / 1e8, output.valueUSD || 0, 'BTC', nativeTokenLogos['BTC'])}
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
+                    )}
                 </motion.div>
             );
-        } else if (chain === 'solana') { } else if (chain === 'solana') {
+        } else if (chain === 'solana') { // Fix: Xóa duplicate else if rỗng ở trên
             const status = tx.status || 'Success';
             const isSuccess = tx.isSuccess || status === 'Success';
             const timestamp = tx.timestamp || Date.now();
@@ -1303,6 +1329,11 @@ export default function ExplorerTab({ initialQuery, initialChain, isStandalone =
     return (
         <div className="font-inter w-full max-w-9xl mx-auto p-2 sm:p-3 bg-[#0A0A0A]/80 backdrop-blur-md flex flex-col h-full overflow-y-auto custom-scrollbar relative">
             <ToastContainer position="top-right" autoClose={1500} theme="dark" />
+            <LoadingOverlay
+                isLoading={isOverallLoading}
+                isMobile={isMobile}
+                className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[9999] rounded-none"
+            />
             <div className="mb-4 relative z-10">
                 <h1 className="text-[14px] sm:text-[16px] font-bold flex items-center gap-2 mb-2 uppercase tracking-wider">
                     <img src="/logos/logo.webp" alt="Project Logo" className="w-8 h-8 rounded-xl" />
@@ -1382,7 +1413,7 @@ export default function ExplorerTab({ initialQuery, initialChain, isStandalone =
                     </motion.button>
                 </div>
             </div>
-            {isOverallLoading && (
+            {/* {isOverallLoading && (
                 <motion.div
                     initial={{ opacity: 0, y: 20 }}
                     animate={{ opacity: 1, y: 0 }}
@@ -1434,7 +1465,7 @@ export default function ExplorerTab({ initialQuery, initialChain, isStandalone =
                         </div>
                     </div>
                 </motion.div>
-            )}
+            )} */}
             {error && (
                 <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="text-red-400 flex items-center gap-2 p-4 bg-red-500/10 rounded-xl border border-red-500/20 relative z-10 shadow-[0_4px_12px_rgba(0,0,0,0.3)] glow-[#FFFFFF15]">
                     <AlertCircle className="w-4 h-4" /> {error}

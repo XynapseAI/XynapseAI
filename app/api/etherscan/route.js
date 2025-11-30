@@ -41,6 +41,8 @@ const chainIdMap = {
   avalanche_c: '43114', // Alias for avalanche
   sonic: '146', // Sonic Chain (removed space, chainId 146 as per SUPPORTED_EVM_CHAINS)
   monad: '143',
+  hyperevm: '999',
+  
 };
 
 // Allowed origins
