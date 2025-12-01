@@ -662,6 +662,7 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
   useEffect(() => {
     fetchUserData();
   }, [fetchUserData]);
+
   useEffect(() => {
     if (fullIncomingData.length > 0 || fullOutgoingData.length > 0 || fullLayer3Data.length > 0) {
       (async () => {
@@ -836,6 +837,7 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
     if (address) newParams.set('address', address);
     router.replace(`/dashboard?${newParams.toString()}`, { scroll: false });
   };
+
   const fetchTransactions = useCallback(async (address, page = 1) => {
     const isBitcoin = selectedChain === 'bitcoin';
     if (!isAddress(address) && !['solana', 'tron', 'bitcoin'].includes(selectedChain)) {
@@ -895,14 +897,7 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
     }
     setLoading(true);
     try {
-      const payload = { 
-        wallet_address: address, 
-        chain: selectedChain, 
-        limit: selectedLimit, 
-        page, 
-        fetchLayer3: true,
-        days_back: 30 // Thêm điều kiện chỉ lấy tx trong 30 ngày gần nhất
-      };
+      const payload = { wallet_address: address, chain: selectedChain, limit: selectedLimit, page, fetchLayer3: true };
       const signature = generateHmacSignature(payload);
       const response = await fetch(`${apiBaseUrl}/api/get-transactions`, {
         method: 'POST',
@@ -1000,6 +995,8 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
       setLoading(false);
     }
   }, [selectedChain, selectedLimit, session, apiBaseUrl, filterType, walletInfo]);
+
+
   const filterTransactions = useCallback((transactions, filterType, rootId, walletId = null) => {
     if (!transactions || !Array.isArray(transactions)) {
       logger.warn('Invalid transactions array:', transactions);
@@ -1038,6 +1035,7 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
     logger.log(`Filtered transactions (walletId: ${walletId || 'none'}, filterType: ${filterType}):`, uniqueTxs.length);
     return uniqueTxs;
   }, []);
+
   const initializeForceGraph = useCallback(async () => {
     if (!containerRef.current || !nodes.length || !walletInfo.address) {
       logger.warn('Cannot initialize ForceGraph: missing container, nodes, or walletInfo.address');
@@ -1299,6 +1297,7 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
       toast.error('Graph visualization failed. Please refresh.', { position: 'top-right', theme: 'dark' });
     }
   }, [nodes, edges, walletInfo, filterType, walletAddress, fullIncomingData, fullOutgoingData, fullLayer3Data, filterTransactions, apiBaseUrl]);
+
   useEffect(() => {
     initializeForceGraph().catch(console.error);
     return () => {
