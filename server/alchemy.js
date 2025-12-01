@@ -44,9 +44,10 @@ const PRICE_ID = {
     solana: 'solana',
 };
 
-const MAX_BLOCKS = 1000; // Giới hạn số lượng blocks lưu trữ
-const MAX_TXS = 5000; // Giới hạn số lượng txs lưu trữ
+const MAX_BLOCKS = 500; // Reduced from 1000 to keep serialized JSON under ~5-6MB and avoid Upstash limit
+const MAX_TXS = 2000; // Reduced from 5000 to lower memory usage
 const INITIAL_FETCH_COUNT = 10; // Số lượng fetch ban đầu nếu rỗng
+const MAX_NEW_FETCH_PER_UPDATE = 10; // New: Limit new blocks fetched per update to prevent OOM from large parallel responses
 
 // Hàm gọi RPC chung
 async function fetchRPC(url, method, params = []) {
@@ -113,14 +114,14 @@ async function processEVMChain(chain, rpcUrl) {
                 baseFeePerGas: b.baseFeePerGas ? { type: 'BigNumber', hex: b.baseFeePerGas } : null,
             }));
 
-            // Lấy txs từ tất cả 20 blocks initial
+            // Lấy txs từ tất cả 10 blocks initial (but only essential fields to save memory)
             results.forEach(block => {
                 if (block?.transactions) {
                     const blockTxs = block.transactions.map(tx => ({
-                        ...tx,
+                        hash: tx.hash, // New: Only store essential fields, no ...tx to avoid large 'input' etc.
                         from: tx.from?.toLowerCase() || null,
                         to: tx.to?.toLowerCase() || null,
-                        value: tx.value ? parseInt(tx.value, 16).toString() : "0",
+                        value: tx.value ? BigInt(tx.value).toString() : "0", // Updated: Use BigInt to handle large values accurately
                         blockNumber: parseInt(block.number, 16)
                     }));
                     existingTxs = [...blockTxs, ...existingTxs].slice(0, MAX_TXS);
@@ -131,7 +132,7 @@ async function processEVMChain(chain, rpcUrl) {
             const storedLatest = existingBlocks[0]?.number || 0;
             const newBlocksCount = latest - storedLatest;
             if (newBlocksCount > 0) {
-                const blocksToFetch = Math.min(newBlocksCount, 10); // 20 BLOCK NEW
+                const blocksToFetch = Math.min(newBlocksCount, MAX_NEW_FETCH_PER_UPDATE); // Updated to use new constant
                 const promises = [];
                 for (let i = 0; i < blocksToFetch; i++) {
                     const blockNumHex = '0x' + (latest - i).toString(16);
@@ -154,10 +155,10 @@ async function processEVMChain(chain, rpcUrl) {
                 newResults.slice(0, 5).forEach(block => {
                     if (block?.transactions) {
                         const blockTxs = block.transactions.map(tx => ({
-                            ...tx,
+                            hash: tx.hash, // New: Only essential fields
                             from: tx.from?.toLowerCase() || null,
                             to: tx.to?.toLowerCase() || null,
-                            value: tx.value ? parseInt(tx.value, 16).toString() : "0",
+                            value: tx.value ? BigInt(tx.value).toString() : "0", // Updated: Use BigInt to handle large values accurately
                             blockNumber: parseInt(block.number, 16)
                         }));
                         existingTxs = [...blockTxs, ...existingTxs].slice(0, MAX_TXS);
@@ -207,16 +208,16 @@ async function processBitcoin(chain, rpcUrl) {
                 number: b.height,
                 hash: b.hash,
                 timestamp: b.time,
-                miner: b.tx[0].vout[0].scriptPubKey.addresses ? b.tx[0].vout[0].scriptPubKey.addresses[0] : null, // Sửa: null thay vì 'Unknown'
+                miner: b.tx[0].vout[0].scriptPubKey.addresses ? b.tx[0].vout[0].scriptPubKey.addresses[0] : null,
                 transactions: b.tx.map(tx => tx.txid),
             }));
 
             // Txs từ initial blocks (limit to 100 tx per block to avoid overload)
             for (const block of results) {
                 if (block && block.tx) {
-                    const limitedTxs = block.tx.slice(0, 100); // Limit tx per block
+                    const limitedTxs = block.tx.slice(0, 100);
                     for (const tx of limitedTxs) {
-                        const from = tx.vin[0].coinbase ? 'Coinbase' : (tx.vin.length > 1 ? 'Multiple Inputs' : null); // Sửa: null thay vì 'Unknown'
+                        const from = tx.vin[0].coinbase ? 'Coinbase' : (tx.vin.length > 1 ? 'Multiple Inputs' : null);
                         const toAddresses = [];
                         for (const vout of tx.vout) {
                             let addr = 'OP_RETURN';
@@ -244,12 +245,13 @@ async function processBitcoin(chain, rpcUrl) {
             }
             existingTxs = existingTxs.slice(0, MAX_TXS);
         } else {
-            // Chỉ fetch blocks mới
+            // Chỉ fetch blocks mới, giới hạn tối đa 10 để tránh OOM
             const storedLatest = existingBlocks[0]?.number || 0;
             const newBlocksCount = latest - storedLatest;
             if (newBlocksCount > 0) {
+                const blocksToFetch = Math.min(newBlocksCount, MAX_NEW_FETCH_PER_UPDATE); // New: Limit to 10
                 const promises = [];
-                for (let i = 0; i < Math.min(newBlocksCount, MAX_BLOCKS); i++) {
+                for (let i = 0; i < blocksToFetch; i++) {
                     const height = latest - i;
                     const hash = await fetchRPC(rpcUrl, 'getblockhash', [height]);
                     promises.push(fetchRPC(rpcUrl, 'getblock', [hash, 2]));
@@ -260,7 +262,7 @@ async function processBitcoin(chain, rpcUrl) {
                     number: b.height,
                     hash: b.hash,
                     timestamp: b.time,
-                    miner: b.tx[0].vout[0].scriptPubKey.addresses ? b.tx[0].vout[0].scriptPubKey.addresses[0] : null, // Sửa: null thay vì 'Unknown'
+                    miner: b.tx[0].vout[0].scriptPubKey.addresses ? b.tx[0].vout[0].scriptPubKey.addresses[0] : null,
                     transactions: b.tx.map(tx => tx.txid),
                 }));
 
@@ -268,11 +270,11 @@ async function processBitcoin(chain, rpcUrl) {
                 existingBlocks = [...newBlocks, ...existingBlocks].slice(0, MAX_BLOCKS);
 
                 // Txs từ new blocks (limit to recent 5 blocks and 100 tx per block)
-                for (const block of newResults.slice(0, 10)) {
+                for (const block of newResults.slice(0, 5)) { // Reduced from 10 to 5 for memory
                     if (block && block.tx) {
-                        const limitedTxs = block.tx.slice(0, 500); // Limit tx per block
+                        const limitedTxs = block.tx.slice(0, 100);
                         for (const tx of limitedTxs) {
-                            const from = tx.vin[0].coinbase ? 'Coinbase' : (tx.vin.length > 1 ? 'Multiple Inputs' : null); // Sửa: null thay vì 'Unknown'
+                            const from = tx.vin[0].coinbase ? 'Coinbase' : (tx.vin.length > 1 ? 'Multiple Inputs' : null);
                             const toAddresses = [];
                             for (const vout of tx.vout) {
                                 let addr = 'OP_RETURN';
@@ -346,7 +348,7 @@ async function processSolana(chain, rpcUrl) {
                 number: b.blockHeight,
                 hash: b.blockhash,
                 timestamp: b.blockTime,
-                miner: b.rewards ? b.rewards.find(r => r.rewardType === 'fee')?.pubkey || null : null, // Sửa: null thay vì 'Unknown'
+                miner: b.rewards ? b.rewards.find(r => r.rewardType === 'fee')?.pubkey || null : null,
                 transactions: b.transactions ? b.transactions.map(t => t.transaction.signatures[0]) : [],
             }));
 
@@ -390,13 +392,14 @@ async function processSolana(chain, rpcUrl) {
             });
             existingTxs = existingTxs.slice(0, MAX_TXS);
         } else {
-            // Fetch new slots
+            // Fetch new slots, giới hạn tối đa 10 để tránh OOM từ parallel fetches lớn
             const storedLatest = existingBlocks[0]?.number || 0;
             const newSlotsCount = latestSlot - storedLatest;
             if (newSlotsCount > 0) {
+                const slotsToFetch = Math.min(newSlotsCount, MAX_NEW_FETCH_PER_UPDATE); // New: Limit to 10
                 const promises = [];
                 let currentSlot = latestSlot;
-                let toFetch = Math.min(newSlotsCount, MAX_BLOCKS);
+                let toFetch = slotsToFetch;
                 while (toFetch > 0) {
                     promises.push(fetchRPC(rpcUrl, 'getBlock', [currentSlot, { transactionDetails: 'full', rewards: true, maxSupportedTransactionVersion: 0 }]));
                     currentSlot--;
@@ -409,14 +412,14 @@ async function processSolana(chain, rpcUrl) {
                     number: b.blockHeight,
                     hash: b.blockhash,
                     timestamp: b.blockTime,
-                    miner: b.rewards ? b.rewards.find(r => r.rewardType === 'fee')?.pubkey || null : null, // Sửa: null thay vì 'Unknown'
+                    miner: b.rewards ? b.rewards.find(r => r.rewardType === 'fee')?.pubkey || null : null,
                     transactions: b.transactions ? b.transactions.map(t => t.transaction.signatures[0]) : [],
                 }));
 
                 // Prepend new blocks
                 existingBlocks = [...newBlocks, ...existingBlocks].slice(0, MAX_BLOCKS);
 
-                // Txs từ new blocks (limit to recent 5 for performance)
+                // Txs từ new blocks (limit to recent 1 for performance)
                 newValidResults.slice(0, 1).forEach(b => {
                     if (b.transactions) {
                         for (const tx of b.transactions) {

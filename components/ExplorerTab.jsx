@@ -38,6 +38,7 @@ export default function ExplorerTab({ initialQuery, initialChain, isStandalone =
     const itemsPerPage = 20;
     const apiKey = process.env.NEXT_PUBLIC_ALCHEMY_API_KEY || 'demo';
     const isDemoKey = !apiKey || apiKey === 'demo';
+
     const chainConfig = {
         bitcoin: { id: null, apiBase: '/api/mempool' },
         ethereum: { id: 1, apiBase: '/api/etherscan-explorer' },
