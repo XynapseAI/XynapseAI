@@ -188,6 +188,7 @@ const bodySchema = z.object({
   limit: z.number().int().min(100).max(500, 'Limit must be between 100 and 500'),
   page: z.number().int().min(1).default(1),
   fetchLayer3: z.boolean().optional().default(false),
+  days_back: z.number().int().min(1).max(90).default(30), // Thêm schema cho days_back (mặc định 30 ngày)
 });
 
 function isValidTokenSymbol(symbol) {
@@ -452,7 +453,39 @@ async function getTokenImage(tokenAddress, chain) {
   }
 }
 
-async function fetchLayer3Transactions(layer2Addresses, chain, limit, page) {
+// Helper để tính block number từ 30 ngày trước (cho Alchemy và Etherscan)
+async function getFromBlock(chain, daysBack = 30) {
+  if (!alchemyNetworks[chain]) {
+    // Cho Etherscan, sử dụng timestamp thay vì block
+    return null;
+  }
+  const network = alchemyNetworks[chain];
+  const baseUrl = `https://${network}.g.alchemy.com/v2/${ALCHEMY_API_KEY}`;
+  try {
+    // Lấy latest block
+    const latestPayload = {
+      jsonrpc: "2.0",
+      id: 1,
+      method: "eth_blockNumber",
+      params: [],
+    };
+    const latestRes = await axios.post(baseUrl, latestPayload);
+    const latestBlock = parseInt(latestRes.data.result, 16);
+
+    // Ước tính block từ daysBack ngày trước (giả sử 12s/block cho ETH-like chains)
+    const blocksPerDay = 24 * 60 * 60 / 12; // ~7200 blocks/day
+    const blocksBack = daysBack * blocksPerDay;
+    const fromBlock = Math.max(0, latestBlock - blocksBack).toString(16);
+
+    logger.info(`Estimated fromBlock for ${chain} (${daysBack} days): 0x${fromBlock}`);
+    return `0x${fromBlock}`;
+  } catch (error) {
+    logger.error(`Failed to calculate fromBlock for ${chain}:`, error.message);
+    return "0x0"; // Fallback
+  }
+}
+
+async function fetchLayer3Transactions(layer2Addresses, chain, limit, page, daysBack = 30) {
   const start = Date.now();
   const transactions = [];
   const chainConfig = SUPPORTED_CHAINS[chain];
@@ -477,13 +510,14 @@ async function fetchLayer3Transactions(layer2Addresses, chain, limit, page) {
         if (alchemyNetworks[chain]) {
           const network = alchemyNetworks[chain];
           const baseUrl = `https://${network}.g.alchemy.com/v2/${ALCHEMY_API_KEY}`;
+          const fromBlock = await getFromBlock(chain, daysBack); // Sử dụng fromBlock cho 30 ngày
           // Outgoing
           const outgoingPayload = {
             jsonrpc: "2.0",
             id: 0,
             method: "alchemy_getAssetTransfers",
             params: [{
-              fromBlock: "0x0",
+              fromBlock,
               toBlock: "latest",
               fromAddress: address,
               excludeZeroValue: true,
@@ -500,7 +534,7 @@ async function fetchLayer3Transactions(layer2Addresses, chain, limit, page) {
             id: 1,
             method: "alchemy_getAssetTransfers",
             params: [{
-              fromBlock: "0x0",
+              fromBlock,
               toBlock: "latest",
               toAddress: address,
               excludeZeroValue: true,
@@ -511,6 +545,9 @@ async function fetchLayer3Transactions(layer2Addresses, chain, limit, page) {
           };
           const resIn = await axios.post(baseUrl, incomingPayload);
           txData.push(...(resIn.data.result.transfers || []).map(t => ({ ...t, type: 'incoming', fromAddress: address })));
+          // Lọc thêm theo thời gian (nếu cần, vì fromBlock đã giới hạn)
+          const thirtyDaysAgo = Date.now() - (daysBack * 24 * 60 * 60 * 1000);
+          txData = txData.filter(tx => new Date(tx.metadata.blockTimestamp).getTime() >= thirtyDaysAgo);
         } else {
           let apiUrl;
           if (chain === 'solana') {
@@ -520,9 +557,11 @@ async function fetchLayer3Transactions(layer2Addresses, chain, limit, page) {
           } else if (chain === 'bitcoin') {
             apiUrl = `${chainConfig.apiUrl}/address/${address}/txs?limit=${layer3Limit}`;
           } else {
-            apiUrl = `${chainConfig.apiUrl}?module=account&action=txlist&address=${address}&startblock=0&endblock=99999999&page=${page}&offset=${layer3Limit}&sort=desc&chainid=${chain}&apikey=${chainConfig.apiKey}`;
+            // Cho Etherscan, thêm startblock dựa trên timestamp
+            const thirtyDaysAgoTimestamp = Math.floor((Date.now() - (daysBack * 24 * 60 * 60 * 1000)) / 1000);
+            apiUrl = `${chainConfig.apiUrl}?module=account&action=txlist&address=${address}&startblock=${thirtyDaysAgoTimestamp}&endblock=99999999&page=${page}&offset=${layer3Limit}&sort=desc&chainid=${chain}&apikey=${chainConfig.apiKey}`;
           }
-          const cacheKey = `layer3_tx_${chain}_${address}_${page}_${layer3Limit}`;
+          const cacheKey = `layer3_tx_${chain}_${address}_${page}_${layer3Limit}_${daysBack}`;
           const redisClient = await getRedisClient();
           const cached = await redisClient.get(cacheKey);
           if (cached) {
@@ -534,6 +573,12 @@ async function fetchLayer3Transactions(layer2Addresses, chain, limit, page) {
             await redisClient.setEx(cacheKey, 3600, JSON.stringify(txData));
             txData = txData.map(tx => ({ ...tx, fromAddress: address }));
           }
+          // Lọc theo thời gian cho non-Alchemy
+          const thirtyDaysAgo = Date.now() - (daysBack * 24 * 60 * 60 * 1000);
+          txData = txData.filter(tx => {
+            const txTime = typeof tx.timeStamp === 'string' ? parseInt(tx.timeStamp) * 1000 : tx.blockTime * 1000 || tx.timestamp;
+            return txTime >= thirtyDaysAgo;
+          });
         }
         return txData;
       } catch (error) {
@@ -744,7 +789,7 @@ export async function POST(request) {
       await trackViolation(ip, 'Invalid request body');
       return NextResponse.json({ error: parsed.error.errors[0].message }, { status: 400, headers: securityHeaders });
     }
-    const { wallet_address, chain, limit, page, fetchLayer3 } = parsed.data;
+    const { wallet_address, chain, limit, page, fetchLayer3, days_back } = parsed.data;
     const isPremium = request.headers.get('x-premium-user') === 'true';
     if (!isPremium && limit > 200) {
       await trackViolation(ip, 'Non-premium user attempted to fetch more than 200 transactions');
@@ -762,7 +807,7 @@ export async function POST(request) {
     }
     const chainConfig = SUPPORTED_CHAINS[chain];
     const redisClient = await getRedisClient();
-    const cacheKey = `tx_${chain}_${wallet_address.toLowerCase()}_${page}_${limit}`;
+    const cacheKey = `tx_${chain}_${wallet_address.toLowerCase()}_${page}_${limit}_${days_back}`;
     const cached = await redisClient.get(cacheKey);
     if (cached) {
       logger.info(`Cache hit for ${cacheKey}`);
@@ -776,17 +821,18 @@ export async function POST(request) {
     if (alchemyNetworks[chain]) {
       const network = alchemyNetworks[chain];
       const baseUrl = `https://${network}.g.alchemy.com/v2/${ALCHEMY_API_KEY}`;
+      const fromBlock = await getFromBlock(chain, days_back); // Tính fromBlock cho 30 ngày
       // Outgoing
       let outPageKey = null;
       if (page > 1) {
-        outPageKey = await redisClient.get(`pagekey_out_${chain}_${wallet_address.toLowerCase()}_${page - 1}`);
+        outPageKey = await redisClient.get(`pagekey_out_${chain}_${wallet_address.toLowerCase()}_${page - 1}_${days_back}`);
       }
       const outgoingPayload = {
         jsonrpc: "2.0",
         id: 0,
         method: "alchemy_getAssetTransfers",
         params: [{
-          fromBlock: "0x0",
+          fromBlock,
           toBlock: "latest",
           fromAddress: wallet_address,
           excludeZeroValue: true,
@@ -800,18 +846,18 @@ export async function POST(request) {
       if (resOut.data.error) throw new Error(resOut.data.error.message);
       const transfersOut = resOut.data.result.transfers || [];
       const newPageKeyOut = resOut.data.result.pageKey;
-      if (newPageKeyOut) await redisClient.setEx(`pagekey_out_${chain}_${wallet_address.toLowerCase()}_${page}`, 3600, newPageKeyOut);
+      if (newPageKeyOut) await redisClient.setEx(`pagekey_out_${chain}_${wallet_address.toLowerCase()}_${page}_${days_back}`, 3600, newPageKeyOut);
       // Incoming
       let inPageKey = null;
       if (page > 1) {
-        inPageKey = await redisClient.get(`pagekey_in_${chain}_${wallet_address.toLowerCase()}_${page - 1}`);
+        inPageKey = await redisClient.get(`pagekey_in_${chain}_${wallet_address.toLowerCase()}_${page - 1}_${days_back}`);
       }
       const incomingPayload = {
         jsonrpc: "2.0",
         id: 1,
         method: "alchemy_getAssetTransfers",
         params: [{
-          fromBlock: "0x0",
+          fromBlock,
           toBlock: "latest",
           toAddress: wallet_address,
           excludeZeroValue: true,
@@ -825,7 +871,7 @@ export async function POST(request) {
       if (resIn.data.error) throw new Error(resIn.data.error.message);
       const transfersIn = resIn.data.result.transfers || [];
       const newPageKeyIn = resIn.data.result.pageKey;
-      if (newPageKeyIn) await redisClient.setEx(`pagekey_in_${chain}_${wallet_address.toLowerCase()}_${page}`, 3600, newPageKeyIn);
+      if (newPageKeyIn) await redisClient.setEx(`pagekey_in_${chain}_${wallet_address.toLowerCase()}_${page}_${days_back}`, 3600, newPageKeyIn);
       // Process outgoing
       for (const transfer of transfersOut) {
         let value = transfer.value?.toString() || '0';
@@ -845,6 +891,9 @@ export async function POST(request) {
           usdValue = parseFloat(value) * price;
         }
         const block_time = transfer.metadata.blockTimestamp;
+        // Lọc theo thời gian (dự phòng)
+        const thirtyDaysAgo = Date.now() - (days_back * 24 * 60 * 60 * 1000);
+        if (new Date(block_time).getTime() < thirtyDaysAgo) continue;
         outgoing.push({
           address: transfer.to.toLowerCase(),
           hash: transfer.hash,
@@ -877,6 +926,9 @@ export async function POST(request) {
           usdValue = parseFloat(value) * price;
         }
         const block_time = transfer.metadata.blockTimestamp;
+        // Lọc theo thời gian (dự phòng)
+        const thirtyDaysAgo = Date.now() - (days_back * 24 * 60 * 60 * 1000);
+        if (new Date(block_time).getTime() < thirtyDaysAgo) continue;
         incoming.push({
           address: transfer.from.toLowerCase(),
           hash: transfer.hash,
@@ -890,21 +942,27 @@ export async function POST(request) {
         });
         addresses.add(transfer.from.toLowerCase());
       }
+      // Giới hạn tổng số tx sau khi lọc (để tránh quá tải)
+      incoming = incoming.slice(0, limit);
+      outgoing = outgoing.slice(0, limit);
     } else {
       // Original fetching logic for non-Alchemy chains
       const fetchPromises = [];
       let apiUrl;
       let internalData = [];
       if (chain === 'solana') {
-        apiUrl = `${chainConfig.apiUrl}/account/transactions?account=${wallet_address}&limit=${limit}&offset=${(page - 1) * limit}`;
+        const thirtyDaysAgo = Math.floor((Date.now() - (days_back * 24 * 60 * 60 * 1000)) / 1000);
+        apiUrl = `${chainConfig.apiUrl}/account/transactions?account=${wallet_address}&limit=${limit}&offset=${(page - 1) * limit}&min_context_slot=${thirtyDaysAgo}`;
         fetchPromises.push(fetchWithRateLimit(apiUrl, { timeout: 10000 }).then((res) => ({ type: 'native', data: res.data.transactions || [] })));
       } else if (chain === 'tron') {
-        apiUrl = `${chainConfig.apiUrl}/transaction?address=${wallet_address}&limit=${limit}&start=${(page - 1) * limit}`;
+        const thirtyDaysAgo = Math.floor((Date.now() - (days_back * 24 * 60 * 60 * 1000)) / 1000);
+        apiUrl = `${chainConfig.apiUrl}/transaction?address=${wallet_address}&limit=${limit}&start=${(page - 1) * limit}&min_timestamp=${thirtyDaysAgo}`;
         fetchPromises.push(fetchWithRateLimit(apiUrl, { timeout: 10000 }).then((res) => ({ type: 'native', data: res.data.transactions || [] })));
       } else if (chain === 'bitcoin') {
         apiUrl = `${chainConfig.apiUrl}/address/${wallet_address}/txs?limit=${limit}`;
         fetchPromises.push(fetchWithRateLimit(apiUrl, { timeout: 10000 }).then((res) => ({ type: 'native', data: res.data || [] })));
       } else {
+        const thirtyDaysAgoTimestamp = Math.floor((Date.now() - (days_back * 24 * 60 * 60 * 1000)) / 1000);
         const endpoints = [
           { action: 'txlist', type: 'native' },
           { action: 'tokentx', type: 'token' },
@@ -913,13 +971,13 @@ export async function POST(request) {
         endpoints.forEach(({ action, type }) => {
           fetchPromises.push(
             (async () => {
-              const cacheKey = `api_${chain}_${wallet_address.toLowerCase()}_${action}_${page}_${limit}`;
+              const cacheKey = `api_${chain}_${wallet_address.toLowerCase()}_${action}_${page}_${limit}_${days_back}`;
               const cached = await redisClient.get(cacheKey);
               if (cached) {
                 logger.info(`API cache hit for ${cacheKey}`);
                 return { type, data: JSON.parse(cached) };
               }
-              const url = `${chainConfig.apiUrl}?module=account&action=${action}&address=${wallet_address}&startblock=0&endblock=99999999&page=${page}&offset=${limit}&sort=desc&chainid=${chain}&apikey=${chainConfig.apiKey}`;
+              const url = `${chainConfig.apiUrl}?module=account&action=${action}&address=${wallet_address}&startblock=${thirtyDaysAgoTimestamp}&endblock=99999999&page=${page}&offset=${limit}&sort=desc&chainid=${chain}&apikey=${chainConfig.apiKey}`;
               const response = await fetchWithRateLimit(url, { timeout: 10000 });
               const data = response.data.result || [];
               await redisClient.setEx(cacheKey, 3600, JSON.stringify(data));
@@ -949,7 +1007,7 @@ export async function POST(request) {
         if (uniqueContracts.length > 0) {
           const platform = chainIdToName[chain];
           const contractList = uniqueContracts.join(',');
-          const cacheKey = `token_prices_${platform}_${contractList}_${page}_${limit}`;
+          const cacheKey = `token_prices_${platform}_${contractList}_${page}_${limit}_${days_back}`;
           const cached = await redisClient.get(cacheKey);
           if (cached) {
             tokenPrices = JSON.parse(cached);
@@ -970,10 +1028,11 @@ export async function POST(request) {
         }
       }
       if (chain === 'bitcoin') {
+        const thirtyDaysAgo = Date.now() - (days_back * 24 * 60 * 60 * 1000);
         const bitcoinTxPromises = transactions.map(async (tx) => {
           if (!tx.status || !tx.status.confirmed) return null;
           const blockTime = tx.status.block_time ? new Date(tx.status.block_time * 1000).toISOString() : null;
-          if (!blockTime) return null;
+          if (!blockTime || new Date(blockTime).getTime() < thirtyDaysAgo) return null; // Lọc theo thời gian
           let value = '0';
           let tokenSymbol = 'BTC';
           let contractAddress = null;
@@ -1031,6 +1090,7 @@ export async function POST(request) {
           }
         });
       } else {
+        const thirtyDaysAgo = Date.now() - (days_back * 24 * 60 * 60 * 1000);
         const nativeTxPromises = transactions.map(async (tx) => {
           let value = '0';
           let tokenSymbol = chainConfig.name === 'ethereum' ? 'ETH' : chainConfig.name.toUpperCase();
@@ -1050,7 +1110,7 @@ export async function POST(request) {
             value = ethers.formatEther(tx.value);
             blockTime = tx.timeStamp ? new Date(parseInt(tx.timeStamp) * 1000).toISOString() : null;
           }
-          if (!blockTime) {
+          if (!blockTime || new Date(blockTime).getTime() < thirtyDaysAgo) { // Lọc theo thời gian
             logger.warn(`Missing or invalid block_time for tx ${tx.hash || tx.transactionHash} from address ${wallet_address}`);
             return null;
           }
@@ -1090,7 +1150,7 @@ export async function POST(request) {
             let tokenImage = '/icons/default.webp';
             let blockTime = itx.timeStamp ? new Date(parseInt(itx.timeStamp) * 1000).toISOString() : null;
             let usdValue = Number(value) * nativePrice;
-            if (!blockTime) {
+            if (!blockTime || new Date(blockTime).getTime() < thirtyDaysAgo) { // Lọc theo thời gian
               logger.warn(`Missing or invalid block_time for internal tx ${itx.hash} from address ${wallet_address}`);
               return null;
             }
@@ -1136,7 +1196,7 @@ export async function POST(request) {
           let tokenImage = await getTokenImage(contractAddress, chain);
           let blockTime = tx.timeStamp ? new Date(parseInt(tx.timeStamp) * 1000).toISOString() : null;
           let usdValue = 0;
-          if (!blockTime) {
+          if (!blockTime || new Date(blockTime).getTime() < thirtyDaysAgo) { // Lọc theo thời gian
             logger.warn(`Missing or invalid block_time for token tx ${tx.hash} from address ${wallet_address}`);
             return null;
           }
@@ -1168,6 +1228,9 @@ export async function POST(request) {
           }
         });
       }
+      // Giới hạn tổng số tx sau khi lọc (để tránh quá tải)
+      incoming = incoming.slice(0, limit);
+      outgoing = outgoing.slice(0, limit);
     }
     const nametags = await getNametagsBatch([...addresses, wallet_address.toLowerCase()]);
     const walletNametag = nametags[wallet_address.toLowerCase()] || {
@@ -1192,7 +1255,7 @@ export async function POST(request) {
     let layer3Transactions = [];
     if (fetchLayer3) {
       const layer2Addresses = [...new Set([...incoming, ...outgoing].map((tx) => tx.address.toLowerCase()))];
-      layer3Transactions = await fetchLayer3Transactions(layer2Addresses, chain, limit, page);
+      layer3Transactions = await fetchLayer3Transactions(layer2Addresses, chain, limit, page, days_back);
     }
     const result = {
       incoming: processedIncoming,

@@ -1577,9 +1577,9 @@ const ClusterTab = ({ recaptchaRef, initialClusterId, activeTab: propActiveTab, 
           <div className="w-[25%] sm:w-[25%] px-2 sm:px-3 text-[#FFF]/80 text-[9px] sm:text-[10px] text-center overflow-hidden text-ellipsis">
             <div className="flex flex-col items-center gap-1">
               <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[7px] sm:text-[8px] font-bold uppercase tracking-wider ${tx.type === 'swap'
-                  ? 'bg-gradient-to-r from-purple-600 to-pink-600 text-white shadow-lg shadow-purple-500/30'
+                  ? 'bg-blue-500/20 text-blue-300 border border-blue-500/40 shadow-lg shadow-blue-500/20'
                   : tx.type === 'received' || isIncoming
-                    ? 'bg-emerald-500/20 text-white border border-emerald-500/40 shadow-lg shadow-emerald-500/20'
+                    ? 'bg-green-500/20 text-green-300 border border-green-500/40 shadow-lg shadow-green-500/20'
                     : tx.type === 'sent' || isOutgoing
                       ? 'bg-red-500/20 text-red-300 border border-red-500/40 shadow-lg shadow-red-500/20'
                       : isInternal
