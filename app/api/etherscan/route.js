@@ -42,6 +42,7 @@ const chainIdMap = {
   sonic: '146', // Sonic Chain (removed space, chainId 146 as per SUPPORTED_EVM_CHAINS)
   monad: '143',
   hyperevm: '999',
+  unichain: '130',
   
 };
 

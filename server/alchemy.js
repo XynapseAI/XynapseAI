@@ -46,7 +46,7 @@ const PRICE_ID = {
 
 const MAX_BLOCKS = 1000; // Giới hạn số lượng blocks lưu trữ
 const MAX_TXS = 5000; // Giới hạn số lượng txs lưu trữ
-const INITIAL_FETCH_COUNT = 20; // Số lượng fetch ban đầu nếu rỗng
+const INITIAL_FETCH_COUNT = 10; // Số lượng fetch ban đầu nếu rỗng
 
 // Hàm gọi RPC chung
 async function fetchRPC(url, method, params = []) {
@@ -85,8 +85,6 @@ async function updateAllPrices() {
     await pipeline.exec();
 }
 
-// Xử lý logic cho EVM chain
-// Xử lý logic cho EVM chain — ĐÃ FIX: chỉ fetch tối đa 20 block mới + txs từ 5 block gần nhất
 async function processEVMChain(chain, rpcUrl) {
     try {
         console.log(`[${chain}] Updating...`);
@@ -97,7 +95,7 @@ async function processEVMChain(chain, rpcUrl) {
         let existingBlocks = JSON.parse(await redis.get(`blocks:${chain}`)) || [];
         let existingTxs = JSON.parse(await redis.get(`txs:${chain}`)) || [];
 
-        // Nếu chưa có dữ liệu → fetch initial 20 blocks
+        // Nếu chưa có dữ liệu → fetch initial 10 blocks
         if (existingBlocks.length === 0) {
             const promises = [];
             for (let i = 0; i < INITIAL_FETCH_COUNT; i++) {
@@ -129,11 +127,11 @@ async function processEVMChain(chain, rpcUrl) {
                 }
             });
         } else {
-            // Chỉ fetch tối đa 20 blocks mới (không fetch hàng trăm)
+            // Chỉ fetch tối đa 10 blocks mới (không fetch hàng trăm)
             const storedLatest = existingBlocks[0]?.number || 0;
             const newBlocksCount = latest - storedLatest;
             if (newBlocksCount > 0) {
-                const blocksToFetch = Math.min(newBlocksCount, 10); // ← CHỈ 20 BLOCK MỚI
+                const blocksToFetch = Math.min(newBlocksCount, 10); // 20 BLOCK NEW
                 const promises = [];
                 for (let i = 0; i < blocksToFetch; i++) {
                     const blockNumHex = '0x' + (latest - i).toString(16);
@@ -153,7 +151,7 @@ async function processEVMChain(chain, rpcUrl) {
                 existingBlocks = [...newBlocks, ...existingBlocks].slice(0, MAX_BLOCKS);
 
                 // Chỉ lấy transaction từ 5 blocks gần nhất để tránh quá tải
-                newResults.slice(0, 1).forEach(block => {
+                newResults.slice(0, 5).forEach(block => {
                     if (block?.transactions) {
                         const blockTxs = block.transactions.map(tx => ({
                             ...tx,
@@ -270,9 +268,9 @@ async function processBitcoin(chain, rpcUrl) {
                 existingBlocks = [...newBlocks, ...existingBlocks].slice(0, MAX_BLOCKS);
 
                 // Txs từ new blocks (limit to recent 5 blocks and 100 tx per block)
-                for (const block of newResults.slice(0, 5)) {
+                for (const block of newResults.slice(0, 10)) {
                     if (block && block.tx) {
-                        const limitedTxs = block.tx.slice(0, 100); // Limit tx per block
+                        const limitedTxs = block.tx.slice(0, 500); // Limit tx per block
                         for (const tx of limitedTxs) {
                             const from = tx.vin[0].coinbase ? 'Coinbase' : (tx.vin.length > 1 ? 'Multiple Inputs' : null); // Sửa: null thay vì 'Unknown'
                             const toAddresses = [];
@@ -419,7 +417,7 @@ async function processSolana(chain, rpcUrl) {
                 existingBlocks = [...newBlocks, ...existingBlocks].slice(0, MAX_BLOCKS);
 
                 // Txs từ new blocks (limit to recent 5 for performance)
-                newValidResults.slice(0, 5).forEach(b => {
+                newValidResults.slice(0, 1).forEach(b => {
                     if (b.transactions) {
                         for (const tx of b.transactions) {
                             let accountKeys = [];

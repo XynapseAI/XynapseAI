@@ -47,18 +47,20 @@ export default function ExplorerTab({ initialQuery, initialChain, isStandalone =
         polygon: { id: 137, apiBase: '/api/etherscan-explorer' },
         base: { id: 8453, apiBase: '/api/etherscan-explorer' },
         solana: { id: null, apiBase: '/api/solana' },
-        monad: { id: 143, apiBase: '/api/etherscan-explorer' },
         avalanche: { id: 43114, apiBase: '/api/etherscan-explorer' },
         celo: { id: 42220, apiBase: '/api/etherscan-explorer' },
         gnosis: { id: 100, apiBase: '/api/etherscan-explorer' },
-        zksync: { id: 324, apiBase: '/api/etherscan-explorer' },
         linea: { id: 59144, apiBase: '/api/etherscan-explorer' },
-        abstract: { id: 2741, apiBase: '/api/etherscan-explorer' },
-        apechain: { id: 33139, apiBase: '/api/etherscan-explorer' },
-        hyperevm: { id: 999, apiBase: '/api/etherscan-explorer' },
         unichain: { id: 130, apiBase: '/api/etherscan-explorer' },
-        world: { id: 480, apiBase: '/api/etherscan-explorer' },
+
+        // world: { id: 480, apiBase: '/api/etherscan-explorer' },
+        // zksync: { id: 324, apiBase: '/api/etherscan-explorer' },
+        // abstract: { id: 2741, apiBase: '/api/etherscan-explorer' },
+        // apechain: { id: 33139, apiBase: '/api/etherscan-explorer' },
+        // hyperevm: { id: 999, apiBase: '/api/etherscan-explorer' },
+        // monad: { id: 143, apiBase: '/api/etherscan-explorer' },
     };
+
     const chainLogos = {
         bitcoin: 'https://assets.coingecko.com/coins/images/1/small/bitcoin.png',
         ethereum: 'https://assets.coingecko.com/coins/images/279/small/ethereum.png',
