@@ -47,7 +47,6 @@
     "@tensorflow/tfjs": "^4.22.0",
     "@tensorflow/tfjs-backend-webgpu": "^4.22.0",
     "@tensorflow/tfjs-layers": "^4.22.0",
-    "@tensorflow/tfjs-node": "^4.22.0",
     "@upstash/redis": "^1.35.7",
     "@vercel/edge-config": "^1.4.0",
     "@wagmi/connectors": "^5.8.5",

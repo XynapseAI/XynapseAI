@@ -39,7 +39,7 @@ function isAllowedOrigin(origin, referer) {
     }
     return false;
   } catch {
-    return false; 
+    return false;
   }
 }
 
@@ -63,9 +63,9 @@ export async function POST(request) {
   // 2. Tải các thư viện nặng (Dynamic Import) - FIXED: Handle load errors gracefully
   let tf = null;
   let IsolationForest = null;
-  
+
   try {
-    const tfModule = await import('@tensorflow/tfjs-node'); // Use node backend for speed
+    const tfModule = await import('@tensorflow/tfjs');
     tf = tfModule;
     console.log('TF.js loaded successfully');
   } catch (tfErr) {
@@ -93,18 +93,18 @@ export async function POST(request) {
 
     // Gọi hàm logic chính (đã fix errors)
     const clusters = await detectClustersServer(
-      nodes, 
-      edges, 
-      options, 
-      tf, 
+      nodes,
+      edges,
+      options,
+      tf,
       IsolationForest
     );
 
     const timeElapsed = Date.now() - startOverall;
     console.log(`Clustering completed successfully after ${timeElapsed}ms`);
-    
-    return NextResponse.json({ 
-      success: true, 
+
+    return NextResponse.json({
+      success: true,
       clusters,  // FIXED: Use 'clusters' key for client setClusters
       time: timeElapsed
     });
@@ -117,10 +117,10 @@ export async function POST(request) {
     });
 
     // Trả về lỗi 500
-    return NextResponse.json({ 
-      success: false, 
+    return NextResponse.json({
+      success: false,
       error: error.message,
-      stack: process.env.NODE_ENV === 'development' ? error.stack : undefined 
+      stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
     }, { status: 500 });
   }
 }
