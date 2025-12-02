@@ -33,11 +33,11 @@ function computeTxEntropy(txTimes, binSizeMs = 3600000) { // 1 hour bins
   return -probs.reduce((sum, p) => sum + p * Math.log2(p + 1e-10), 0);
 }
 
-// Pre-trained weights JSON (simulated from offline Elliptic training for illicit prob)
-const pretrainedClassifierWeights = [
-  [0.45, 0.35, 1.1, 0.75, 0.55, 0.65, 0.85, 0.95, 1.05], // Layer 1 (features to hidden 9)
-  [1.2, -1.5] // Layer 2 (hidden to [licit, illicit] logits)
-];
+// Pre-trained weights JSON (simulated from offline Elliptic training for illicit prob) - FIXED SHAPE: [9 inputs -> 9 hidden], [9 hidden -> 2 outputs]
+const pretrainedClassifierWeights = {
+  layer1: Array.from({length: 9}, () => Array.from({length: 9}, () => (Math.random() - 0.5) * 0.1)), // Random init [9,9] for demo; replace with trained
+  layer2: Array.from({length: 9}, () => Array.from({length: 2}, () => (Math.random() - 0.5) * 0.1)) // [9,2]
+};
 
 // DBSCAN (pure JS)
 function dbscan(data, eps, minPts) {
@@ -53,7 +53,7 @@ function dbscan(data, eps, minPts) {
     }
     return neighbors;
   };
-  const expandCluster = (pIdx, neighbors) => {
+  const expandCluster = (pIdx, neighbors, clusterId) => { // Pass clusterId
     labels[pIdx] = clusterId;
     let i = 0;
     while (i < neighbors.length) {
@@ -76,7 +76,7 @@ function dbscan(data, eps, minPts) {
     if (neighbors.length < minPts) {
       labels[i] = -1;
     } else {
-      expandCluster(i, neighbors);
+      expandCluster(i, neighbors, clusterId);
       clusterId++;
     }
   }
@@ -88,7 +88,7 @@ function propagateLabels(communities, nodeMap, nodeIds) {
   const communityLabels = new Map();
   for (const [nodeId, commId] of communities) {
     const node = nodeMap.get(nodeId);
-    if (node && node.label !== 'Unknown') { // Thêm check node tồn tại
+    if (node && node.label !== 'Unknown') {
       if (!communityLabels.has(commId)) communityLabels.set(commId, new Map());
       communityLabels.get(commId).set(node.label, (communityLabels.get(commId).get(node.label) || 0) + 1);
     }
@@ -99,14 +99,14 @@ function propagateLabels(communities, nodeMap, nodeIds) {
       nodeIds.forEach((id) => {
         if (communities.get(id) === commId) {
           const node = nodeMap.get(id);
-          if (node && node.label === 'Unknown') node.label = majorityLabel; // Thêm check node tồn tại
+          if (node && node.label === 'Unknown') node.label = majorityLabel;
         }
       });
     }
   }
 }
 
-// Enhanced Auto-label (pure JS rule-based primary, TF optional)
+// Enhanced Auto-label (pure JS rule-based primary, TF optional) - FIXED TF SHAPE & TIDY
 async function autoLabelWallets(wallets, tf = null) {
   const labels = {};
   for (const wallet of wallets) {
@@ -121,18 +121,21 @@ async function autoLabelWallets(wallets, tf = null) {
     let confidence = 0.5;
 
     if (tf) {
-      // TF simple classifier (if available)
       try {
-        await tf.tidy(() => { // Sử dụng tf.tidy để dọn dẹp tensors tự động
-          const weights = tf.tensor2d([[0.5, 0.3, 1.2, 0.8, 0.4], [1.0, 2.0, 0.5, 1.5, 3.0]]);
-          const featTensor = tf.tensor2d([features]);
-          // Bỏ .transpose() nếu weights đã được định hình đúng
-          const scores = tf.softmax(tf.matMul(featTensor, weights.transpose())).dataSync();
-          const maxScore = Math.max(...scores);
-          predictedLabel = maxScore > 0.6 ? (scores[0] > scores[1] ? 'Exchange' : 'Whale') : null;
-          confidence = maxScore;
-          // Không cần dispose() trong tf.tidy
+        // FIXED: Tách tidy sync, array async outside
+        let hidden;
+        tf.tidy(() => {
+          const weightsL1 = tf.tensor2d(pretrainedClassifierWeights.layer1, [9, 9]); // FIXED: Proper [9 inputs, 9 hidden]
+          const feat = tf.tensor2d([features]); // [1,9]
+          hidden = tf.relu(tf.matMul(feat, weightsL1)); // [1,9]
         });
+        const logits = tf.matMul(hidden, tf.tensor2d(pretrainedClassifierWeights.layer2, [9, 2])); // FIXED: [1,9] * [9,2] -> [1,2]
+        const probs = tf.softmax(logits).dataSync();
+        const maxProb = Math.max(...probs);
+        predictedLabel = maxProb > 0.6 ? (probs[0] > probs[1] ? 'Exchange' : 'Whale') : null;
+        confidence = maxProb;
+        hidden.dispose();
+        logits.dispose();
       } catch (tfErr) {
         console.warn('TF auto-label failed:', tfErr.message);
       }
@@ -145,10 +148,10 @@ async function autoLabelWallets(wallets, tf = null) {
     const uniqueTokens = wallet.uniqueTokens || 0;
     if (degree > 20 || txCount > 500) {
       predictedLabel = 'Exchange';
-      confidence = Math.min(0.9, 0.7 + (degree / 100)); // Higher conf for stronger match
+      confidence = Math.min(0.9, 0.7 + (degree / 100));
     } else if (totalValue > 1000000) {
       predictedLabel = 'Whale';
-      confidence = Math.min(0.9, 0.8 + (totalValue / 1e7)); // Scale with volume
+      confidence = Math.min(0.9, 0.8 + (totalValue / 1e7));
     } else if (totalValue > 100000 && degree > 8 && velocity < 1.5) {
       predictedLabel = 'Institution';
       confidence = 0.75;
@@ -156,8 +159,7 @@ async function autoLabelWallets(wallets, tf = null) {
       predictedLabel = 'NFT Collector';
       confidence = 0.7;
     }
-    // No fallback - predictedLabel remains null if no match
-    confidence = Math.min(0.9, confidence + 0.2); // Boost rule conf
+    confidence = Math.min(0.9, confidence + 0.2);
     if (predictedLabel) {
       labels[wallet.id.toLowerCase()] = { label: predictedLabel, confidence: confidence.toFixed(2) };
     }
@@ -165,18 +167,17 @@ async function autoLabelWallets(wallets, tf = null) {
   return labels;
 }
 
-// Main function
+// Main function - FIXED GNN: Tách array outside tidy; add guards for group
 export async function detectClustersServer(nodes, edges, options = { useGNN: true, useDBSCAN: true, useIF: true }, tf = null, IsolationForest = null) {
   const now = Date.now();
   // Lọc node
   let clusterableNodes = nodes.filter(n => !n.isRoot && (n.layer === 2 || n.layer === 3));
   if (clusterableNodes.length > 1000) {
-    // Sampling subgraph for scale
     clusterableNodes = clusterableNodes.sort((a, b) => parseFloat(b.totalValue || 0) - parseFloat(a.totalValue || 0)).slice(0, 1000);
     console.log(`Sampled top ${clusterableNodes.length} nodes by value for clustering`);
   }
 
-  const nodeMap = new Map(nodes.map(n => [n.id.toLowerCase(), n]));
+  const nodeMap = new Map(nodes.map(n => [n.id.toLowerCase(), { ...n }]));
   const adjacencyList = new Map(nodes.map(n => [n.id.toLowerCase(), new Set()]));
   
   // Xây dựng Adjacency List
@@ -193,7 +194,6 @@ export async function detectClustersServer(nodes, edges, options = { useGNN: tru
   const nodeTxsMap = new Map();
   clusterableNodes.forEach(node => {
     const id = node.id.toLowerCase();
-    // Lọc giao dịch của node: chỉ lấy giao dịch giữa các node có trong nodeMap
     const nodeTxs = edges.filter(e => 
       (e.source.toLowerCase() === id || e.target.toLowerCase() === id) &&
       nodeMap.has(e.source.toLowerCase()) && 
@@ -202,7 +202,7 @@ export async function detectClustersServer(nodes, edges, options = { useGNN: tru
     
     nodeTxsMap.set(id, nodeTxs);
     const times = nodeTxs.map(e => typeof e.block_time === 'number' ? e.block_time * 1000 : new Date(e.block_time).getTime()).filter(t => !isNaN(t));
-    times.sort((a, b) => a - b); // Đảm bảo sort cho entropy và velocity
+    times.sort((a, b) => a - b);
     
     node.txEntropy = computeTxEntropy(times);
     node.hasCycle = hasCycle(id, adjacencyList);
@@ -239,10 +239,9 @@ export async function detectClustersServer(nodes, edges, options = { useGNN: tru
     node.clusteringCoeff,
     node.neighEntropy
   ]);
-  const numFeatures = featuresList.length > 0 ? featuresList[0].length : 0; // Số lượng đặc trưng (9)
+  const numFeatures = featuresList.length > 0 ? featuresList[0].length : 9; // Default 9
   
   // Entity resolution: Merge nodes with cosine sim >0.7 on features
-  // (Giữ nguyên logic Union-Find cho merge, đã hoạt động)
   const toMerge = [];
   for (let i = 0; i < clusterableNodes.length; i++) {
     for (let j = i + 1; j < clusterableNodes.length; j++) {
@@ -256,7 +255,6 @@ export async function detectClustersServer(nodes, edges, options = { useGNN: tru
   clusterableNodes.forEach(node => mergedGroups.set(node.id.toLowerCase(), new Set([node.id.toLowerCase()])));
   
   toMerge.forEach(([a, b]) => {
-    // Chỉ merge nếu cả hai node vẫn tồn tại
     if (mergedGroups.has(a) && mergedGroups.has(b)) {
         const groupA = mergedGroups.get(a);
         const groupB = mergedGroups.get(b);
@@ -275,7 +273,7 @@ export async function detectClustersServer(nodes, edges, options = { useGNN: tru
     let mergedTxCount = parseFloat(mergedNode.txCount || 0);
     
     group.forEach(id => {
-      if (id !== repId && nodeMap.has(id)) { // Đảm bảo node id tồn tại trước khi merge
+      if (id !== repId && nodeMap.has(id)) {
         mergedValue += parseFloat(nodeMap.get(id).totalValue || 0);
         mergedTxCount += parseFloat(nodeMap.get(id).txCount || 0);
         mergedTxs = [...mergedTxs, ...nodeTxsMap.get(id) || []];
@@ -298,7 +296,7 @@ export async function detectClustersServer(nodes, edges, options = { useGNN: tru
     // Recompute adjacency list for repId
     const mergedAdj = new Set();
     group.forEach(id => adjacencyList.get(id)?.forEach(neigh => { 
-        if (!group.has(neigh) && nodeMap.has(neigh)) mergedAdj.add(neigh); // Chỉ thêm neighbors còn tồn tại
+        if (!group.has(neigh) && nodeMap.has(neigh)) mergedAdj.add(neigh);
     }));
     adjacencyList.set(repId, mergedAdj);
     
@@ -306,7 +304,7 @@ export async function detectClustersServer(nodes, edges, options = { useGNN: tru
   }
   
   // Tái thiết lập danh sách node và edge sau khi merge
-  clusterableNodes = clusterableNodes.filter(n => nodeMap.has(n.id.toLowerCase()));
+  clusterableNodes = Array.from(nodeMap.values()).filter(n => !n.isRoot && (n.layer === 2 || n.layer === 3));
   edges = edges.filter(e => e.source !== e.target && nodeMap.has(e.source.toLowerCase()) && nodeMap.has(e.target.toLowerCase()));
 
   // Auto-label
@@ -316,60 +314,61 @@ export async function detectClustersServer(nodes, edges, options = { useGNN: tru
     if (al) node.autoLabel = al.label;
   });
 
-  // GNN embeddings (Custom GraphSAGE, TF.js if available)
+  // GNN embeddings (Custom GraphSAGE, TF.js if available) - FIXED: Tách array outside tidy; fix matMul shapes
   let embeddings = featuresList;
   if (options.useGNN && tf && clusterableNodes.length > 0) {
     try {
-      embeddings = await tf.tidy(async () => { // Sử dụng tf.tidy cho toàn bộ khối GNN
-        const n = clusterableNodes.length;
-        if (n === 0) return embeddings; 
-
-        const nodeIds = clusterableNodes.map(n => n.id.toLowerCase());
-        const adjIndices = [];
-        const adjValues = [];
-        
-        // Tạo ma trận kề thưa (sparse adjacency matrix)
-        nodeIds.forEach((id, i) => {
-          adjacencyList.get(id)?.forEach(neighId => {
-            const j = nodeIds.indexOf(neighId);
-            // Quan trọng: Chỉ thêm nếu neighbor ID còn tồn tại trong danh sách node hiện tại
-            if (j !== -1) { 
-              adjIndices.push([i, j]);
-              // Chuẩn hóa theo Degree (Aggregator Mean)
-              adjValues.push(1.0 / (adjacencyList.get(id).size || 1)); 
-            }
-          });
+      const n = clusterableNodes.length;
+      const nodeIds = clusterableNodes.map(n => n.id.toLowerCase());
+      const adjIndices = [];
+      const adjValues = [];
+      
+      // Tạo ma trận kề thưa
+      nodeIds.forEach((id, i) => {
+        adjacencyList.get(id)?.forEach(neighId => {
+          const j = nodeIds.indexOf(neighId);
+          if (j !== -1) { 
+            adjIndices.push([i, j]);
+            adjValues.push(1.0 / (adjacencyList.get(id).size || 1)); 
+          }
         });
-
-        // Xây dựng ma trận kề (sparseToDense)
-        const adjTensor = tf.sparseToDense(
-          tf.tensor2d(adjIndices, [adjIndices.length, 2], 'int32'), 
-          tf.tensor1d(adjValues), 
-          [n, n], 
-          0
-        );
-        
-        // Tensor Feature đầu vào
-        let h = tf.tensor2d(featuresList, [n, numFeatures]);
-        
-        // Layer 1
-        const w1 = tf.variable(tf.randomNormal([numFeatures, 16]));
-        const self = tf.matMul(h, w1);
-        const neigh = tf.matMul(adjTensor, self);
-        h = tf.relu(tf.add(self, neigh)); // Kích thước h là [N, 16]
-
-        // Layer 2
-        const w2 = tf.variable(tf.randomNormal([16, 8])); // Input size 16 (khớp với output Layer 1)
-        const self2 = tf.matMul(h, w2);
-        const neigh2 = tf.matMul(adjTensor, self2);
-        h = tf.relu(tf.add(self2, neigh2)); // Kích thước h là [N, 8]
-        
-        console.log('Custom GraphSAGE (2-layer mean aggregator) completed');
-        return await h.array(); // Trả về embeddings dạng mảng JS
       });
 
+      const adjTensor = tf.sparseToDense(
+        tf.tensor2d(adjIndices, [adjIndices.length, 2], 'int32'), 
+        tf.tensor1d(adjValues), 
+        [n, n], 
+        0
+      );
+      
+      let h = tf.tensor2d(featuresList, [n, numFeatures]);
+      
+      // Layer 1: FIXED shapes [n,9] * [9,16] -> [n,16]
+      const w1 = tf.randomNormal([numFeatures, 16]);
+      const self = tf.matMul(h, w1);
+      const neigh = tf.matMul(adjTensor, self);
+      h = tf.relu(tf.add(self, neigh)); // [n,16]
+
+      // Layer 2: [n,16] * [16,8] -> [n,8]
+      const w2 = tf.randomNormal([16, 8]);
+      const self2 = tf.matMul(h, w2);
+      const neigh2 = tf.matMul(adjTensor, self2);
+      h = tf.relu(tf.add(self2, neigh2)); // [n,8]
+      
+      // FIXED: Tách array outside tidy
+      const hData = await h.array();
+      h.dispose();
+      w1.dispose();
+      w2.dispose();
+      self.dispose();
+      neigh.dispose();
+      self2.dispose();
+      neigh2.dispose();
+      adjTensor.dispose();
+      
+      console.log('Custom GraphSAGE (2-layer mean aggregator) completed');
+      embeddings = hData;
     } catch (gnnErr) {
-      // LOGIC SỬA LỖI TF/SHAPE: Nếu GNN bị lỗi (như lỗi matMul), log và dùng raw features.
       console.warn('GNN failed, using raw features:', gnnErr.message);
       embeddings = featuresList;
     }
@@ -378,7 +377,7 @@ export async function detectClustersServer(nodes, edges, options = { useGNN: tru
   // DBSCAN on embeddings (Nansen-like)
   let labels = new Array(clusterableNodes.length).fill(-1);
   if (options.useDBSCAN && clusterableNodes.length >= 2) {
-    const eps = 0.5; // Tuned for ~90% F1 on sim Elliptic
+    const eps = 0.5;
     const minPts = 2;
     labels = dbscan(embeddings, eps, minPts);
     console.log('DBSCAN + GNN embeddings completed');
@@ -393,17 +392,17 @@ export async function detectClustersServer(nodes, edges, options = { useGNN: tru
   // Label propagation
   propagateLabels(communities, nodeMap, clusterableNodes.map(n => n.id.toLowerCase()));
 
-  // Anomaly/risk with IF (mljs) and supervised classifier (TF)
-  const calculateRisk = async (node, groupNodes) => {
+  // Anomaly/risk with IF (mljs) and supervised classifier (TF) - FIXED TF tidy & shapes
+  const calculateRisk = async (node, groupWallets) => { // FIXED: Pass groupWallets explicitly
     const nodeIdx = clusterableNodes.findIndex(n => n.id.toLowerCase() === node.id.toLowerCase());
-    if (nodeIdx === -1) return 0; // Guard clause
+    if (nodeIdx === -1) return 0;
 
     let anomalyScore = 0;
     // Isolation Forest
-    if (options.useIF && IsolationForest && groupNodes.length > 1) {
+    if (options.useIF && IsolationForest && groupWallets.length > 1) {
       try {
         const iforest = new IsolationForest({ n_estimators: 100 });
-        const trainData = groupNodes.map(n => [
+        const trainData = groupWallets.map(n => [
           Math.log1p(parseFloat(n.totalValue || 0)),
           Math.log1p(parseFloat(n.txCount || 0)),
           n.degree || 0,
@@ -415,7 +414,7 @@ export async function detectClustersServer(nodes, edges, options = { useGNN: tru
           n.neighEntropy || 0
         ]);
         iforest.fit(trainData);
-        const nodeInGroupIdx = groupNodes.findIndex(w => w.id.toLowerCase() === node.id.toLowerCase());
+        const nodeInGroupIdx = groupWallets.findIndex(w => w.id.toLowerCase() === node.id.toLowerCase());
         anomalyScore = iforest.anomalyScore([trainData[nodeInGroupIdx]])[0];
       } catch (ifErr) {
         console.warn('Isolation Forest calculation failed:', ifErr.message);
@@ -423,62 +422,67 @@ export async function detectClustersServer(nodes, edges, options = { useGNN: tru
     }
     
     let illicitProb = 0;
-    // Supervised Classifier (TF)
+    // Supervised Classifier (TF) - FIXED: Proper shapes & tidy
     if (tf) {
       try {
-        await tf.tidy(async () => {
-          const weightsL1 = tf.tensor2d(pretrainedClassifierWeights[0], [numFeatures, 9]); // numFeatures = 9
-          const weightsL2 = tf.tensor2d(pretrainedClassifierWeights[1], [9, 2]);
+        let logits;
+        tf.tidy(() => {
+          const weightsL1 = tf.tensor2d(pretrainedClassifierWeights.layer1, [9, 9]);
+          const weightsL2 = tf.tensor2d(pretrainedClassifierWeights.layer2, [9, 2]);
           const feat = tf.tensor2d([featuresList[nodeIdx]]);
           const hidden = tf.relu(tf.matMul(feat, weightsL1));
-          const logits = tf.matMul(hidden, weightsL2);
-          illicitProb = (await tf.softmax(logits).data())[1]; // Prob illicit
+          logits = tf.matMul(hidden, weightsL2); // [1,2]
         });
+        const probs = tf.softmax(logits).dataSync();
+        illicitProb = probs[1]; // Prob illicit
+        logits.dispose();
       } catch (tfErr) {
         console.warn('TF Risk Classifier failed:', tfErr.message);
       }
     }
-    // Kết hợp rủi ro
     return Math.min(1, anomalyScore * 0.5 + illicitProb * 0.5);
   };
 
-  // Build clusters
+  // Build clusters - FIXED GUARD: Check group exists & defined
   const communityGroups = new Map();
   for (const [nodeId, commId] of communities) {
     const node = nodeMap.get(nodeId);
-    if(node) {
+    if (node) {
         if (!communityGroups.has(commId)) communityGroups.set(commId, { wallets: [], transactions: [] });
         communityGroups.get(commId).wallets.push(node);
     }
   }
 
-  // --- LOGIC SỬA LỖI: Tránh truy cập .transactions của undefined ---
+  // FIXED GUARD: Ensure transactions init
+  communityGroups.forEach(group => {
+    if (!group.transactions) group.transactions = [];
+  });
+
+  // FIXED: Only add edges if both ends in same community & group exists
   edges.forEach(edge => {
     const sourceId = edge.source.toLowerCase();
     const targetId = edge.target.toLowerCase();
     
-    // Kiểm tra xem cả 2 node có nằm trong danh sách communities không
     if (communities.has(sourceId) && communities.has(targetId)) {
       const sourceComm = communities.get(sourceId);
       const targetComm = communities.get(targetId);
-
-      // Chỉ thêm giao dịch nếu cùng cluster VÀ cluster đó tồn tại trong groups
       if (sourceComm === targetComm && communityGroups.has(sourceComm)) {
-        communityGroups.get(sourceComm).transactions.push(edge);
+        communityGroups.get(sourceComm).transactions.push({ ...edge });
       }
     }
   });
 
   const finalClusters = [];
   for (const [commId, group] of communityGroups) {
-    if (group.wallets.length < 2) continue; // Chỉ xem xét các cluster có >= 2 ví
+    // FIXED GUARD: Skip if group undefined or invalid
+    if (!group || !group.wallets || group.wallets.length < 2) continue;
 
-    // Tính toán Risk Score
+    // Tính toán Risk Score - FIXED: Pass group.wallets explicitly
     const risks = await Promise.all(group.wallets.map(w => calculateRisk(w, group.wallets)));
-    const avgRisk = risks.reduce((sum, r) => sum + r, 0) / risks.length;
+    const avgRisk = risks.reduce((sum, r) => sum + r, 0) / risks.length || 0;
 
-    // Lọc giao dịch trùng lặp
-    const uniqueTxs = [...new Set(group.transactions.map(JSON.stringify))].map(JSON.parse);
+    // Lọc giao dịch trùng lặp - FIXED GUARD: Ensure transactions array
+    const uniqueTxs = [...new Set((group.transactions || []).map(JSON.stringify))].map(JSON.parse);
 
     const totalValue = group.wallets.reduce((sum, w) => sum + parseFloat(w.totalValue || 0), 0);
 
@@ -535,7 +539,7 @@ export async function detectClustersServer(nodes, edges, options = { useGNN: tru
       riskScore: avgRisk,
       velocity,
       uniqueTokens,
-      totalValue: totalValue.toString(), // Thêm tổng giá trị
+      totalValue: totalValue.toString(),
       topTokensVolume,
       outstandingTxs,
       topFeatures,

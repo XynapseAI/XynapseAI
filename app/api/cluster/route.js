@@ -60,28 +60,29 @@ export async function POST(request) {
     return NextResponse.json({ success: false, error: 'Forbidden Origin' }, { status: 403 });
   }
 
-  // 2. Tải các thư viện nặng (Dynamic Import)
+  // 2. Tải các thư viện nặng (Dynamic Import) - FIXED: Handle load errors gracefully
   let tf = null;
   let IsolationForest = null;
   
   try {
-    const tfModule = await import('@tensorflow/tfjs');
+    const tfModule = await import('@tensorflow/tfjs-node'); // Use node backend for speed
     tf = tfModule;
-  } catch {
-    console.warn("tfjs load failed: Cannot find module '@tensorflow/tfjs'");
-    // Ghi lại lỗi nhưng không crash, vì detectClustersServer có logic fallback
+    console.log('TF.js loaded successfully');
+  } catch (tfErr) {
+    console.warn("TF.js load failed:", tfErr.message);
+    // Continue without TF (fallback to rules)
   }
 
   try {
     const ifModule = await import('ml-isolation-forest');
-    // ml-isolation-forest thường export IsolationForest Class
     IsolationForest = ifModule.IsolationForest || ifModule.default?.IsolationForest || ifModule.default;
-  } catch {
-    console.warn("ml-isolation-forest load failed: Cannot find module 'ml-isolation-forest'");
-    // Ghi lại lỗi nhưng không crash
+    console.log('Isolation Forest loaded successfully');
+  } catch (ifErr) {
+    console.warn("Isolation Forest load failed:", ifErr.message);
+    // Continue without IF
   }
 
-  // 3. Xử lý yêu cầu chính
+  // 3. Xử lý yêu cầu chính - FIXED: No client worker call; metrics computed in serverClustering
   try {
     const body = await request.json();
     const { nodes, edges, options } = body;
@@ -90,7 +91,7 @@ export async function POST(request) {
       return NextResponse.json({ success: false, error: 'Invalid input: nodes and edges must be arrays.' }, { status: 400 });
     }
 
-    // Gọi hàm logic chính đã được sửa lỗi (fix TypeError undefined reading 'transactions')
+    // Gọi hàm logic chính (đã fix errors)
     const clusters = await detectClustersServer(
       nodes, 
       edges, 
@@ -104,7 +105,7 @@ export async function POST(request) {
     
     return NextResponse.json({ 
       success: true, 
-      data: clusters,
+      clusters,  // FIXED: Use 'clusters' key for client setClusters
       time: timeElapsed
     });
 
