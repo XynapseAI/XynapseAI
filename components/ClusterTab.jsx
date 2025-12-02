@@ -1550,7 +1550,7 @@ const ClusterTab = ({ recaptchaRef, initialClusterId, activeTab: propActiveTab, 
                   />
                   <span
                     onClick={(e) => { e.stopPropagation(); handleWalletClick(fromWallet); }}
-                    className="text-[#FF6666] hover:text-[#FF8888] cursor-pointer truncate text-[9px]"
+                    className="text-[#FFF] hover:text-[#FF8888] cursor-pointer truncate text-[9px]"
                   >
                     {truncateAddressWithHover(tx.from, fromNtag.name, isBitcoin ? 'Blockchair' : undefined)}
                   </span>
@@ -1566,7 +1566,7 @@ const ClusterTab = ({ recaptchaRef, initialClusterId, activeTab: propActiveTab, 
                   />
                   <span
                     onClick={(e) => { e.stopPropagation(); handleWalletClick(toWallet); }}
-                    className="text-[#66FFAA] hover:text-[#88FFCC] cursor-pointer truncate text-[9px]"
+                    className="text-[#FFF] hover:text-[#88FFCC] cursor-pointer truncate text-[9px]"
                   >
                     {truncateAddressWithHover(tx.to, toNtag.name, isBitcoin ? 'Blockchair' : undefined)}
                   </span>

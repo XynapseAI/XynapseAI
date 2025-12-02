@@ -1,8 +1,7 @@
-// app\api\cluster\route.js
-// app/api/cluster/route.js (Fixed TF import, pure JS fallback, rate-limit exception for localhost)
 import { NextResponse } from 'next/server';
 import { detectClustersServer } from '../../../utils/serverClustering';
 
+// Danh sách các nguồn gốc (origins) được phép truy cập API
 const allowedOrigins = [
   process.env.NEXT_PUBLIC_APP_URL,
   'http://localhost:3000',
@@ -10,25 +9,32 @@ const allowedOrigins = [
   'https://xynapseai.net',
   'https://www.xynapseai.net',
   'https://farcaster.xynapseai.net',
-  "https://base.xynapseai.net",
+  'https://base.xynapseai.net',
   'https://xynapse-ai-xynapse-projects.vercel.app',
 ].filter(Boolean);
 
+/**
+ * Hàm kiểm tra nguồn gốc truy cập (Origin Check)
+ * @param {string | null} origin - Header Origin
+ * @param {string | null} referer - Header Referer
+ * @returns {boolean}
+ */
 function isAllowedOrigin(origin, referer) {
   try {
+    // 1. Kiểm tra Origin trực tiếp
     if (origin && (allowedOrigins.includes(origin) || new URL(origin).hostname.endsWith('xynapseai.net'))) {
       return true;
     }
+    // 2. Kiểm tra Referer nếu Origin không có
     if (!origin && referer) {
       const refOrigin = new URL(referer).origin;
       if (allowedOrigins.includes(refOrigin) || new URL(refOrigin).hostname.endsWith('xynapseai.net')) {
         return true;
       }
     }
-    if (!origin && !referer) {
-      return true;
-    }
+    // 3. Cho phép yêu cầu nội bộ hoặc không rõ trong môi trường dev
     if (!origin && process.env.NODE_ENV === 'development') {
+      console.log('Localhost request - skipping violation check');
       return true;
     }
     return false;
@@ -37,77 +43,83 @@ function isAllowedOrigin(origin, referer) {
   }
 }
 
+/**
+ * Xử lý yêu cầu POST tới /api/cluster
+ * @param {Request} request - Đối tượng Request của Next.js
+ * @returns {NextResponse}
+ */
 export async function POST(request) {
   const startOverall = Date.now();
   const origin = request.headers.get('origin');
   const referer = request.headers.get('referer');
-  const ip = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || '::1'; // Default localhost
+  const ip = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || '::1';
 
-  // Exception for localhost to avoid violation tracking
-  if (ip === '::1' || ip === '127.0.0.1') {
-    console.log('Localhost request - skipping violation check');
-  }
-
+  // 1. Kiểm tra Origin/CORS
   if (!isAllowedOrigin(origin, referer)) {
-    return NextResponse.json({ detail: 'Not allowed by CORS' }, { status: 403 });
+    console.warn(`[Violation] Blocked request from Origin: ${origin || 'None'} and Referer: ${referer || 'None'} at IP: ${ip}`);
+    return NextResponse.json({ success: false, error: 'Forbidden Origin' }, { status: 403 });
   }
 
-  let body;
+  // 2. Tải các thư viện nặng (Dynamic Import)
+  let tf = null;
+  let IsolationForest = null;
+  
   try {
-    body = await request.json();
-  } catch (err) {
-    console.error('Invalid JSON body', { error: err.message });
-    return NextResponse.json({ detail: 'Invalid JSON body' }, { status: 400 });
-  }
-
-  const { nodes, edges, options = { useGNN: false, useDBSCAN: true } } = body; // Disable GNN by default for stability
-  if (!nodes?.length || !edges?.length) {
-    return NextResponse.json({ detail: 'Missing nodes or edges data' }, { status: 400 });
-  }
-
-  const payloadSize = JSON.stringify(body).length;
-  if (payloadSize > 1e6) {
-    return NextResponse.json({ detail: 'Payload too large' }, { status: 413 });
+    const tfModule = await import('@tensorflow/tfjs');
+    tf = tfModule;
+  } catch {
+    console.warn("tfjs load failed: Cannot find module '@tensorflow/tfjs'");
+    // Ghi lại lỗi nhưng không crash, vì detectClustersServer có logic fallback
   }
 
   try {
-    // Dynamic import PURE tfjs only (no native tfjs-node in prod)
-    let tf;
-    const useNative = process.env.USE_TFJS_NODE === 'true' && process.env.NODE_ENV !== 'production';
-    try {
-      if (useNative) {
-        const tfNodePkg = '@tensorflow/tfjs-n' + 'ode';
-        const tfModule = await import(tfNodePkg);
-        tf = tfModule;
-      } else {
-        const tfPkg = '@tensorflow/tf' + 'js';
-        const tfModule = await import(tfPkg);
-        tf = tfModule;
-      }
-      await tf.setBackend('cpu');
-      await tf.ready();
-      console.log(useNative ? 'tfjs-node loaded dynamically' : 'Pure tfjs loaded dynamically');
-    } catch (tfErr) {
-      console.error('tfjs load failed:', tfErr.message);
-      // Full fallback: No TF, pure JS clustering
-      options.useGNN = false;
-      options.useDBSCAN = false; // Use Louvain only
+    const ifModule = await import('ml-isolation-forest');
+    // ml-isolation-forest thường export IsolationForest Class
+    IsolationForest = ifModule.IsolationForest || ifModule.default?.IsolationForest || ifModule.default;
+  } catch {
+    console.warn("ml-isolation-forest load failed: Cannot find module 'ml-isolation-forest'");
+    // Ghi lại lỗi nhưng không crash
+  }
+
+  // 3. Xử lý yêu cầu chính
+  try {
+    const body = await request.json();
+    const { nodes, edges, options } = body;
+
+    if (!Array.isArray(nodes) || !Array.isArray(edges)) {
+      return NextResponse.json({ success: false, error: 'Invalid input: nodes and edges must be arrays.' }, { status: 400 });
     }
 
-    const clusters = await detectClustersServer(nodes, edges, options, tf); // Pass tf if available
-    const overallDuration = Date.now() - startOverall;
-    console.log(`Clustering completed in ${overallDuration}ms`, { nodeCount: nodes.length, clusterCount: clusters.length });
+    // Gọi hàm logic chính đã được sửa lỗi (fix TypeError undefined reading 'transactions')
+    const clusters = await detectClustersServer(
+      nodes, 
+      edges, 
+      options, 
+      tf, 
+      IsolationForest
+    );
 
-    const res = NextResponse.json({ success: true, clusters });
-    const allowOrigin = origin || (referer ? new URL(referer).origin : process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000');
-    res.headers.set('Access-Control-Allow-Origin', allowOrigin);
-    res.headers.set('Access-Control-Allow-Methods', 'POST');
-    res.headers.set('Access-Control-Allow-Headers', 'Content-Type');
-    return res;
+    const timeElapsed = Date.now() - startOverall;
+    console.log(`Clustering completed successfully after ${timeElapsed}ms`);
+    
+    return NextResponse.json({ 
+      success: true, 
+      data: clusters,
+      time: timeElapsed
+    });
 
   } catch (error) {
-    const overallDuration = Date.now() - startOverall;
-    console.error(`Clustering error after ${overallDuration}ms`, { error: error.message, stack: error.stack });
-    return NextResponse.json({ success: false, detail: 'Clustering failed', clusters: [] }, { status: 500 });
+    const timeElapsed = Date.now() - startOverall;
+    console.error(`Clustering error after ${timeElapsed}ms`, {
+      error: error.message,
+      stack: error.stack
+    });
+
+    // Trả về lỗi 500
+    return NextResponse.json({ 
+      success: false, 
+      error: error.message,
+      stack: process.env.NODE_ENV === 'development' ? error.stack : undefined 
+    }, { status: 500 });
   }
 }

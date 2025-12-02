@@ -122,6 +122,8 @@
     "lru-cache": "^11.1.0",
     "lucide-react": "^0.522.0",
     "micro": "^10.0.1",
+    "ml-isolation-forest": "^0.1.0",
+    "ml-matrix": "^6.12.1",
     "moment": "^2.30.1",
     "next": "^15.5.3",
     "next-auth": "^5.0.0-beta.29",
