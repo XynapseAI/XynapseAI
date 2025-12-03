@@ -127,6 +127,27 @@ const SkeletonTransactionRow = ({ index }) => (
     </div>
   </motion.div>
 );
+const SkeletonDeFiRow = ({ index }) => (
+  <motion.div
+    key={`skeleton-defi-${index}`}
+    className="flex hover:bg-[#FFFFFF]/10 transition-all ease-in-out duration-200 py-2 border-t border-[#FFFFFF20]"
+    initial={{ opacity: 0, y: 10 }}
+    animate={{ opacity: 1, y: 0 }}
+    transition={{ duration: 0.3 }}
+  >
+    <div className="w-full px-2 sm:px-3 flex items-center gap-2">
+      <div className="w-[20px] sm:w-[24px] h-[20px] sm:h-[24px] bg-[#FFFFFF]/10 rounded-full animate-pulse" />
+      <div className="flex flex-col">
+        <div className="w-16 h-2 bg-[#FFFFFF]/10 rounded animate-pulse" />
+        <div className="w-20 h-1.5 bg-[#FFFFFF]/5 rounded mt-1 animate-pulse" />
+      </div>
+    </div>
+    <div className="w-full px-2 sm:px-3 flex flex-col items-end">
+      <div className="w-12 h-2 bg-[#FFFFFF]/10 rounded animate-pulse" />
+      <div className="w-8 h-1.5 bg-[#FFFFFF]/5 rounded mt-1 animate-pulse" />
+    </div>
+  </motion.div>
+);
 export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress = null, toast }) {
   const { data: session, status } = useSession();
   const router = useRouter();
@@ -147,6 +168,7 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
     balances: false,
     transactions: false,
     tokenInfo: false,
+    defi: false,
   });
   const [activeChainType, setActiveChainType] = useState('EVM');
   const [activeChain, setActiveChain] = useState(null);
@@ -165,6 +187,7 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
   const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || '/api';
   const EVM_LOGOS = ['ethereum', 'base', 'bnb'];
   const SVM_LOGOS = ['solana', 'eclipse'];
+  const [defiPositions, setDefiPositions] = useState([]);
   const stableWatchlists = useMemo(() => watchlists, [watchlists]);
   const filteredBalances = useMemo(() => {
     const validBalances = balances
@@ -384,6 +407,7 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
       setChains(mappedChains);
     }
   }, [supportedChains]);
+  // Replace the entire fetchDataQuery function in components/WatchlistsTab.jsx
   const fetchDataQuery = async (action, address, chainType) => {
     const isValidEVM = isAddress(address);
     const isValidSVM = isValidSolanaAddress(address);
@@ -401,12 +425,22 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
     } catch (error) {
       logger.warn(`IndexedDB not available, skipping cache for ${cacheKey}`, { error });
     }
-    const payload = {
-      action,
-      address,
-      ...(isValidEVM ? { chain_ids: '1,137,10,42161,8453' } : { chains: SUPPORTED_SVM_CHAINS.join(',') }),
-      limit: action === 'transactions' ? 10000 : 1000,
-    };
+    let payload;
+    if (action === 'defi-positions') {
+      payload = {
+        action,
+        address,
+        chain_ids: '1,10,8453,42161,7777777,130',
+        limit: 1000,
+      };
+    } else {
+      payload = {
+        action,
+        address,
+        ...(isValidEVM ? { chain_ids: '1,137,10,42161,8453' } : { chains: SUPPORTED_SVM_CHAINS.join(',') }),
+        limit: action === 'transactions' ? 10000 : 1000,
+      };
+    }
     try {
       const apiUrl = `${API_BASE_URL}/api/sim`;
       logger.log(`Fetching ${action} for address: ${address}, chainType: ${chainType}`, { payload });
@@ -442,6 +476,8 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
             debouncedSetTransactions(newData);
           } else if (action === 'wallet-balances') {
             debouncedSetBalances(newData);
+          } else if (action === 'defi-positions') {
+            startTransition(() => setDefiPositions((prev) => [...prev, ...newData]));
           }
         });
       }, 300); // Reduced debounce for faster perceived load
@@ -496,6 +532,14 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
           throw new Error(`Invalid JSON response from ${action} API`);
         }
       }
+      // For defi-positions, extract positions from response if wrapped
+      if (action === 'defi-positions' && data.length > 0 && data[0]?.positions) {
+        data = data[0].positions;
+      }
+      // Filter valid positions (logo not null)
+      if (action === 'defi-positions') {
+        data = data.filter(pos => pos.logo && pos.logo !== null);
+      }
       logger.log(`Parsed ${action} data:`, { address, dataLength: data.length });
       if (data.length > 0) {
         try {
@@ -539,14 +583,25 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
       dedupingInterval: 30 * 1000,
     }
   );
+  const { data: defiData, error: defiError, isValidating: defiValidating } = useSWR(
+    selectedWallet && activeTab === 'POSITION' ? ['defi-positions', selectedWallet.address, activeChainType] : null,
+    () => fetchDataQuery('defi-positions', selectedWallet.address, activeChainType),
+    {
+      revalidateOnFocus: false,
+      revalidateOnReconnect: true,
+      refreshInterval: 15 * 60 * 1000,
+      dedupingInterval: 30 * 1000,
+    }
+  );
   useEffect(() => {
-    if (balancesError || transactionsError) {
-      const errorMessage = balancesError?.message || transactionsError?.message || 'Failed to load data';
+    if (balancesError || transactionsError || defiError) {
+      const errorMessage = balancesError?.message || transactionsError?.message || defiError?.message || 'Failed to load data';
       setError(errorMessage);
       if (balancesError) startTransition(() => setBalances([]));
       if (transactionsError) startTransition(() => setTransactions([]));
+      if (defiError) startTransition(() => setDefiPositions([]));
     }
-  }, [balancesError, transactionsError, startTransition]);
+  }, [balancesError, transactionsError, defiError, startTransition]);
   useEffect(() => {
     if (balancesData) {
       startTransition(() => {
@@ -564,13 +619,19 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
         chain: CHAIN_ID_TO_NAME[tx.chain] || tx.chain,
       })));
     }
+    if (defiData) {
+      startTransition(() => {
+        setDefiPositions(defiData); // Assuming defiData is the positions array
+      });
+    }
     setLoadingStates({
       loading: chainsLoading,
       balances: balancesValidating,
       transactions: transactionsValidating,
       tokenInfo: false,
+      defi: defiValidating,
     });
-  }, [balancesData, transactionsData, chainsLoading, balancesValidating, transactionsValidating, debouncedSetTransactions, startTransition]);
+  }, [balancesData, transactionsData, defiData, chainsLoading, balancesValidating, transactionsValidating, defiValidating, debouncedSetTransactions, startTransition]);
   const { data: tokenInfoData, error: tokenInfoError, isValidating: tokenInfoValidating } = useSWR(
     selectedWallet && balances.length > 0 ? ['tokenInfo', balances.map((b) => b.address)] : null,
     async () => {
@@ -1052,6 +1113,56 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
   };
   const getChainLogos = (chainType) => {
     return chainType === 'EVM' ? EVM_LOGOS : SVM_LOGOS;
+  };
+  const renderDeFiRow = (index, position) => {
+    const chainName = CHAIN_ID_TO_NAME[position.chain_id] || 'Unknown';
+    const token0Logo = position.logo || '/icons/default.webp'; // Use provided logo
+    const usdValue = Number(position.usd_value || 0).toLocaleString('en-US', { maximumFractionDigits: 2 });
+    const { text: truncatedPool } = truncateAddress(position.pool, {}); // Destructure text
+    const poolLink = `https://etherscan.io/address/${position.pool}`; // Adjust for chain if needed
+    return (
+      <motion.div
+        key={`${position.chain_id}-${position.pool}-${index}`}
+        className="flex hover:bg-[#0A0A0A]/80 transition-all ease-in-out duration-200 py-2 border-t border-[#FFFFFF20] flex-col gap-1"
+        initial={{ opacity: 0, y: 10 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.3, delay: 0.1 }}
+      >
+        <div className="flex items-center gap-2 px-2">
+          <img
+            src={token0Logo}
+            alt={`${position.protocol} logo`}
+            width={26}
+            height={26}
+            className="rounded-full"
+            onError={(e) => (e.target.src = '/icons/default.webp')}
+            loading="lazy"
+          />
+          <img
+            src={getPlatformImage(chainName)}
+            alt={`${chainName} logo`}
+            width={16}
+            height={16}
+            className="rounded-full"
+            style={{ transform: 'translate(25%, -25%)' }}
+            onError={(e) => (e.target.src = chainName === 'eclipse' ? '/eclipse-logo.webp' : '/fallback-image.webp')}
+            loading="lazy"
+          />
+          <div className="flex flex-col">
+            <span className="text-[12px] sm:text-[14px] text-[#D4D4D4] font-medium">{position.protocol}</span>
+            <span className="text-[10px] text-gray-500">({position.type})</span>
+          </div>
+        </div>
+        <div className="px-2 text-[10px] text-gray-500">
+          Pool: <a href={poolLink} target="_blank" rel="noopener noreferrer" className="text-gray-500 hover:underline">{truncatedPool}</a>
+        </div>
+        <div className="px-2 text-[10px] text-gray-500 flex gap-2 flex-wrap">
+          <span>{position.token0_symbol} (${formatPrice(position.token0_price)})</span>
+          <span>/  {position.token1_symbol} (${formatPrice(position.token1_price)})</span>
+        </div>
+        <div className="px-2 text-[12px] font-semibold text-emerald-400">${usdValue}</div>
+      </motion.div>
+    );
   };
   const renderTokenRow = (index, token) => {
     const tokenInfoData = tokenInfo[token.address] || [];
@@ -1682,7 +1793,7 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
             {/* Tabs: Portfolio & Activity (80% height) */}
             <div className="h-[85%] flex flex-col">
               <div className="flex w-full border border-[#FFFFFF20] mt-3 bg-[#0A0A0A]/80 rounded-t-xl">
-                {['PORTFOLIO', 'ACTIVITY'].map((tab) => (
+                {['PORTFOLIO', 'ACTIVITY', 'POSITION'].map((tab) => (
                   <motion.button
                     key={tab}
                     onClick={() => handleTabClick(tab)}
@@ -1699,6 +1810,11 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
                       </svg>
                     )}
+                    {tab === 'POSITION' && (
+                      <svg xmlns="http://www.w3.org/2000/svg" className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                      </svg>
+                    )}
                     <span>{tab}</span>
                   </motion.button>
                 ))}
@@ -1709,7 +1825,7 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
                   <Tooltip text="All Chains">
                     <motion.button
                       onClick={() => setActiveChain(null)}
-                      className={`p-1 rounded-lg text-[8px] font-medium flex items-center justify-center transition-all ${activeChain === null
+                      className={`p-1 ml-1 rounded-sm text-[8px] font-medium flex items-center justify-center transition-all ${activeChain === null
                         ? 'bg-[#00FFFF20]/20 shadow-[0_0_8px_rgba(0,255,255,0.2)] glow-[#00FFFF20]'
                         : 'hover:bg-[#FFFFFF]/10'
                         }`}
@@ -1741,13 +1857,14 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
                 </div>
 
                 {/* Main content*/}
+                {/* Main content */}
                 <div className="flex-1 flex flex-col">
                   <AnimatePresence mode="wait">
                     <motion.div
                       key={activeTab}
-                      initial={{ opacity: 0, x: activeTab === 'PORTFOLIO' ? -20 : 20 }}
+                      initial={{ opacity: 0, x: activeTab === 'PORTFOLIO' ? -20 : (activeTab === 'ACTIVITY' ? 20 : 0) }}
                       animate={{ opacity: 1, x: 0 }}
-                      exit={{ opacity: 0, x: activeTab === 'PORTFOLIO' ? 20 : -20 }}
+                      exit={{ opacity: 0, x: activeTab === 'PORTFOLIO' ? 20 : (activeTab === 'ACTIVITY' ? -20 : 0) }}
                       transition={{ duration: 0.3, ease: 'easeInOut' }}
                       className="h-full flex flex-col"
                     >
@@ -1759,14 +1876,16 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
                             <div className="w-[45%] px-2 text-center">Balance</div>
                             <div className="w-[30%] px-2 text-center">Percentage</div>
                           </>
-                        ) : (
+                        ) : activeTab === 'ACTIVITY' ? (
                           <>
                             <div className="w-[25%] px-2 text-left">Token</div>
                             <div className="w-[25%] px-2 text-center">Address</div>
                             <div className="w-[25%] px-2 text-center">Balance</div>
                             <div className="w-[25%] px-2 text-center">Tx / Time</div>
                           </>
-                        )}
+                        ) : activeTab === 'POSITION' ? (
+                          <div className="w-full text-left px-2">DeFi Positions</div>
+                        ) : null}
                       </div>
 
                       {/* Virtuoso - phần quan trọng nhất */}
@@ -1776,7 +1895,11 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
                           isLoading={
                             activeTab === 'PORTFOLIO'
                               ? loadingStates.balances || loadingStates.tokenInfo
-                              : loadingStates.transactions
+                              : activeTab === 'ACTIVITY'
+                                ? loadingStates.transactions
+                                : activeTab === 'POSITION'
+                                  ? loadingStates.defi
+                                  : false
                           }
                           isMobile={isMobile}
                         />
@@ -1803,54 +1926,78 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
                               No balances found
                             </div>
                           )
-                        ) : filteredTransactions.length > 0 ? (
-                          <>
-                            {/* Pagination chỉ hiện ở Activity */}
-                            <div className="flex items-center justify-center gap-2 p-2 border-b border-[#FFFFFF20] bg-[#0A0A0A]/50 shrink-0">
-                              <motion.button
-                                onClick={() => handlePageChange(Math.max(1, currentPage - 1))}
-                                disabled={currentPage === 1}
-                                whileHover={{ scale: 1.05 }}
-                                whileTap={{ scale: 0.95 }}
-                                className="p-1 text-[#FFF] border border-[#FFFFFF20] bg-[#FFFFFF]/5 rounded-xl disabled:opacity-50 hover:bg-[#FFFFFF]/10"
-                              >
-                                <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" /></svg>
-                              </motion.button>
-                              <span className="px-3 py-1 text-[10px] border border-[#FFFFFF20] bg-[#FFFFFF]/5 rounded-xl">
-                                {currentPage}/{totalPages}
-                              </span>
-                              <motion.button
-                                onClick={() => handlePageChange(Math.min(totalPages, currentPage + 1))}
-                                disabled={currentPage === totalPages}
-                                whileHover={{ scale: 1.05 }}
-                                whileTap={{ scale: 0.95 }}
-                                className="p-1 text-[#FFF] border border-[#FFFFFF20] bg-[#FFFFFF]/5 rounded-xl disabled:opacity-50 hover:bg-[#FFFFFF]/10"
-                              >
-                                <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
-                              </motion.button>
-                            </div>
+                        ) : activeTab === 'ACTIVITY' ? (
+                          filteredTransactions.length > 0 ? (
+                            <>
+                              {/* Pagination chỉ hiện ở Activity */}
+                              <div className="flex items-center justify-center gap-2 p-2 border-b border-[#FFFFFF20] bg-[#0A0A0A]/50 shrink-0">
+                                <motion.button
+                                  onClick={() => handlePageChange(Math.max(1, currentPage - 1))}
+                                  disabled={currentPage === 1}
+                                  whileHover={{ scale: 1.05 }}
+                                  whileTap={{ scale: 0.95 }}
+                                  className="p-1 text-[#FFF] border border-[#FFFFFF20] bg-[#FFFFFF]/5 rounded-xl disabled:opacity-50 hover:bg-[#FFFFFF]/10"
+                                >
+                                  <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" /></svg>
+                                </motion.button>
+                                <span className="px-3 py-1 text-[10px] border border-[#FFFFFF20] bg-[#FFFFFF]/5 rounded-xl">
+                                  {currentPage}/{totalPages}
+                                </span>
+                                <motion.button
+                                  onClick={() => handlePageChange(Math.min(totalPages, currentPage + 1))}
+                                  disabled={currentPage === totalPages}
+                                  whileHover={{ scale: 1.05 }}
+                                  whileTap={{ scale: 0.95 }}
+                                  className="p-1 text-[#FFF] border border-[#FFFFFF20] bg-[#FFFFFF]/5 rounded-xl disabled:opacity-50 hover:bg-[#FFFFFF]/10"
+                                >
+                                  <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
+                                </motion.button>
+                              </div>
 
+                              <Virtuoso
+                                className="custom-scrollbar"
+                                style={{ height: 'calc(100% - 60px)', width: '100%' }}
+                                data={currentTransactions}
+                                itemContent={renderTransactionRow}
+                                overscan={400}
+                                components={{ EmptyPlaceholder: () => null }}
+                              />
+                            </>
+                          ) : loadingStates.transactions ? (
                             <Virtuoso
                               className="custom-scrollbar"
-                              style={{ height: 'calc(100% - 60px)', width: '100%' }}
-                              data={currentTransactions}
-                              itemContent={renderTransactionRow}
+                              style={{ height: '100%', width: '100%' }}
+                              totalCount={transactionsPerPage}
+                              itemContent={(index) => <SkeletonTransactionRow index={index} />}
+                            />
+                          ) : (
+                            <div className="h-full flex items-center justify-center text-[#D4D4D4] text-sm">
+                              No transactions found
+                            </div>
+                          )
+                        ) : activeTab === 'POSITION' ? (
+                          defiPositions.length > 0 ? (
+                            <Virtuoso
+                              className="custom-scrollbar"
+                              style={{ height: '100%', width: '100%' }}
+                              data={defiPositions}
+                              itemContent={renderDeFiRow}
                               overscan={400}
                               components={{ EmptyPlaceholder: () => null }}
                             />
-                          </>
-                        ) : loadingStates.transactions ? (
-                          <Virtuoso
-                            className="custom-scrollbar"
-                            style={{ height: '100%', width: '100%' }}
-                            totalCount={transactionsPerPage}
-                            itemContent={(index) => <SkeletonTransactionRow index={index} />}
-                          />
-                        ) : (
-                          <div className="h-full flex items-center justify-center text-[#D4D4D4] text-sm">
-                            No transactions found
-                          </div>
-                        )}
+                          ) : loadingStates.defi ? (
+                            <Virtuoso
+                              className="custom-scrollbar"
+                              style={{ height: '100%', width: '100%' }}
+                              totalCount={10}
+                              itemContent={(index) => <SkeletonDeFiRow index={index} />}
+                            />
+                          ) : (
+                            <div className="h-full flex items-center justify-center text-[#D4D4D4] text-sm">
+                              No DeFi positions found
+                            </div>
+                          )
+                        ) : null}
                       </div>
                     </motion.div>
                   </AnimatePresence>

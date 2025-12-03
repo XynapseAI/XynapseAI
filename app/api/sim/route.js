@@ -234,7 +234,7 @@ async function checkIp(ip) {
 
 // ================= Input Validation Schema =================
 const bodySchema = z.object({
-  action: z.enum(['top-holders', 'wallet-balances', 'transactions', 'collectibles', 'proxy-image'], {
+  action: z.enum(['top-holders', 'wallet-balances', 'transactions', 'collectibles', 'proxy-image', 'defi-positions'], {
     message: 'Invalid action',
   }),
   imageUrl: z.string().url().optional(),
@@ -254,8 +254,8 @@ const bodySchema = z.object({
   (data) => (data.action === 'top-holders' ? !!data.chain && !!data.tokenAddress : true),
   { message: 'chain and tokenAddress are required for top-holders', path: ['chain', 'tokenAddress'] }
 ).refine(
-  (data) => (['wallet-balances', 'collectibles'].includes(data.action) ? !!data.address : true),
-  { message: 'address is required for wallet-balances and collectibles', path: ['address'] }
+  (data) => (['wallet-balances', 'collectibles', 'defi-positions'].includes(data.action) ? !!data.address : true),
+  { message: 'address is required for wallet-balances, collectibles, and defi-positions', path: ['address'] }
 ).refine(
   (data) =>
     data.action === 'transactions'
@@ -312,6 +312,7 @@ const LIMIT_CONFIG = {
   "wallet-balances": 2000,
   transactions: 10000,
   collectibles: 200,
+  "defi-positions": 100,
 };
 
 const SUPPORTED_SVM_CHAINS = ["solana", "eclipse"];
@@ -1133,6 +1134,38 @@ export async function POST(request) {
 
             logger.info(`Processed collectibles data: ${data.length} collectibles after filtering`, { ip });
             createJsonStream(controller, data);
+            return;
+          } else if (action === "defi-positions" && address) {
+            logger.info(`Processing defi-positions for address: ${address}`, { ip });
+            if (!isAddress(address)) {
+              logger.warn(`Invalid EVM address for defi-positions: ${address}`, { ip });
+              controller.enqueue(new TextEncoder().encode(JSON.stringify({ positions: [] })));
+              controller.close();
+              return;
+            }
+            const chainIds = '1,10,8453,42161,7777777,130'; // Supported chains
+            const url = `https://api.sim.dune.com/beta/evm/defi/positions/${address}?chain_ids=${chainIds}&limit=${effectiveLimit}`;
+            logger.info(`Calling Dune Sim API: ${url}`, { ip });
+            const response = await fetchWithRateLimit(url, {
+              headers: { "X-Sim-Api-Key": process.env.SIM_API_KEY },
+            });
+
+            logger.info(
+              `DeFi positions response for address ${address}: ${response.data.positions?.length || 0} positions, time: ${Date.now() - startTime}ms`,
+              { ip },
+            );
+
+            // Filter positions where logo is not null
+            const filteredPositions = (response.data.positions || []).filter(pos => pos.logo && pos.logo !== null);
+
+            const data = filteredPositions.map(pos => ({
+              ...pos,
+              // Ensure full info is preserved
+            }));
+
+            logger.info(`Processed DeFi positions: ${data.length} valid positions after filtering`, { ip });
+            // Stream as { positions: data } to match API response
+            createJsonStream(controller, [{ positions: data }]); // Wrap to match expected { positions: [...] }
             return;
           } else if (action === "proxy-image" && imageUrl) {
             try {
