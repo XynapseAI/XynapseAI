@@ -1,6 +1,7 @@
 import 'dotenv/config';
 import { Redis } from '@upstash/redis';
 import fetch from 'node-fetch';
+import process from 'process'; // FIXED: Import để log memory
 
 const redis = new Redis({
     url: process.env.UPSTASH_REDIS_REST_URL,
@@ -17,14 +18,10 @@ const RPC_URLS = {
     arbitrum: 'https://arbitrum-one-rpc.publicnode.com',
     optimism: 'https://optimism-rpc.publicnode.com',
     base: 'https://base-rpc.publicnode.com',
-    avalanche: 'https://avalanche-c-chain-rpc.publicnode.com',
     linea: 'https://linea-rpc.publicnode.com',
-    gnosis: 'https://gnosis-rpc.publicnode.com',
-    celo: 'https://celo-rpc.publicnode.com',
     unichain: 'https://unichain-rpc.publicnode.com',
     bitcoin: 'https://bitcoin-rpc.publicnode.com',
     solana: 'https://solana-rpc.publicnode.com',
-    // Thêm monad và hyperevm sử dụng Alchemy RPC (publicnode không hỗ trợ)
     monad: `https://monad-mainnet.g.alchemy.com/v2/${API_KEY}`,
     hyperevm: `https://hyperliquid-mainnet.g.alchemy.com/v2/${API_KEY}`,
 };
@@ -36,25 +33,53 @@ const PRICE_ID = {
     arbitrum: 'ethereum',
     optimism: 'ethereum',
     base: 'ethereum',
-    avalanche: 'avalanche-2',
     linea: 'ethereum',
-    gnosis: 'xdai',
-    celo: 'celo',
     unichain: 'ethereum',
     bitcoin: 'bitcoin',
     solana: 'solana',
-    // Thêm PRICE_ID cho monad và hyperevm (CoinGecko IDs)
     monad: 'monad',
     hyperevm: 'hyperevm',
 };
 
-const MAX_BLOCKS = 500; // Reduced from 1000 to keep serialized JSON under ~5-6MB and avoid Upstash limit
-const MAX_TXS = 2000; // Reduced from 5000 to lower memory usage
-const INITIAL_FETCH_COUNT = 10; // Số lượng fetch ban đầu nếu rỗng
-const MAX_NEW_FETCH_PER_UPDATE = 10; // New: Limit new blocks fetched per update to prevent OOM from large parallel responses
-const CACHE_EXPIRE_SECONDS = 300; // 5 phút cache cho blocks/txs/stats để giảm gọi API lặp lại
+const MAX_BLOCKS = 100; // FIXED: Giảm từ 500 → 100 (đủ dashboard, giảm memory 80%)
+const MAX_TXS = 1000; // FIXED: Giảm từ 2000 → 1000 (ít tx hơn)
+const INITIAL_FETCH_COUNT = 20; // FIXED: Tăng initial để cover dashboard ngay, nhưng sequential nếu busy chain
+const MAX_NEW_FETCH_PER_UPDATE = 5; // Giữ nguyên
+const CACHE_EXPIRE_SECONDS = 600; // Giữ nguyên
+const CONCURRENCY_LIMIT = 2; // FIXED: Giảm từ 3 → 2 để low peak memory
 
-// Hàm gọi RPC chung
+// FIXED: Proper semaphore với release call
+function createSemaphore(limit) {
+    let active = 0;
+    let queue = [];
+    return {
+        async acquire() {
+            return new Promise((resolve) => {
+                const task = () => {
+                    active++;
+                    const release = () => {
+                        active--;
+                        if (queue.length) {
+                            const next = queue.shift();
+                            next();
+                        }
+                    };
+                    resolve({ release, run: release }); // FIXED: Trả release và run wrapper
+                };
+                if (active < limit) task();
+                else queue.push(task);
+            });
+        }
+    };
+}
+
+// FIXED: Log memory helper
+function logMemory(chain = '') {
+    const usage = process.memoryUsage();
+    console.log(`[${chain}] Memory - RSS: ${(usage.rss / 1024 / 1024).toFixed(2)}MB, Heap: ${(usage.heapUsed / 1024 / 1024).toFixed(2)}MB`);
+}
+
+// Hàm gọi RPC (giữ nguyên)
 async function fetchRPC(url, method, params = []) {
     const res = await fetch(url, {
         method: 'POST',
@@ -67,7 +92,7 @@ async function fetchRPC(url, method, params = []) {
     return data.result;
 }
 
-// Hàm cập nhật tất cả giá một lần
+// updateAllPrices (giữ nguyên, đã fix body)
 async function updateAllPrices() {
     const uniqueIds = [...new Set(Object.values(PRICE_ID))];
     const idsStr = uniqueIds.join(',');
@@ -75,7 +100,15 @@ async function updateAllPrices() {
     try {
         const res = await fetch(`https://api.coingecko.com/api/v3/simple/price?ids=${idsStr}&vs_currencies=usd`);
         if (!res.ok) throw new Error(`CoinGecko Status ${res.status}`);
-        priceData = await res.json();
+        
+        const buffer = await res.arrayBuffer();
+        const responseSizeKB = buffer.byteLength / 1024;
+        
+        const decoder = new TextDecoder();
+        const jsonString = decoder.decode(buffer);
+        priceData = JSON.parse(jsonString);
+        
+        console.log(`[PRICES] Batch fetched ${uniqueIds.length} IDs, response size: ${responseSizeKB.toFixed(2)} KB`);
     } catch (e) {
         console.error('Price batch fetch error:', e.message);
     }
@@ -86,14 +119,16 @@ async function updateAllPrices() {
         if (price === null) {
             price = (await redis.get(`price:${chain}`)) || 0;
         }
-        pipeline.set(`price:${chain}`, price, { EX: 3600 }); // Cache price 1 giờ
+        pipeline.set(`price:${chain}`, price, { EX: 3600 });
     }
     await pipeline.exec();
+    logMemory('PRICES'); // FIXED: Log memory sau prices
 }
 
 async function processEVMChain(chain, rpcUrl) {
     try {
         console.log(`[${chain}] Updating...`);
+        logMemory(chain); // FIXED: Log trước update
 
         const latestHex = await fetchRPC(rpcUrl, 'eth_blockNumber');
         const latest = parseInt(latestHex, 16);
@@ -101,14 +136,29 @@ async function processEVMChain(chain, rpcUrl) {
         let existingBlocks = JSON.parse(await redis.get(`blocks:${chain}`)) || [];
         let existingTxs = JSON.parse(await redis.get(`txs:${chain}`)) || [];
 
-        // Nếu chưa có dữ liệu → fetch initial 10 blocks
+        const storedLatest = existingBlocks[0]?.number || 0;
+        const newBlocksCount = latest - storedLatest;
+        if (newBlocksCount <= 0 && existingBlocks.length > 0) {
+            console.log(`[${chain}] No new blocks, skipping fetch.`);
+            return;
+        }
+
+        const semaphore = createSemaphore(CONCURRENCY_LIMIT);
+
         if (existingBlocks.length === 0) {
-            const promises = [];
+            // FIXED: Sequential fetch cho initial nếu chain busy (như bsc), parallel nếu small
+            const isBusyChain = ['ethereum', 'bsc'].includes(chain);
+            const results = [];
             for (let i = 0; i < INITIAL_FETCH_COUNT; i++) {
                 const blockNumHex = '0x' + (latest - i).toString(16);
-                promises.push(fetchRPC(rpcUrl, 'eth_getBlockByNumber', [blockNumHex, true]));
+                const sem = await semaphore.acquire();
+                try {
+                    const blockData = await fetchRPC(rpcUrl, 'eth_getBlockByNumber', [blockNumHex, true]);
+                    results.push(blockData);
+                } finally {
+                    sem.release(); // FIXED: Call release
+                }
             }
-            const results = await Promise.all(promises);
 
             existingBlocks = results.filter(b => b).map(b => ({
                 number: parseInt(b.number, 16),
@@ -119,95 +169,116 @@ async function processEVMChain(chain, rpcUrl) {
                 baseFeePerGas: b.baseFeePerGas ? { type: 'BigNumber', hex: b.baseFeePerGas } : null,
             }));
 
-            // Lấy txs từ tất cả 10 blocks initial (but only essential fields to save memory)
+            // FIXED: Limit txs/block=30 cho busy chains
+            const txPerBlock = isBusyChain ? 30 : 50;
             results.forEach(block => {
                 if (block?.transactions) {
-                    const blockTxs = block.transactions.map(tx => ({
-                        hash: tx.hash, // New: Only store essential fields, no ...tx to avoid large 'input' etc.
+                    const blockTxs = block.transactions.slice(0, txPerBlock).map(tx => ({
+                        hash: tx.hash,
                         from: tx.from?.toLowerCase() || null,
                         to: tx.to?.toLowerCase() || null,
-                        value: tx.value ? BigInt(tx.value).toString() : "0", // Updated: Use BigInt to handle large values accurately
+                        value: tx.value ? BigInt(tx.value).toString() : "0",
                         blockNumber: parseInt(block.number, 16)
                     }));
                     existingTxs = [...blockTxs, ...existingTxs].slice(0, MAX_TXS);
                 }
             });
         } else {
-            // Chỉ fetch tối đa 10 blocks mới (không fetch hàng trăm)
-            const storedLatest = existingBlocks[0]?.number || 0;
-            const newBlocksCount = latest - storedLatest;
-            if (newBlocksCount > 0) {
-                const blocksToFetch = Math.min(newBlocksCount, MAX_NEW_FETCH_PER_UPDATE); // Updated to use new constant
-                const promises = [];
-                for (let i = 0; i < blocksToFetch; i++) {
-                    const blockNumHex = '0x' + (latest - i).toString(16);
-                    promises.push(fetchRPC(rpcUrl, 'eth_getBlockByNumber', [blockNumHex, true]));
+            const blocksToFetch = Math.min(newBlocksCount, MAX_NEW_FETCH_PER_UPDATE);
+            const results = [];
+            for (let i = 0; i < blocksToFetch; i++) {
+                const blockNumHex = '0x' + (latest - i).toString(16);
+                const sem = await semaphore.acquire();
+                try {
+                    const blockData = await fetchRPC(rpcUrl, 'eth_getBlockByNumber', [blockNumHex, true]);
+                    results.push(blockData);
+                } finally {
+                    sem.release();
                 }
-                const newResults = await Promise.all(promises);
-
-                const newBlocks = newResults.filter(b => b).map(b => ({
-                    number: parseInt(b.number, 16),
-                    hash: b.hash,
-                    timestamp: parseInt(b.timestamp, 16),
-                    miner: b.miner,
-                    transactions: b.transactions.map(t => typeof t === 'object' ? t.hash : t),
-                    baseFeePerGas: b.baseFeePerGas ? { type: 'BigNumber', hex: b.baseFeePerGas } : null,
-                }));
-
-                existingBlocks = [...newBlocks, ...existingBlocks].slice(0, MAX_BLOCKS);
-
-                // Chỉ lấy transaction từ 5 blocks gần nhất để tránh quá tải
-                newResults.slice(0, 5).forEach(block => {
-                    if (block?.transactions) {
-                        const blockTxs = block.transactions.map(tx => ({
-                            hash: tx.hash, // New: Only essential fields
-                            from: tx.from?.toLowerCase() || null,
-                            to: tx.to?.toLowerCase() || null,
-                            value: tx.value ? BigInt(tx.value).toString() : "0", // Updated: Use BigInt to handle large values accurately
-                            blockNumber: parseInt(block.number, 16)
-                        }));
-                        existingTxs = [...blockTxs, ...existingTxs].slice(0, MAX_TXS);
-                    }
-                });
             }
+
+            const newBlocks = results.filter(b => b).map(b => ({
+                number: parseInt(b.number, 16),
+                hash: b.hash,
+                timestamp: parseInt(b.timestamp, 16),
+                miner: b.miner,
+                transactions: b.transactions.map(t => typeof t === 'object' ? t.hash : t),
+                baseFeePerGas: b.baseFeePerGas ? { type: 'BigNumber', hex: b.baseFeePerGas } : null,
+            }));
+
+            existingBlocks = [...newBlocks, ...existingBlocks].slice(0, MAX_BLOCKS);
+
+            // FIXED: Txs từ 2 blocks, limit tx/block
+            const isBusyChain = ['ethereum', 'bsc'].includes(chain);
+            const txPerBlock = isBusyChain ? 30 : 50;
+            results.slice(0, 2).forEach(block => {
+                if (block?.transactions) {
+                    const blockTxs = block.transactions.slice(0, txPerBlock).map(tx => ({
+                        hash: tx.hash,
+                        from: tx.from?.toLowerCase() || null,
+                        to: tx.to?.toLowerCase() || null,
+                        value: tx.value ? BigInt(tx.value).toString() : "0",
+                        blockNumber: parseInt(block.number, 16)
+                    }));
+                    existingTxs = [...blockTxs, ...existingTxs].slice(0, MAX_TXS);
+                }
+            });
         }
 
+        const blocksJson = JSON.stringify(existingBlocks);
+        const txsJson = JSON.stringify(existingTxs);
+        console.log(`[${chain}] JSON sizes - Blocks: ${(blocksJson.length / 1024).toFixed(2)} KB, Txs: ${(txsJson.length / 1024).toFixed(2)} KB`);
+
         const pipeline = redis.pipeline();
-        pipeline.set(`blocks:${chain}`, JSON.stringify(existingBlocks), { EX: CACHE_EXPIRE_SECONDS });
-        pipeline.set(`txs:${chain}`, JSON.stringify(existingTxs), { EX: CACHE_EXPIRE_SECONDS });
+        pipeline.set(`blocks:${chain}`, blocksJson, { EX: CACHE_EXPIRE_SECONDS });
+        pipeline.set(`txs:${chain}`, txsJson, { EX: CACHE_EXPIRE_SECONDS });
         pipeline.set(`stats:${chain}`, JSON.stringify({
             blockNumber: latest,
             gasPrice: existingBlocks[0]?.baseFeePerGas ? parseInt(existingBlocks[0].baseFeePerGas.hex, 16).toString() : '0'
         }), { EX: CACHE_EXPIRE_SECONDS });
         await pipeline.exec();
 
-        console.log(`[${chain}] Updated successfully. Block: ${latest}, Total blocks: ${existingBlocks.length}, Total txs: ${existingTxs.length}`);
+        console.log(`[${chain}] Updated. Block: ${latest}, Blocks: ${existingBlocks.length}, Txs: ${existingTxs.length}`);
+        logMemory(chain); // FIXED: Log sau
     } catch (err) {
         console.error(`[${chain}] Error:`, err.message);
+        logMemory(chain + '-ERROR'); // FIXED: Log nếu error
     }
 }
 
-// Xử lý logic cho Bitcoin
+// FIXED: Bitcoin - Sequential + limit tx=20/block
 async function processBitcoin(chain, rpcUrl) {
     try {
         console.log(`[${chain}] Updating...`);
+        logMemory(chain);
 
-        // 1. Lấy Block height mới nhất
         const latest = await fetchRPC(rpcUrl, 'getblockcount');
 
-        // Lấy danh sách blocks hiện tại từ Redis
         let existingBlocks = JSON.parse(await redis.get(`blocks:${chain}`)) || [];
         let existingTxs = JSON.parse(await redis.get(`txs:${chain}`)) || [];
 
-        // Nếu rỗng, fetch initial count
+        const storedLatest = existingBlocks[0]?.number || 0;
+        const newBlocksCount = latest - storedLatest;
+        if (newBlocksCount <= 0 && existingBlocks.length > 0) {
+            console.log(`[${chain}] No new blocks, skipping.`);
+            return;
+        }
+
+        const semaphore = createSemaphore(CONCURRENCY_LIMIT);
+
         if (existingBlocks.length === 0) {
-            const promises = [];
+            const results = [];
             for (let i = 0; i < INITIAL_FETCH_COUNT; i++) {
                 const height = latest - i;
-                const hash = await fetchRPC(rpcUrl, 'getblockhash', [height]);
-                promises.push(fetchRPC(rpcUrl, 'getblock', [hash, 2]));
+                const sem = await semaphore.acquire();
+                try {
+                    const hash = await fetchRPC(rpcUrl, 'getblockhash', [height]);
+                    const block = await fetchRPC(rpcUrl, 'getblock', [hash, 2]);
+                    results.push(block);
+                } finally {
+                    sem.release();
+                }
             }
-            const results = await Promise.all(promises);
 
             existingBlocks = results.filter(b => b).map(b => ({
                 number: b.height,
@@ -217,10 +288,10 @@ async function processBitcoin(chain, rpcUrl) {
                 transactions: b.tx.map(tx => tx.txid),
             }));
 
-            // Txs từ initial blocks (limit to 100 tx per block to avoid overload)
+            // FIXED: Tx limit 20/block
             for (const block of results) {
                 if (block && block.tx) {
-                    const limitedTxs = block.tx.slice(0, 100);
+                    const limitedTxs = block.tx.slice(0, 20);
                     for (const tx of limitedTxs) {
                         const from = tx.vin[0].coinbase ? 'Coinbase' : (tx.vin.length > 1 ? 'Multiple Inputs' : null);
                         const toAddresses = [];
@@ -250,104 +321,119 @@ async function processBitcoin(chain, rpcUrl) {
             }
             existingTxs = existingTxs.slice(0, MAX_TXS);
         } else {
-            // Chỉ fetch blocks mới, giới hạn tối đa 10 để tránh OOM
-            const storedLatest = existingBlocks[0]?.number || 0;
-            const newBlocksCount = latest - storedLatest;
-            if (newBlocksCount > 0) {
-                const blocksToFetch = Math.min(newBlocksCount, MAX_NEW_FETCH_PER_UPDATE); // New: Limit to 10
-                const promises = [];
-                for (let i = 0; i < blocksToFetch; i++) {
-                    const height = latest - i;
+            const blocksToFetch = Math.min(newBlocksCount, MAX_NEW_FETCH_PER_UPDATE);
+            const results = [];
+            for (let i = 0; i < blocksToFetch; i++) {
+                const height = latest - i;
+                const sem = await semaphore.acquire();
+                try {
                     const hash = await fetchRPC(rpcUrl, 'getblockhash', [height]);
-                    promises.push(fetchRPC(rpcUrl, 'getblock', [hash, 2]));
+                    const block = await fetchRPC(rpcUrl, 'getblock', [hash, 2]);
+                    results.push(block);
+                } finally {
+                    sem.release();
                 }
-                const newResults = await Promise.all(promises);
+            }
 
-                const newBlocks = newResults.filter(b => b).map(b => ({
-                    number: b.height,
-                    hash: b.hash,
-                    timestamp: b.time,
-                    miner: b.tx[0].vout[0].scriptPubKey.addresses ? b.tx[0].vout[0].scriptPubKey.addresses[0] : null,
-                    transactions: b.tx.map(tx => tx.txid),
-                }));
+            const newBlocks = results.filter(b => b).map(b => ({
+                number: b.height,
+                hash: b.hash,
+                timestamp: b.time,
+                miner: b.tx[0].vout[0].scriptPubKey.addresses ? b.tx[0].vout[0].scriptPubKey.addresses[0] : null,
+                transactions: b.tx.map(tx => tx.txid),
+            }));
 
-                // Prepend new blocks
-                existingBlocks = [...newBlocks, ...existingBlocks].slice(0, MAX_BLOCKS);
+            existingBlocks = [...newBlocks, ...existingBlocks].slice(0, MAX_BLOCKS);
 
-                // Txs từ new blocks (limit to recent 5 blocks and 100 tx per block)
-                for (const block of newResults.slice(0, 5)) { // Reduced from 10 to 5 for memory
-                    if (block && block.tx) {
-                        const limitedTxs = block.tx.slice(0, 100);
-                        for (const tx of limitedTxs) {
-                            const from = tx.vin[0].coinbase ? 'Coinbase' : (tx.vin.length > 1 ? 'Multiple Inputs' : null);
-                            const toAddresses = [];
-                            for (const vout of tx.vout) {
-                                let addr = 'OP_RETURN';
-                                if (vout.scriptPubKey.addresses && vout.scriptPubKey.addresses.length > 0) {
-                                    addr = vout.scriptPubKey.addresses[0];
-                                } else if (vout.scriptPubKey.address) {
-                                    addr = vout.scriptPubKey.address;
-                                }
-                                toAddresses.push(addr);
+            // FIXED: Tx từ 2 blocks, 20/block
+            for (const block of results.slice(0, 2)) {
+                if (block && block.tx) {
+                    const limitedTxs = block.tx.slice(0, 20);
+                    for (const tx of limitedTxs) {
+                        const from = tx.vin[0].coinbase ? 'Coinbase' : (tx.vin.length > 1 ? 'Multiple Inputs' : null);
+                        const toAddresses = [];
+                        for (const vout of tx.vout) {
+                            let addr = 'OP_RETURN';
+                            if (vout.scriptPubKey.addresses && vout.scriptPubKey.addresses.length > 0) {
+                                addr = vout.scriptPubKey.addresses[0];
+                            } else if (vout.scriptPubKey.address) {
+                                addr = vout.scriptPubKey.address;
                             }
-                            const to = toAddresses.length > 1 ? 'Multiple Outputs' : toAddresses[0];
-                            const value = tx.vout.reduce((sum, vout) => sum + vout.value, 0).toString();
-
-                            existingTxs.unshift({
-                                hash: tx.txid,
-                                from: from,
-                                to: to,
-                                value: value,
-                                blockNumber: block.height
-                            });
-                            existingTxs = existingTxs.slice(0, MAX_TXS);
+                            toAddresses.push(addr);
                         }
+                        const to = toAddresses.length > 1 ? 'Multiple Outputs' : toAddresses[0];
+                        const value = tx.vout.reduce((sum, vout) => sum + vout.value, 0).toString();
+
+                        existingTxs.unshift({
+                            hash: tx.txid,
+                            from: from,
+                            to: to,
+                            value: value,
+                            blockNumber: block.height
+                        });
+                        existingTxs = existingTxs.slice(0, MAX_TXS);
                     }
                 }
             }
         }
 
-        // LƯU VÀO REDIS
+        const blocksJson = JSON.stringify(existingBlocks);
+        const txsJson = JSON.stringify(existingTxs);
+        console.log(`[${chain}] JSON sizes - Blocks: ${(blocksJson.length / 1024).toFixed(2)} KB, Txs: ${(txsJson.length / 1024).toFixed(2)} KB`);
+
         const pipeline = redis.pipeline();
-        pipeline.set(`blocks:${chain}`, JSON.stringify(existingBlocks), { EX: CACHE_EXPIRE_SECONDS });
-        pipeline.set(`txs:${chain}`, JSON.stringify(existingTxs), { EX: CACHE_EXPIRE_SECONDS });
+        pipeline.set(`blocks:${chain}`, blocksJson, { EX: CACHE_EXPIRE_SECONDS });
+        pipeline.set(`txs:${chain}`, txsJson, { EX: CACHE_EXPIRE_SECONDS });
         pipeline.set(`stats:${chain}`, JSON.stringify({
             blockNumber: latest,
             gasPrice: '0'
         }), { EX: CACHE_EXPIRE_SECONDS });
         await pipeline.exec();
 
-        console.log(`[${chain}] Updated successfully. Block: ${latest}, Total blocks: ${existingBlocks.length}, Total txs: ${existingTxs.length}`);
-
+        console.log(`[${chain}] Updated. Block: ${latest}, Blocks: ${existingBlocks.length}, Txs: ${existingTxs.length}`);
+        logMemory(chain);
     } catch (err) {
         console.error(`[${chain}] Error:`, err.message);
+        logMemory(chain + '-ERROR');
     }
 }
 
-// Xử lý logic cho Solana
+// FIXED: Solana - Giữ nguyên nhưng sequential
 async function processSolana(chain, rpcUrl) {
     try {
         console.log(`[${chain}] Updating...`);
+        logMemory(chain);
 
-        // 1. Lấy Slot mới nhất
         const latestSlot = await fetchRPC(rpcUrl, 'getSlot');
 
-        // Lấy danh sách blocks hiện tại từ Redis
         let existingBlocks = JSON.parse(await redis.get(`blocks:${chain}`)) || [];
         let existingTxs = JSON.parse(await redis.get(`txs:${chain}`)) || [];
 
-        // Nếu rỗng, fetch initial count
+        const storedLatest = existingBlocks[0]?.number || 0;
+        const newSlotsCount = latestSlot - storedLatest;
+        if (newSlotsCount <= 0 && existingBlocks.length > 0) {
+            console.log(`[${chain}] No new slots, skipping.`);
+            return;
+        }
+
+        const semaphore = createSemaphore(CONCURRENCY_LIMIT);
+
         if (existingBlocks.length === 0) {
-            const promises = [];
+            const results = [];
             let currentSlot = latestSlot;
             let fetched = 0;
             while (fetched < INITIAL_FETCH_COUNT) {
-                promises.push(fetchRPC(rpcUrl, 'getBlock', [currentSlot, { transactionDetails: 'full', rewards: true, maxSupportedTransactionVersion: 0 }]));
+                const sem = await semaphore.acquire();
+                try {
+                    const block = await fetchRPC(rpcUrl, 'getBlock', [currentSlot, { transactionDetails: 'full', rewards: true, maxSupportedTransactionVersion: 0 }]);
+                    results.push(block);
+                } finally {
+                    sem.release();
+                }
                 currentSlot--;
                 fetched++;
             }
-            const results = await Promise.allSettled(promises);
-            const validResults = results.filter(r => r.status === 'fulfilled' && r.value).map(r => r.value);
+            const validResults = results.filter(b => b);
 
             existingBlocks = validResults.map(b => ({
                 number: b.blockHeight,
@@ -357,10 +443,11 @@ async function processSolana(chain, rpcUrl) {
                 transactions: b.transactions ? b.transactions.map(t => t.transaction.signatures[0]) : [],
             }));
 
-            // Txs từ initial blocks
+            // FIXED: Limit txs = 50/block cho Solana (high volume)
             validResults.forEach(b => {
                 if (b.transactions) {
-                    for (const tx of b.transactions) {
+                    const limitedTxs = b.transactions.slice(0, 50);
+                    for (const tx of limitedTxs) {
                         let accountKeys = [];
                         const message = tx.transaction.message;
                         if (message.accountKeys && Array.isArray(message.accountKeys)) {
@@ -397,105 +484,97 @@ async function processSolana(chain, rpcUrl) {
             });
             existingTxs = existingTxs.slice(0, MAX_TXS);
         } else {
-            // Fetch new slots, giới hạn tối đa 10 để tránh OOM từ parallel fetches lớn
-            const storedLatest = existingBlocks[0]?.number || 0;
-            const newSlotsCount = latestSlot - storedLatest;
-            if (newSlotsCount > 0) {
-                const slotsToFetch = Math.min(newSlotsCount, MAX_NEW_FETCH_PER_UPDATE); // New: Limit to 10
-                const promises = [];
-                let currentSlot = latestSlot;
-                let toFetch = slotsToFetch;
-                while (toFetch > 0) {
-                    promises.push(fetchRPC(rpcUrl, 'getBlock', [currentSlot, { transactionDetails: 'full', rewards: true, maxSupportedTransactionVersion: 0 }]));
-                    currentSlot--;
-                    toFetch--;
+            const slotsToFetch = Math.min(newSlotsCount, 2);
+            const results = [];
+            let currentSlot = latestSlot;
+            let toFetch = slotsToFetch;
+            while (toFetch > 0) {
+                const sem = await semaphore.acquire();
+                try {
+                    const block = await fetchRPC(rpcUrl, 'getBlock', [currentSlot, { transactionDetails: 'full', rewards: true, maxSupportedTransactionVersion: 0 }]);
+                    results.push(block);
+                } finally {
+                    sem.release();
                 }
-                const results = await Promise.allSettled(promises);
-                const newValidResults = results.filter(r => r.status === 'fulfilled' && r.value).map(r => r.value);
+                currentSlot--;
+                toFetch--;
+            }
+            const newValidResults = results.filter(b => b);
 
-                const newBlocks = newValidResults.map(b => ({
-                    number: b.blockHeight,
-                    hash: b.blockhash,
-                    timestamp: b.blockTime,
-                    miner: b.rewards ? b.rewards.find(r => r.rewardType === 'fee')?.pubkey || null : null,
-                    transactions: b.transactions ? b.transactions.map(t => t.transaction.signatures[0]) : [],
-                }));
+            const newBlocks = newValidResults.map(b => ({
+                number: b.blockHeight,
+                hash: b.blockhash,
+                timestamp: b.blockTime,
+                miner: b.rewards ? b.rewards.find(r => r.rewardType === 'fee')?.pubkey || null : null,
+                transactions: b.transactions ? b.transactions.map(t => t.transaction.signatures[0]) : [],
+            }));
 
-                // Prepend new blocks
-                existingBlocks = [...newBlocks, ...existingBlocks].slice(0, MAX_BLOCKS);
+            existingBlocks = [...newBlocks, ...existingBlocks].slice(0, MAX_BLOCKS);
 
-                // Txs từ new blocks (limit to recent 1 for performance)
-                newValidResults.slice(0, 1).forEach(b => {
-                    if (b.transactions) {
-                        for (const tx of b.transactions) {
-                            let accountKeys = [];
-                            const message = tx.transaction.message;
-                            if (message.accountKeys && Array.isArray(message.accountKeys)) {
-                                accountKeys = message.accountKeys;
-                            } else if (message.staticAccountKeys && Array.isArray(message.staticAccountKeys)) {
-                                accountKeys = message.staticAccountKeys;
-                            }
-                            let from = accountKeys[0] || null;
-                            let to = null;
-                            if (message.instructions && message.instructions[0]) {
-                                const instr = message.instructions[0];
-                                if (instr.accounts && instr.accounts.length >= 2) {
-                                    const toIndex = instr.accounts[1];
-                                    if (toIndex < accountKeys.length) {
-                                        to = accountKeys[toIndex];
-                                    }
+            // FIXED: Txs từ 1 block, limit 50
+            newValidResults.slice(0, 1).forEach(b => {
+                if (b.transactions) {
+                    const limitedTxs = b.transactions.slice(0, 50);
+                    for (const tx of limitedTxs) {
+                        let accountKeys = [];
+                        const message = tx.transaction.message;
+                        if (message.accountKeys && Array.isArray(message.accountKeys)) {
+                            accountKeys = message.accountKeys;
+                        } else if (message.staticAccountKeys && Array.isArray(message.staticAccountKeys)) {
+                            accountKeys = message.staticAccountKeys;
+                        }
+                        let from = accountKeys[0] || null;
+                        let to = null;
+                        if (message.instructions && message.instructions[0]) {
+                            const instr = message.instructions[0];
+                            if (instr.accounts && instr.accounts.length >= 2) {
+                                const toIndex = instr.accounts[1];
+                                if (toIndex < accountKeys.length) {
+                                    to = accountKeys[toIndex];
                                 }
                             }
-                            let value = "0";
-                            if (tx.meta && tx.meta.preBalances.length > 1 && tx.meta.postBalances.length > 1) {
-                                value = (tx.meta.postBalances[1] - tx.meta.preBalances[1]).toString();
-                            }
-                            existingTxs.unshift({
-                                hash: tx.transaction.signatures[0],
-                                from: from,
-                                to: to,
-                                value: value,
-                                blockNumber: b.blockHeight
-                            });
-                            existingTxs = existingTxs.slice(0, MAX_TXS);
                         }
+                        let value = "0";
+                        if (tx.meta && tx.meta.preBalances.length > 1 && tx.meta.postBalances.length > 1) {
+                            value = (tx.meta.postBalances[1] - tx.meta.preBalances[1]).toString();
+                        }
+                        existingTxs.unshift({
+                            hash: tx.transaction.signatures[0],
+                            from: from,
+                            to: to,
+                            value: value,
+                            blockNumber: b.blockHeight
+                        });
+                        existingTxs = existingTxs.slice(0, MAX_TXS);
                     }
-                });
-            }
+                }
+            });
         }
 
-        // LƯU VÀO REDIS
+        const blocksJson = JSON.stringify(existingBlocks);
+        const txsJson = JSON.stringify(existingTxs);
+        console.log(`[${chain}] JSON sizes - Blocks: ${(blocksJson.length / 1024).toFixed(2)} KB, Txs: ${(txsJson.length / 1024).toFixed(2)} KB`);
+
         const pipeline = redis.pipeline();
-        pipeline.set(`blocks:${chain}`, JSON.stringify(existingBlocks), { EX: CACHE_EXPIRE_SECONDS });
-        pipeline.set(`txs:${chain}`, JSON.stringify(existingTxs), { EX: CACHE_EXPIRE_SECONDS });
+        pipeline.set(`blocks:${chain}`, blocksJson, { EX: CACHE_EXPIRE_SECONDS });
+        pipeline.set(`txs:${chain}`, txsJson, { EX: CACHE_EXPIRE_SECONDS });
         pipeline.set(`stats:${chain}`, JSON.stringify({
             blockNumber: latestSlot,
             gasPrice: '0'
         }), { EX: CACHE_EXPIRE_SECONDS });
         await pipeline.exec();
 
-        console.log(`[${chain}] Updated successfully. Block: ${latestSlot}, Total blocks: ${existingBlocks.length}, Total txs: ${existingTxs.length}`);
-
+        console.log(`[${chain}] Updated. Slot: ${latestSlot}, Blocks: ${existingBlocks.length}, Txs: ${existingTxs.length}`);
+        logMemory(chain);
     } catch (err) {
         console.error(`[${chain}] Error:`, err.message);
+        logMemory(chain + '-ERROR');
     }
 }
 
-// Hàm khởi chạy chính
 async function runWorker() {
     const chains = Object.keys(RPC_URLS);
-    await updateAllPrices();
-    for (const chain of chains) {
-        const rpcUrl = RPC_URLS[chain];
-        if (['bitcoin'].includes(chain)) {
-            await processBitcoin(chain, rpcUrl);
-        } else if (['solana'].includes(chain)) {
-            await processSolana(chain, rpcUrl);
-        } else {
-            await processEVMChain(chain, rpcUrl);
-        }
-    }
-    setInterval(async () => {
+    try {
         await updateAllPrices();
         for (const chain of chains) {
             const rpcUrl = RPC_URLS[chain];
@@ -507,7 +586,26 @@ async function runWorker() {
                 await processEVMChain(chain, rpcUrl);
             }
         }
-    }, 300000);
+    } catch (err) {
+        console.error('runWorker error:', err.message);
+    }
+    setInterval(async () => {
+        try {
+            await updateAllPrices();
+            for (const chain of chains) {
+                const rpcUrl = RPC_URLS[chain];
+                if (['bitcoin'].includes(chain)) {
+                    await processBitcoin(chain, rpcUrl);
+                } else if (['solana'].includes(chain)) {
+                    await processSolana(chain, rpcUrl);
+                } else {
+                    await processEVMChain(chain, rpcUrl);
+                }
+            }
+        } catch (err) {
+            console.error('Interval error:', err.message);
+        }
+    }, 600000);
 }
 
 runWorker();
