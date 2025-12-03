@@ -161,10 +161,7 @@ const getSchema = z.object({
 });
 
 const postSchema = z.object({
-  chain: z.enum([
-    'ethereum', 'bsc', 'arbitrum', 'optimism', 'polygon', 'base',
-    'bitcoin', 'solana'
-  ]).optional(),  // Optional chain for logging/filtering
+  chain: z.string().optional(),  // Optional chain for logging/filtering (any string ok)
   addresses: z
     .array(
       z.string().refine((val) => isValidAddress(val), {
@@ -172,7 +169,7 @@ const postSchema = z.object({
       })
     )
     .min(1)
-    .max(100, 'Addresses must be a non-empty array, maximum 100 addresses'),
+    .max(200, 'Addresses must be a non-empty array, maximum 100 addresses'),
 });
 
 const putSchema = z.object({

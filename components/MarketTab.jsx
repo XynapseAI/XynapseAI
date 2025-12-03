@@ -785,7 +785,7 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
             ) : (
               <div className="overflow-hidden h-8 flex items-center">
                 <div
-                  className="flex items-center whitespace-nowrap"
+                  className="mb-1 flex items-center whitespace-nowrap"
                   style={{
                     display: "inline-flex",
                     width: "max-content",

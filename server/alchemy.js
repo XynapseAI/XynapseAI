@@ -1,9 +1,7 @@
-// worker.js
 import 'dotenv/config';
 import { Redis } from '@upstash/redis';
 import fetch from 'node-fetch';
 
-// Khởi tạo Redis
 const redis = new Redis({
     url: process.env.UPSTASH_REDIS_REST_URL,
     token: process.env.UPSTASH_REDIS_REST_TOKEN,
@@ -26,6 +24,9 @@ const RPC_URLS = {
     unichain: 'https://unichain-rpc.publicnode.com',
     bitcoin: 'https://bitcoin-rpc.publicnode.com',
     solana: 'https://solana-rpc.publicnode.com',
+    // Thêm monad và hyperevm sử dụng Alchemy RPC (publicnode không hỗ trợ)
+    monad: `https://monad-mainnet.g.alchemy.com/v2/${API_KEY}`,
+    hyperevm: `https://hyperliquid-mainnet.g.alchemy.com/v2/${API_KEY}`,
 };
 
 const PRICE_ID = {
@@ -42,12 +43,16 @@ const PRICE_ID = {
     unichain: 'ethereum',
     bitcoin: 'bitcoin',
     solana: 'solana',
+    // Thêm PRICE_ID cho monad và hyperevm (CoinGecko IDs)
+    monad: 'monad',
+    hyperevm: 'hyperevm',
 };
 
 const MAX_BLOCKS = 500; // Reduced from 1000 to keep serialized JSON under ~5-6MB and avoid Upstash limit
 const MAX_TXS = 2000; // Reduced from 5000 to lower memory usage
 const INITIAL_FETCH_COUNT = 10; // Số lượng fetch ban đầu nếu rỗng
 const MAX_NEW_FETCH_PER_UPDATE = 10; // New: Limit new blocks fetched per update to prevent OOM from large parallel responses
+const CACHE_EXPIRE_SECONDS = 300; // 5 phút cache cho blocks/txs/stats để giảm gọi API lặp lại
 
 // Hàm gọi RPC chung
 async function fetchRPC(url, method, params = []) {
@@ -81,7 +86,7 @@ async function updateAllPrices() {
         if (price === null) {
             price = (await redis.get(`price:${chain}`)) || 0;
         }
-        pipeline.set(`price:${chain}`, price);
+        pipeline.set(`price:${chain}`, price, { EX: 3600 }); // Cache price 1 giờ
     }
     await pipeline.exec();
 }
@@ -168,12 +173,12 @@ async function processEVMChain(chain, rpcUrl) {
         }
 
         const pipeline = redis.pipeline();
-        pipeline.set(`blocks:${chain}`, JSON.stringify(existingBlocks));
-        pipeline.set(`txs:${chain}`, JSON.stringify(existingTxs));
+        pipeline.set(`blocks:${chain}`, JSON.stringify(existingBlocks), { EX: CACHE_EXPIRE_SECONDS });
+        pipeline.set(`txs:${chain}`, JSON.stringify(existingTxs), { EX: CACHE_EXPIRE_SECONDS });
         pipeline.set(`stats:${chain}`, JSON.stringify({
             blockNumber: latest,
             gasPrice: existingBlocks[0]?.baseFeePerGas ? parseInt(existingBlocks[0].baseFeePerGas.hex, 16).toString() : '0'
-        }));
+        }), { EX: CACHE_EXPIRE_SECONDS });
         await pipeline.exec();
 
         console.log(`[${chain}] Updated successfully. Block: ${latest}, Total blocks: ${existingBlocks.length}, Total txs: ${existingTxs.length}`);
@@ -304,12 +309,12 @@ async function processBitcoin(chain, rpcUrl) {
 
         // LƯU VÀO REDIS
         const pipeline = redis.pipeline();
-        pipeline.set(`blocks:${chain}`, JSON.stringify(existingBlocks));
-        pipeline.set(`txs:${chain}`, JSON.stringify(existingTxs));
+        pipeline.set(`blocks:${chain}`, JSON.stringify(existingBlocks), { EX: CACHE_EXPIRE_SECONDS });
+        pipeline.set(`txs:${chain}`, JSON.stringify(existingTxs), { EX: CACHE_EXPIRE_SECONDS });
         pipeline.set(`stats:${chain}`, JSON.stringify({
             blockNumber: latest,
             gasPrice: '0'
-        }));
+        }), { EX: CACHE_EXPIRE_SECONDS });
         await pipeline.exec();
 
         console.log(`[${chain}] Updated successfully. Block: ${latest}, Total blocks: ${existingBlocks.length}, Total txs: ${existingTxs.length}`);
@@ -461,12 +466,12 @@ async function processSolana(chain, rpcUrl) {
 
         // LƯU VÀO REDIS
         const pipeline = redis.pipeline();
-        pipeline.set(`blocks:${chain}`, JSON.stringify(existingBlocks));
-        pipeline.set(`txs:${chain}`, JSON.stringify(existingTxs));
+        pipeline.set(`blocks:${chain}`, JSON.stringify(existingBlocks), { EX: CACHE_EXPIRE_SECONDS });
+        pipeline.set(`txs:${chain}`, JSON.stringify(existingTxs), { EX: CACHE_EXPIRE_SECONDS });
         pipeline.set(`stats:${chain}`, JSON.stringify({
             blockNumber: latestSlot,
             gasPrice: '0'
-        }));
+        }), { EX: CACHE_EXPIRE_SECONDS });
         await pipeline.exec();
 
         console.log(`[${chain}] Updated successfully. Block: ${latestSlot}, Total blocks: ${existingBlocks.length}, Total txs: ${existingTxs.length}`);

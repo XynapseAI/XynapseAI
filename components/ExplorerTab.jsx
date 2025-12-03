@@ -53,49 +53,44 @@ export default function ExplorerTab({ initialQuery, initialChain, isStandalone =
         gnosis: { id: 100, apiBase: '/api/etherscan-explorer' },
         linea: { id: 59144, apiBase: '/api/etherscan-explorer' },
         unichain: { id: 130, apiBase: '/api/etherscan-explorer' },
-
-        // world: { id: 480, apiBase: '/api/etherscan-explorer' },
-        // zksync: { id: 324, apiBase: '/api/etherscan-explorer' },
-        // abstract: { id: 2741, apiBase: '/api/etherscan-explorer' },
-        // apechain: { id: 33139, apiBase: '/api/etherscan-explorer' },
-        // hyperevm: { id: 999, apiBase: '/api/etherscan-explorer' },
-        // monad: { id: 143, apiBase: '/api/etherscan-explorer' },
+        monad: { id: 143, apiBase: '/api/etherscan-explorer' },
+        hyperevm: { id: 999, apiBase: '/api/etherscan-explorer' },
     };
 
     const chainLogos = {
-        bitcoin: 'https://assets.coingecko.com/coins/images/1/small/bitcoin.png',
-        ethereum: 'https://assets.coingecko.com/coins/images/279/small/ethereum.png',
-        bsc: 'https://assets.coingecko.com/asset_platforms/images/1/standard/bnb_smart_chain.png?1706606721',
-        arbitrum: 'https://assets.coingecko.com/coins/images/16547/standard/arb.jpg?1721358242',
-        optimism: 'https://assets.coingecko.com/asset_platforms/images/41/standard/optimism.png?1706606778',
-        polygon: 'https://assets.coingecko.com/asset_platforms/images/15/standard/polygon_pos.png?1706606645',
-        base: 'https://assets.coingecko.com/asset_platforms/images/131/standard/base.png?1759905869',
-        solana: 'https://assets.coingecko.com/coins/images/4128/small/solana.png',
-        avalanche: 'https://assets.coingecko.com/asset_platforms/images/12/standard/avalanche.png?1706606775',
-        celo: 'https://assets.coingecko.com/asset_platforms/images/21/standard/celo.jpeg?1711358666',
-        gnosis: 'https://assets.coingecko.com/coins/images/662/standard/logo_square_simple_300px.png?1696501854',
-        zksync: 'https://assets.coingecko.com/asset_platforms/images/121/standard/zksync.jpeg?1706606814',
-        linea: 'https://assets.coingecko.com/asset_platforms/images/135/standard/linea.jpeg?1706606705',
-        abstract: 'https://assets.coingecko.com/asset_platforms/images/22196/standard/abstract.jpg?1735611808',
-        apechain: 'https://assets.coingecko.com/coins/images/24383/standard/APECOIN.png?1756551529',
-        hyperevm: 'https://assets.coingecko.com/coins/images/50882/standard/hyperliquid.jpg?1729431300',
-        monad: 'https://assets.coingecko.com/coins/images/38927/standard/monad.jpg?1719547722',
-        unichain: 'https://assets.coingecko.com/asset_platforms/images/22206/standard/unichain.png?1739323630',
-        world: 'https://assets.coingecko.com/asset_platforms/images/22180/standard/Worldcoin-logomark-light.png?1728377966',
+        bitcoin: 'https://assets.coingecko.com/coins/images/1/large/bitcoin.png',
+        ethereum: 'https://assets.coingecko.com/coins/images/279/large/ethereum.png',
+        bsc: 'https://assets.coingecko.com/asset_platforms/images/1/large/bnb_smart_chain.png?1706606721',
+        arbitrum: 'https://assets.coingecko.com/coins/images/16547/large/arb.jpg?1721358242',
+        optimism: 'https://assets.coingecko.com/asset_platforms/images/41/large/optimism.png?1706606778',
+        polygon: 'https://assets.coingecko.com/asset_platforms/images/15/large/polygon_pos.png?1706606645',
+        base: 'https://assets.coingecko.com/asset_platforms/images/131/large/base.png?1759905869',
+        solana: 'https://assets.coingecko.com/coins/images/4128/large/solana.png',
+        avalanche: 'https://assets.coingecko.com/asset_platforms/images/12/large/avalanche.png?1706606775',
+        celo: 'https://assets.coingecko.com/asset_platforms/images/21/large/celo.jpeg?1711358666',
+        gnosis: 'https://assets.coingecko.com/coins/images/662/large/logo_square_simple_300px.png?1696501854',
+        zksync: 'https://assets.coingecko.com/asset_platforms/images/121/large/zksync.jpeg?1706606814',
+        linea: 'https://assets.coingecko.com/asset_platforms/images/135/large/linea.jpeg?1706606705',
+        abstract: 'https://assets.coingecko.com/asset_platforms/images/22196/large/abstract.jpg?1735611808',
+        apechain: 'https://assets.coingecko.com/coins/images/24383/large/APECOIN.png?1756551529',
+        hyperevm: 'https://assets.coingecko.com/coins/images/50882/large/hyperliquid.jpg?1729431300',
+        monad: 'https://assets.coingecko.com/coins/images/38927/large/monad.jpg?1719547722',
+        unichain: 'https://assets.coingecko.com/asset_platforms/images/22206/large/unichain.png?1739323630',
+        world: 'https://assets.coingecko.com/asset_platforms/images/22180/large/Worldcoin-logomark-light.png?1728377966',
     };
     const nativeTokenLogos = {
-        ETH: 'https://assets.coingecko.com/coins/images/279/small/ethereum.png',
-        BNB: 'https://assets.coingecko.com/coins/images/825/small/bnb.png',
-        MATIC: 'https://assets.coingecko.com/coins/images/4713/small/matic-token-icon.png',
-        BTC: 'https://assets.coingecko.com/coins/images/1/small/bitcoin.png',
-        SOL: 'https://assets.coingecko.com/coins/images/4128/small/solana.png',
-        MON: 'https://assets.coingecko.com/coins/images/38927/small/monad.jpg?1719547722',
-        AVAX: 'https://assets.coingecko.com/coins/images/12559/small/AVAXLOGO.png',
-        CELO: 'https://assets.coingecko.com/coins/images/11090/small/icon-celo-CELO-color-500.png',
-        xDAI: 'https://assets.coingecko.com/coins/images/11062/small/StableGDAI_icon.png',
-        APE: 'https://assets.coingecko.com/coins/images/24383/small/APECOIN.png',
-        HYPER: 'https://assets.coingecko.com/coins/images/50882/small/hyperliquid.jpg',
-        WORLD: 'https://assets.coingecko.com/coins/images/37060/small/WORLD_Token_Icon.png',
+        ETH: 'https://assets.coingecko.com/coins/images/279/large/ethereum.png',
+        BNB: 'https://assets.coingecko.com/coins/images/825/large/bnb.png',
+        MATIC: 'https://assets.coingecko.com/coins/images/4713/large/matic-token-icon.png',
+        BTC: 'https://assets.coingecko.com/coins/images/1/large/bitcoin.png',
+        SOL: 'https://assets.coingecko.com/coins/images/4128/large/solana.png',
+        MON: 'https://assets.coingecko.com/coins/images/38927/large/monad.jpg?1719547722',
+        AVAX: 'https://assets.coingecko.com/coins/images/12559/large/AVAXLOGO.png',
+        CELO: 'https://assets.coingecko.com/coins/images/11090/large/icon-celo-CELO-color-500.png',
+        xDAI: 'https://assets.coingecko.com/coins/images/11062/large/StableGDAI_icon.png',
+        APE: 'https://assets.coingecko.com/coins/images/24383/large/APECOIN.png',
+        HYPER: 'https://assets.coingecko.com/coins/images/50882/large/hyperliquid.jpg',
+        WORLD: 'https://assets.coingecko.com/coins/images/37060/large/WORLD_Token_Icon.png',
     };
     const nativeSymbols = {
         ethereum: 'ETH',
@@ -112,7 +107,7 @@ export default function ExplorerTab({ initialQuery, initialChain, isStandalone =
         linea: 'ETH',
         abstract: 'ETH',
         apechain: 'APE',
-        hyperevm: 'HYPER',
+        hyperevm: 'HYPE',
         unichain: 'ETH',
         world: 'ETH',
     };
@@ -133,11 +128,11 @@ export default function ExplorerTab({ initialQuery, initialChain, isStandalone =
         linea: 'ETH',
         abstract: 'ETH',
         apechain: 'APE',
-        hyperevm: 'HYPER',
+        hyperevm: 'HYPEREVM',
         unichain: 'ETH',
         world: 'ETH',
     };
-    const evmChainsOrder = ['ethereum', 'arbitrum', 'bsc', 'optimism', 'polygon', 'base', "monad"];
+    const evmChainsOrder = ['ethereum', 'arbitrum', 'bsc', 'optimism', 'polygon', 'base', 'monad', 'hyperevm'];
     const rpcMap = {
         ethereum: `https://eth-mainnet.g.alchemy.com/v2/${apiKey}`,
         polygon: `https://polygon-mainnet.g.alchemy.com/v2/${apiKey}`,
@@ -178,7 +173,7 @@ export default function ExplorerTab({ initialQuery, initialChain, isStandalone =
         const froms = latestTxs.map(tx => tx.from?.toLowerCase() ?? '');
         const tos = latestTxs.map(tx => tx.to?.toLowerCase() ?? '');
         const all = [...miners, ...froms, ...tos].filter(a => a);
-        return [...new Set(all)].slice(0, 50);
+        return [...new Set(all)].slice(0, 200);
     };
     const fetchDashboardData = async () => {
         try {
@@ -469,7 +464,7 @@ export default function ExplorerTab({ initialQuery, initialChain, isStandalone =
                 });
             }
         }
-        return Array.from(addresses).slice(0, 50);
+        return Array.from(addresses).slice(0, 200);
     };
     const fetchNametags = async (addresses, chain) => {
         if (addresses.length === 0) return;
@@ -619,7 +614,23 @@ export default function ExplorerTab({ initialQuery, initialChain, isStandalone =
     };
     const formatUSD = (value) => {
         if (value == null || isNaN(value)) return '$0.00';
-        return `$${value.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+        if (value === 0) return '$0.00';
+        if (value < 0.01) {
+            const fixed = value.toFixed(6).replace(/0+$/, '').replace(/\.$/, '');
+            return `$${fixed}`;
+        } else {
+            return `$${value.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+        }
+    };
+    const formatToken = (value, symbol) => {
+        if (value == null || isNaN(value)) return `0 ${symbol}`;
+        if (value === 0) return `0 ${symbol}`;
+        let precision = 2;
+        if (value < 0.0001) precision = 8;
+        else if (value < 0.01) precision = 6;
+        else if (value < 1) precision = 4;
+        const fixed = value.toFixed(precision).replace(/0+$/, '').replace(/\.$/, '');
+        return `${fixed} ${symbol}`;
     };
     const renderValueWithUSD = (tokenValue, usdValue, symbol, logoUrl = null, isToken = false) => {
         tokenValue = Number(tokenValue);
@@ -639,13 +650,13 @@ export default function ExplorerTab({ initialQuery, initialChain, isStandalone =
         if (!usdValue || usdValue === 0) return (
             <span className="flex items-center text-[10px] sm:text-[12px]">
                 {logoElement}
-                {tokenValue.toFixed(2)} {symbol}
+                {formatToken(tokenValue, symbol)}
             </span>
         );
         return (
             <span className="flex items-center text-[10px] sm:text-[12px]">
                 {logoElement}
-                {tokenValue.toFixed(2)} {symbol}
+                {formatToken(tokenValue, symbol)}
                 <span className="ml-1 text-[9px] text-green-400">({formattedUSD})</span>
                 {isToken && <span className="ml-1 text-[9px] text-gray-400">(Tokens)</span>}
             </span>
@@ -661,7 +672,7 @@ export default function ExplorerTab({ initialQuery, initialChain, isStandalone =
                     e.target.src = `https://via.placeholder.com/16?text=${symbol || 'T'}`;
                 }}
             />
-            {Number(amount).toFixed(2)} {symbol || ''}
+            {formatToken(Number(amount), symbol || '')}
         </span>
     );
     const renderTxDetails = (txData, chain) => {
@@ -1238,7 +1249,7 @@ export default function ExplorerTab({ initialQuery, initialChain, isStandalone =
                     onClick={(e) => { e.stopPropagation(); copyToClipboard(tx.to, 'To Address'); }}
                 />
             </span>
-            <span className="w-1/4">{(tx.value || 0).toFixed(6)} {chainSymbols[selectedChain] || 'Native'}</span>
+            <span className="w-1/4">{formatToken((tx.value || 0), chainSymbols[selectedChain] || 'Native')}</span>
         </motion.div>
     );
     const renderPagination = (page, setPage, totalPages) => (
@@ -1266,7 +1277,7 @@ export default function ExplorerTab({ initialQuery, initialChain, isStandalone =
                 <div className="md:col-span-3 bg-[#FFFFFF]/5 backdrop-blur-md p-4 rounded-xl border border-[#FFFFFF20] shadow-[0_4px_12px_rgba(0,0,0,0.3)] glow-[#FFFFFF15] hover:shadow-[0_0_8px_rgba(255,255,255,0.15)] transition-all duration-200">
                     <h3 className="flex items-center text-[12px] font-semibold text-[#FFF] mb-3">
                         <img src={chainLogos[selectedChain]} alt={selectedChain} className="w-5 h-5 mr-2 rounded-full" />
-                        {selectedChain.toUpperCase()} Chain Stats
+                        {selectedChain.toUpperCase()} Blockchain Stats
                     </h3>
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-[10px]">
                         <div className="flex items-center">
@@ -1338,10 +1349,10 @@ export default function ExplorerTab({ initialQuery, initialChain, isStandalone =
                 className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[9999] rounded-none"
             />
             <div className="mb-4 relative z-10">
-                <h1 className="text-[14px] sm:text-[16px] font-bold flex items-center gap-2 mb-2 uppercase tracking-wider">
+                {/* <h1 className="text-[14px] sm:text-[16px] font-bold flex items-center gap-2 mb-2 uppercase tracking-wider">
                     <img src="/logos/logo.webp" alt="Project Logo" className="w-8 h-8 rounded-xl" />
                     Xynapse Explorer
-                </h1>
+                </h1> */}
                 <div className="flex gap-2">
                     <div className="relative flex-1">
                         <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#D4D4D4]" />

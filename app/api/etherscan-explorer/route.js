@@ -6,6 +6,7 @@ import { logger } from '../../../utils/serverLogger';
 import Bottleneck from 'bottleneck';
 import { isAddress } from 'ethers';
 import { createClient } from 'redis';
+import { ethers } from 'ethers';
 
 const limiterBottleneck = new Bottleneck({
   maxConcurrent: 10,
@@ -66,6 +67,7 @@ const platformIdMap = {
   zksync: 'zksync-era',
   linea: 'linea',
   monad: 'monad',
+  hyperevm: 'hyperevm',
 };
 
 // FIXED: Fetch token metadata/logo from CoinGecko by contract (batch via Promise.all)
@@ -152,7 +154,8 @@ async function fetchNativePrice(chain) {
     gnosis: '16547', // xDAI
     zksync: '1027', // ETH
     linea: '1027', // ETH
-    monad: '143', // MONAD
+    monad: '143', // MON
+    hyperevm: '999', // HYPER
   };
   const nativeId = nativeIdMap[chain];
   if (!nativeId) return null;
@@ -212,7 +215,7 @@ async function enrichWithCoinGecko(tokens) {
   });
 }
 
-// Full chainIdMap (unchanged)
+// Full chainIdMap (unchanged, added plasma map)
 const chainIdMap = {
   ethereum: '1',
   ethereum_mainnet: '1',
@@ -267,6 +270,115 @@ const primaryChainNameMap = {
   '480': 'world',
   '324': 'zksync',
 };
+
+// Supported Etherscan chains (exclude new/unsupported like monad, hyperevm)
+const supportedEtherscanChainIds = ['1', '56', '10', '42161', '137', '8453', '43114', '42220', '100', '59144', '130', '324'];
+
+// Alchemy RPC map (same as frontend)
+const rpcMap = {
+  ethereum: `https://eth-mainnet.g.alchemy.com/v2/${process.env.ALCHEMY_API_KEY}`,
+  polygon: `https://polygon-mainnet.g.alchemy.com/v2/${process.env.ALCHEMY_API_KEY}`,
+  arbitrum: `https://arb-mainnet.g.alchemy.com/v2/${process.env.ALCHEMY_API_KEY}`,
+  optimism: `https://opt-mainnet.g.alchemy.com/v2/${process.env.ALCHEMY_API_KEY}`,
+  base: `https://base-mainnet.g.alchemy.com/v2/${process.env.ALCHEMY_API_KEY}`,
+  avalanche: `https://avax-mainnet.g.alchemy.com/v2/${process.env.ALCHEMY_API_KEY}`,
+  celo: `https://celo-mainnet.g.alchemy.com/v2/${process.env.ALCHEMY_API_KEY}`,
+  gnosis: `https://gnosis-mainnet.g.alchemy.com/v2/${process.env.ALCHEMY_API_KEY}`,
+  zksync: `https://zksync-mainnet.g.alchemy.com/v2/${process.env.ALCHEMY_API_KEY}`,
+  linea: `https://linea-mainnet.g.alchemy.com/v2/${process.env.ALCHEMY_API_KEY}`,
+  bsc: `https://bnb-mainnet.g.alchemy.com/v2/${process.env.ALCHEMY_API_KEY}`,
+  abstract: `https://abstract-mainnet.g.alchemy.com/v2/${process.env.ALCHEMY_API_KEY}`,
+  apechain: `https://apechain-mainnet.g.alchemy.com/v2/${process.env.ALCHEMY_API_KEY}`,
+  hyperevm: `https://hyperliquid-mainnet.g.alchemy.com/v2/${process.env.ALCHEMY_API_KEY}`,
+  monad: `https://monad-mainnet.g.alchemy.com/v2/${process.env.ALCHEMY_API_KEY}`,
+  unichain: `https://linea-mainnet.g.alchemy.com/v2/${process.env.ALCHEMY_API_KEY}`,
+  world: `https://worldchain-mainnet.g.alchemy.com/v2/${process.env.ALCHEMY_API_KEY}`,
+};
+
+// NEW: Fetch token info using Alchemy provider
+async function fetchTokenInfo(provider, tokenAddress) {
+  const lowerAddr = tokenAddress.toLowerCase();
+  const knownTokens = {
+    '0x4200000000000000000000000000000000000006': { name: 'Wrapped Ether', symbol: 'WETH', decimals: 18 }, // Base WETH
+    '0xcbb7c0000ab88b473b1f5afd9ef808440eed33bf': { name: 'Coinbase Wrapped BTC', symbol: 'cbBTC', decimals: 8 }, // Base cbBTC
+  };
+  if (knownTokens[lowerAddr]) {
+    logger.info(`Using known token info for ${lowerAddr}: ${knownTokens[lowerAddr].symbol}`);
+    return knownTokens[lowerAddr];
+  }
+
+  const abi = [
+    "function name() view returns (string)",
+    "function symbol() view returns (string)",
+    "function decimals() view returns (uint8)"
+  ];
+  const contract = new ethers.Contract(tokenAddress, abi, provider);
+  let info = { name: 'Unknown Token', symbol: 'UNK', decimals: 18 };
+
+  try {
+    info.name = await contract.name();
+  } catch {
+    logger.warn(`Failed to fetch name for ${tokenAddress}`);
+  }
+  try {
+    info.symbol = (await contract.symbol()).toUpperCase();
+  } catch {
+    logger.warn(`Failed to fetch symbol for ${tokenAddress}`);
+  }
+  try {
+    info.decimals = Number(await contract.decimals());
+  } catch {
+    logger.warn(`Failed to fetch decimals for ${tokenAddress}`);
+  }
+
+  logger.info(`Fetched token info for ${tokenAddress}: ${info.symbol} (${info.decimals} dec)`);
+  return info;
+}
+
+// UPDATED: Verify candidate by receipt (primary) + fallback block timestamp
+async function verifyTxOnChain(chainId, txHash, transaction) {
+  const receiptUrl = `${ETHERSCAN_V2_BASE_URL}?chainid=${chainId}&module=proxy&action=eth_getTransactionReceipt&txhash=${txHash}&apikey=${process.env.ETHERSCAN_API_KEY}`;
+  try {
+    const receiptRes = await fetchWithRateLimit(receiptUrl, { timeout: 30000 });
+    logger.info(`Receipt verification on ${chainId}: status ${receiptRes.status}`);
+    if (receiptRes.data.result) {
+      const receipt = receiptRes.data.result;
+      const numLogs = receipt.logs ? receipt.logs.length : 0;
+      // FIXED: Accept if logs >0, even if status undefined (recent L2 tx)
+      if (numLogs > 0) {
+        const isSuccess = receipt.status === '0x1' || !receipt.status; // Assume success if no status but logs
+        logger.info(`Receipt valid on ${chainId}: ${isSuccess ? 'success' : 'unknown status'}, ${numLogs} logs`);
+        return { valid: true, numLogs, receipt, isSuccess };
+      } else {
+        logger.warn(`Receipt invalid on ${chainId}: logs ${numLogs}`);
+      }
+    }
+  } catch (err) {
+    logger.warn(`Receipt verification failed on ${chainId}: ${err.message}`);
+  }
+
+  // Fallback: Block timestamp recent
+  if (transaction.blockNumber) {
+    const blockUrl = `${ETHERSCAN_V2_BASE_URL}?chainid=${chainId}&module=proxy&action=eth_getBlockByNumber&tag=${transaction.blockNumber}&boolean=true&apikey=${process.env.ETHERSCAN_API_KEY}`;
+    try {
+      const blockRes = await fetchWithRateLimit(blockUrl, { timeout: 30000 });
+      if (blockRes.data.result) {
+        const block = blockRes.data.result;
+        const blockTime = parseInt(block.timestamp || '0', 16) * 1000;
+        const now = Date.now();
+        const isRecent = Math.abs(now - blockTime) < 3600000;
+        if (isRecent) {
+          logger.info(`Block timestamp valid on ${chainId}: recent`);
+          return { valid: true, numLogs: 0, receipt: null, isSuccess: true };
+        }
+      }
+    } catch (err) {
+      logger.warn(`Block fallback failed on ${chainId}: ${err.message}`);
+    }
+  }
+
+  return { valid: false, numLogs: 0, receipt: null, isSuccess: false };
+}
 
 // Allowed origins (unchanged)
 const allowedOrigins = [
@@ -334,14 +446,17 @@ const bodySchema = z.object({
 // V2 unified base URL
 const ETHERSCAN_V2_BASE_URL = 'https://api.etherscan.io/v2/api';
 
-const knownTokens = {
-  '0x4200000000000000000000000000000000000006': { name: 'Wrapped Ether', symbol: 'WETH', decimals: 18 }, // Base WETH
-  '0xcbb7c0000ab88b473b1f5afd9ef808440eed33bf': { name: 'Coinbase Wrapped BTC', symbol: 'cbBTC', decimals: 8 }, // Base cbBTC
-};
-
-// UPDATED: Helper to fetch token info via eth_call + fallback known tokens
-async function fetchTokenInfo(chainId, tokenAddress) {
+// UPDATED: Helper to fetch token info via provider or fallback known tokens
+async function fetchTokenInfoViaProvider(provider, tokenAddress, chainId) {
+  if (provider) {
+    return await fetchTokenInfo(provider, tokenAddress);
+  }
+  // Fallback to Etherscan eth_call if no provider
   const lowerAddr = tokenAddress.toLowerCase();
+  const knownTokens = {
+    '0x4200000000000000000000000000000000000006': { name: 'Wrapped Ether', symbol: 'WETH', decimals: 18 }, // Base WETH
+    '0xcbb7c0000ab88b473b1f5afd9ef808440eed33bf': { name: 'Coinbase Wrapped BTC', symbol: 'cbBTC', decimals: 8 }, // Base cbBTC
+  };
   if (knownTokens[lowerAddr]) {
     logger.info(`Using known token info for ${lowerAddr}: ${knownTokens[lowerAddr].symbol}`);
     return knownTokens[lowerAddr];
@@ -375,51 +490,6 @@ async function fetchTokenInfo(chainId, tokenAddress) {
   }));
   logger.info(`Fetched token info for ${tokenAddress}: ${info.symbol} (${info.decimals} dec)`);
   return info;
-}
-
-// UPDATED: Verify candidate by receipt (primary) + fallback block timestamp
-async function verifyTxOnChain(chainId, txHash, transaction) {
-  const receiptUrl = `${ETHERSCAN_V2_BASE_URL}?chainid=${chainId}&module=proxy&action=eth_getTransactionReceipt&txhash=${txHash}&apikey=${process.env.ETHERSCAN_API_KEY}`;
-  try {
-    const receiptRes = await fetchWithRateLimit(receiptUrl, { timeout: 30000 });
-    logger.info(`Receipt verification on ${chainId}: status ${receiptRes.status}`);
-    if (receiptRes.data.result) {
-      const receipt = receiptRes.data.result;
-      const numLogs = receipt.logs ? receipt.logs.length : 0;
-      // FIXED: Accept if logs >0, even if status undefined (recent L2 tx)
-      if (numLogs > 0) {
-        const isSuccess = receipt.status === '0x1' || !receipt.status; // Assume success if no status but logs
-        logger.info(`Receipt valid on ${chainId}: ${isSuccess ? 'success' : 'unknown status'}, ${numLogs} logs`);
-        return { valid: true, numLogs, receipt, isSuccess };
-      } else {
-        logger.warn(`Receipt invalid on ${chainId}: logs ${numLogs}`);
-      }
-    }
-  } catch (err) {
-    logger.warn(`Receipt verification failed on ${chainId}: ${err.message}`);
-  }
-
-  // Fallback: Block timestamp recent
-  if (transaction.blockNumber) {
-    const blockUrl = `${ETHERSCAN_V2_BASE_URL}?chainid=${chainId}&module=proxy&action=eth_getBlockByNumber&tag=${transaction.blockNumber}&boolean=true&apikey=${process.env.ETHERSCAN_API_KEY}`;
-    try {
-      const blockRes = await fetchWithRateLimit(blockUrl, { timeout: 30000 });
-      if (blockRes.data.result) {
-        const block = blockRes.data.result;
-        const blockTime = parseInt(block.timestamp || '0', 16) * 1000;
-        const now = Date.now();
-        const isRecent = Math.abs(now - blockTime) < 3600000;
-        if (isRecent) {
-          logger.info(`Block timestamp valid on ${chainId}: recent`);
-          return { valid: true, numLogs: 0, receipt: null, isSuccess: true };
-        }
-      }
-    } catch (err) {
-      logger.warn(`Block fallback failed on ${chainId}: ${err.message}`);
-    }
-  }
-
-  return { valid: false, numLogs: 0, receipt: null, isSuccess: false };
 }
 
 // CORS wrapper (unchanged)
@@ -515,6 +585,94 @@ export const POST = handlerWrapper(async (request) => {
               return (priA === -1 ? Infinity : priA) - (priB === -1 ? Infinity : priB);
             });
 
+            const isSupportedByEtherscan = supportedEtherscanChainIds.includes(chainId);
+            if (!isSupportedByEtherscan && chain) {
+              // Use Alchemy for unsupported chains like monad, hyperevm
+              const rpcUrl = rpcMap[chain];
+              if (!rpcUrl) throw new Error(`No RPC for ${chain}`);
+              const provider = new ethers.JsonRpcProvider(rpcUrl);
+              const tx = await provider.getTransaction(txHash);
+              if (!tx) throw new Error('Transaction not found');
+              const receipt = await provider.getTransactionReceipt(txHash);
+              if (!receipt) throw new Error('No receipt');
+              const block = await provider.getBlock(tx.blockNumber);
+              data = {
+                detectedChain: chain,
+                transaction: tx,
+                receipt,
+                block,
+                internalTxs: [], // Alchemy doesn't support internal txs easily, skip
+                tokenTransfers: [],
+              };
+              // Parse logs for token transfers
+              receipt.logs.forEach((log, logIndex) => {
+                if (log.topics && log.topics[0] === '0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef') {
+                  const from = `0x${log.topics[1].slice(-40)}`;
+                  const to = `0x${log.topics[2].slice(-40)}`;
+                  let transfer = {
+                    tokenAddress: log.address.toLowerCase(),
+                    from,
+                    to,
+                    logIndex,
+                  };
+                  if (log.topics.length === 3) {
+                    // ERC-20
+                    transfer.type = 'ERC20';
+                    transfer.decimals = 18;
+                    transfer.value = log.data === '0x' ? '0' : BigInt(log.data).toString();
+                  } else if (log.topics.length === 4) {
+                    // ERC-721
+                    transfer.type = 'ERC721';
+                    transfer.value = '1';
+                    transfer.tokenId = BigInt(log.topics[3]).toString();
+                    transfer.decimals = 0;
+                  }
+                  data.tokenTransfers.push(transfer);
+                }
+              });
+              if (data.tokenTransfers.length > 0) {
+                const uniqueTokens = [...new Set(data.tokenTransfers.map(t => t.tokenAddress))];
+                const tokenInfos = {};
+                await Promise.all(uniqueTokens.map(async (addr) => {
+                  tokenInfos[addr.toLowerCase()] = await fetchTokenInfo(provider, addr);
+                }));
+                data.tokenTransfers = data.tokenTransfers.map(t => {
+                  const info = tokenInfos[t.tokenAddress.toLowerCase()];
+                  const decimals = info.decimals || (t.type === 'ERC721' ? 0 : 18);
+                  logger.info(`Token ${t.tokenAddress}: using decimals ${decimals} (${t.type || 'ERC20'})`);
+                  return {
+                    ...t,
+                    ...info,
+                    decimals,
+                    chain: chain,
+                  };
+                });
+
+                logger.info(`Found ${data.tokenTransfers.length} token transfers (${data.tokenTransfers.filter(t => t.type === 'ERC721').length} NFTs), enriching on ${chain}`);
+                data.tokenTransfers = await enrichWithCoinGecko(data.tokenTransfers);
+              } else {
+                logger.info('No token transfers, skipping enrich');
+              }
+
+              const nativePrice = await fetchNativePrice(chain);
+              if (nativePrice) {
+                const nativeValue = Number(tx.value || 0n) / 1e18;
+                data.nativeValueUSD = nativeValue * nativePrice;
+                const gasUsed = Number(receipt.gasUsed || 0n);
+                const effectiveGasPrice = Number(receipt.effectiveGasPrice || tx.gasPrice || 0n);
+                const fee = (gasUsed * effectiveGasPrice) / 1e18;
+                data.feeUSD = fee * nativePrice;
+                logger.info(`Native ${chain} enriched: value USD ${data.nativeValueUSD}, fee USD ${data.feeUSD}`);
+              }
+
+              await redis.set(cacheKey, JSON.stringify(data), 'EX', 3600);
+              logger.info(`Cached tx-details via Alchemy: ${cacheKey}`);
+              controller.enqueue(JSON.stringify({ success: true, data }));
+              controller.close();
+              return;
+            }
+
+            // Original Etherscan logic for supported chains
             const searchPromises = sortedChains.map(async ([chainIdStr, chainName]) => {
               const txUrl = `${ETHERSCAN_V2_BASE_URL}?chainid=${chainIdStr}&module=proxy&action=eth_getTransactionByHash&txhash=${txHash}&apikey=${process.env.ETHERSCAN_API_KEY}`;
               try {
@@ -539,20 +697,20 @@ export const POST = handlerWrapper(async (request) => {
             logger.info(`Found ${candidates.length} tx candidates for ${txHash.slice(0, 10)}...`);
 
             if (candidates.length === 0) {
-  if (!chain) {
-    const baseId = '8453';
-              const baseName = primaryChainNameMap[baseId];
-              logger.info(`No candidates, retrying Base (${baseId})`);
-              const retryUrl = `${ETHERSCAN_V2_BASE_URL}?chainid=${baseId}&module=proxy&action=eth_getTransactionByHash&txhash=${txHash}&apikey=${process.env.ETHERSCAN_API_KEY}`;
-              const retryRes = await fetchWithRateLimit(retryUrl, { timeout: 30000 });
-              if (retryRes.data.result) {
-                candidates = [{ chainName: baseName, chainId: baseId, transaction: retryRes.data.result }];
-                logger.info(`Retry found on Base`);
+              if (!chain) {
+                const baseId = '8453';
+                const baseName = primaryChainNameMap[baseId];
+                logger.info(`No candidates, retrying Base (${baseId})`);
+                const retryUrl = `${ETHERSCAN_V2_BASE_URL}?chainid=${baseId}&module=proxy&action=eth_getTransactionByHash&txhash=${txHash}&apikey=${process.env.ETHERSCAN_API_KEY}`;
+                const retryRes = await fetchWithRateLimit(retryUrl, { timeout: 30000 });
+                if (retryRes.data.result) {
+                  candidates = [{ chainName: baseName, chainId: baseId, transaction: retryRes.data.result }];
+                  logger.info(`Retry found on Base`);
+                }
+              } else {
+                throw new Error('Transaction not found on selected chain');
               }
-  } else {
-    throw new Error('Transaction not found on selected chain');
-  }
-}
+            }
 
             if (candidates.length === 0) {
               throw new Error('Transaction not found on any supported chain');
@@ -649,7 +807,7 @@ export const POST = handlerWrapper(async (request) => {
               const uniqueTokens = [...new Set(data.tokenTransfers.map(t => t.tokenAddress))];
               const tokenInfos = {};
               await Promise.all(uniqueTokens.map(async (addr) => {
-                tokenInfos[addr.toLowerCase()] = await fetchTokenInfo(foundChainId, addr);
+                tokenInfos[addr.toLowerCase()] = await fetchTokenInfoViaProvider(null, addr, foundChainId);
               }));
               data.tokenTransfers = data.tokenTransfers.map(t => {
                 const info = tokenInfos[t.tokenAddress.toLowerCase()];
@@ -671,10 +829,10 @@ export const POST = handlerWrapper(async (request) => {
 
             const nativePrice = await fetchNativePrice(foundChainName);
             if (nativePrice) {
-              const nativeValue = Number(parseInt(data.transaction.value || '0', 16)) / 1e18;
+              const nativeValue = Number(parseInt(data.transaction.value || '0x0', 16)) / 1e18;
               data.nativeValueUSD = nativeValue * nativePrice;
-              const gasUsed = parseInt(data.receipt?.gasUsed || '0', 16);
-              const effectiveGasPrice = parseInt(data.receipt?.effectiveGasPrice || data.transaction.gasPrice || '0', 16);
+              const gasUsed = parseInt(data.receipt?.gasUsed || '0x0', 16);
+              const effectiveGasPrice = parseInt(data.receipt?.effectiveGasPrice || data.transaction.gasPrice || '0x0', 16);
               const fee = (gasUsed * effectiveGasPrice) / 1e18;
               data.feeUSD = fee * nativePrice;
               logger.info(`Native ${foundChainName} enriched: value USD ${data.nativeValueUSD}, fee USD ${data.feeUSD}`);
@@ -791,12 +949,12 @@ export const POST = handlerWrapper(async (request) => {
               });
               let tokenData = Object.entries(balances)
                 .filter(([, bal]) => BigInt(bal.balanceRaw) > 0)
-                .map(([contract, bal]) => ({ 
+                .map(([contract, bal]) => ({
                   chain,
-                  contractAddress: contract, 
-                  ...bal, 
-                  amount: Number(BigInt(bal.balanceRaw)) / 10 ** bal.decimals, 
-                  value: bal.balanceRaw 
+                  contractAddress: contract,
+                  ...bal,
+                  amount: Number(BigInt(bal.balanceRaw)) / 10 ** bal.decimals,
+                  value: bal.balanceRaw
                 }));
               tokenData = await enrichWithCoinGecko(tokenData);
               overview.tokenBalances = tokenData;
@@ -828,7 +986,14 @@ export const POST = handlerWrapper(async (request) => {
             }
             controller.enqueue(JSON.stringify({ success: true, data }));
           } else if (action === 'token-info' && tokenAddress) {
-            let tokenData = await fetchTokenInfo(chainId, tokenAddress);
+            let provider = null;
+            if (!supportedEtherscanChainIds.includes(chainId)) {
+              const rpcUrl = rpcMap[chain];
+              if (rpcUrl) {
+                provider = new ethers.JsonRpcProvider(rpcUrl);
+              }
+            }
+            let tokenData = await fetchTokenInfoViaProvider(provider, tokenAddress, chainId);
             tokenData.tokenAddress = tokenAddress;
             tokenData.chain = chain;
             const enriched = await enrichWithCoinGecko([tokenData]);
