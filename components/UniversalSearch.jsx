@@ -475,11 +475,6 @@ export default function UniversalSearch({
                             {result.holder_addresses.length} wallets
                           </div>
                         )}
-                        {result.description && (
-                          <div className="text-xs text-white/50 italic mt-0.5 truncate">
-                            {result.description}
-                          </div>
-                        )}
                       </div>
                     </motion.button>
                   ))
