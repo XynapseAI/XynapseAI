@@ -11,6 +11,7 @@ function aggregateWallets(incomingData, outgoingData, layer3Data, rootAddress, p
   const nametags = {};
   const edges = [];
   const rootLower = rootAddress.toLowerCase();
+  const isTokenQuery = rootNametag.endsWith(' Token');
   walletMap.set(rootLower, {
     address: rootLower,
     nametag: rootNametag, // Updated with passed nametag
@@ -30,13 +31,15 @@ function aggregateWallets(incomingData, outgoingData, layer3Data, rootAddress, p
   const addWallet = (address, tx, type, layer) => {
     if (filterType === 'incoming' && type !== 'incoming') return;
     if (filterType === 'outgoing' && type !== 'outgoing') return;
-    if (layer === 3 && (!tx.nametag || tx.nametag === 'Unknown')) return;
     const addrLower = address.toLowerCase();
+    const isLayer2Add = addrLower === tx.layer2Address?.toLowerCase();
+    const walletNametag = isLayer2Add ? (tx.nametagLayer2 || 'Unknown') : (tx.nametag || 'Unknown');
+    const walletImage = isLayer2Add ? (tx.imageLayer2 || '/icons/default.webp') : (tx.image || '/icons/default.webp');
     if (!walletMap.has(addrLower)) {
       walletMap.set(addrLower, {
         address: addrLower,
-        nametag: tx.nametag || 'Unknown',
-        image: tx.image || '/icons/default.webp',
+        nametag: walletNametag,
+        image: walletImage,
         chainLogo: tx.chainLogo || '/icons/default.webp',
         tokenSymbol: tx.tokenSymbol || 'Unknown',
         totalValue: 0,
@@ -46,11 +49,17 @@ function aggregateWallets(incomingData, outgoingData, layer3Data, rootAddress, p
         layer,
       });
       nametags[addrLower] = {
-        name: tx.nametag || 'Unknown',
-        image: tx.image || '/icons/default.webp',
+        name: walletNametag,
+        image: walletImage,
       };
     }
     const wallet = walletMap.get(addrLower);
+    if (wallet.nametag === 'Unknown' && walletNametag !== 'Unknown') {
+      wallet.nametag = walletNametag;
+      wallet.image = walletImage;
+      nametags[addrLower].name = walletNametag;
+      nametags[addrLower].image = walletImage;
+    }
     const txValue = Number(tx.usdValue || tx.value || 0);
     if (isNaN(txValue)) return; // Validate value
     wallet.totalValue += txValue;
@@ -69,11 +78,12 @@ function aggregateWallets(incomingData, outgoingData, layer3Data, rootAddress, p
     : [];
   filteredIncoming.forEach((tx) => addWallet(tx.address, tx, 'incoming', 2));
   filteredOutgoing.forEach((tx) => addWallet(tx.address, tx, 'outgoing', 2));
-  const filteredLayer3 = layer3Data.filter((tx) => tx.nametag && tx.nametag !== 'Unknown');
-  filteredLayer3.forEach((tx) => {
-    const address = tx.type === 'incoming' ? tx.address : tx.address;
-    addWallet(address, tx, tx.type, 3);
-  });
+  const filteredLayer3 = layer3Data;
+  if (isTokenQuery) {
+    // Add layer2 wallets (senders/from)
+    filteredLayer3.forEach((tx) => addWallet(tx.layer2Address, tx, tx.type, 2));
+  }
+  filteredLayer3.forEach((tx) => addWallet(tx.address, tx, tx.type, 3));
   const nodes = Array.from(walletMap.values()).map((wallet) => ({
     data: {
       id: wallet.address,
@@ -335,6 +345,7 @@ export function clusterInWorker(nodes, edges) {
         const nametags = {};
         const edges = [];
         const rootLower = rootAddress.toLowerCase();
+        const isTokenQuery = rootNametag.endsWith(' Token');
         walletMap.set(rootLower, {
           address: rootLower,
           nametag: rootNametag, // Updated with passed nametag
@@ -354,13 +365,15 @@ export function clusterInWorker(nodes, edges) {
         const addWallet = (address, tx, type, layer) => {
           if (filterType === 'incoming' && type !== 'incoming') return;
           if (filterType === 'outgoing' && type !== 'outgoing') return;
-          if (layer === 3 && (!tx.nametag || tx.nametag === 'Unknown')) return;
           const addrLower = address.toLowerCase();
+          const isLayer2Add = addrLower === tx.layer2Address?.toLowerCase();
+          const walletNametag = isLayer2Add ? (tx.nametagLayer2 || 'Unknown') : (tx.nametag || 'Unknown');
+          const walletImage = isLayer2Add ? (tx.imageLayer2 || '/icons/default.webp') : (tx.image || '/icons/default.webp');
           if (!walletMap.has(addrLower)) {
             walletMap.set(addrLower, {
               address: addrLower,
-              nametag: tx.nametag || 'Unknown',
-              image: tx.image || '/icons/default.webp',
+              nametag: walletNametag,
+              image: walletImage,
               chainLogo: tx.chainLogo || '/icons/default.webp',
               tokenSymbol: tx.tokenSymbol || 'Unknown',
               totalValue: 0,
@@ -370,11 +383,17 @@ export function clusterInWorker(nodes, edges) {
               layer,
             });
             nametags[addrLower] = {
-              name: tx.nametag || 'Unknown',
-              image: tx.image || '/icons/default.webp',
+              name: walletNametag,
+              image: walletImage,
             };
           }
           const wallet = walletMap.get(addrLower);
+          if (wallet.nametag === 'Unknown' && walletNametag !== 'Unknown') {
+            wallet.nametag = walletNametag;
+            wallet.image = walletImage;
+            nametags[addrLower].name = walletNametag;
+            nametags[addrLower].image = walletImage;
+          }
           const txValue = Number(tx.usdValue || tx.value || 0);
           if (isNaN(txValue)) return; // Validate value
           wallet.totalValue += txValue;
@@ -393,11 +412,12 @@ export function clusterInWorker(nodes, edges) {
           : [];
         filteredIncoming.forEach((tx) => addWallet(tx.address, tx, 'incoming', 2));
         filteredOutgoing.forEach((tx) => addWallet(tx.address, tx, 'outgoing', 2));
-        const filteredLayer3 = layer3Data.filter((tx) => tx.nametag && tx.nametag !== 'Unknown');
-        filteredLayer3.forEach((tx) => {
-          const address = tx.type === 'incoming' ? tx.address : tx.address;
-          addWallet(address, tx, tx.type, 3);
-        });
+        const filteredLayer3 = layer3Data;
+        if (isTokenQuery) {
+          // Add layer2 wallets (senders/from)
+          filteredLayer3.forEach((tx) => addWallet(tx.layer2Address, tx, tx.type, 2));
+        }
+        filteredLayer3.forEach((tx) => addWallet(tx.address, tx, tx.type, 3));
         const nodes = Array.from(walletMap.values()).map((wallet) => ({
           data: {
             id: wallet.address,
@@ -708,6 +728,7 @@ export function aggregateInWorker(incomingData, outgoingData, layer3Data, rootAd
         const nametags = {};
         const edges = [];
         const rootLower = rootAddress.toLowerCase();
+        const isTokenQuery = rootNametag.endsWith(' Token');
         walletMap.set(rootLower, {
           address: rootLower,
           nametag: rootNametag, // Updated with passed nametag
@@ -727,13 +748,15 @@ export function aggregateInWorker(incomingData, outgoingData, layer3Data, rootAd
         const addWallet = (address, tx, type, layer) => {
           if (filterType === 'incoming' && type !== 'incoming') return;
           if (filterType === 'outgoing' && type !== 'outgoing') return;
-          if (layer === 3 && (!tx.nametag || tx.nametag === 'Unknown')) return;
           const addrLower = address.toLowerCase();
+          const isLayer2Add = addrLower === tx.layer2Address?.toLowerCase();
+          const walletNametag = isLayer2Add ? (tx.nametagLayer2 || 'Unknown') : (tx.nametag || 'Unknown');
+          const walletImage = isLayer2Add ? (tx.imageLayer2 || '/icons/default.webp') : (tx.image || '/icons/default.webp');
           if (!walletMap.has(addrLower)) {
             walletMap.set(addrLower, {
               address: addrLower,
-              nametag: tx.nametag || 'Unknown',
-              image: tx.image || '/icons/default.webp',
+              nametag: walletNametag,
+              image: walletImage,
               chainLogo: tx.chainLogo || '/icons/default.webp',
               tokenSymbol: tx.tokenSymbol || 'Unknown',
               totalValue: 0,
@@ -743,11 +766,17 @@ export function aggregateInWorker(incomingData, outgoingData, layer3Data, rootAd
               layer,
             });
             nametags[addrLower] = {
-              name: tx.nametag || 'Unknown',
-              image: tx.image || '/icons/default.webp',
+              name: walletNametag,
+              image: walletImage,
             };
           }
           const wallet = walletMap.get(addrLower);
+          if (wallet.nametag === 'Unknown' && walletNametag !== 'Unknown') {
+            wallet.nametag = walletNametag;
+            wallet.image = walletImage;
+            nametags[addrLower].name = walletNametag;
+            nametags[addrLower].image = walletImage;
+          }
           const txValue = Number(tx.usdValue || tx.value || 0);
           if (isNaN(txValue)) return; // Validate value
           wallet.totalValue += txValue;
@@ -766,11 +795,12 @@ export function aggregateInWorker(incomingData, outgoingData, layer3Data, rootAd
           : [];
         filteredIncoming.forEach((tx) => addWallet(tx.address, tx, 'incoming', 2));
         filteredOutgoing.forEach((tx) => addWallet(tx.address, tx, 'outgoing', 2));
-        const filteredLayer3 = layer3Data.filter((tx) => tx.nametag && tx.nametag !== 'Unknown');
-        filteredLayer3.forEach((tx) => {
-          const address = tx.type === 'incoming' ? tx.address : tx.address;
-          addWallet(address, tx, tx.type, 3);
-        });
+        const filteredLayer3 = layer3Data;
+        if (isTokenQuery) {
+          // Add layer2 wallets (senders/from)
+          filteredLayer3.forEach((tx) => addWallet(tx.layer2Address, tx, tx.type, 2));
+        }
+        filteredLayer3.forEach((tx) => addWallet(tx.address, tx, tx.type, 3));
         const nodes = Array.from(walletMap.values()).map((wallet) => ({
           data: {
             id: wallet.address,
@@ -1081,6 +1111,7 @@ export function positionInWorker(nodes, edges) {
         const nametags = {};
         const edges = [];
         const rootLower = rootAddress.toLowerCase();
+        const isTokenQuery = rootNametag.endsWith(' Token');
         walletMap.set(rootLower, {
           address: rootLower,
           nametag: rootNametag, // Updated with passed nametag
@@ -1100,13 +1131,15 @@ export function positionInWorker(nodes, edges) {
         const addWallet = (address, tx, type, layer) => {
           if (filterType === 'incoming' && type !== 'incoming') return;
           if (filterType === 'outgoing' && type !== 'outgoing') return;
-          if (layer === 3 && (!tx.nametag || tx.nametag === 'Unknown')) return;
           const addrLower = address.toLowerCase();
+          const isLayer2Add = addrLower === tx.layer2Address?.toLowerCase();
+          const walletNametag = isLayer2Add ? (tx.nametagLayer2 || 'Unknown') : (tx.nametag || 'Unknown');
+          const walletImage = isLayer2Add ? (tx.imageLayer2 || '/icons/default.webp') : (tx.image || '/icons/default.webp');
           if (!walletMap.has(addrLower)) {
             walletMap.set(addrLower, {
               address: addrLower,
-              nametag: tx.nametag || 'Unknown',
-              image: tx.image || '/icons/default.webp',
+              nametag: walletNametag,
+              image: walletImage,
               chainLogo: tx.chainLogo || '/icons/default.webp',
               tokenSymbol: tx.tokenSymbol || 'Unknown',
               totalValue: 0,
@@ -1116,11 +1149,17 @@ export function positionInWorker(nodes, edges) {
               layer,
             });
             nametags[addrLower] = {
-              name: tx.nametag || 'Unknown',
-              image: tx.image || '/icons/default.webp',
+              name: walletNametag,
+              image: walletImage,
             };
           }
           const wallet = walletMap.get(addrLower);
+          if (wallet.nametag === 'Unknown' && walletNametag !== 'Unknown') {
+            wallet.nametag = walletNametag;
+            wallet.image = walletImage;
+            nametags[addrLower].name = walletNametag;
+            nametags[addrLower].image = walletImage;
+          }
           const txValue = Number(tx.usdValue || tx.value || 0);
           if (isNaN(txValue)) return; // Validate value
           wallet.totalValue += txValue;
@@ -1139,11 +1178,12 @@ export function positionInWorker(nodes, edges) {
           : [];
         filteredIncoming.forEach((tx) => addWallet(tx.address, tx, 'incoming', 2));
         filteredOutgoing.forEach((tx) => addWallet(tx.address, tx, 'outgoing', 2));
-        const filteredLayer3 = layer3Data.filter((tx) => tx.nametag && tx.nametag !== 'Unknown');
-        filteredLayer3.forEach((tx) => {
-          const address = tx.type === 'incoming' ? tx.address : tx.address;
-          addWallet(address, tx, tx.type, 3);
-        });
+        const filteredLayer3 = layer3Data;
+        if (isTokenQuery) {
+          // Add layer2 wallets (senders/from)
+          filteredLayer3.forEach((tx) => addWallet(tx.layer2Address, tx, tx.type, 2));
+        }
+        filteredLayer3.forEach((tx) => addWallet(tx.address, tx, tx.type, 3));
         const nodes = Array.from(walletMap.values()).map((wallet) => ({
           data: {
             id: wallet.address,
@@ -1454,6 +1494,7 @@ export function computeMetricsInWorker(transactions, wallets) {
         const nametags = {};
         const edges = [];
         const rootLower = rootAddress.toLowerCase();
+        const isTokenQuery = rootNametag.endsWith(' Token');
         walletMap.set(rootLower, {
           address: rootLower,
           nametag: rootNametag, // Updated with passed nametag
@@ -1473,13 +1514,15 @@ export function computeMetricsInWorker(transactions, wallets) {
         const addWallet = (address, tx, type, layer) => {
           if (filterType === 'incoming' && type !== 'incoming') return;
           if (filterType === 'outgoing' && type !== 'outgoing') return;
-          if (layer === 3 && (!tx.nametag || tx.nametag === 'Unknown')) return;
           const addrLower = address.toLowerCase();
+          const isLayer2Add = addrLower === tx.layer2Address?.toLowerCase();
+          const walletNametag = isLayer2Add ? (tx.nametagLayer2 || 'Unknown') : (tx.nametag || 'Unknown');
+          const walletImage = isLayer2Add ? (tx.imageLayer2 || '/icons/default.webp') : (tx.image || '/icons/default.webp');
           if (!walletMap.has(addrLower)) {
             walletMap.set(addrLower, {
               address: addrLower,
-              nametag: tx.nametag || 'Unknown',
-              image: tx.image || '/icons/default.webp',
+              nametag: walletNametag,
+              image: walletImage,
               chainLogo: tx.chainLogo || '/icons/default.webp',
               tokenSymbol: tx.tokenSymbol || 'Unknown',
               totalValue: 0,
@@ -1489,11 +1532,17 @@ export function computeMetricsInWorker(transactions, wallets) {
               layer,
             });
             nametags[addrLower] = {
-              name: tx.nametag || 'Unknown',
-              image: tx.image || '/icons/default.webp',
+              name: walletNametag,
+              image: walletImage,
             };
           }
           const wallet = walletMap.get(addrLower);
+          if (wallet.nametag === 'Unknown' && walletNametag !== 'Unknown') {
+            wallet.nametag = walletNametag;
+            wallet.image = walletImage;
+            nametags[addrLower].name = walletNametag;
+            nametags[addrLower].image = walletImage;
+          }
           const txValue = Number(tx.usdValue || tx.value || 0);
           if (isNaN(txValue)) return; // Validate value
           wallet.totalValue += txValue;
@@ -1512,11 +1561,12 @@ export function computeMetricsInWorker(transactions, wallets) {
           : [];
         filteredIncoming.forEach((tx) => addWallet(tx.address, tx, 'incoming', 2));
         filteredOutgoing.forEach((tx) => addWallet(tx.address, tx, 'outgoing', 2));
-        const filteredLayer3 = layer3Data.filter((tx) => tx.nametag && tx.nametag !== 'Unknown');
-        filteredLayer3.forEach((tx) => {
-          const address = tx.type === 'incoming' ? tx.address : tx.address;
-          addWallet(address, tx, tx.type, 3);
-        });
+        const filteredLayer3 = layer3Data;
+        if (isTokenQuery) {
+          // Add layer2 wallets (senders/from)
+          filteredLayer3.forEach((tx) => addWallet(tx.layer2Address, tx, tx.type, 2));
+        }
+        filteredLayer3.forEach((tx) => addWallet(tx.address, tx, tx.type, 3));
         const nodes = Array.from(walletMap.values()).map((wallet) => ({
           data: {
             id: wallet.address,

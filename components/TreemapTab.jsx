@@ -22,6 +22,8 @@ import { lazy, Suspense } from 'react';
 import ForceGraph from 'force-graph';
 import * as d3 from 'd3-force';
 import { aggregateInWorker, positionInWorker, computeMetricsInWorker, clusterInWorker } from '../utils/clusterWorker';
+import UniversalSearch from './UniversalSearch';
+
 // Fixed: Lazy load pure TF.js only (no node backend in client)
 const TensorFlowJS = lazy(() => import('@tensorflow/tfjs')); // Direct import, no concat needed in client
 const formatLargeNumber = (value, decimals = 1) => {
@@ -611,6 +613,7 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
   const router = useRouter();
   const searchParams = useSearchParams();
   const [walletAddress, setWalletAddress] = useState(initialAddress);
+  const [isTokenSearch, setIsTokenSearch] = useState(false);
   const [nodes, setNodes] = useState([]);
   const [edges, setEdges] = useState([]);
   const [nametags, setNametags] = useState({});
@@ -840,7 +843,8 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
     if (address) newParams.set('address', address);
     router.replace(`/dashboard?${newParams.toString()}`, { scroll: false });
   };
-  const fetchTransactions = useCallback(async (address, page = 1) => {
+
+  const fetchTransactions = useCallback(async (address, page = 1, isToken = false) => { // Thêm param isToken
     const isBitcoin = selectedChain === 'bitcoin';
     if (!isAddress(address) && !['solana', 'tron', 'bitcoin'].includes(selectedChain)) {
       logger.error('Invalid wallet address.');
@@ -866,6 +870,11 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
         theme: 'dark',
       });
       return;
+    }
+    // MỚI: Clear cache nếu là token search lần đầu để tránh stale data
+    if (isToken) {
+      const cacheKey = `graph_full_${selectedChain}_${address.toLowerCase()}_${page}`;
+      await cacheData(cacheKey, null, 0); // Invalidate cache
     }
     const cacheKey = `graph_full_${selectedChain}_${address.toLowerCase()}_${page}`;
     const cached = await getCachedData(cacheKey);
@@ -900,7 +909,14 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
     }
     setLoading(true);
     try {
-      const payload = { wallet_address: address, chain: selectedChain, limit: selectedLimit, page, fetchLayer3: true };
+      const payload = {
+        wallet_address: address,
+        chain: selectedChain,
+        limit: selectedLimit,
+        page,
+        fetchLayer3: true,
+        isToken: isToken // Flag cho backend
+      };
       const signature = generateHmacSignature(payload);
       const response = await fetch(`${apiBaseUrl}/api/get-transactions`, {
         method: 'POST',
@@ -923,7 +939,10 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
         throw new Error(data.error || 'Invalid response from API.');
       }
       if (data.incoming.length === 0 && data.outgoing.length === 0 && data.layer3.length === 0) {
-        toast.info('No transactions found for this address on the selected chain.', {
+        const message = isToken
+          ? 'No token transfers found for this contract on the selected chain.'
+          : 'No transactions found for this address on the selected chain.';
+        toast.info(message, {
           position: 'top-center',
           autoClose: 5000,
           hideProgressBar: false,
@@ -944,9 +963,18 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
         return;
       }
       logger.log('API response walletInfo.image:', data.wallet.image);
-      setFullIncomingData(data.incoming);
-      setFullOutgoingData(data.outgoing);
-      setFullLayer3Data(data.layer3);
+      // For token queries the API returns everything in layer3
+      setFullIncomingData(data.incoming || []);
+      setFullOutgoingData(data.outgoing || []);
+      setFullLayer3Data(data.layer3 || []);
+
+      // If it’s a token query and layer3 is populated, also merge into incoming/outgoing
+      // so the existing visualisation code continues to work without extra changes
+      if (data.layer3 && data.layer3.length > 0 && data.incoming.length === 0 && data.outgoing.length === 0) {
+        // Treat token transfers as both incoming & outgoing for the graph worker
+        setFullIncomingData(data.layer3.map(tx => ({ ...tx, type: 'incoming' })));
+        setFullOutgoingData(data.layer3.map(tx => ({ ...tx, type: 'outgoing' })));
+      }
       const { nodes: newNodes, edges: newEdges, nametags: newNametags } = await aggregateInWorker(
         data.incoming,
         data.outgoing,
@@ -1000,6 +1028,40 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
       setLoading(false);
     }
   }, [selectedChain, selectedLimit, session, apiBaseUrl, filterType, walletInfo]);
+
+  const validateAndFetch = useCallback((address, isToken = false) => {
+    const isBitcoin = selectedChain === 'bitcoin';
+    const bitcoinRegex = /^[13][a-km-zA-HJ-NP-Z1-9]{25,34}$|^bc1[a-z0-9]{39,59}$/i;
+    if (
+      (['solana', 'tron'].includes(selectedChain) && address.match(/^[A-Za-z0-9]{32,44}$/)) ||
+      (isBitcoin && bitcoinRegex.test(address)) ||
+      (!['solana', 'tron', 'bitcoin'].includes(selectedChain) && isAddress(address))
+    ) {
+      // Clear state trước khi fetch
+      setPage(1);
+      setFullIncomingData([]);
+      setFullOutgoingData([]);
+      setFullLayer3Data([]);
+      setNodes([]);
+      setEdges([]);
+      setNametags({});
+      setClusters([]);
+      setSelectedEntity({ type: null, data: { transactions: [] } });
+      // Fetch trực tiếp
+      fetchTransactions(address, 1, isToken);
+    } else {
+      const errorMsg = isToken ? 'Invalid token address.' : 'Invalid wallet address.';
+      toast.error(errorMsg, {
+        position: 'top-center',
+        autoClose: 5000,
+        hideProgressBar: false,
+        closeOnClick: true,
+        pauseOnHover: true,
+        draggable: true,
+        theme: 'dark',
+      });
+    }
+  }, [selectedChain, fetchTransactions]);
 
   const filterTransactions = useCallback((transactions, filterType, rootId, walletId = null) => {
     if (!transactions || !Array.isArray(transactions)) {
@@ -1406,31 +1468,38 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
       return newPage;
     });
   }, [fetchTransactions, walletAddress, nodes.length]);
+
   const handleSearch = useCallback(() => {
-    const isBitcoin = selectedChain === 'bitcoin';
-    const bitcoinRegex = /^[13][a-km-zA-HJ-NP-Z1-9]{25,34}$|^bc1[a-z0-9]{39,59}$/i;
-    if (
-      (['solana', 'tron'].includes(selectedChain) && walletAddress.match(/^[A-Za-z0-9]{32,44}$/)) ||
-      (isBitcoin && bitcoinRegex.test(walletAddress)) ||
-      (!['solana', 'tron', 'bitcoin'].includes(selectedChain) && isAddress(walletAddress))
-    ) {
-      setPage(1);
-      setFullIncomingData([]);
-      setFullOutgoingData([]);
-      setFullLayer3Data([]);
-      fetchTransactions(walletAddress, 1);
-    } else {
-      toast.error('Invalid wallet address.', {
-        position: 'top-center',
-        autoClose: 5000,
-        hideProgressBar: false,
-        closeOnClick: true,
-        pauseOnHover: true,
-        draggable: true,
-        theme: 'dark',
+    validateAndFetch(walletAddress, isTokenSearch);
+  }, [walletAddress, isTokenSearch, validateAndFetch]);
+
+  const handleSearchSelect = useCallback((result) => {
+    if (!result.isValid || !result.address) {
+      toast.error('Invalid address selected.', { theme: 'dark' });
+      return;
+    }
+    // Set flag và state
+    setIsTokenSearch(result.type === 'token');
+    setWalletAddress(result.address);
+    if (result.type === 'nametag') {
+      setWalletInfo({
+        address: result.address,
+        nametag: result.name,
+        image: result.image,
+        chainLogo: '/icons/default.webp',
+      });
+    } else if (result.type === 'token') {
+      setWalletInfo({
+        address: result.address,
+        nametag: `${result.symbol || ''} (${result.name})`,
+        image: result.image,
+        chainLogo: '/icons/default.webp',
       });
     }
-  }, [walletAddress, selectedChain, fetchTransactions]);
+    // Gọi trực tiếp validation và fetch, không cần timeout vì address đã valid ở onSelect
+    validateAndFetch(result.address, result.type === 'token');
+  }, [validateAndFetch]);
+
   const handleFilterChange = useCallback(() => {
     setFilterType((prev) => {
       if (prev === 'all') {
@@ -1457,7 +1526,7 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.5, ease: 'easeInOut' }}
-        className="font-jetbrains w-full max-w-9xl mx-auto mt-4 sm:mt-5 p-2 sm:p-3 h-[calc(100vh)] rounded-xl bg-white/5 flex items-center justify-center"
+        className="font-inter w-full max-w-9xl mx-auto mt-4 sm:mt-5 p-2 sm:p-3 h-[calc(100vh)] rounded-xl bg-white/5 flex items-center justify-center"
       >
         <ToastContainer
           position="top-center"
@@ -1510,7 +1579,7 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.5, ease: 'easeInOut' }}
-      className={`font-jetbrains w-full max-w-9xl mx-auto mt-2 sm:mt-3 p-2 sm:p-3 h-[calc(100vh)] rounded-xl bg-white/5 ${isMobile ? 'pb-8 overflow-y-auto hide-scrollbar' : 'flex'}`}
+      className={`font-inter w-full max-w-9xl mx-auto mt-2 sm:mt-3 p-2 sm:p-3 h-[calc(100vh)] rounded-xl bg-white/5 ${isMobile ? 'pb-8 overflow-y-auto hide-scrollbar' : 'flex'}`}
     >
       <ToastContainer
         position="top-center"
@@ -1534,7 +1603,6 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
                 >
                   <img
                     src={getPlatformImage(selectedChain, coingeckoChains)}
-                    alt={`${mappedChains.find((c) => c.value === selectedChain)?.label || ''}`}
                     width={isMobile ? 12 : 16}
                     height={isMobile ? 12 : 16}
                     className="rounded-lg"
@@ -1664,7 +1732,7 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
                   </div>
                 )}
               </div>
-              <motion.button
+              {/* <motion.button
                 onClick={handleFilterChange}
                 className="text-white px-2 sm:px-3 py-1 rounded-lg border border-white/20 bg-black/10 hover:bg-neon-blue/20 transition-all duration-300 flex items-center gap-2 text-[9px] sm:text-[10px]"
                 whileHover={{ scale: 1.05 }}
@@ -1685,20 +1753,14 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
                   />
                 </svg>
                 <span className="font-medium">Filter</span>
-              </motion.button>
+              </motion.button> */}
             </div>
             <div className="relative flex items-center w-full sm:w-auto">
-              <input
-                type="text"
-                placeholder="Search wallet (0x...)"
-                value={walletAddress}
-                onChange={(e) => setWalletAddress(e.target.value)}
-                onKeyPress={(e) => {
-                  if (e.key === 'Enter') {
-                    handleSearch();
-                  }
-                }}
-                className="bg-black/10 text-white text-white px-2 sm:px-3 py-1.5 rounded-lg text-[9px] sm:text-[10px] w-full sm:w-64 border border-white/20 focus:outline-none focus:ring-2 focus:ring-neon-blue/50 hover:bg-neon-blue/20 transition-all duration-300 pr-8"
+              <UniversalSearch
+                onSelect={handleSearchSelect}
+                placeholder="Search wallet, nametag, token name/address, or exchange..."
+                size="default"
+                className="flex-1 min-w-0" // Responsive
               />
               <motion.button
                 onClick={handleSearch}

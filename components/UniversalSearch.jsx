@@ -1,15 +1,15 @@
-// components/UniversalSearch.jsx
+// components/UniversalSearch.jsx (Cập nhật để fix UI và tags)
 "use client";
 
 import { motion, AnimatePresence } from "framer-motion";
 import { useState, useEffect, useRef, useCallback } from "react";
-import { Search, Wallet, Building2, Hash, X } from "lucide-react";
+import { Search, Wallet, Building2, Hash, DollarSign, X, Link2 } from "lucide-react"; // Thêm Link2 cho chain nếu cần
 import useSWR from "swr";
 import { LoadingOverlay } from "../utils/helpers";
 
 export default function UniversalSearch({
   onSelect,
-  placeholder = "Search wallets, nametags, or exchanges...",
+  placeholder = "Search wallets, nametags, tokens, or exchanges...",
   className = "",
   size = "default", // "small", "default", "large"
 }) {
@@ -30,6 +30,7 @@ export default function UniversalSearch({
       modalInput: "text-[8px] sm:text-[9px] px-2 py-1 w-full",
       modalResult: "text-[8px]",
       image: "w-4 h-4",
+      tag: "text-[7px] px-1 py-0.5",
     },
     default: {
       input: "text-[9px] sm:text-[10px] px-3 py-1.5 w-[120px] sm:w-[200px]",
@@ -38,6 +39,7 @@ export default function UniversalSearch({
       modalInput: "text-[9px] sm:text-[10px] px-3 py-1.5 w-full",
       modalResult: "text-[9px]",
       image: "w-5 h-5",
+      tag: "text-[8px] px-2 py-0.5",
     },
     large: {
       input: "text-[10px] sm:text-[12px] px-4 py-2 w-[150px] sm:w-[250px]",
@@ -46,6 +48,7 @@ export default function UniversalSearch({
       modalInput: "text-[10px] sm:text-[12px] px-4 py-2 w-full",
       modalResult: "text-[10px]",
       image: "w-6 h-6",
+      tag: "text-[9px] px-2.5 py-1",
     },
   };
 
@@ -80,7 +83,7 @@ export default function UniversalSearch({
     return response.json();
   };
 
-  // SWR for nametags, exchanges, and clusters
+  // SWR for nametags, exchanges, clusters, và tokens
   const { data: nametagData, error: nametagError, isLoading: isLoadingNametags } = useSWR(
     debouncedQuery ? `/api/search-nametags?query=${encodeURIComponent(debouncedQuery)}` : null,
     fetcher,
@@ -99,6 +102,13 @@ export default function UniversalSearch({
     { revalidateOnFocus: false, dedupingInterval: 30000, refreshInterval: 300000 },
   );
 
+  // SWR cho token search
+  const { data: tokenData, error: tokenError, isLoading: isLoadingTokens } = useSWR(
+    debouncedQuery ? `/api/search-tokens?query=${encodeURIComponent(debouncedQuery)}` : null,
+    fetcher,
+    { revalidateOnFocus: false, dedupingInterval: 30000, refreshInterval: 300000 },
+  );
+
   // Handle click outside to close modal
   useEffect(() => {
     const handleClickOutside = (event) => {
@@ -112,7 +122,7 @@ export default function UniversalSearch({
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  // Validate Ethereum address
+  // Validate Ethereum address (cho wallet/token)
   const isValidAddress = (address) => {
     return /^0x[a-fA-F0-9]{40}$/.test(address);
   };
@@ -142,7 +152,7 @@ export default function UniversalSearch({
       return;
     }
 
-    setIsLoading(isLoadingNametags || isLoadingExchanges || isLoadingClusters);
+    setIsLoading(isLoadingNametags || isLoadingExchanges || isLoadingClusters || isLoadingTokens);
 
     const results = [];
 
@@ -205,16 +215,32 @@ export default function UniversalSearch({
       );
     }
 
-    // Sort results: organizations first, then exchanges, nametags, wallets
+    // 6. Add token results
+    if (tokenData?.success && tokenData.data) {
+      results.push(
+        ...tokenData.data.map((token) => ({
+          id: `token-${token.contractAddress || token.symbol}`,
+          type: "token",
+          address: token.contractAddress,
+          symbol: token.symbol,
+          name: token.name,
+          image: token.image || "/icons/default-token.webp",
+          chain: token.chain,
+        })),
+      );
+    }
+
+    // Sort results: organizations first, then exchanges, tokens, nametags, wallets
     const sortedResults = results.sort((a, b) => {
       const typePriority = {
         organization: 1,
         exchange: 2,
-        nametag: 3,
-        wallet: 4,
+        token: 3,
+        nametag: 4,
+        wallet: 5,
       };
-      const aTypeScore = typePriority[a.type] || 5;
-      const bTypeScore = typePriority[b.type] || 5;
+      const aTypeScore = typePriority[a.type] || 6;
+      const bTypeScore = typePriority[b.type] || 6;
       if (aTypeScore !== bTypeScore) return aTypeScore - bTypeScore;
 
       const aScore = a.name.toLowerCase().indexOf(searchQuery.toLowerCase());
@@ -243,12 +269,20 @@ export default function UniversalSearch({
     if (clusterError) {
       console.error("Error searching clusters:", { query: searchQuery, error: clusterError.message });
     }
-  }, [searchQuery, debouncedQuery, nametagData, exchangeData, clusterData, isLoadingNametags, isLoadingExchanges, isLoadingClusters, nametagError, exchangeError, clusterError, isModalOpen]);
+    if (tokenError) {
+      console.error("Error searching tokens:", { query: searchQuery, error: tokenError.message });
+    }
+  }, [searchQuery, debouncedQuery, nametagData, exchangeData, clusterData, tokenData, isLoadingNametags, isLoadingExchanges, isLoadingClusters, isLoadingTokens, nametagError, exchangeError, clusterError, tokenError, isModalOpen]);
 
   // Handle result selection
   const handleResultSelect = (result) => {
     if (onSelect) {
-      onSelect(result);
+      // Đảm bảo chỉ gửi address hợp lệ (wallet hoặc token)
+      if ((result.type === "wallet" || result.type === "nametag" || result.type === "token") && result.address && isValidAddress(result.address)) {
+        onSelect({ ...result, isValid: true }); // Thêm flag valid
+      } else {
+        onSelect({ ...result, isValid: false });
+      }
     }
     setSearchQuery("");
     setDebouncedQuery("");
@@ -263,6 +297,8 @@ export default function UniversalSearch({
         return <Wallet size={config.icon} className="text-blue-400" />;
       case "nametag":
         return <Hash size={config.icon} className="text-green-400" />;
+      case "token":
+        return <DollarSign size={config.icon} className="text-yellow-400" />;
       case "organization":
       case "exchange":
         return <Building2 size={config.icon} className="text-purple-400" />;
@@ -271,13 +307,44 @@ export default function UniversalSearch({
     }
   };
 
+  // Get tag class for result type (MỚI: Nâng cấp UI với màu sắc và gradient)
+  const getTypeTagClass = (type) => {
+    switch (type) {
+      case "organization":
+      case "exchange":
+        return "bg-gradient-to-r from-green-500/20 to-green-600/20 text-green-300 border-green-500/30 backdrop-blur-sm shadow-green-500/10";
+      case "token":
+        return "bg-gradient-to-r from-yellow-500/20 to-amber-600/20 text-yellow-300 border-yellow-500/30 backdrop-blur-sm shadow-yellow-500/10";
+      case "nametag":
+        return "bg-gradient-to-r from-blue-500/20 to-cyan-600/20 text-blue-300 border-blue-500/30 backdrop-blur-sm shadow-blue-500/10";
+      case "wallet":
+        return "bg-gradient-to-r from-gray-500/20 to-slate-600/20 text-gray-300 border-gray-500/30 backdrop-blur-sm shadow-gray-500/10";
+      default:
+        return "bg-gradient-to-r from-gray-500/20 to-slate-600/20 text-gray-300 border-gray-500/30 backdrop-blur-sm shadow-gray-500/10";
+    }
+  };
+
+  // Get chain tag class (MỚI: Cho token chain)
+  const getChainTagClass = (chain) => {
+    const chainColors = {
+      ethereum: "bg-gradient-to-r from-purple-500/20 to-indigo-600/20 text-purple-300 border-purple-500/30",
+      base: "bg-gradient-to-r from-blue-500/20 to-cyan-600/20 text-blue-300 border-blue-500/30",
+      arbitrum: "bg-gradient-to-r from-orange-500/20 to-red-600/20 text-orange-300 border-orange-500/30",
+      polygon: "bg-gradient-to-r from-pink-500/20 to-rose-600/20 text-pink-300 border-pink-500/30",
+      // Thêm colors cho chains khác nếu cần
+    };
+    return chainColors[chain] || "bg-gradient-to-r from-gray-500/20 to-slate-600/20 text-gray-300 border-gray-500/30 backdrop-blur-sm shadow-gray-500/10";
+  };
+
   // Get result type label
   const getTypeLabel = (type) => {
     switch (type) {
       case "wallet":
         return "Wallet";
       case "nametag":
-        return "Wallet";
+        return "Nametag";
+      case "token":
+        return "Token";
       case "organization":
         return "Organization";
       case "exchange":
@@ -297,7 +364,7 @@ export default function UniversalSearch({
           onChange={(e) => setSearchQuery(e.target.value)}
           onFocus={() => setIsModalOpen(true)}
           className={`w-full sm:w-[50vw] h-[4vh] text-white border-b-2 border-b-white/20 bg-black/5 backdrop-blur-xs focus:outline-none focus:ring-2 focus:ring-neon-blue/50 ${config.input}`}
-          aria-label="Search wallets, nametags, or exchanges"
+          aria-label="Search wallets, nametags, tokens, or exchanges"
         />
       </div>
 
@@ -313,20 +380,20 @@ export default function UniversalSearch({
             aria-modal="true"
           >
             <motion.div
-              className="w-[90vw] sm:w-[50vw] h-[50vh] bg-black/90 backdrop-blur-sm border border-white/20 flex flex-col overflow-hidden rounded-xl"
+              className="w-[90vw] sm:w-[50vw] h-[50vh] bg-black/90 backdrop-blur-sm border border-white/20 flex flex-col overflow-hidden rounded-xl shadow-2xl shadow-neon-lg"
               initial={{ scale: 0.9, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
               exit={{ scale: 0.9, opacity: 0 }}
               transition={{ duration: 0.3 }}
             >
-              <div className="flex items-center justify-between p-4 border-b border-white/10">
+              <div className="flex items-center justify-between p-4 border-b border-white/10 bg-black/20">
                 <input
                   type="text"
                   placeholder={placeholder}
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   className={`text-white border-b-2 border-b-white/20 bg-black/5 backdrop-blur-xs focus:border-none ${config.modalInput}`}
-                  aria-label="Search wallets, nametags, or exchanges"
+                  aria-label="Search wallets, nametags, tokens, or exchanges"
                   autoFocus
                 />
                 <motion.button
@@ -336,7 +403,7 @@ export default function UniversalSearch({
                     setDebouncedQuery("");
                     setSearchResults([]);
                   }}
-                  className="text-white/70 hover:bg-white/10 p-2 rounded-full transition-all duration-300"
+                  className="text-white/70 hover:bg-white/10 p-2 rounded-full transition-all duration-300 hover:shadow-neon-sm"
                   whileHover={{ scale: 1.1 }}
                   whileTap={{ scale: 0.9 }}
                   aria-label="Close search modal"
@@ -351,50 +418,79 @@ export default function UniversalSearch({
                     <motion.button
                       key={result.id}
                       onClick={() => handleResultSelect(result)}
-                      className={`flex items-center w-full text-left px-3 py-2 hover:bg-white/10 text-white transition-all duration-300 border-b border-white/5 last:border-b-0 ${config.modalResult}`}
-                      whileHover={{ x: 4 }}
+                      className={`flex items-center w-full text-left px-3 py-3 hover:bg-white/10 text-white transition-all duration-300 border-b border-white/5 last:border-b-0 rounded-lg mx-1 my-1 hover:shadow-neon-sm ${config.modalResult}`}
+                      whileHover={{ x: 4, y: -1, rotateX: 2 }}
                       role="option"
                       aria-selected={false}
                     >
-                      <div className="flex items-center mr-2">
+                      <div className="flex items-center mr-3 flex-shrink-0">
                         {result.image ? (
-                          <img
+                          <motion.img
                             src={result.image || "/placeholder.svg"}
                             alt={`${result.name} logo`}
-                            className={`rounded-full mr-2 ${config.image}`}
+                            className={`rounded-full mr-2 ${config.image} shadow-lg`}
+                            whileHover={{ scale: 1.1 }}
                             onError={(e) => {
                               e.target.style.display = "none";
                               e.target.nextSibling.style.display = "flex";
                             }}
                           />
                         ) : null}
-                        <div
+                        <motion.div
                           className="flex items-center justify-center mr-2"
                           style={{ display: result.image ? "none" : "flex" }}
+                          whileHover={{ scale: 1.1 }}
                         >
                           {getResultIcon(result.type)}
-                        </div>
+                        </motion.div>
                       </div>
                       <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2">
-                          <span className="font-medium truncate">{result.name}</span>
-                          <span className="text-10px sm:text-[11px] text-white/50 bg-white/10 px-1 py-0.5 rounded">
+                        <div className="flex items-center gap-2 mb-1">
+                          <span className="font-bold text-white truncate text-sm">{result.name || result.symbol}</span>
+                          {/* MỚI: Type tag với màu sắc */}
+                          <motion.span
+                            className={`inline-flex items-center px-2 py-0.5 rounded-full border font-medium ${config.tag} ${getTypeTagClass(result.type)}`}
+                            whileHover={{ scale: 1.05 }}
+                          >
                             {getTypeLabel(result.type)}
-                          </span>
+                          </motion.span>
+                          {/* MỚI: Chain tag cho token, inline */}
+                          {result.chain && result.type === "token" && (
+                            <motion.span
+                              className={`inline-flex items-center px-2 py-0.5 rounded-full border font-medium ${config.tag} ${getChainTagClass(result.chain)}`}
+                              whileHover={{ scale: 1.05 }}
+                            >
+                              <Link2 className="w-2 h-2 mr-1" />
+                              {result.chain.toUpperCase()}
+                            </motion.span>
+                          )}
                         </div>
                         {result.address && (
-                          <div className="text-xs text-white/40 font-mono truncate mt-0.5">{result.address}</div>
+                          <div className="text-xs text-white/60 font-inter truncate mt-0.5 bg-black/20 px-2 py-1 rounded-md">
+                            {result.address}
+                          </div>
                         )}
                         {result.holder_addresses && result.holder_addresses.length > 0 && (
                           <div className="text-xs text-white/40 truncate mt-0.5">
                             {result.holder_addresses.length} wallets
                           </div>
                         )}
+                        {result.description && (
+                          <div className="text-xs text-white/50 italic mt-0.5 truncate">
+                            {result.description}
+                          </div>
+                        )}
                       </div>
                     </motion.button>
                   ))
                 ) : !isLoading ? (
-                  <p className="text-[10px] text-white/60 text-center mt-4">No results found.</p>
+                  <motion.p 
+                    className="text-[10px] text-white/60 text-center mt-4 animate-pulse"
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                  >
+                    No results found. Try a different query.
+                  </motion.p>
                 ) : null}
               </div>
             </motion.div>
@@ -404,7 +500,10 @@ export default function UniversalSearch({
 
       <style jsx>{`
         .shadow-neon-lg {
-          box-shadow: 0 0 12px rgba(0, 191, 255, 0.4), 0 0 24px rgba(0, 191, 255, 0.2);
+          box-shadow: 0 0 20px rgba(0, 191, 255, 0.3), 0 0 40px rgba(0, 191, 255, 0.1);
+        }
+        .shadow-neon-sm {
+          box-shadow: 0 0 8px rgba(0, 191, 255, 0.2), 0 0 16px rgba(0, 191, 255, 0.05);
         }
         .mobile-scroll {
           overflow-y: auto;
