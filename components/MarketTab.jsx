@@ -927,7 +927,7 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                             <button
                               key={token.id}
                               onClick={() => handleTokenSelect(token)}
-                              className="flex items-center w-full text-left px-3 py-1.5 hover:bg-[#FFFFFF]/10 text-[#FFF] text-[8px] sm:text-[10px] transition-all duration-300 rounded group hover:translate-x-1" // CSS
+                              className="flex items-center w-full text-left px-3 py-1.5 hover:bg-[#FFFFFF]/10 text-[#FFF] text-[8px] sm:text-[10px] transition-all duration-300 rounded group" // CSS
                             >
                               {token.image && (
                                 <img

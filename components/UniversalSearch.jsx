@@ -15,7 +15,12 @@ export default function UniversalSearch({
 }) {
   const [searchQuery, setSearchQuery] = useState("");
   const [debouncedQuery, setDebouncedQuery] = useState(""); // State mới cho query đã debounce
-  const [searchResults, setSearchResults] = useState([]);
+  const [groupedResults, setGroupedResults] = useState({
+    wallets: [],
+    organizations: [],
+    tokens: [],
+    nametags: [],
+  });
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const searchRef = useRef(null);
@@ -115,7 +120,7 @@ export default function UniversalSearch({
       if (searchRef.current && !searchRef.current.contains(event.target)) {
         setIsModalOpen(false);
         setSearchQuery("");
-        setSearchResults([]);
+        setGroupedResults({ wallets: [], organizations: [], tokens: [], nametags: [] });
       }
     };
     document.addEventListener("mousedown", handleClickOutside);
@@ -144,21 +149,38 @@ export default function UniversalSearch({
   // Capitalize function
   const capitalize = (str) => str.charAt(0).toUpperCase() + str.slice(1);
 
+  // Sort function for each group
+  const sortGroup = (arr, query) => {
+    return arr.sort((a, b) => {
+      const aScore = a.name.toLowerCase().indexOf(query.toLowerCase());
+      const bScore = b.name.toLowerCase().indexOf(query.toLowerCase());
+      if (aScore === -1 && bScore === -1) return 0;
+      if (aScore === -1) return 1;
+      if (bScore === -1) return -1;
+      return aScore - bScore;
+    });
+  };
+
   // Process search results
   useEffect(() => {
     if (!isModalOpen) {
-      setSearchResults([]);
+      setGroupedResults({ wallets: [], organizations: [], tokens: [], nametags: [] });
       setIsLoading(false);
       return;
     }
 
     setIsLoading(isLoadingNametags || isLoadingExchanges || isLoadingClusters || isLoadingTokens);
 
-    const results = [];
+    const newGrouped = {
+      wallets: [],
+      organizations: [],
+      tokens: [],
+      nametags: [],
+    };
 
     // 1. Check if it's a valid wallet address
     if (isValidAddress(searchQuery)) {
-      results.push({
+      newGrouped.wallets.push({
         id: `wallet-${searchQuery}`,
         type: "wallet",
         address: searchQuery,
@@ -169,13 +191,13 @@ export default function UniversalSearch({
 
     // 2. Search major organizations
     const orgMatches = majorOrganizations.filter((org) =>
-      org.name.toLowerCase().includes(searchQuery.toLowerCase()),
+      org.name.toLowerCase().includes(debouncedQuery.toLowerCase()),
     );
-    results.push(...orgMatches);
+    newGrouped.organizations.push(...orgMatches);
 
     // 3. Add nametag results
     if (nametagData?.success && nametagData.data) {
-      results.push(
+      newGrouped.nametags.push(
         ...nametagData.data.map((nametag) => ({
           id: `nametag-${nametag.address}`,
           type: "nametag",
@@ -190,7 +212,7 @@ export default function UniversalSearch({
 
     // 4. Add exchange results
     if (exchangeData?.data) {
-      results.push(
+      newGrouped.organizations.push(
         ...exchangeData.data.map((exchange) => ({
           id: `exchange-${exchange.id}`,
           type: "exchange",
@@ -203,7 +225,7 @@ export default function UniversalSearch({
 
     // 5. Add cluster results
     if (clusterData?.success && clusterData.data) {
-      results.push(
+      newGrouped.organizations.push(
         ...clusterData.data.map((cluster) => ({
           id: `cluster-${cluster.cluster_name}`,
           type: "organization",
@@ -217,7 +239,7 @@ export default function UniversalSearch({
 
     // 6. Add token results
     if (tokenData?.success && tokenData.data) {
-      results.push(
+      newGrouped.tokens.push(
         ...tokenData.data.map((token) => ({
           id: `token-${token.contractAddress || token.symbol}`,
           type: "token",
@@ -230,33 +252,16 @@ export default function UniversalSearch({
       );
     }
 
-    // Sort results: organizations first, then exchanges, tokens, nametags, wallets
-    const sortedResults = results.sort((a, b) => {
-      const typePriority = {
-        organization: 1,
-        exchange: 2,
-        token: 3,
-        nametag: 4,
-        wallet: 5,
-      };
-      const aTypeScore = typePriority[a.type] || 6;
-      const bTypeScore = typePriority[b.type] || 6;
-      if (aTypeScore !== bTypeScore) return aTypeScore - bTypeScore;
-
-      const aScore = a.name.toLowerCase().indexOf(searchQuery.toLowerCase());
-      const bScore = b.name.toLowerCase().indexOf(searchQuery.toLowerCase());
-      if (aScore === -1 && bScore === -1) return 0;
-      if (aScore === -1) return 1;
-      if (bScore === -1) return -1;
-      return aScore - bScore;
+    // Sort each group
+    Object.keys(newGrouped).forEach((key) => {
+      newGrouped[key] = sortGroup(newGrouped[key], debouncedQuery);
     });
 
-    setSearchResults(sortedResults.slice(0, 10)); // Limit to 10 results
+    setGroupedResults(newGrouped);
 
     console.log("Universal search results:", {
       query: searchQuery,
-      resultCount: sortedResults.length,
-      types: [...new Set(sortedResults.map((r) => r.type))],
+      groupCounts: Object.fromEntries(Object.entries(newGrouped).map(([k, v]) => [k, v.length])),
     });
 
     // Log errors without toasts
@@ -286,7 +291,7 @@ export default function UniversalSearch({
     }
     setSearchQuery("");
     setDebouncedQuery("");
-    setSearchResults([]);
+    setGroupedResults({ wallets: [], organizations: [], tokens: [], nametags: [] });
     setIsModalOpen(false);
   };
 
@@ -331,9 +336,8 @@ export default function UniversalSearch({
       base: "bg-gradient-to-r from-blue-500/20 to-cyan-600/20 text-blue-300 border-blue-500/30",
       arbitrum: "bg-gradient-to-r from-orange-500/20 to-red-600/20 text-orange-300 border-orange-500/30",
       polygon: "bg-gradient-to-r from-pink-500/20 to-rose-600/20 text-pink-300 border-pink-500/30",
-      // Thêm colors cho chains khác nếu cần
     };
-    return chainColors[chain] || "bg-gradient-to-r from-gray-500/20 to-slate-600/20 text-gray-300 border-gray-500/30 backdrop-blur-sm shadow-gray-500/10";
+    return chainColors[chain] || "bg-gradient-to-r from-gray-500/50 to-slate-600/50 text-gray-500 border-gray-500/50 backdrop-blur-sm shadow-gray-500/10";
   };
 
   // Get result type label
@@ -353,6 +357,25 @@ export default function UniversalSearch({
         return "Unknown";
     }
   };
+
+  // Get section title
+  const getSectionTitle = (section) => {
+    switch (section) {
+      case "wallets":
+        return "Wallet Addresses";
+      case "organizations":
+        return "Organizations & Exchanges";
+      case "tokens":
+        return "Tokens";
+      case "nametags":
+        return "Nametags";
+      default:
+        return "";
+    }
+  };
+
+  // Check if all groups are empty
+  const hasNoResults = Object.values(groupedResults).every(group => group.length === 0);
 
   return (
     <div className={`relative ${className}`} ref={searchRef}>
@@ -401,7 +424,7 @@ export default function UniversalSearch({
                     setIsModalOpen(false);
                     setSearchQuery("");
                     setDebouncedQuery("");
-                    setSearchResults([]);
+                    setGroupedResults({ wallets: [], organizations: [], tokens: [], nametags: [] });
                   }}
                   className="text-white/70 hover:bg-white/10 p-2 rounded-full transition-all duration-300 hover:shadow-neon-sm"
                   whileHover={{ scale: 1.1 }}
@@ -413,72 +436,75 @@ export default function UniversalSearch({
               </div>
               <div className="flex-1 overflow-y-auto p-4 mobile-scroll relative">
                 <LoadingOverlay isLoading={isLoading} isMobile={window.innerWidth <= 640} className="absolute inset-0 z-[60]" />
-                {searchResults.length > 0 ? (
-                  searchResults.map((result) => (
-                    <motion.button
-                      key={result.id}
-                      onClick={() => handleResultSelect(result)}
-                      className={`flex items-center w-full text-left px-3 py-3 hover:bg-white/10 text-white transition-all duration-300 border-b border-white/5 last:border-b-0 rounded-lg mx-1 my-1 hover:shadow-neon-sm ${config.modalResult}`}
-                      whileHover={{ x: 4, y: -1, rotateX: 2 }}
-                      role="option"
-                      aria-selected={false}
-                    >
-                      <div className="flex items-center mr-3 flex-shrink-0">
-                        {result.image ? (
-                          <motion.img
-                            src={result.image || "/placeholder.svg"}
-                            alt={`${result.name} logo`}
-                            className={`rounded-full mr-2 ${config.image} shadow-lg`}
-                            whileHover={{ scale: 1.1 }}
-                            onError={(e) => {
-                              e.target.style.display = "none";
-                              e.target.nextSibling.style.display = "flex";
-                            }}
-                          />
-                        ) : null}
-                        <motion.div
-                          className="flex items-center justify-center mr-2"
-                          style={{ display: result.image ? "none" : "flex" }}
-                          whileHover={{ scale: 1.1 }}
+                {Object.entries(groupedResults).map(([section, results]) => (
+                  results.length > 0 && (
+                    <div key={section} className="mb-6">
+                      <h3 className="text-white font-bold text-sm mb-3">{getSectionTitle(section)}</h3>
+                      {results.slice(0, 10).map((result) => (
+                        <motion.button
+                          key={result.id}
+                          onClick={() => handleResultSelect(result)}
+                          className={`flex items-center w-full text-left px-3 py-3 hover:bg-white/10 text-white transition-all duration-300 border-b border-white/5 last:border-b-0 rounded-lg mx-1 my-1 hover:shadow-neon-sm ${config.modalResult}`}
+                          role="option"
+                          aria-selected={false}
                         >
-                          {getResultIcon(result.type)}
-                        </motion.div>
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2 mb-1">
-                          <span className="font-bold text-white truncate text-sm">{result.name || result.symbol}</span>
-                          {/* MỚI: Type tag với màu sắc */}
-                          <motion.span
-                            className={`inline-flex items-center px-2 py-0.5 rounded-full border font-medium ${config.tag} ${getTypeTagClass(result.type)}`}
-                            whileHover={{ scale: 1.05 }}
-                          >
-                            {getTypeLabel(result.type)}
-                          </motion.span>
-                          {/* MỚI: Chain tag cho token, inline */}
-                          {result.chain && result.type === "token" && (
-                            <motion.span
-                              className={`inline-flex items-center px-2 py-0.5 rounded-full border font-medium ${config.tag} ${getChainTagClass(result.chain)}`}
-                              whileHover={{ scale: 1.05 }}
+                          <div className="flex items-center mr-3 flex-shrink-0">
+                            {result.image ? (
+                              <motion.img
+                                src={result.image || "/placeholder.svg"}
+                                alt={`${result.name} logo`}
+                                className={`rounded-full mr-2 ${config.image} shadow-lg`}
+                                onError={(e) => {
+                                  e.target.style.display = "none";
+                                  e.target.nextSibling.style.display = "flex";
+                                }}
+                              />
+                            ) : null}
+                            <motion.div
+                              className="flex items-center justify-center mr-2"
+                              style={{ display: result.image ? "none" : "flex" }}
                             >
-                              <Link2 className="w-2 h-2 mr-1" />
-                              {result.chain.toUpperCase()}
-                            </motion.span>
-                          )}
-                        </div>
-                        {result.address && (
-                          <div className="text-xs text-white/60 font-inter truncate mt-0.5 bg-black/20 px-2 py-1 rounded-md">
-                            {result.address}
+                              {getResultIcon(result.type)}
+                            </motion.div>
                           </div>
-                        )}
-                        {result.holder_addresses && result.holder_addresses.length > 0 && (
-                          <div className="text-xs text-white/40 truncate mt-0.5">
-                            {result.holder_addresses.length} wallets
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2 mb-1">
+                              <span className="font-bold text-white truncate text-sm">{result.name || result.symbol}</span>
+                              {/* MỚI: Type tag với màu sắc */}
+                              <motion.span
+                                className={`inline-flex items-center px-2 py-0.5 rounded-full border font-medium ${config.tag} ${getTypeTagClass(result.type)}`}
+                                whileHover={{ scale: 1.05 }}
+                              >
+                                {getTypeLabel(result.type)}
+                              </motion.span>
+                              {/* MỚI: Chain tag cho token, inline */}
+                              {result.chain && result.type === "token" && (
+                                <motion.span
+                                  className={`inline-flex items-center px-2 py-0.5 rounded-full border font-medium ${config.tag} ${getChainTagClass(result.chain)}`}
+                                  whileHover={{ scale: 1.05 }}
+                                >
+                                  <Link2 className="w-2 h-2 mr-1" />
+                                  {result.chain.toUpperCase()}
+                                </motion.span>
+                              )}
+                            </div>
+                            {result.address && (
+                              <div className="text-xs text-white/60 font-inter truncate mt-0.5 bg-black/20 px-2 py-1 rounded-md">
+                                {result.address}
+                              </div>
+                            )}
+                            {result.holder_addresses && result.holder_addresses.length > 0 && (
+                              <div className="text-xs text-white/40 truncate mt-0.5">
+                                {result.holder_addresses.length} wallets
+                              </div>
+                            )}
                           </div>
-                        )}
-                      </div>
-                    </motion.button>
-                  ))
-                ) : !isLoading ? (
+                        </motion.button>
+                      ))}
+                    </div>
+                  )
+                ))}
+                {!isLoading && hasNoResults && (
                   <motion.p 
                     className="text-[10px] text-white/60 text-center mt-4 animate-pulse"
                     initial={{ opacity: 0 }}
@@ -486,7 +512,7 @@ export default function UniversalSearch({
                   >
                     No results found. Try a different query.
                   </motion.p>
-                ) : null}
+                )}
               </div>
             </motion.div>
           </motion.div>
