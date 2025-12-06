@@ -60,15 +60,12 @@ const VirtuosoTable = memo(({ transactions, isMobile, selectedChain, tokenImages
   if (!transactions || !Array.isArray(transactions)) {
     logger.warn('Invalid transactions in VirtuosoTable:', transactions);
     return (
-      <motion.div
-        initial={{ opacity: 0, x: 20 }}
-        animate={{ opacity: 1, x: 0 }}
-        transition={{ duration: 0.3 }}
+      <div
         className={`bg-black/10 backdrop-blur-md border border-white/10 rounded-xl p-3 max-h-[calc(100vh-12rem)] hide-scrollbar ${isMobile ? 'w-full mt-2' : 'w-96 fixed right-4 top-32'}`}
       >
         <h4 className="text-white text-[10px] sm:text-[12px] font-bold uppercase tracking-wider mb-2">Transactions</h4>
         <p className="text-white/60 text-[9px] sm:text-[10px]">No transactions available.</p>
-      </motion.div>
+      </div>
     );
   }
   const handleCopyAddress = (address) => {
@@ -99,17 +96,14 @@ const VirtuosoTable = memo(({ transactions, isMobile, selectedChain, tokenImages
   }, [transactions, filterType, rootAddress]);
   if (filteredTransactions.length === 0) {
     return (
-      <motion.div
-        initial={{ opacity: 0, x: 20 }}
-        animate={{ opacity: 1, x: 0 }}
-        transition={{ duration: 0.3 }}
+      <div
         className={`bg-black/50 backdrop-blur-md border border-white/10 rounded-xl p-3 max-h-[calc(100vh-12rem)] hide-scrollbar ${isMobile ? 'w-full mt-2' : 'w-96 fixed right-4 top-32'}`}
       >
         <h4 className="text-white text-[10px] sm:text-[12px] font-bold uppercase tracking-wider mb-2">Transactions</h4>
         <p className="text-white/60 text-[9px] sm:text-[10px]">
           {filterType === 'all' ? 'Select a wallet or cluster to view transactions.' : `No ${filterType} transactions found.`}
         </p>
-      </motion.div>
+      </div>
     );
   }
   const fixedHeaderContent = () => (
@@ -151,7 +145,7 @@ const VirtuosoTable = memo(({ transactions, isMobile, selectedChain, tokenImages
       }
     }
     return (
-      <tr key={`${tx.hash}-${index}`} className="grid grid-cols-[2fr_1fr_1fr] gap-2 border-t border-white/10 hover:bg-white/5 transition-all duration-300">
+      <tr key={`${tx.hash}-${index}`} className="grid grid-cols-[2fr_1fr_1fr] gap-2 border-t border-white/10 hover:bg-white/5 transition-colors duration-200">
         <td className="px-2 py-1 text-white/80 text-[8px] sm:text-[10px] text-left overflow-hidden border-r border-white/5 align-middle">
           <div className="flex flex-col gap-1 min-w-0">
             <div className="flex items-center gap-1 group relative">
@@ -183,10 +177,8 @@ const VirtuosoTable = memo(({ transactions, isMobile, selectedChain, tokenImages
               <span className="text-[8px] sm:text-[9px] truncate flex-1 min-w-0">
                 {fromNtag.name !== 'Unknown' ? fromNtag.name : truncateAddress(tx.source)}
               </span>
-              <motion.button
+              <button
                 className="ml-1 flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity duration-200"
-                whileHover={{ scale: 1.1 }}
-                whileTap={{ scale: 0.9 }}
                 onClick={() => handleCopyAddress(tx.source)}
               >
                 <svg
@@ -199,7 +191,7 @@ const VirtuosoTable = memo(({ transactions, isMobile, selectedChain, tokenImages
                 >
                   <path strokeLinecap="round" strokeLinejoin="round" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
                 </svg>
-              </motion.button>
+              </button>
             </div>
             <div className="flex items-center gap-1 group relative">
               <div className="w-3 h-3 flex-shrink-0" />
@@ -217,10 +209,8 @@ const VirtuosoTable = memo(({ transactions, isMobile, selectedChain, tokenImages
               <span className="text-[8px] sm:text-[9px] truncate flex-1 min-w-0">
                 {toNtag.name !== 'Unknown' ? toNtag.name : truncateAddress(tx.target)}
               </span>
-              <motion.button
+              <button
                 className="ml-1 flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity duration-200"
-                whileHover={{ scale: 1.1 }}
-                whileTap={{ scale: 0.9 }}
                 onClick={() => handleCopyAddress(tx.target)}
               >
                 <svg
@@ -233,7 +223,7 @@ const VirtuosoTable = memo(({ transactions, isMobile, selectedChain, tokenImages
                 >
                   <path strokeLinecap="round" strokeLinejoin="round" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
                 </svg>
-              </motion.button>
+              </button>
             </div>
           </div>
         </td>
@@ -276,10 +266,7 @@ const VirtuosoTable = memo(({ transactions, isMobile, selectedChain, tokenImages
   };
   const tableHeight = isMobile ? 'auto' : 'calc(100vh - 8rem)';
   return (
-    <motion.div
-      initial={{ opacity: 0, x: 20 }}
-      animate={{ opacity: 1, x: 0 }}
-      transition={{ duration: 0.3 }}
+    <div
       className={`bg-black/10 backdrop-blur-md border border-white/10 rounded-xl p-3 hide-scrollbar ${isMobile ? 'w-full mt-2 overflow-auto max-h-[50vh]' : 'w-96 fixed right-4 top-32'}`}
       style={{ height: tableHeight, minHeight: '400px' }}
     >
@@ -339,9 +326,9 @@ const VirtuosoTable = memo(({ transactions, isMobile, selectedChain, tokenImages
             />
           ),
         }}
-        overscan={200} // Reduced from 400 for faster rendering
+        overscan={100} // Reduced further for faster rendering
       />
-    </motion.div>
+    </div>
   );
 });
 const TrendChart = memo(({ transactions, velocity }) => {
@@ -393,12 +380,7 @@ const TrendChart = memo(({ transactions, velocity }) => {
   }, [transactions, getTimeInterval]);
   if (chartData.length === 0) return null;
   return (
-    <motion.div
-      initial={{ opacity: 0, scale: 0.95 }}
-      animate={{ opacity: 1, scale: 1 }}
-      transition={{ duration: 0.3 }}
-      className="w-full h-48 bg-black/50 rounded-xl p-1"
-    >
+    <div className="w-full h-48 bg-black/50 rounded-xl p-1">
       <h5 className="text-white text-[8px] mb-1">Trends (Velocity: {velocity.toFixed(1)}/day)</h5>
       <Suspense fallback={<div>Loading chart...</div>}>
         <ResponsiveContainer width="100%" height="100%">
@@ -418,7 +400,7 @@ const TrendChart = memo(({ transactions, velocity }) => {
               stroke="#00BFFF"
               strokeWidth={2}
               dot={false}
-              animationDuration={500}
+              animationDuration={0} // Disable animation for perf
             />
             <Line
               yAxisId="right"
@@ -427,12 +409,12 @@ const TrendChart = memo(({ transactions, velocity }) => {
               stroke="#FFD700"
               strokeWidth={2}
               dot={false}
-              animationDuration={500}
+              animationDuration={0}
             />
           </LineChart>
         </ResponsiveContainer>
       </Suspense>
-    </motion.div>
+    </div>
   );
 });
 const ClusterDashboard = memo(({ entity, isMobile, tokenImages }) => {
@@ -450,10 +432,7 @@ const ClusterDashboard = memo(({ entity, isMobile, tokenImages }) => {
   const topTokensVolume = cluster.topTokensVolume || [];
   const outstandingTxs = cluster.outstandingTxs || [];
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.3 }}
+    <div
       className={`bg-black/10 backdrop-blur-lg border border-white/20 rounded-2xl p-3 shadow-neon-md hide-scrollbar max-h-[calc(100vh-8rem)] ${isMobile ? 'w-full mt-2 overflow-auto max-h-[40vh]' : 'w-80 fixed left-4 top-32'}`}
       style={{ overflowY: 'auto' }}
     >
@@ -538,7 +517,7 @@ const ClusterDashboard = memo(({ entity, isMobile, tokenImages }) => {
       <Suspense fallback={<div>Loading chart...</div>}>
         <TrendChart transactions={cluster.transactions} velocity={velocity} />
       </Suspense>
-    </motion.div>
+    </div>
   );
 });
 const CACHE_TTL = 7200000; // Increased to 2 hours for longer caching
@@ -1232,9 +1211,9 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
       }
       setSelectedEntity({ type: 'cluster', data: rootCluster || clusterData });
 
-      // Preload images
+      // Preload images with reduced scope (only essential)
       const imageCache = {};
-      const uniqueImages = [...new Set(positionedNodesData.map(n => n.image).filter(isValidNametagImage))];
+      const uniqueImages = [...new Set(positionedNodesData.slice(0, 50).map(n => n.image).filter(isValidNametagImage))]; // Limit preload to 50
       await Promise.all(uniqueImages.map(url => new Promise((resolve) => {
         if (imageCache[url]) return resolve();
         const img = new Image();
@@ -1243,8 +1222,6 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
         img.onerror = () => resolve();
         img.src = url.startsWith('http') ? url : `${window.location.origin}${url}`;
       })));
-
-      // Trong hàm initializeForceGraph, thay thế toàn bộ phần thiết lập ForceGraph (từ graphRef.current = ForceGraph()... đến hết) bằng:
 
       const isTokenQuery = fullIncomingData.length === 0 && fullOutgoingData.length === 0;
       if (isTokenQuery) {
@@ -1301,8 +1278,9 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
 
           ctx.beginPath();
           ctx.arc(node.x, node.y, size, 0, 2 * Math.PI, false);
+          // Reduced shadow for perf
           ctx.shadowColor = riskColor;
-          ctx.shadowBlur = 15 / globalScale;
+          ctx.shadowBlur = 5 / globalScale; // Reduced from 15
           ctx.fillStyle = node.color || riskColor;
           ctx.fill();
 
@@ -1329,7 +1307,7 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
           ctx.arc(node.x, node.y, size, 0, 2 * Math.PI, false);
           ctx.fill();
         })
-        .linkDirectionalParticles(3)
+        .linkDirectionalParticles(1) // Reduced from 3 for perf
         .linkDirectionalParticleSpeed(0.005)
         .linkDirectionalParticleWidth(1.5)
         .linkDirectionalParticleColor(link => link.type === 'incoming' ? '#00BFFF' : '#FFD700')
@@ -1344,7 +1322,7 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
 
           const isLayer3 = link.layer === 3;
           ctx.strokeStyle = isLayer3 ? 'rgba(255, 255, 255, 0.3)' : 'rgba(255, 255, 255, 0.6)';
-          ctx.lineWidth = (isLayer3 ? 0.1 : 0.2) / globalScale;
+          ctx.lineWidth = (isLayer3 ? 0.15 : 0.3) / globalScale;
 
           ctx.stroke();
         })
@@ -1355,8 +1333,8 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
         .d3Force('link', d3.forceLink().id(d => d.id).distance(isTokenQuery ? 60 : (link => link.layer === 3 ? 100 : 200)).strength(0.6))
         .d3AlphaDecay(0.01)
         .d3VelocityDecay(0.6)
-        .warmupTicks(500)
-        .cooldownTicks(2000)
+        .warmupTicks(300) // Reduced from 500
+        .cooldownTicks(1500) // Reduced from 2000
         .enablePointerInteraction(true)
         .enableNodeDrag(true)
         .enableZoomInteraction(true)
@@ -1555,10 +1533,7 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
   }, [coingeckoChains]);
   if (isMobile && showMobileWarning) {
     return (
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.5, ease: 'easeInOut' }}
+      <div
         className="font-inter w-full max-w-9xl mx-auto mt-4 sm:mt-5 p-2 sm:p-3 h-[calc(100vh)] rounded-xl bg-white/5 flex items-center justify-center"
       >
         <ToastContainer
@@ -1570,9 +1545,7 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
           draggable
           theme="dark"
         />
-        <motion.div
-          initial={{ scale: 0.9, opacity: 0 }}
-          animate={{ scale: 1, opacity: 1 }}
+        <div
           className="bg-black/80 backdrop-blur-md border border-white/20 rounded-2xl p-6 sm:p-8 text-center max-w-md w-full"
         >
           <div className="mb-4">
@@ -1603,15 +1576,12 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
   >
     Continue on mobile
   </motion.button> */}
-        </motion.div>
-      </motion.div>
+        </div>
+      </div>
     );
   }
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.5, ease: 'easeInOut' }}
+    <div
       className={`font-inter w-full max-w-9xl mx-auto mt-2 sm:mt-3 p-2 sm:p-3 h-[calc(100vh)] rounded-xl bg-white/5 ${isMobile ? 'pb-8 overflow-y-auto hide-scrollbar' : 'flex'}`}
     >
       <ToastContainer
@@ -1628,11 +1598,9 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
           <div className="flex items-center justify-between gap-2 sm:gap-3 flex-wrap">
             <div className="flex items-center gap-2 m-4">
               <div className="relative" ref={chainDropdownRef}>
-                <motion.button
+                <button
                   onClick={() => setIsChainDropdownOpen(!isChainDropdownOpen)}
                   className="text-white px-2 sm:px-3 py-1 rounded-lg border border-white/20 bg-black/10 hover:bg-neon-blue/20 transition-all duration-300 flex items-center gap-2 text-[9px] sm:text-[10px]"
-                  whileHover={{ scale: 1.05 }}
-                  whileTap={{ scale: 0.95 }}
                 >
                   <img
                     src={getPlatformImage(selectedChain, coingeckoChains)}
@@ -1643,13 +1611,13 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
                   />
                   <span className="font-medium">{mappedChains.find((c) => c.value === selectedChain)?.label || 'Chain'}</span>
                   <span>{isChainDropdownOpen ? '▲' : '▼'}</span>
-                </motion.button>
+                </button>
                 {isChainDropdownOpen && (
                   <div className="absolute bg-black/50 rounded-xl mt-1 w-36 max-h-56 overflow-y-auto hide-scrollbar border border-white/10 shadow-neon-xs z-50">
                     {mappedChains
                       .filter((chain) => SUPPORTED_CHAINS.includes(chain.value))
                       .map((chain) => (
-                        <motion.button
+                        <button
                           key={chain.value}
                           onClick={() => {
                             if (!isPremium && chain.value !== '1') {
@@ -1673,8 +1641,6 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
                             if (walletAddress) handleSearch();
                           }}
                           className={`flex items-center w-full text-left px-2 sm:px-3 py-1.5 hover:bg-neon-blue/20 rounded-md text-white font-medium text-[9px] sm:text-[10px] transition-all duration-300 relative ${!isPremium && chain.value !== '1' ? 'opacity-50 cursor-not-allowed' : ''}`}
-                          whileHover={{ scale: !isPremium && chain.value !== '1' ? 1 : 1.05 }}
-                          whileTap={{ scale: !isPremium && chain.value !== '1' ? 1 : 0.95 }}
                         >
                           <img
                             src={chain.image}
@@ -1700,25 +1666,23 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
                               </span>
                             </span>
                           )}
-                        </motion.button>
+                        </button>
                       ))}
                   </div>
                 )}
               </div>
               <div className="relative" ref={limitDropdownRef}>
-                <motion.button
+                <button
                   onClick={() => setIsLimitDropdownOpen(!isLimitDropdownOpen)}
                   className="text-white px-2 sm:px-3 py-1 rounded-lg border border-white/20 bg-black/10 hover:bg-neon-blue/20 transition-all duration-300 flex items-center gap-2 text-[9px] sm:text-[10px]"
-                  whileHover={{ scale: 1.05 }}
-                  whileTap={{ scale: 0.95 }}
                 >
                   <span className="font-medium">Tx Limit: {selectedLimit}</span>
                   <span>{isLimitDropdownOpen ? '▲' : '▼'}</span>
-                </motion.button>
+                </button>
                 {isLimitDropdownOpen && (
                   <div className="absolute z-20 bg-white/5 rounded-xl mt-1 w-28 max-h-60 overflow-y-auto hide-scrollbar border border-white/10 shadow-neon-sm">
                     {[100, 200, 300, 500].map((limit) => ( // Updated array: 100, 200, 300, 500
-                      <motion.button
+                      <button
                         key={limit}
                         onClick={() => {
                           if (!isPremium && limit > 200) {
@@ -1741,8 +1705,6 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
                           if (walletAddress) handleSearch();
                         }}
                         className={`flex items-center w-full text-left px-2 sm:px-3 py-1 hover:bg-neon-blue/20 rounded-md text-white font-medium text-[9px] sm:text-[10px] transition-all duration-300 relative ${!isPremium && limit > 200 ? 'opacity-50 cursor-not-allowed' : ''}`}
-                        whileHover={{ scale: !isPremium && limit > 200 ? 1 : 1.05 }}
-                        whileTap={{ scale: !isPremium && limit > 200 ? 1 : 0.95 }}
                       >
                         {limit}
                         {!isPremium && limit > 200 && (
@@ -1760,7 +1722,7 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
                             </span>
                           </span>
                         )}
-                      </motion.button>
+                      </button>
                     ))}
                   </div>
                 )}
@@ -1795,11 +1757,9 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
                 size="default"
                 className="flex-1 min-w-0" // Responsive
               />
-              <motion.button
+              <button
                 onClick={handleSearch}
                 className="absolute right-1.5 text-white p-1 transition-all duration-300 rounded hover:bg-neon-blue/20"
-                whileHover={{ scale: 1.05 }}
-                whileTap={{ scale: 0.95 }}
                 disabled={loading}
               >
                 <svg
@@ -1812,23 +1772,15 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
                 >
                   <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
                 </svg>
-              </motion.button>
+              </button>
             </div>
           </div>
         </div>
         {loading && (
-          <motion.div
+          <div
             className="fixed inset-0 flex items-center justify-center bg-black/50 backdrop-blur-sm z-40"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 0.3 }}
           >
-            <motion.div
-              initial={{ scale: 0.9, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              exit={{ scale: 0.9, opacity: 0 }}
-              transition={{ duration: 0.4, ease: 'easeInOut' }}
+            <div
               className={`p-4 sm:p-6 w-full max-w-md ${isMobile ? 'h-[60vh]' : 'max-h-[50vh]'} overflow-y-auto custom-scrollbar`}
             >
               <div className="w-full h-[80%] bg-black/10 backdrop-blur-xl border border-white/20 rounded-xl p-6 relative overflow-hidden shadow-2xl">
@@ -1839,12 +1791,8 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
                   <h3 className="text-white text-sm sm:text-base font-semibold">Processing</h3>
                 </div>
                 <div className="h-22 sm:h-28 overflow-y-auto custom-scrollbar log-container relative">
-                  <motion.ul
-                    layout
+                  <ul
                     className="space-y-2"
-                    initial={false}
-                    animate={{ opacity: 1 }}
-                    transition={{ staggerChildren: 0.1, duration: 0.4, ease: 'easeInOut' }}
                   >
                     <AnimatePresence mode="popLayout">
                       {logMessages.map((log, index) => (
@@ -1857,7 +1805,7 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
                             y: 0,
                             scale: 1,
                             transition: {
-                              duration: 0.5,
+                              duration: 0.3, // Reduced duration
                               ease: [0.25, 0.46, 0.45, 0.94], // easeInOut cubic
                               delay: index * 0.05
                             }
@@ -1866,7 +1814,7 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
                             opacity: 0,
                             y: -20,
                             scale: 0.95,
-                            transition: { duration: 0.3, ease: 'easeInOut' }
+                            transition: { duration: 0.2, ease: 'easeInOut' } // Reduced
                           }}
                           className={`text-white/80 text-xs font-inter ${index === logMessages.length - 1 ? 'text-neon-blue font-semibold animate-pulse' : 'text-white/60'}`}
                         >
@@ -1874,44 +1822,37 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
                         </motion.li>
                       ))}
                     </AnimatePresence>
-                  </motion.ul>
+                  </ul>
                 </div>
               </div>
-            </motion.div>
-          </motion.div>
+            </div>
+          </div>
         )}
         {!loading && nodes.length === 0 && walletInfo.address && (
-          <motion.div
-            initial={{ opacity: 0, y: -10 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.3 }}
+          <div
             className="text-[9px] sm:text-[10px] text-white/60 text-center p-2 sm:p-3 bg-white/5 border border-white/10 rounded-xl shadow-neon-sm"
           >
             <p className="mb-1">No transactions found for this address on {mappedChains.find((c) => c.value === selectedChain)?.label || selectedChain}.</p>
             <p>Please verify the wallet address or try a different chain.</p>
-          </motion.div>
+          </div>
         )}
         {walletInfo.address && (
           <div className="relative w-full h-[calc(100vh-6rem)] sm:h-[calc(100vh)] overflow-hidden">
             <div className="flex gap-2 mb-2 mt-2 justify-center">
               {nodes.length >= page * NODES_PER_PAGE && nodes.length < MAX_NODES && (
-                <motion.button
+                <button
                   onClick={handleLoadMore}
                   className="px-2 sm:px-3 py-1 text-[9px] sm:text-[10px] font-medium text-white border border-white/10 bg-neon-blue/20 backdrop-blur-md rounded-xl hover:bg-neon-blue/30 transition-all duration-300"
-                  whileHover={{ scale: 1.05 }}
-                  whileTap={{ scale: 0.95 }}
                 >
                   Load More
-                </motion.button>
+                </button>
               )}
               {nodes.length >= MAX_NODES && (
-                <motion.span
+                <span
                   className="px-2 sm:px-3 py-1 text-[9px] sm:text-[10px] font-medium text-yellow-400 border border-yellow-400/30 bg-yellow-500/10 rounded-xl"
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
                 >
                   Max nodes reached (1000). Use filters for subgraphs.
-                </motion.span>
+                </span>
               )}
             </div>
             <div ref={containerRef} className="w-full h-full" />
@@ -1993,6 +1934,6 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
     .w-28 { width: 6rem; }
   }
 `}</style>
-    </motion.div>
+    </div>
   );
 }
