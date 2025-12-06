@@ -9,8 +9,10 @@ import { ethers } from 'ethers';
 import axios from 'axios';
 import axiosRetry from 'axios-retry';
 import Bottleneck from 'bottleneck';
+import crypto from 'crypto';
 import { BLOCKED_TOKEN_ADDRESSES } from '../../../utils/constants';
 import { autoLabelWallets } from '../../../utils/serverClustering';
+
 let redisClient;
 async function getRedisClient() {
   if (!redisClient) {
@@ -23,6 +25,7 @@ async function getRedisClient() {
   }
   return redisClient;
 }
+
 const securityHeaders = {
   'Content-Security-Policy': "default-src 'self'; frame-ancestors 'self';",
   'X-Content-Type-Options': 'nosniff',
@@ -32,18 +35,21 @@ const securityHeaders = {
   'Referrer-Policy': 'strict-origin-when-cross-origin',
   'Permissions-Policy': 'geolocation=(), microphone=(), camera=()',
 };
+
 async function banIP(ip, durationSeconds = 3600) {
   if (ip === '::1' || ip === '127.0.0.1') return;
   const redisClient = await getRedisClient();
   await redisClient.setEx(`banned_ip:${ip}`, durationSeconds, 'banned');
   logger.info(`IP banned: ${ip} for ${durationSeconds} seconds`);
 }
+
 async function checkIPBan(ip) {
   if (ip === '::1' || ip === '127.0.0.1') return;
   const redisClient = await getRedisClient();
   const isBanned = await redisClient.get(`banned_ip:${ip}`);
   if (isBanned) throw new Error('IP temporarily banned.');
 }
+
 async function trackViolation(ip, reason = '') {
   if (ip === '::1' || ip === '127.0.0.1') {
     logger.warn(`Localhost violation skipped: ${reason}`);
@@ -63,6 +69,7 @@ async function trackViolation(ip, reason = '') {
   }
   logger.warn(`Violation tracked for IP ${ip}: ${reason}`);
 }
+
 async function checkRateLimit(ip) {
   if (ip === '::1' || ip === '127.0.0.1') return;
   const redisClient = await getRedisClient();
@@ -75,10 +82,12 @@ async function checkRateLimit(ip) {
   const [requests] = await pipeline.exec();
   if (requests > maxRequests) throw new Error('Too many requests.');
 }
+
 let circuitOpen = false;
 let failureCount = 0;
 const maxFailures = 15;
 const resetTimeout = 120000;
+
 async function fetchWithRateLimit(url, config) {
   if (circuitOpen) throw new Error('Service temporarily unavailable.');
   try {
@@ -97,18 +106,21 @@ async function fetchWithRateLimit(url, config) {
     throw error;
   }
 }
+
 const limiterBottleneck = new Bottleneck({
-  maxConcurrent: 25, // Increased to 25 for max 25 req/s
-  minTime: 40, // 1000/25 = 40ms
-  reservoir: 200,
-  reservoirRefreshAmount: 200,
+  maxConcurrent: 25,
+  minTime: 30, // Giảm từ 40ms để nhanh hơn
+  reservoir: 300, // Tăng từ 200 để chịu nhiều calls hơn
+  reservoirRefreshAmount: 300,
   reservoirRefreshInterval: 30 * 1000,
 });
+
 axiosRetry(axios, {
   retries: 3,
   retryDelay: (retryCount) => Math.pow(2, retryCount) * 300 + Math.random() * 50,
   retryCondition: (error) => error.response?.status === 429 || error.code === 'ECONNABORTED' || error.response?.status === 400,
 });
+
 async function isAllowedOrigin(origin, referer, ip) {
   const configured = [
     process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000',
@@ -134,6 +146,7 @@ async function isAllowedOrigin(origin, referer, ip) {
     return false;
   }
 }
+
 const SUPPORTED_CHAINS = {
   '1': { name: 'ethereum', explorer: 'Etherscan', apiUrl: 'https://api.etherscan.io/v2/api', apiKey: process.env.ETHERSCAN_API_KEY, coingeckoId: 'ethereum' },
   '56': { name: 'bsc', explorer: 'BscScan', apiUrl: 'https://api.etherscan.io/v2/api', apiKey: process.env.ETHERSCAN_API_KEY, coingeckoId: 'binance-smart-chain' },
@@ -149,6 +162,7 @@ const SUPPORTED_CHAINS = {
   'bitcoin': { name: 'bitcoin', explorer: 'Mempool', apiUrl: 'https://mempool.space/api', apiKey: '', coingeckoId: 'bitcoin' },
   'monad': { name: 'monad', explorer: 'Monad Explorer', apiUrl: 'https://monadvision.com/', apiKey: process.env.ETHERSCAN_API_KEY, coingeckoId: 'monad' },
 };
+
 const alchemyNetworks = {
   '1': 'eth-mainnet',
   '10': 'opt-mainnet',
@@ -164,10 +178,13 @@ const alchemyNetworks = {
   '5000': 'mantle-mainnet', // Added Mantle (if supported by Alchemy)
   '534352': 'scroll-mainnet', // Added Scroll (if supported)
 };
+
 const ALCHEMY_API_KEY = process.env.ALCHEMY_API_KEY;
+
 const chainIdToName = Object.fromEntries(
   Object.entries(SUPPORTED_CHAINS).map(([id, { name }]) => [id, name])
 );
+
 const bodySchema = z.object({
   wallet_address: z.string().nonempty('Wallet address is required'),
   chain: z.enum(Object.keys(SUPPORTED_CHAINS), { message: 'Invalid chain' }),
@@ -175,6 +192,7 @@ const bodySchema = z.object({
   page: z.number().int().min(1).default(1),
   fetchLayer3: z.boolean().optional().default(false),
 });
+
 function isValidTokenSymbol(symbol) {
   if (!symbol || typeof symbol !== 'string') return false;
   const cleanedSymbol = symbol.trim().toLowerCase();
@@ -186,6 +204,7 @@ function isValidTokenSymbol(symbol) {
   const suspiciousKeywords = ['claim', 'free', 'airdrop', 'promo', 'reward', 'bonus'];
   return !suspiciousKeywords.some(keyword => cleanedSymbol.includes(keyword));
 }
+
 function safeFormatUnits(value, unit) {
   if (value == null) return '0';
   try {
@@ -195,9 +214,11 @@ function safeFormatUnits(value, unit) {
     return typeof value === 'number' ? value.toFixed(6) : String(value);
   }
 }
+
 function safeFormatEther(value) {
   return safeFormatUnits(value, 18);
 }
+
 async function getChainLogo(coingeckoId) {
   const cacheKey = `chain_logo_${coingeckoId}`;
   const redisClient = await getRedisClient();
@@ -216,6 +237,7 @@ async function getChainLogo(coingeckoId) {
     return '/icons/default.webp';
   }
 }
+
 async function getCurrentPrice(cgId) {
   const redisClient = await getRedisClient();
   const cacheKey = `price_${cgId}`;
@@ -236,6 +258,7 @@ async function getCurrentPrice(cgId) {
   }
   return 0;
 }
+
 async function getTokenCurrentPriceBatch(platform, contractAddresses) {
   const redisClient = await getRedisClient();
   const contractList = contractAddresses.join(',');
@@ -243,6 +266,10 @@ async function getTokenCurrentPriceBatch(platform, contractAddresses) {
   const cached = await redisClient.get(cacheKey);
   if (cached) {
     return JSON.parse(cached);
+  }
+  if (circuitOpen) {
+    logger.warn(`Circuit open, skipping price batch for ${platform}`);
+    return {}; // Fallback empty, usdValue sẽ =0
   }
   try {
     const response = await fetchWithRateLimit(
@@ -254,13 +281,15 @@ async function getTokenCurrentPriceBatch(platform, contractAddresses) {
     return prices;
   } catch (e) {
     logger.error(`Error fetching batch token prices for ${platform}:`, e);
-    return {};
+    return {}; // Fallback empty thay vì throw, tránh propagate error
   }
 }
+
 async function getTokenCurrentPrice(platform, contractAddress) {
   const prices = await getTokenCurrentPriceBatch(platform, [contractAddress]);
   return prices[contractAddress.toLowerCase()]?.usd || 0;
 }
+
 async function getNametagsBatch(addresses) {
   const start = Date.now();
   const uniqueAddresses = [...new Set(addresses.map((addr) => addr.toLowerCase()))];
@@ -304,8 +333,8 @@ async function getNametagsBatch(addresses) {
   }
   const addressesWithoutNametag = uniqueAddresses.filter(
     (addr) => !cachedNametags[addr] || cachedNametags[addr].name === 'Unknown'
-  ).slice(0, 50); // Limit to 50 to reduce RPC load
-  if (addressesWithoutNametag.length > 0) {
+  ).slice(0, 20); // Reduced to 20 for speed
+  if (addressesWithoutNametag.length > 0 && addressesWithoutNametag.length <= 20) { // Skip if >20
     const ENS_REGISTRY = '0x00000000000C2E074eC69A0dFb2997BA6C7d2e1e';
     const REGISTRY_ABI = ['function resolver(bytes32 node) view returns (address)'];
     const RESOLVER_ABI = ['function name(bytes32 node) view returns (string)'];
@@ -315,82 +344,112 @@ async function getNametagsBatch(addresses) {
     ];
     const ENS_PROVIDER = new ethers.JsonRpcProvider(process.env.ETHEREUM_RPC_URL || 'https://eth.llamarpc.com');
     try {
-      const reverseNodes = addressesWithoutNametag.map((addr) => ethers.namehash(`${addr.slice(2).toLowerCase()}.addr.reverse`));
-      const registryInterface = new ethers.Interface(REGISTRY_ABI);
-      const resolverInterface = new ethers.Interface(RESOLVER_ABI);
-      const multicallContract = new ethers.Contract(ENS_MULTICALL_ADDRESS, MULTICALL_ABI, ENS_PROVIDER);
-      const BATCH_SIZE = 20;
-      const resolvers = [];
-      for (let batchStart = 0; batchStart < reverseNodes.length; batchStart += BATCH_SIZE) {
-        const batchNodes = reverseNodes.slice(batchStart, batchStart + BATCH_SIZE);
-        const resolverCalls = batchNodes.map((node) => ({
-          target: ENS_REGISTRY,
-          callData: registryInterface.encodeFunctionData('resolver', [node]),
-        }));
-        const { returnData: resolverReturnData } = await multicallContract.aggregate.staticCall(resolverCalls);
-        const batchResolvers = resolverReturnData.map((data) => {
-          try {
-            return ethers.AbiCoder.defaultAbiCoder().decode(['address'], data)[0];
-          } catch {
-            return ethers.ZeroAddress;
-          }
-        });
-        resolvers.push(...batchResolvers);
-      }
-      const validIndices = resolvers
-        .map((resolver, index) => (resolver !== ethers.ZeroAddress ? index : -1))
-        .filter((index) => index !== -1);
-      if (validIndices.length > 0) {
-        const names = [];
-        for (let batchStart = 0; batchStart < validIndices.length; batchStart += BATCH_SIZE) {
-          const batchIndices = validIndices.slice(batchStart, batchStart + BATCH_SIZE);
-          const nameCalls = batchIndices.map((index) => ({
-            target: resolvers[index],
-            callData: resolverInterface.encodeFunctionData('name', [reverseNodes[index]]),
+      // Batch cache for ENS
+      const ensBatchKey = `ens_batch_${crypto.createHash('md5').update(addressesWithoutNametag.join(',')).digest('hex')}`;
+      const cachedEns = await redisClient.get(ensBatchKey);
+      if (cachedEns) {
+        const parsedEns = JSON.parse(cachedEns);
+        Object.assign(cachedNametags, parsedEns);
+        logger.info(`ENS batch cache hit for ${addressesWithoutNametag.length} addresses`);
+      } else {
+        const reverseNodes = addressesWithoutNametag.map((addr) => ethers.namehash(`${addr.slice(2).toLowerCase()}.addr.reverse`));
+        const registryInterface = new ethers.Interface(REGISTRY_ABI);
+        const resolverInterface = new ethers.Interface(RESOLVER_ABI);
+        const multicallContract = new ethers.Contract(ENS_MULTICALL_ADDRESS, MULTICALL_ABI, ENS_PROVIDER);
+        const BATCH_SIZE = 10; // Smaller batches for speed
+        const resolvers = [];
+        for (let batchStart = 0; batchStart < reverseNodes.length; batchStart += BATCH_SIZE) {
+          const batchNodes = reverseNodes.slice(batchStart, batchStart + BATCH_SIZE);
+          const resolverCalls = batchNodes.map((node) => ({
+            target: ENS_REGISTRY,
+            callData: registryInterface.encodeFunctionData('resolver', [node]),
           }));
-          const { returnData: nameReturnData } = await multicallContract.aggregate.staticCall(nameCalls);
-          const batchNames = nameReturnData.map((data) => {
-            try {
-              return ethers.AbiCoder.defaultAbiCoder().decode(['string'], data)[0];
-            } catch {
-              return '';
-            }
-          });
-          names.push(...batchNames);
-        }
-        for (let vIndex = 0; vIndex < validIndices.length; vIndex++) {
-          const index = validIndices[vIndex];
-          const address = addressesWithoutNametag[index];
-          const name = names[vIndex];
-          if (name && name !== '') {
-            let image = '/icons/default.webp';
-            const shortName = name.split('.')[0].toLowerCase().replace(/[^a-z0-9]/g, '');
-            try {
-              const cgResponse = await fetchWithRateLimit(
-                `https://api.coingecko.com/api/v3/search?query=${encodeURIComponent(shortName)}`,
-                {
-                  headers: { 'x-cg-demo-api-key': process.env.COINGECKO_API_KEY },
-                  timeout: 8000,
-                }
-              );
-              const coin = cgResponse.data.coins?.[0];
-              if (coin?.thumb) image = coin.thumb;
-            } catch (cgError) {
-              logger.error(`Failed to fetch CoinGecko image for ENS ${shortName}:`, cgError.message);
-            }
-            const ensNametag = { name, image, description: '', subcategory: 'ENS' };
-            await redisClient.setEx(`nametag_${address}`, 30 * 24 * 60 * 60, JSON.stringify(ensNametag));
-            await query(
-              `INSERT INTO nametags (address, nametag, image, description, subcategory)
-               VALUES (LOWER($1), $2, $3, $4, $5)
-               ON CONFLICT (address)
-               DO UPDATE SET
-               nametag = $2, image = $3, description = $4, subcategory = $5`,
-              [address.toLowerCase(), name, image, '', 'ENS']
-            );
-            logger.info(`Saved ENS ${name} for address ${address} to database`);
-            cachedNametags[address] = { address, ...ensNametag };
+          // Timeout for multicall
+          const controller = new AbortController();
+          const timeoutId = setTimeout(() => controller.abort(), 5000); // 5s per batch
+          try {
+            const { returnData: resolverReturnData } = await multicallContract.aggregate.staticCall(resolverCalls, { signal: controller.signal });
+            const batchResolvers = resolverReturnData.map((data) => {
+              try {
+                return ethers.AbiCoder.defaultAbiCoder().decode(['address'], data)[0];
+              } catch {
+                return ethers.ZeroAddress;
+              }
+            });
+            resolvers.push(...batchResolvers);
+          } catch (err) {
+            if (err.name === 'AbortError') logger.warn('ENS multicall timeout');
+            else logger.error(`ENS resolver error: ${err.message}`);
           }
+          clearTimeout(timeoutId);
+        }
+        const validIndices = resolvers
+          .map((resolver, index) => (resolver !== ethers.ZeroAddress ? index : -1))
+          .filter((index) => index !== -1);
+        if (validIndices.length > 0) {
+          const names = [];
+          for (let batchStart = 0; batchStart < validIndices.length; batchStart += BATCH_SIZE) {
+            const batchIndices = validIndices.slice(batchStart, batchStart + BATCH_SIZE);
+            const nameCalls = batchIndices.map((index) => ({
+              target: resolvers[index],
+              callData: resolverInterface.encodeFunctionData('name', [reverseNodes[index]]),
+            }));
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 5000);
+            try {
+              const { returnData: nameReturnData } = await multicallContract.aggregate.staticCall(nameCalls, { signal: controller.signal });
+              const batchNames = nameReturnData.map((data) => {
+                try {
+                  return ethers.AbiCoder.defaultAbiCoder().decode(['string'], data)[0];
+                } catch {
+                  return '';
+                }
+              });
+              names.push(...batchNames);
+            } catch (err) {
+              if (err.name === 'AbortError') logger.warn('ENS name timeout');
+              else logger.error(`ENS name error: ${err.message}`);
+            }
+            clearTimeout(timeoutId);
+          }
+          const ensResults = {};
+          for (let vIndex = 0; vIndex < validIndices.length; vIndex++) {
+            const index = validIndices[vIndex];
+            const address = addressesWithoutNametag[index];
+            const name = names[vIndex];
+            if (name && name !== '') {
+              let image = '/icons/default.webp';
+              const shortName = name.split('.')[0].toLowerCase().replace(/[^a-z0-9]/g, '');
+              try {
+                const cgResponse = await fetchWithRateLimit(
+                  `https://api.coingecko.com/api/v3/search?query=${encodeURIComponent(shortName)}`,
+                  {
+                    headers: { 'x-cg-demo-api-key': process.env.COINGECKO_API_KEY },
+                    timeout: 3000, // Faster timeout
+                  }
+                );
+                const coin = cgResponse.data.coins?.[0];
+                if (coin?.thumb) image = coin.thumb;
+              } catch (cgError) {
+                logger.error(`Failed to fetch CoinGecko image for ENS ${shortName}:`, cgError.message);
+              }
+              const ensNametag = { name, image, description: '', subcategory: 'ENS' };
+              ensResults[address] = ensNametag;
+              await redisClient.setEx(`nametag_${address}`, 30 * 24 * 60 * 60, JSON.stringify({ address, ...ensNametag }));
+              await query(
+                `INSERT INTO nametags (address, nametag, image, description, subcategory)
+                 VALUES (LOWER($1), $2, $3, $4, $5)
+                 ON CONFLICT (address)
+                 DO UPDATE SET
+                 nametag = $2, image = $3, description = $4, subcategory = $5`,
+                [address.toLowerCase(), name, image, '', 'ENS']
+              );
+              logger.info(`Saved ENS ${name} for address ${address} to database`);
+            }
+          }
+          // Cache batch ENS
+          await redisClient.setEx(ensBatchKey, 30 * 24 * 60 * 60, JSON.stringify(ensResults));
+          Object.assign(cachedNametags, ensResults);
         }
       }
     } catch (ensError) {
@@ -412,6 +471,7 @@ async function getNametagsBatch(addresses) {
   logger.info(`getNametagsBatch took ${(Date.now() - start) / 1000}s for ${uniqueAddresses.length} addresses`);
   return cachedNametags;
 }
+
 async function getTokenImage(tokenAddress, chain) {
   if (!tokenAddress || !isAddress(tokenAddress)) return '/icons/default.webp';
   const redisClient = await getRedisClient();
@@ -448,6 +508,7 @@ async function getTokenImage(tokenAddress, chain) {
     return '/icons/default.webp';
   }
 }
+
 async function getTokenSymbolsBatch(baseUrl, contractAddresses) {
   const redisClient = await getRedisClient();
   const symbols = {};
@@ -509,6 +570,7 @@ async function getTokenSymbolsBatch(baseUrl, contractAddresses) {
   }
   return symbols;
 }
+
 async function fetchLayer3Transactions(layer2Addresses, chain, limit, page) {
   const start = Date.now();
   const transactions = [];
@@ -517,9 +579,9 @@ async function fetchLayer3Transactions(layer2Addresses, chain, limit, page) {
   const layer2Nametags = await getNametagsBatch(layer2Addresses);
   const validLayer2Addresses = layer2Addresses.filter(
     (addr) => layer2Nametags[addr.toLowerCase()]?.name !== 'Unknown'
-  ).slice(0, 20); // Limit to 20 to reduce delay
+  ).slice(0, 10); // Giảm từ 20 xuống 10 để giảm txs raw
   logger.info(`Fetching Layer 3 transactions for ${validLayer2Addresses.length} valid Layer 2 addresses (limited)`);
-  const layer3Limit = 50;
+  const layer3Limit = 20; // Giảm từ 50 xuống 20 để giảm allRawTxs
   const batchSize = 5;
   const batches = [];
   for (let i = 0; i < validLayer2Addresses.length; i += batchSize) {
@@ -606,6 +668,18 @@ async function fetchLayer3Transactions(layer2Addresses, chain, limit, page) {
   });
   const allBatchResults = await Promise.all(batchPromises);
   allRawTxs.push(...allBatchResults.flat());
+
+  // MỚI: Batch unique contracts trước khi process txs
+  const uniqueContracts = [...new Set(allRawTxs
+    .filter(tx => tx.rawContract?.address && isAddress(tx.rawContract.address))
+    .map(tx => tx.rawContract.address.toLowerCase())
+  )];
+  let tokenPrices = {};
+  if (uniqueContracts.length > 0 && alchemyNetworks[chain]) {
+    tokenPrices = await getTokenCurrentPriceBatch(chainIdToName[chain], uniqueContracts);
+  }
+
+  // Process txs với prices đã batch
   const txPromises = allRawTxs.map(async (tx) => {
     let value = '0';
     let tokenSymbol = chainConfig.name === 'ethereum' ? 'ETH' : chainConfig.name.toUpperCase();
@@ -628,7 +702,8 @@ async function fetchLayer3Transactions(layer2Addresses, chain, limit, page) {
       blockTime = tx.metadata.blockTimestamp;
       if (contractAddress) {
         tokenImage = await getTokenImage(contractAddress, chain);
-        const price = await getTokenCurrentPrice(chainIdToName[chain], contractAddress);
+        // SỬA: Dùng batch prices thay vì call per-tx
+        const price = tokenPrices[contractAddress.toLowerCase()]?.usd || 0; // Fallback 0 nếu miss
         usdValue = parseFloat(value) * price;
       } else {
         usdValue = parseFloat(value) * nativePrice;
@@ -648,6 +723,7 @@ async function fetchLayer3Transactions(layer2Addresses, chain, limit, page) {
         layer2Address: tx.fromAddress,
       };
     } else {
+      // Phần non-alchemy giữ nguyên (không thay đổi nhiều)
       if (chain === 'solana') {
         value = (tx.lamports / 1e9).toString();
         tokenSymbol = 'SOL';
@@ -717,6 +793,7 @@ async function fetchLayer3Transactions(layer2Addresses, chain, limit, page) {
   logger.info(`fetchLayer3Transactions took ${(Date.now() - start) / 1000}s`);
   return processed;
 }
+
 async function hasConfidenceColumn() {
   try {
     const result = await query(
@@ -730,6 +807,7 @@ async function hasConfidenceColumn() {
     return false;
   }
 }
+
 async function saveAutoLabelsToDB(addressesWithLabels) {
   const redisClient = await getRedisClient();
   const hasConf = await hasConfidenceColumn();
@@ -764,6 +842,7 @@ async function saveAutoLabelsToDB(addressesWithLabels) {
     }
   }
 }
+
 export async function POST(request) {
   const ip = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || '::1';
   const origin = request.headers.get('origin');
@@ -975,6 +1054,8 @@ export async function POST(request) {
       let layer3Transactions = [];
       let walletNametag;
       let chainLogo = await getChainLogo(chainConfig.coingeckoId);
+      // Reduced limit for wallet query
+      const walletLimit = Math.min(50, limit);
       // Original wallet logic
       if (alchemyNetworks[chain]) {
         const network = alchemyNetworks[chain];
@@ -998,7 +1079,7 @@ export async function POST(request) {
               toBlock: "latest",
               fromAddress: address,
               excludeZeroValue: true,
-              maxCount: `0x${limit.toString(16)}`,
+              maxCount: `0x${walletLimit.toString(16)}`,
               category: ["external", "internal", "erc20"],
               withMetadata: true,
               order: "desc",
@@ -1014,7 +1095,7 @@ export async function POST(request) {
               toBlock: "latest",
               toAddress: address,
               excludeZeroValue: true,
-              maxCount: `0x${limit.toString(16)}`,
+              maxCount: `0x${walletLimit.toString(16)}`,
               category: ["external", "internal", "erc20"],
               withMetadata: true,
               order: "desc",
@@ -1130,14 +1211,15 @@ export async function POST(request) {
         const fetchPromises = [];
         let apiUrl;
         let internalData = [];
+        const walletLimitNonAlchemy = Math.min(50, limit);
         if (chain === 'solana') {
-          apiUrl = `${chainConfig.apiUrl}/account/transactions?account=${address}&limit=${limit}&offset=${(page - 1) * limit}`;
+          apiUrl = `${chainConfig.apiUrl}/account/transactions?account=${address}&limit=${walletLimitNonAlchemy}&offset=${(page - 1) * walletLimitNonAlchemy}`;
           fetchPromises.push(fetchWithRateLimit(apiUrl, { timeout: 10000 }).then((res) => ({ type: 'native', data: res.data.transactions || [] })));
         } else if (chain === 'tron') {
-          apiUrl = `${chainConfig.apiUrl}/transaction?address=${address}&limit=${limit}&start=${(page - 1) * limit}`;
+          apiUrl = `${chainConfig.apiUrl}/transaction?address=${address}&limit=${walletLimitNonAlchemy}&start=${(page - 1) * walletLimitNonAlchemy}`;
           fetchPromises.push(fetchWithRateLimit(apiUrl, { timeout: 10000 }).then((res) => ({ type: 'native', data: res.data.transactions || [] })));
         } else if (chain === 'bitcoin') {
-          apiUrl = `${chainConfig.apiUrl}/address/${address}/txs?limit=${limit}`;
+          apiUrl = `${chainConfig.apiUrl}/address/${address}/txs?limit=${walletLimitNonAlchemy}`;
           fetchPromises.push(fetchWithRateLimit(apiUrl, { timeout: 10000 }).then((res) => ({ type: 'native', data: res.data || [] })));
         } else {
           const endpoints = [
@@ -1148,13 +1230,13 @@ export async function POST(request) {
           endpoints.forEach(({ action, type }) => {
             fetchPromises.push(
               (async () => {
-                const cacheKey = `api_${chain}_${address}_${action}_${page}_${limit}`;
+                const cacheKey = `api_${chain}_${address}_${action}_${page}_${walletLimitNonAlchemy}`;
                 const cached = await redisClient.get(cacheKey);
                 if (cached) {
                   logger.info(`API cache hit for ${cacheKey}`);
                   return { type, data: JSON.parse(cached) };
                 }
-                const url = `${chainConfig.apiUrl}?module=account&action=${action}&address=${address}&startblock=0&endblock=99999999&page=${page}&offset=${limit}&sort=desc&chainid=${chain}&apikey=${chainConfig.apiKey}`;
+                const url = `${chainConfig.apiUrl}?module=account&action=${action}&address=${address}&startblock=0&endblock=99999999&page=${page}&offset=${walletLimitNonAlchemy}&sort=desc&chainid=${chain}&apikey=${chainConfig.apiKey}`;
                 const response = await fetchWithRateLimit(url, { timeout: 10000 });
                 const data = response.data.result || [];
                 await redisClient.setEx(cacheKey, 3600, JSON.stringify(data));
@@ -1184,7 +1266,7 @@ export async function POST(request) {
           if (uniqueContracts.length > 0) {
             const platform = chainIdToName[chain];
             const contractList = uniqueContracts.join(',');
-            const cacheKey = `token_prices_${platform}_${contractList}_${page}_${limit}`;
+            const cacheKey = `token_prices_${platform}_${contractList}_${page}_${walletLimitNonAlchemy}`;
             const cached = await redisClient.get(cacheKey);
             if (cached) {
               tokenPrices = JSON.parse(cached);

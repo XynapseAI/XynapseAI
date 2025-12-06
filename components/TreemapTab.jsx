@@ -725,9 +725,9 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
           };
         }
       });
-      const tokensToFetch = uniqueTokens.filter((token) => !tokenInfo[token] && selectedChain !== 'bitcoin');
-      // Parallel fetch with concurrency limit to avoid rate limits
-      const concurrencyLimit = 10;
+      const tokensToFetch = uniqueTokens.filter((token) => !tokenInfo[token] && selectedChain !== 'bitcoin').slice(0, 100); // Limit 100 tokens to avoid overload
+      // Parallel fetch with higher concurrency (20) and faster fallback (skip CG if timeout)
+      const concurrencyLimit = 20;
       const fetchBatch = async (batch) => {
         const batchPromises = batch.map(async (token) => {
           if (!token) {
@@ -735,30 +735,40 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
             return;
           }
           try {
-            // Parallel: Cache, DB, CG in sequence per token, but batches parallel
-            const cacheResponse = await fetch(`${apiBaseUrl}/api/cache?key=token_image_${token}`, {
-              headers: { 'Content-Type': 'application/json' },
-              credentials: 'include',
-            });
-            const cacheResult = await cacheResponse.json();
-            if (cacheResponse.ok && cacheResult.success && cacheResult.data?.image) {
-              const symbol = cacheResult.data?.symbol || (isAddress(token) ? undefined : token.toUpperCase());
-              logger.log(`Cache hit for ${token}:`, cacheResult.data.image);
-              tokenInfo[token] = { image: cacheResult.data.image, symbol };
+            // Timeout wrapper for faster failure
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 3000); // 3s timeout per token
+
+            // Parallel: Cache + DB in one go, fallback to CG only if both miss
+            const [cacheResponse, dbResponse] = await Promise.allSettled([
+              fetch(`${apiBaseUrl}/api/cache?key=token_image_${token}`, {
+                signal: controller.signal,
+                headers: { 'Content-Type': 'application/json' },
+                credentials: 'include',
+              }).then(r => r.json()),
+              fetch(`${apiBaseUrl}/api/tokens?${isAddress(token) ? `contractAddress=${token}` : `symbol=${token}`}&chain=${selectedChain}`, {
+                signal: controller.signal,
+                headers: { 'Content-Type': 'application/json' },
+                credentials: 'include',
+              }).then(r => r.json())
+            ]);
+
+            clearTimeout(timeoutId);
+
+            // Cache hit
+            if (cacheResponse.status === 'fulfilled' && cacheResponse.value.success && cacheResponse.value.data?.image) {
+              const symbol = cacheResponse.value.data?.symbol || (isAddress(token) ? undefined : token.toUpperCase());
+              logger.log(`Cache hit for ${token}:`, cacheResponse.value.data.image);
+              tokenInfo[token] = { image: cacheResponse.value.data.image, symbol };
               return;
             }
-            const isContractAddress = isAddress(token);
-            const queryParam = isContractAddress ? `contractAddress=${token}` : `symbol=${token}`;
-            logger.log(`Querying database for token ${token} with ${queryParam}&chain=${selectedChain}`);
-            const dbResponse = await fetch(`${apiBaseUrl}/api/tokens?${queryParam}&chain=${selectedChain}`, {
-              headers: { 'Content-Type': 'application/json' },
-              credentials: 'include',
-            });
-            const dbResult = await dbResponse.json();
-            if (dbResponse.ok && dbResult.success && dbResult.data?.image) {
-              logger.log(`Database hit for ${token}:`, dbResult.data.image);
-              const symbol = dbResult.data.symbol?.toUpperCase() || token.toUpperCase();
-              tokenInfo[token] = { image: dbResult.data.image, symbol };
+
+            // DB hit
+            if (dbResponse.status === 'fulfilled' && dbResponse.value.success && dbResponse.value.data?.image) {
+              logger.log(`Database hit for ${token}:`, dbResponse.value.data.image);
+              const symbol = dbResponse.value.data.symbol?.toUpperCase() || token.toUpperCase();
+              tokenInfo[token] = { image: dbResponse.value.data.image, symbol };
+              // Cache it
               await fetch(`${apiBaseUrl}/api/cache`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -766,25 +776,28 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
                 body: JSON.stringify({
                   key: `token_image_${token}`,
                   action: 'set',
-                  data: { image: dbResult.data.image, symbol: dbResult.data.symbol },
+                  data: { image: dbResponse.value.data.image, symbol: dbResponse.value.data.symbol },
                   ttl: 4 * 3600 * 1000,
                 }),
               });
               return;
             }
+
+            // Fallback CG only if needed, with timeout
             logger.log(`Falling back to CoinGecko for ${token}`);
             const cgResponse = await fetch(
-              `${apiBaseUrl}/api/coingecko?action=token-details&${queryParam}&chain=${selectedChain}`,
+              `${apiBaseUrl}/api/coingecko?action=token-details&${isAddress(token) ? `contractAddress=${token}` : `symbol=${token}`}&chain=${selectedChain}`,
               {
+                signal: controller.signal,
                 headers: { 'Content-Type': 'application/json' },
                 credentials: 'include',
               }
-            );
-            const cgResult = await cgResponse.json();
-            if (cgResponse.ok && cgResult.success && cgResult.data?.image?.thumb) {
-              logger.log(`CoinGecko hit for ${token}:`, cgResult.data.image.thumb);
-              const symbol = cgResult.data.symbol?.toUpperCase() || token.toUpperCase();
-              tokenInfo[token] = { image: cgResult.data.image.thumb, symbol };
+            ).then(r => r.json());
+
+            if (cgResponse.success && cgResponse.data?.image?.thumb) {
+              logger.log(`CoinGecko hit for ${token}:`, cgResponse.data.image.thumb);
+              const symbol = cgResponse.data.symbol?.toUpperCase() || token.toUpperCase();
+              tokenInfo[token] = { image: cgResponse.data.image.thumb, symbol };
               await fetch(`${apiBaseUrl}/api/cache`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -792,21 +805,21 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
                 body: JSON.stringify({
                   key: `token_image_${token}`,
                   action: 'set',
-                  data: { image: cgResult.data.image.thumb, symbol: cgResult.data.symbol },
+                  data: { image: cgResponse.data.image.thumb, symbol: cgResponse.data.symbol },
                   ttl: 4 * 3600 * 1000,
                 }),
               });
-              if (isContractAddress) {
+              if (isAddress(token)) {
                 await fetch(`${apiBaseUrl}/api/tokens`, {
                   method: 'POST',
                   headers: { 'Content-Type': 'application/json' },
                   credentials: 'include',
                   body: JSON.stringify({
                     action: 'update',
-                    coingecko_id: cgResult.data.id || token,
-                    symbol: cgResult.data.symbol || token,
-                    name: cgResult.data.name || token,
-                    image: cgResult.data.image.thumb,
+                    coingecko_id: cgResponse.data.id || token,
+                    symbol: cgResponse.data.symbol || token,
+                    name: cgResponse.data.name || token,
+                    image: cgResponse.data.image.thumb,
                     chain: selectedChain,
                     contractAddress: token,
                   }),
@@ -818,13 +831,17 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
               tokenInfo[token] = { image: '/icons/default.webp', symbol: token.toUpperCase() };
             }
           } catch (err) {
-            logger.error(`Error fetching token image for ${token}:`, err.message);
+            if (err.name === 'AbortError') {
+              logger.warn(`Timeout for token ${token}`);
+            } else {
+              logger.error(`Error fetching token image for ${token}:`, err.message);
+            }
             tokenInfo[token] = { image: '/icons/default.webp', symbol: token.toUpperCase() };
           }
         });
         await Promise.all(batchPromises);
       };
-      // Batch with concurrency
+      // Batch with higher concurrency
       for (let i = 0; i < tokensToFetch.length; i += concurrencyLimit) {
         const batch = tokensToFetch.slice(i, i + concurrencyLimit);
         await fetchBatch(batch);
@@ -835,7 +852,8 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
     if (edges.length > 0) {
       fetchTokenImages();
     }
-  }, [edges, selectedChain, apiBaseUrl]);
+  }, [edges, selectedChain, apiBaseUrl]); // Dependency giữ nguyên
+
   const updateUrl = (chain, address) => {
     const newParams = new URLSearchParams();
     newParams.set('tab', 'treemap');
@@ -970,11 +988,11 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
 
       // If it’s a token query and layer3 is populated, also merge into incoming/outgoing
       // so the existing visualisation code continues to work without extra changes
-      if (data.layer3 && data.layer3.length > 0 && data.incoming.length === 0 && data.outgoing.length === 0) {
-        // Treat token transfers as both incoming & outgoing for the graph worker
-        setFullIncomingData(data.layer3.map(tx => ({ ...tx, type: 'incoming' })));
-        setFullOutgoingData(data.layer3.map(tx => ({ ...tx, type: 'outgoing' })));
-      }
+      // if (data.layer3 && data.layer3.length > 0 && data.incoming.length === 0 && data.outgoing.length === 0) {
+      //   // Treat token transfers as both incoming & outgoing for the graph worker
+      //   setFullIncomingData(data.layer3.map(tx => ({ ...tx, type: 'incoming' })));
+      //   setFullOutgoingData(data.layer3.map(tx => ({ ...tx, type: 'outgoing' })));
+      // }
       const { nodes: newNodes, edges: newEdges, nametags: newNametags } = await aggregateInWorker(
         data.incoming,
         data.outgoing,
@@ -1226,24 +1244,37 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
         img.src = url.startsWith('http') ? url : `${window.location.origin}${url}`;
       })));
 
+      // Trong hàm initializeForceGraph, thay thế toàn bộ phần thiết lập ForceGraph (từ graphRef.current = ForceGraph()... đến hết) bằng:
+
+      const isTokenQuery = fullIncomingData.length === 0 && fullOutgoingData.length === 0;
+      if (isTokenQuery) {
+        // Scale down initial positions for token query to bring clusters closer
+        positionedNodesData.forEach(n => {
+          if (!n.isRoot) {
+            n.x *= 0.4; // Giảm radius xuống 40% (từ 250 -> ~100)
+            n.y *= 0.4;
+          }
+        });
+      }
+
       graphRef.current = ForceGraph()(containerRef.current)
         .graphData({
           nodes: positionedNodesData.map(n => ({
             id: n.id,
             ...n,
-            val: n.layer === 1 ? 40.32 : n.layer === 2 ? 20.16 : 10.08,
+            val: n.layer === 1 ? 40.32 : n.layer === 2 ? 20.16 : 20.16, // Layer3 same as layer2
             group: n.layer,
             color: n.layer === 1 ? '#4F46E5' : n.layer === 2 ? '#10B981' : n.layer === 3 ? '#F59E0B' : '#666'
           })),
           links: edges.map(e => ({ ...e.data, width: e.data.layer === 3 ? 0.15 : 0.4 }))
         })
         .backgroundColor('rgba(0,0,0,0.3)')
-        .nodeRelSize(15.84)
-        .nodeVal(node => {                          // ←←← ĐÃ FIX NaN Ở ĐÂY
+        .nodeRelSize(10.12)
+        .nodeVal(node => {                          // Restore original sizing logic, but layer3 multiplier same as layer2
           const tv = parseFloat(node.totalValue || 0);
           const baseVal = Math.sqrt(tv) + 1;
           if (node.layer === 1) return baseVal * 9.36;
-          if (node.layer === 2) return baseVal * 5.76;
+          if (node.layer === 2 || node.layer === 3) return baseVal * 5.76; // Layer3 same as layer2
           return baseVal * 2.88;
         })
         .nodeLabel(node => {
@@ -1320,8 +1351,8 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
         .linkCanvasObjectMode(() => 'replace')
         .linkLabel(link => `${link.tokenSymbol || 'Unknown'} - ${formatLargeNumber(Number(link.value), 1)}`)
         .linkHoverPrecision(10)
-        .d3Force('charge', d3.forceManyBody().strength(-500))
-        .d3Force('link', d3.forceLink().id(d => d.id).distance(link => link.layer === 3 ? 80 : 150).strength(0.8))
+        .d3Force('charge', d3.forceManyBody().strength(isTokenQuery ? -400 : -800)) // Weaker for token to tighten
+        .d3Force('link', d3.forceLink().id(d => d.id).distance(isTokenQuery ? 60 : (link => link.layer === 3 ? 100 : 200)).strength(0.6))
         .d3AlphaDecay(0.01)
         .d3VelocityDecay(0.6)
         .warmupTicks(500)
@@ -1361,7 +1392,9 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
         });
 
       graphRef.current.centerAt(0, 0, 1500);
-      graphRef.current.zoom(1.5, 1500);
+      graphRef.current.zoom(isTokenQuery ? 0.8 : 1.2, 1500);
+
+      // Lý do: Khôi phục kích thước gốc (val và nodeVal theo totalValue * multiplier), nhưng layer3 multiplier = layer2 (5.76). Giữ scale positions *0.4 và force adjustments cho token query để cụm gần root hơn. Zoom 2 cho token để fit view tốt hơn.
 
     } catch (err) {
       logger.error('Error initializing ForceGraph:', err);

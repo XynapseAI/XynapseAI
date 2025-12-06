@@ -320,7 +320,7 @@ export async function GET(request) {
 
     redisClient = await getRedisClient();
     const cacheKey = `clusters_search_${cleanedQuery.toLowerCase()}`;
-    const cacheTTL = 5 * 60;
+    const cacheTTL = 7200; // 2 hours
 
     const cachedData = await redisClient.get(cacheKey);
     if (cachedData) {

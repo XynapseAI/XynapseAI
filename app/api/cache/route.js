@@ -18,16 +18,15 @@ async function getRedisClient() {
 async function checkRateLimit(ip) {
   const redisClient = await getRedisClient();
   const key = `rate_limit:cache:${ip}`;
-  const requests = parseInt(await redisClient.get(key)) || 0;
+  const maxRequests = 500; // Increased
   const windowMs = 60 * 1000;
-  const maxRequests = 200; //
-  if (requests >= maxRequests) {
+  const pipeline = redisClient.multi();
+  pipeline.incr(key);
+  pipeline.expire(key, windowMs / 1000);
+  const [requests] = await pipeline.exec();
+  if (requests[1] > maxRequests) { // Use exec result
     throw new Error('Too many requests, please try again later.');
   }
-  await redisClient.multi()
-    .incr(key)
-    .expire(key, windowMs / 1000)
-    .exec();
 }
 
 export async function GET(request) {
