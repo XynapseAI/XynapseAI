@@ -23,7 +23,7 @@ import ForceGraph from 'force-graph';
 import * as d3 from 'd3-force';
 import { aggregateInWorker, positionInWorker, computeMetricsInWorker, clusterInWorker } from '../utils/clusterWorker';
 import UniversalSearch from './UniversalSearch';
-
+import LoginPrompt from './LoginPrompt';
 // Fixed: Lazy load pure TF.js only (no node backend in client)
 const TensorFlowJS = lazy(() => import('@tensorflow/tfjs')); // Direct import, no concat needed in client
 const formatLargeNumber = (value, decimals = 1) => {
@@ -523,7 +523,6 @@ const ClusterDashboard = memo(({ entity, isMobile, tokenImages }) => {
 const CACHE_TTL = 7200000; // Increased to 2 hours for longer caching
 const NODES_PER_PAGE = 50;
 const MAX_NODES = 1000; // Scalability limit
-
 function simpleRuleBasedClustering(nodesData, edgesData) {
   const clusters = [];
   const nodeMap = new Map(nodesData.map(n => [n.id.toLowerCase(), n]));
@@ -586,7 +585,6 @@ function simpleRuleBasedClustering(nodesData, edgesData) {
   });
   return clusters;
 }
-
 export default function TreemapTab({ initialChain = 'ethereum', initialAddress = '' }) {
   const { data: session, status } = useSession();
   const router = useRouter();
@@ -644,7 +642,6 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
   useEffect(() => {
     fetchUserData();
   }, [fetchUserData]);
-
   useEffect(() => {
     if (fullIncomingData.length > 0 || fullOutgoingData.length > 0 || fullLayer3Data.length > 0) {
       (async () => {
@@ -673,7 +670,6 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
       })();
     }
   }, [filterType, fullIncomingData, fullOutgoingData, fullLayer3Data, walletAddress, page, walletInfo.nametag, walletInfo.image]);
-
   useEffect(() => {
     const fetchTokenImages = async () => {
       const uniqueTokens = [
@@ -717,7 +713,6 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
             // Timeout wrapper for faster failure
             const controller = new AbortController();
             const timeoutId = setTimeout(() => controller.abort(), 3000); // 3s timeout per token
-
             // Parallel: Cache + DB in one go, fallback to CG only if both miss
             const [cacheResponse, dbResponse] = await Promise.allSettled([
               fetch(`${apiBaseUrl}/api/cache?key=token_image_${token}`, {
@@ -731,9 +726,7 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
                 credentials: 'include',
               }).then(r => r.json())
             ]);
-
             clearTimeout(timeoutId);
-
             // Cache hit
             if (cacheResponse.status === 'fulfilled' && cacheResponse.value.success && cacheResponse.value.data?.image) {
               const symbol = cacheResponse.value.data?.symbol || (isAddress(token) ? undefined : token.toUpperCase());
@@ -741,7 +734,6 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
               tokenInfo[token] = { image: cacheResponse.value.data.image, symbol };
               return;
             }
-
             // DB hit
             if (dbResponse.status === 'fulfilled' && dbResponse.value.success && dbResponse.value.data?.image) {
               logger.log(`Database hit for ${token}:`, dbResponse.value.data.image);
@@ -761,7 +753,6 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
               });
               return;
             }
-
             // Fallback CG only if needed, with timeout
             logger.log(`Falling back to CoinGecko for ${token}`);
             const cgResponse = await fetch(
@@ -772,7 +763,6 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
                 credentials: 'include',
               }
             ).then(r => r.json());
-
             if (cgResponse.success && cgResponse.data?.image?.thumb) {
               logger.log(`CoinGecko hit for ${token}:`, cgResponse.data.image.thumb);
               const symbol = cgResponse.data.symbol?.toUpperCase() || token.toUpperCase();
@@ -832,7 +822,6 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
       fetchTokenImages();
     }
   }, [edges, selectedChain, apiBaseUrl]); // Dependency giữ nguyên
-
   const updateUrl = (chain, address) => {
     const newParams = new URLSearchParams();
     newParams.set('tab', 'treemap');
@@ -840,7 +829,6 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
     if (address) newParams.set('address', address);
     router.replace(`/dashboard?${newParams.toString()}`, { scroll: false });
   };
-
   const fetchTransactions = useCallback(async (address, page = 1, isToken = false) => { // Thêm param isToken
     const isBitcoin = selectedChain === 'bitcoin';
     if (!isAddress(address) && !['solana', 'tron', 'bitcoin'].includes(selectedChain)) {
@@ -964,13 +952,12 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
       setFullIncomingData(data.incoming || []);
       setFullOutgoingData(data.outgoing || []);
       setFullLayer3Data(data.layer3 || []);
-
       // If it’s a token query and layer3 is populated, also merge into incoming/outgoing
       // so the existing visualisation code continues to work without extra changes
       // if (data.layer3 && data.layer3.length > 0 && data.incoming.length === 0 && data.outgoing.length === 0) {
-      //   // Treat token transfers as both incoming & outgoing for the graph worker
-      //   setFullIncomingData(data.layer3.map(tx => ({ ...tx, type: 'incoming' })));
-      //   setFullOutgoingData(data.layer3.map(tx => ({ ...tx, type: 'outgoing' })));
+      // // Treat token transfers as both incoming & outgoing for the graph worker
+      // setFullIncomingData(data.layer3.map(tx => ({ ...tx, type: 'incoming' })));
+      // setFullOutgoingData(data.layer3.map(tx => ({ ...tx, type: 'outgoing' })));
       // }
       const { nodes: newNodes, edges: newEdges, nametags: newNametags } = await aggregateInWorker(
         data.incoming,
@@ -1025,7 +1012,6 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
       setLoading(false);
     }
   }, [selectedChain, selectedLimit, session, apiBaseUrl, filterType, walletInfo]);
-
   const validateAndFetch = useCallback((address, isToken = false) => {
     const isBitcoin = selectedChain === 'bitcoin';
     const bitcoinRegex = /^[13][a-km-zA-HJ-NP-Z1-9]{25,34}$|^bc1[a-z0-9]{39,59}$/i;
@@ -1059,7 +1045,6 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
       });
     }
   }, [selectedChain, fetchTransactions]);
-
   const filterTransactions = useCallback((transactions, filterType, rootId, walletId = null) => {
     if (!transactions || !Array.isArray(transactions)) {
       logger.warn('Invalid transactions array:', transactions);
@@ -1098,7 +1083,6 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
     logger.log(`Filtered transactions (walletId: ${walletId || 'none'}, filterType: ${filterType}):`, uniqueTxs.length);
     return uniqueTxs;
   }, []);
-
   const fetchClusters = async (currentNodes, currentEdges) => {
     try {
       const response = await axios.post(`${apiBaseUrl}/api/cluster`, {
@@ -1128,26 +1112,20 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
       setClusters(fallbackClusters);
     }
   };
-
   const initializeForceGraph = useCallback(async () => {
     if (!containerRef.current || !nodes.length || !walletInfo.address) {
       logger.warn('Cannot initialize ForceGraph: missing container, nodes, or walletInfo.address');
       return;
     }
-
     try {
       await TensorFlowJS;
-
       if (graphRef.current) {
         graphRef.current.pauseAnimation();
         containerRef.current.innerHTML = '';
       }
-
       const rootId = walletInfo.address.toLowerCase();
       const detectedClusters = clusters;
-
       const positionedNodesData = await positionInWorker(nodes.map(n => ({ ...n.data })), edges.map(e => ({ ...e.data })));
-
       // Set selectedEntity for root node/cluster data (FIX: Định nghĩa clusterData nếu cần fallback)
       let clusterData;
       const rootCluster = detectedClusters.find(c => c.wallets.some(w => w.id.toLowerCase() === rootId));
@@ -1210,7 +1188,6 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
         };
       }
       setSelectedEntity({ type: 'cluster', data: rootCluster || clusterData });
-
       // Preload images with reduced scope (only essential)
       const imageCache = {};
       const uniqueImages = [...new Set(positionedNodesData.slice(0, 50).map(n => n.image).filter(isValidNametagImage))]; // Limit preload to 50
@@ -1222,18 +1199,16 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
         img.onerror = () => resolve();
         img.src = url.startsWith('http') ? url : `${window.location.origin}${url}`;
       })));
-
       const isTokenQuery = fullIncomingData.length === 0 && fullOutgoingData.length === 0;
       if (isTokenQuery) {
         // Scale down initial positions for token query to bring clusters closer
         positionedNodesData.forEach(n => {
           if (!n.isRoot) {
-            n.x *= 0.4; // Giảm radius xuống 40% (từ 250 -> ~100)
-            n.y *= 0.4;
+            n.x *= 0.3; // Giảm radius xuống 30% để gần hơn
+            n.y *= 0.3;
           }
         });
       }
-
       graphRef.current = ForceGraph()(containerRef.current)
         .graphData({
           nodes: positionedNodesData.map(n => ({
@@ -1246,13 +1221,13 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
           links: edges.map(e => ({ ...e.data, width: e.data.layer === 3 ? 0.15 : 0.4 }))
         })
         .backgroundColor('rgba(0,0,0,0.3)')
-        .nodeRelSize(10.12)
-        .nodeVal(node => {                          // Restore original sizing logic, but layer3 multiplier same as layer2
+        .nodeRelSize(6.0)
+        .nodeVal(node => { // Restore original sizing logic, but layer3 multiplier same as layer2
           const tv = parseFloat(node.totalValue || 0);
           const baseVal = Math.sqrt(tv) + 1;
-          if (node.layer === 1) return baseVal * 9.36;
-          if (node.layer === 2 || node.layer === 3) return baseVal * 5.76; // Layer3 same as layer2
-          return baseVal * 2.88;
+          if (node.layer === 1) return baseVal * 7.0;
+          if (node.layer === 2 || node.layer === 3) return baseVal * 4.0;
+          return baseVal * 2.0;
         })
         .nodeLabel(node => {
           const cluster = detectedClusters.find(c => c.clusterId === node.clusterId);
@@ -1275,20 +1250,17 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
           const cluster = detectedClusters.find(c => c.clusterId === node.clusterId);
           const risk = cluster?.riskScore || 0;
           const riskColor = risk > 0.7 ? '#FF0000' : risk > 0.3 ? '#FFA500' : '#00FF00';
-
           ctx.beginPath();
           ctx.arc(node.x, node.y, size, 0, 2 * Math.PI, false);
           // Reduced shadow for perf
-          ctx.shadowColor = riskColor;
-          ctx.shadowBlur = 5 / globalScale; // Reduced from 15
+          // ctx.shadowColor = riskColor;
+          // ctx.shadowBlur = 5 / globalScale;
           ctx.fillStyle = node.color || riskColor;
           ctx.fill();
-
           ctx.shadowColor = 'transparent';
           ctx.strokeStyle = '#fff';
           ctx.lineWidth = 1 / globalScale;
           ctx.stroke();
-
           if (isValidNametagImage(node.image) && imageCache[node.image]) {
             const img = imageCache[node.image];
             ctx.save();
@@ -1315,26 +1287,23 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
           const start = link.source;
           const end = link.target;
           if (!start || !end || !start.x || !end.x) return;
-
           ctx.beginPath();
           ctx.moveTo(start.x, start.y);
           ctx.lineTo(end.x, end.y);
-
           const isLayer3 = link.layer === 3;
           ctx.strokeStyle = isLayer3 ? 'rgba(255, 255, 255, 0.3)' : 'rgba(255, 255, 255, 0.6)';
-          ctx.lineWidth = (isLayer3 ? 0.15 : 0.3) / globalScale;
-
+          ctx.lineWidth = (isLayer3 ? 0.2 : 0.4) / globalScale; // Tăng độ dày đường link
           ctx.stroke();
         })
         .linkCanvasObjectMode(() => 'replace')
         .linkLabel(link => `${link.tokenSymbol || 'Unknown'} - ${formatLargeNumber(Number(link.value), 1)}`)
         .linkHoverPrecision(10)
-        .d3Force('charge', d3.forceManyBody().strength(isTokenQuery ? -400 : -800)) // Weaker for token to tighten
-        .d3Force('link', d3.forceLink().id(d => d.id).distance(isTokenQuery ? 60 : (link => link.layer === 3 ? 100 : 200)).strength(0.6))
+        .d3Force('charge', d3.forceManyBody().strength(isTokenQuery ? -2000 : -800)) // Yếu hơn cho token query
+        .d3Force('link', d3.forceLink().id(d => d.id).distance(isTokenQuery ? 5 : (link => link.layer === 3 ? 60 : 120)).strength(0.7)) // Giảm distance, tăng strength
         .d3AlphaDecay(0.01)
         .d3VelocityDecay(0.6)
-        .warmupTicks(300) // Reduced from 500
-        .cooldownTicks(1500) // Reduced from 2000
+        .warmupTicks(500) // Tăng để mượt hơn
+        .cooldownTicks(1500)
         .enablePointerInteraction(true)
         .enableNodeDrag(true)
         .enableZoomInteraction(true)
@@ -1367,19 +1336,18 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
         .onNodeDragEnd(node => {
           node.fx = node.x;
           node.fy = node.y;
+        })
+        .onEngineStop(() => {
+          graphRef.current.zoomToFit(1000, 100); // Tự động zoom to fit tất cả các node
         });
-
       graphRef.current.centerAt(0, 0, 1500);
-      graphRef.current.zoom(isTokenQuery ? 0.8 : 1.2, 1500);
-
+      graphRef.current.zoom(isTokenQuery ? 0.3 : 0.8, 1500); // Zoom out hơn cho token query
       // Lý do: Khôi phục kích thước gốc (val và nodeVal theo totalValue * multiplier), nhưng layer3 multiplier = layer2 (5.76). Giữ scale positions *0.4 và force adjustments cho token query để cụm gần root hơn. Zoom 2 cho token để fit view tốt hơn.
-
     } catch (err) {
       logger.error('Error initializing ForceGraph:', err);
       toast.error('Graph visualization failed. Please refresh.', { position: 'top-right', theme: 'dark' });
     }
   }, [nodes, edges, walletInfo, filterType, walletAddress, fullIncomingData, fullOutgoingData, fullLayer3Data, clusters, filterTransactions]);
-
   useEffect(() => {
     initializeForceGraph().catch(console.error);
     return () => {
@@ -1479,11 +1447,9 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
       return newPage;
     });
   }, [fetchTransactions, walletAddress, nodes.length]);
-
   const handleSearch = useCallback(() => {
     validateAndFetch(walletAddress, isTokenSearch);
   }, [walletAddress, isTokenSearch, validateAndFetch]);
-
   const handleSearchSelect = useCallback((result) => {
     if (!result.isValid || !result.address) {
       toast.error('Invalid address selected.', { theme: 'dark' });
@@ -1510,7 +1476,6 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
     // Gọi trực tiếp validation và fetch, không cần timeout vì address đã valid ở onSelect
     validateAndFetch(result.address, result.type === 'token');
   }, [validateAndFetch]);
-
   const handleFilterChange = useCallback(() => {
     setFilterType((prev) => {
       if (prev === 'all') {
@@ -1531,6 +1496,22 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
     const staticOnly = chains.filter(c => !cgChains.some(cg => cg.value === c.value));
     return [...cgChains, ...staticOnly];
   }, [coingeckoChains]);
+  if (status !== 'authenticated') {
+    return (
+      <div className="font-inter w-full max-w-9xl mx-auto mt-4 sm:mt-5 p-2 sm:p-3 h-[calc(100vh)] rounded-xl bg-white/5 flex items-center justify-center">
+        <ToastContainer
+          position="top-center"
+          autoClose={5000}
+          hideProgressBar={false}
+          closeOnClick
+          pauseOnHover
+          draggable
+          theme="dark"
+        />
+        <LoginPrompt />
+      </div>
+    );
+  }
   if (isMobile && showMobileWarning) {
     return (
       <div
@@ -1837,16 +1818,9 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
           </div>
         )}
         {walletInfo.address && (
-          <div className="relative w-full h-[calc(100vh-6rem)] sm:h-[calc(100vh)] overflow-hidden">
+          <div className="relative w-full h-[calc(100vh-4rem)] sm:h-[calc(100vh)] overflow-hidden"> {/* Tăng chiều cao */}
             <div className="flex gap-2 mb-2 mt-2 justify-center">
-              {nodes.length >= page * NODES_PER_PAGE && nodes.length < MAX_NODES && (
-                <button
-                  onClick={handleLoadMore}
-                  className="px-2 sm:px-3 py-1 text-[9px] sm:text-[10px] font-medium text-white border border-white/10 bg-neon-blue/20 backdrop-blur-md rounded-xl hover:bg-neon-blue/30 transition-all duration-300"
-                >
-                  Load More
-                </button>
-              )}
+              {/* Bỏ button Load More */}
               {nodes.length >= MAX_NODES && (
                 <span
                   className="px-2 sm:px-3 py-1 text-[9px] sm:text-[10px] font-medium text-yellow-400 border border-yellow-400/30 bg-yellow-500/10 rounded-xl"

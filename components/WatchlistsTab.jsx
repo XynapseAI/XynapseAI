@@ -1226,10 +1226,10 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
             )}
           </div>
         </div>
-        <div className="w-[45%] px-4 sm:px-6 text-[#D4D4D4] text-[12px] sm:text-[14px] flex items-center justify-center">
+        <div className="w-[45%] px-4 sm:px-6 text-[#D4D4D4] text-[10px] sm:text-[12px] flex items-center justify-center">
           <div className="flex flex-col items-center">
             <span className="font-semibold">{formatBalance(token.amount)}</span>
-            <span className="text-[9px] sm:text-[10px] text-gray-500">
+            <span className="text-[8px] sm:text-[9px] text-gray-500">
               ${value.toLocaleString('en-US', { maximumFractionDigits: 2 })}
             </span>
           </div>
