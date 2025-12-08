@@ -794,9 +794,13 @@ export async function POST(request) {
               ? Math.max(50, Math.floor(totalLimit / targetAddresses.length))
               : totalLimit;
 
+            // NEW: Time cutoff cho cluster + minValueUsd (dừng nếu tx cũ hơn 180 ngày để speed up)
+            const MAX_AGE_SECONDS = 180 * 24 * 3600; // 180 days
+            const useTimeCutoff = isCluster && minValueUsd && minValueUsd > 0;
+
             // NEW: Tích hợp Redis cache - chỉ nếu logged in (session tồn tại)
             const redisClient = await getRedisClient();
-            const cacheKey = `sim:transactions:${targetAddresses.sort().join(',')}:${minValueUsd || 0}:${perAddressLimit}`; // Shared key dựa trên params
+            const cacheKey = `sim:transactions:${targetAddresses.sort().join(',')}:${minValueUsd || 0}:${perAddressLimit}${useTimeCutoff ? `:maxAge${MAX_AGE_SECONDS}` : ''}`; // Shared key dựa trên params
             let cachedData = null;
             if (session && session.user?.id) { // Chỉ load cache nếu logged in
               cachedData = await redisClient.get(cacheKey);
@@ -818,15 +822,13 @@ export async function POST(request) {
             const fetchPromises = targetAddresses.map((addr) =>
               concurrencyLimiter.schedule(async () => {
                 const isEVM = isAddress(addr);
-                const perCallLimit = isEVM
-                  ? (isCluster ? 100 : 500)  // Giảm perCall cho cluster để tránh overload
-                  : 1000;
+                const perCallLimit = 100; // Max của API, thống nhất
                 let allTransactions = [];
                 let nextOffset = null;
                 let remainingLimit = perAddressLimit;  // Sử dụng perAddressLimit
                 let pageCount = 0;
                 const maxPages = isEVM
-                  ? (isCluster ? 3 : 20)  // Giảm maxPages cho cluster (max ~300 tx/address)
+                  ? (isCluster ? 2 : 10)  // Giảm maxPages cho cluster (max ~200 tx/address)
                   : (isCluster ? 2 : 10);
 
                 // Paginate loop for this address
@@ -864,6 +866,16 @@ export async function POST(request) {
                     allTransactions.push(...filteredPage);
                     nextOffset = response.data.next_offset || null;
                     remainingLimit -= filteredPage.length;
+
+                    // NEW: Time cutoff - dừng nếu oldest tx trong page quá cũ (chỉ cho cluster + minValueUsd)
+                    if (useTimeCutoff && transactions.length > 0) {
+                      const oldestBlockTime = new Date(transactions[transactions.length - 1].block_time).getTime() / 1000;
+                      const cutoffTime = Date.now() / 1000 - MAX_AGE_SECONDS;
+                      if (oldestBlockTime < cutoffTime) {
+                        logger.info(`Time cutoff reached for addr ${addr.slice(0, 8)}... at page ${pageCount} (oldest: ${Math.floor(Date.now() / 1000 - oldestBlockTime)}s ago)`, { ip });
+                        nextOffset = null; // Dừng fetch pages cũ hơn
+                      }
+                    }
 
                   } catch (error) {
                     logger.error(`Error fetching transactions page for address ${addr}: ${error.message}`, { ip });

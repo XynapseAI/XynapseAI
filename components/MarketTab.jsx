@@ -161,6 +161,7 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
     isLoadingPage,
     setIsLoadingPage,
     loadMoreDexData,
+    handleUniversalSelect,
   } = useMarketTabLogic({ recaptchaRef, toast, initialTokenData, toast })
   const dropdownRef = useRef(null)
   const chainDropdownRef = useRef(null)
@@ -752,8 +753,8 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
               </div>
               {/* Universal Search */}
               <UniversalSearch
-                onSelect={handleSearchSelect}
-                placeholder="Search wallets, nametags, or exchanges..."
+                onSelect={handleUniversalSelect}
+                placeholder="Search wallets, nametags, or tokens..."
                 className="flex-1 w-full"
                 size="default"
                 aria-label="Search for cryptocurrency wallets, nametags, or exchanges"
@@ -881,7 +882,7 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                 <div className="h-full flex items-center justify-center">{/* Loading handled by LoadingOverlay */}</div>
               ) : selectedToken || localCache.current[`token-metadata-${selectedToken?.id}`]?.data ? (
                 <div className="relative">
-                  <div className="absolute top-1 right-1 w-32 sm:w-40" ref={dropdownRef}>
+                  {/* <div className="absolute top-1 right-1 w-32 sm:w-40" ref={dropdownRef}>
                     <button
                       onClick={() => setIsDropdownOpen(!isDropdownOpen)}
                       className="text-[#FFF] px-2 sm:px-2 py-1 sm:py-1 text-[10px] sm:text-xs flex items-center w-full border-2 border-[#FFFFFF20] bg-[#FFFFFF]/5 hover:bg-[#FFFFFF]/10 transition-all duration-300 rounded-xl group hover:scale-102 active:scale-98" // CSS
@@ -949,7 +950,7 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                         </div>
                       </div>
                     )}
-                  </div>
+                  </div> */}
                   <div className="mb-2 sm:mb-2">
                     <div className="flex items-center gap-2">
                       {(selectedToken?.image ||

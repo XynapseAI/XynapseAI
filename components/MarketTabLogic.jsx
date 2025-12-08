@@ -138,9 +138,9 @@ export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initi
   const [priceHistory, setPriceHistory] = useState([]);
   const [priceHistoryCache, setPriceHistoryCache] = useState({});
   const [timeRange, setTimeRange] = useState('1');
-  const [searchQuery, setSearchQuery] = useState('');
-  const [debouncedSearchQuery, setDebouncedSearchQuery] = useState('');
-  const [searchResults, setSearchResults] = useState([]);
+  // const [searchQuery, setSearchQuery] = useState('');
+  // const [debouncedSearchQuery, setDebouncedSearchQuery] = useState('');
+  // const [searchResults, setSearchResults] = useState([]);
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [analysisLinks, setAnalysisLinks] = useState([]);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
@@ -206,7 +206,7 @@ export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initi
   const isInitialMempoolFetch = useRef(true);
   const [isLoadingPage, setIsLoadingPage] = useState(false);
   const progressiveLoadRef = useRef(null); // To manage progressive loading chain
-  const [isSearching, setIsSearching] = useState(false);
+  // const [isSearching, setIsSearching] = useState(false);
   const prevAvailableChainsRef = useRef([]);
 
   const isTokenPage = typeof window !== 'undefined' && window.location.pathname.startsWith('/token/');
@@ -2098,47 +2098,6 @@ export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initi
     [walletAddress, fetchOnChainData, executeRecaptcha, status, walletSearchCount, lastWalletSearchTime, selectedToken, onChainData]
   );
 
-  const fetchTransactions = useCallback(
-    async (address, retryCount = 0) => {
-      if (!address?.match(/^0x[a-fA-F0-9]{40}$/)) {
-        const errorMessage = `Invalid address for transactions: ${address}`;
-        console.error(errorMessage);
-        setTransactionsError(errorMessage);
-        setIsLoadingTransactions(false);
-        toast.error(errorMessage, { position: 'top-center', autoClose: 5000 });
-        return;
-      }
-
-      try {
-        const recaptchaToken = await executeRecaptcha('transactions');
-        setIsLoadingTransactions(true);
-        setTransactionsError(null);
-        await fetchOnChainData(null, null, 'transactions', null, address, recaptchaToken);
-      } catch (error) {
-        const errorMessage =
-          error.response?.status === 401
-            ? 'Unauthorized: Please log in again.'
-            : error.response?.status === 403 && error.response?.data?.detail?.includes('reCAPTCHA')
-              ? 'reCAPTCHA verification failed. Please try again.'
-              : error.response?.status === 429
-                ? 'Too many requests. Please try again later.'
-                : error.message.includes('reCAPTCHA')
-                  ? 'reCAPTCHA verification failed. Please try again.'
-                  : error.response?.data?.detail || `Failed to fetch transactions: ${error.message}`;
-        console.error(`Error in fetchTransactions:`, { errorMessage, stack: error.stack });
-        setTransactionsError(errorMessage);
-        setIsLoadingTransactions(false);
-        toast.error(errorMessage, { position: 'top-center', autoClose: 5000 });
-        if (retryCount < 3) {
-          const delay = Math.pow(2, retryCount) * 1000 + Math.random() * 100;
-          await new Promise((resolve) => setTimeout(resolve, delay));
-          fetchTransactions(address, retryCount + 1);
-        }
-      }
-    },
-    [fetchOnChainData, executeRecaptcha, toast]
-  );
-
   const debouncedHandleTokenSelect = useCallback(
     debounce(async (token, initialTokenData = null, onTokenSelect = null) => {
       if (!token?.id || lastFetchedTokenRef.current === token.id) {
@@ -2261,6 +2220,86 @@ export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initi
       }
     }, 500),
     [currency, availableCurrencies, timeRange, fetchPriceHistory, selectedChain, session, status, executeRecaptcha, getDefaultChainAndAddress]
+  );
+
+  const handleUniversalSelect = useCallback((result) => {
+    if (!result) return;
+
+    try {
+      if (result.type === 'token' && result.id && result.symbol) {
+        // Handle token selection: map to token object và call debouncedHandleTokenSelect
+        const tokenObj = {
+          id: result.id.replace('token-', ''), // Clean id from UniversalSearch format
+          symbol: result.symbol,
+          name: result.name,
+          image: result.image,
+          // Thêm các field cần cho fullToken nếu có (từ API cache sẽ fetch sau)
+        };
+        debouncedHandleTokenSelect(tokenObj);
+        toast.success(`Selected token: ${result.name}`, { position: 'top-center', autoClose: 2000 });
+      } else if ((result.type === 'wallet' || result.type === 'nametag') && result.address && isValidAddress(result.address)) {
+        // Handle wallet/nametag: call handleAddressClick để mở WalletBalances
+        handleAddressClick(result.address);
+        toast.success(`Loading wallet: ${result.address.slice(0, 6)}...${result.address.slice(-4)}`, { position: 'top-center', autoClose: 2000 });
+      } else if (result.type === 'organization' || result.type === 'exchange') {
+        // Optional: Handle org/exchange (e.g., set activeTab hoặc log, không ảnh hưởng token/wallet)
+        console.log('Selected organization:', result.name);
+        toast.info(`${result.name} selected (on-chain data not available yet)`, { position: 'top-center', autoClose: 3000 });
+        // Có thể mở tab 'top-holders' nếu org có addresses
+        if (result.holder_addresses && result.holder_addresses.length > 0) {
+          setActiveTab('top-holders');
+        }
+      } else {
+        toast.warning('Invalid selection type', { position: 'top-center', autoClose: 3000 });
+      }
+    } catch (error) {
+      console.error('UniversalSelect error:', error);
+      toast.error('Failed to process selection', { position: 'top-center', autoClose: 3000 });
+    }
+  }, [debouncedHandleTokenSelect, handleAddressClick, toast, activeTab, setActiveTab]);
+
+  // Helper: isValidAddress (nếu chưa có, thêm)
+  const isValidAddress = useCallback((address) => /^0x[a-fA-F0-9]{40}$/.test(address), []);
+
+  const fetchTransactions = useCallback(
+    async (address, retryCount = 0) => {
+      if (!address?.match(/^0x[a-fA-F0-9]{40}$/)) {
+        const errorMessage = `Invalid address for transactions: ${address}`;
+        console.error(errorMessage);
+        setTransactionsError(errorMessage);
+        setIsLoadingTransactions(false);
+        toast.error(errorMessage, { position: 'top-center', autoClose: 5000 });
+        return;
+      }
+
+      try {
+        const recaptchaToken = await executeRecaptcha('transactions');
+        setIsLoadingTransactions(true);
+        setTransactionsError(null);
+        await fetchOnChainData(null, null, 'transactions', null, address, recaptchaToken);
+      } catch (error) {
+        const errorMessage =
+          error.response?.status === 401
+            ? 'Unauthorized: Please log in again.'
+            : error.response?.status === 403 && error.response?.data?.detail?.includes('reCAPTCHA')
+              ? 'reCAPTCHA verification failed. Please try again.'
+              : error.response?.status === 429
+                ? 'Too many requests. Please try again later.'
+                : error.message.includes('reCAPTCHA')
+                  ? 'reCAPTCHA verification failed. Please try again.'
+                  : error.response?.data?.detail || `Failed to fetch transactions: ${error.message}`;
+        console.error(`Error in fetchTransactions:`, { errorMessage, stack: error.stack });
+        setTransactionsError(errorMessage);
+        setIsLoadingTransactions(false);
+        toast.error(errorMessage, { position: 'top-center', autoClose: 5000 });
+        if (retryCount < 3) {
+          const delay = Math.pow(2, retryCount) * 1000 + Math.random() * 100;
+          await new Promise((resolve) => setTimeout(resolve, delay));
+          fetchTransactions(address, retryCount + 1);
+        }
+      }
+    },
+    [fetchOnChainData, executeRecaptcha, toast]
   );
 
   const debouncedHandleAnalysis = useCallback(
@@ -2524,23 +2563,23 @@ Predict **${selectedToken.symbol}/USD** price movement (1-3 days) in Markdown fo
   );
 
   // Debounced search query for API calls
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      setDebouncedSearchQuery(searchQuery);
-    }, 200); // Reduced debounce time for faster response
+  // useEffect(() => {
+  //   const timer = setTimeout(() => {
+  //     setDebouncedSearchQuery(searchQuery);
+  //   }, 200); // Reduced debounce time for faster response
 
-    return () => clearTimeout(timer);
-  }, [searchQuery]);
+  //   return () => clearTimeout(timer);
+  // }, [searchQuery]);
 
   // Set searching state on query change
-  useEffect(() => {
-    if (searchQuery) {
-      setIsSearching(true);
-    } else {
-      setIsSearching(false);
-      setSearchResults([]);
-    }
-  }, [searchQuery]);
+  // useEffect(() => {
+  //   if (searchQuery) {
+  //     setIsSearching(true);
+  //   } else {
+  //     setIsSearching(false);
+  //     setSearchResults([]);
+  //   }
+  // }, [searchQuery]);
 
   const { data: trendingData, error: trendingSWRError } = useSWR(
     ['/api/coingecko', { action: 'trending', vs_currency: currency }],
@@ -2577,41 +2616,41 @@ Predict **${selectedToken.symbol}/USD** price movement (1-3 days) in Markdown fo
     }
   );
 
-  const { data: searchData, error: searchError, isLoading: searchIsLoading } = useSWR(
-    debouncedSearchQuery ? ['/api/coingecko', { action: 'search', query: debouncedSearchQuery }] : null,
-    ([url, params]) => fetcher(url, params),
-    {
-      revalidateOnFocus: false,
-      revalidateOnReconnect: false,
-      onSuccess: (data) => {
-        const results = data.map((coin) => ({
-          id: coin.id,
-          name: coin.name,
-          symbol: coin.symbol,
-          image: coin.image || '/fallback-image.webp',
-          market_cap_rank: coin.market_cap_rank,
-        }));
-        setSearchResults(results.slice(0, 10));
-        setIsSearching(false);
-      },
-      onError: (err) => {
-        setError(
-          err.response?.status === 429
-            ? 'API rate limit reached. Please wait a minute and try again.'
-            : err.response?.data?.detail || 'Failed to search coins.'
-        );
-        setSearchResults([]);
-        setIsSearching(false);
-      },
-    }
-  );
+  // const { data: searchData, error: searchError, isLoading: searchIsLoading } = useSWR(
+  //   debouncedSearchQuery ? ['/api/coingecko', { action: 'search', query: debouncedSearchQuery }] : null,
+  //   ([url, params]) => fetcher(url, params),
+  //   {
+  //     revalidateOnFocus: false,
+  //     revalidateOnReconnect: false,
+  //     onSuccess: (data) => {
+  //       const results = data.map((coin) => ({
+  //         id: coin.id,
+  //         name: coin.name,
+  //         symbol: coin.symbol,
+  //         image: coin.image || '/fallback-image.webp',
+  //         market_cap_rank: coin.market_cap_rank,
+  //       }));
+  //       setSearchResults(results.slice(0, 10));
+  //       setIsSearching(false);
+  //     },
+  //     onError: (err) => {
+  //       setError(
+  //         err.response?.status === 429
+  //           ? 'API rate limit reached. Please wait a minute and try again.'
+  //           : err.response?.data?.detail || 'Failed to search coins.'
+  //       );
+  //       setSearchResults([]);
+  //       setIsSearching(false);
+  //     },
+  //   }
+  // );
 
   // Update searching state based on SWR loading
-  useEffect(() => {
-    if (!searchIsLoading && !searchError) {
-      setIsSearching(false);
-    }
-  }, [searchIsLoading, searchError]);
+  // useEffect(() => {
+  //   if (!searchIsLoading && !searchError) {
+  //     setIsSearching(false);
+  //   }
+  // }, [searchIsLoading, searchError]);
 
   useEffect(() => {
     warmUpCache();
@@ -3074,9 +3113,6 @@ Predict **${selectedToken.symbol}/USD** price movement (1-3 days) in Markdown fo
     prediction,
     priceHistory,
     timeRange,
-    searchQuery,
-    searchResults,
-    isSearching,
     isDropdownOpen,
     analysisLinks,
     isAnalyzing,
@@ -3114,7 +3150,6 @@ Predict **${selectedToken.symbol}/USD** price movement (1-3 days) in Markdown fo
     isLoadingNameTags,
     fetchNameTag,
     fetchNameTagsForAddresses,
-    setSearchQuery,
     setIsDropdownOpen,
     setSelectedChain,
     setTimeRange,
@@ -3159,6 +3194,7 @@ Predict **${selectedToken.symbol}/USD** price movement (1-3 days) in Markdown fo
     getPaginatedTrades,
     goToDexPage,
     getTotalDexPages,
+    handleUniversalSelect,
     // Constants
     SUPPORTED_CHAINS,
     WALLET_SEARCH_LIMIT,
