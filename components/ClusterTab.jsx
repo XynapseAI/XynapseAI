@@ -634,13 +634,13 @@ const ClusterTab = ({ recaptchaRef, initialClusterId, activeTab: propActiveTab, 
       dedupingInterval: 30 * 1000,
     }
   );
-  // SWR for EVM transactions - Optimized: Only fetch from top 10 wallets by value to reduce API calls
+  // SWR for EVM transactions - Optimized: Only fetch from top 20 wallets by value to reduce API calls
   const topEvmWallets = useMemo(() => {
     if (!uniqueWalletData.length) return [];
     const evmWallets = uniqueWalletData
       .filter((w) => !["bitcoin", "dogecoin", "litecoin"].includes(w.chain?.toLowerCase()))
       .sort((a, b) => (Number(b.total_value_usd) || 0) - (Number(a.total_value_usd) || 0)) // Desc by value
-      .slice(0, 10) // Top 10
+      .slice(0, 20) // Top 20
       .map((w) => (typeof w === "string" ? w : w.holder_address))
       .filter(Boolean);
     logger.info(`Optimized EVM wallets for transactions: ${evmWallets.length} top wallets`, { clusterId: clusterIdFromQuery });
@@ -681,72 +681,10 @@ const ClusterTab = ({ recaptchaRef, initialClusterId, activeTab: propActiveTab, 
         }
         throw new Error(errorMessage);
       }
-      const reader = response.body.getReader();
-      const decoder = new TextDecoder();
-      let transactionsData = [];
-      let buffer = '';
-      let isFirstChunk = true;
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-        buffer += decoder.decode(value, { stream: true });
-        if (isFirstChunk) {
-          buffer = buffer.trim().replace(/^\[/, '');
-          isFirstChunk = false;
-        }
-        let pos = 0;
-        while (pos < buffer.length) {
-          while (pos < buffer.length && (buffer[pos] === ' ' || buffer[pos] === '\n' || buffer[pos] === ',' || buffer[pos] === ']')) {
-            pos++;
-          }
-          if (pos >= buffer.length) break;
-          if (buffer[pos] === '{') {
-            let openBraces = 1;
-            let start = pos;
-            pos++;
-            while (pos < buffer.length && openBraces > 0) {
-              if (buffer[pos] === '{') openBraces++;
-              else if (buffer[pos] === '}') openBraces--;
-              pos++;
-            }
-            if (openBraces === 0) {
-              const objStr = buffer.substring(start, pos).trim();
-              try {
-                const parsedObj = JSON.parse(objStr);
-                if (parsedObj.detail) {
-                  throw new Error(parsedObj.detail);
-                }
-                transactionsData.push(parsedObj);
-              } catch (parseError) {
-                logger.warn(`Failed to parse object: ${parseError.message}`, { objStr });
-              }
-            } else {
-              break;
-            }
-          } else {
-            pos++;
-          }
-        }
-        buffer = buffer.slice(pos).trim();
-      }
-      if (buffer) {
-        buffer = buffer.replace(/\]$/, '').trim();
-        if (buffer.startsWith('{')) {
-          try {
-            const parsed = JSON.parse(buffer);
-            if (!parsed.detail) {
-              transactionsData.push(parsed);
-            } else {
-              throw new Error(parsed.detail);
-            }
-          } catch (e) {
-            logger.error(`Error parsing final buffer: ${e.message}`, { buffer });
-          }
-        }
-      }
-      await setCachedData(cacheKey, transactionsData);
-      logger.log("Fetched and cached EVM transactions:", { topEvmWallets: topEvmWallets.length, count: transactionsData.length });
-      return transactionsData;
+      const result = await response.json();
+      await setCachedData(cacheKey, result);
+      logger.log("Fetched and cached EVM transactions:", { topEvmWallets: topEvmWallets.length, count: result.length });
+      return result;
     },
     {
       revalidateOnFocus: false,
@@ -815,74 +753,10 @@ const ClusterTab = ({ recaptchaRef, initialClusterId, activeTab: propActiveTab, 
         }
         throw new Error(errorMessage);
       }
-      const reader = response.body.getReader();
-      const decoder = new TextDecoder();
-      let transactionsData = [];
-      let buffer = '';
-      let isFirstChunk = true;
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-        buffer += decoder.decode(value, { stream: true });
-        if (isFirstChunk) {
-          buffer = buffer.trim().replace(/^\[/, '');
-          isFirstChunk = false;
-        }
-        let pos = 0;
-        while (pos < buffer.length) {
-          while (pos < buffer.length && (buffer[pos] === ' ' || buffer[pos] === '\n' || buffer[pos] === ',' || buffer[pos] === ']')) {
-            pos++;
-          }
-          if (pos >= buffer.length) break;
-          if (buffer[pos] === '{') {
-            let openBraces = 1;
-            let start = pos;
-            pos++;
-            while (pos < buffer.length && openBraces > 0) {
-              if (buffer[pos] === '{') openBraces++;
-              else if (buffer[pos] === '}') openBraces--;
-              pos++;
-            }
-            if (openBraces === 0) {
-              const objStr = buffer.substring(start, pos).trim();
-              try {
-                const parsedObj = JSON.parse(objStr);
-                if (parsedObj.detail) {
-                  throw new Error(parsedObj.detail);
-                }
-                transactionsData.push(parsedObj);
-                debouncedSetWalletTransactions([...transactionsData]);
-              } catch (parseError) {
-                logger.warn(`Failed to parse object: ${parseError.message}`, { objStr });
-              }
-            } else {
-              break;
-            }
-          } else {
-            pos++;
-          }
-        }
-        buffer = buffer.slice(pos).trim();
-      }
-      if (buffer) {
-        buffer = buffer.replace(/\]$/, '').trim();
-        if (buffer.startsWith('{')) {
-          try {
-            const parsed = JSON.parse(buffer);
-            if (!parsed.detail) {
-              transactionsData.push(parsed);
-              debouncedSetWalletTransactions([...transactionsData]);
-            } else {
-              throw new Error(parsed.detail);
-            }
-          } catch (e) {
-            logger.error(`Error parsing final buffer: ${e.message}`, { buffer });
-          }
-        }
-      }
-      await setCachedData(cacheKey, transactionsData);
-      logger.log("Fetched and cached wallet transactions:", { selectedWallet, data: transactionsData });
-      return transactionsData;
+      const result = await response.json();
+      await setCachedData(cacheKey, result);
+      logger.log("Fetched and cached wallet transactions:", { selectedWallet, data: result });
+      return result;
     },
     {
       revalidateOnFocus: false,
@@ -937,73 +811,11 @@ const ClusterTab = ({ recaptchaRef, initialClusterId, activeTab: propActiveTab, 
         }
         throw new Error(errorMessage);
       }
-      const reader = response.body.getReader();
-      const decoder = new TextDecoder();
-      let balancesData = [];
-      let buffer = '';
-      let isFirstChunk = true;
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-        buffer += decoder.decode(value, { stream: true });
-        if (isFirstChunk) {
-          buffer = buffer.trim().replace(/^\[/, '');
-          isFirstChunk = false;
-        }
-        let pos = 0;
-        while (pos < buffer.length) {
-          while (pos < buffer.length && (buffer[pos] === ' ' || buffer[pos] === '\n' || buffer[pos] === ',' || buffer[pos] === ']')) {
-            pos++;
-          }
-          if (pos >= buffer.length) break;
-          if (buffer[pos] === '{') {
-            let openBraces = 1;
-            let start = pos;
-            pos++;
-            while (pos < buffer.length && openBraces > 0) {
-              if (buffer[pos] === '{') openBraces++;
-              else if (buffer[pos] === '}') openBraces--;
-              pos++;
-            }
-            if (openBraces === 0) {
-              const objStr = buffer.substring(start, pos).trim();
-              try {
-                const parsedObj = JSON.parse(objStr);
-                if (parsedObj.detail) {
-                  throw new Error(parsedObj.detail);
-                }
-                balancesData.push(parsedObj);
-              } catch (parseError) {
-                logger.warn(`Failed to parse object: ${parseError.message}`, { objStr });
-              }
-            } else {
-              break;
-            }
-          } else {
-            pos++;
-          }
-        }
-        buffer = buffer.slice(pos).trim();
-      }
-      if (buffer) {
-        buffer = buffer.replace(/\]$/, '').trim();
-        if (buffer.startsWith('{')) {
-          try {
-            const parsed = JSON.parse(buffer);
-            if (!parsed.detail) {
-              balancesData.push(parsed);
-            } else {
-              throw new Error(parsed.detail);
-            }
-          } catch (e) {
-            logger.error(`Error parsing final buffer: ${e.message}`, { buffer });
-          }
-        }
-      }
-      startTransition(() => setWalletBalances(balancesData));
-      await setCachedData(cacheKey, balancesData);
-      logger.log("Fetched and cached wallet balances:", { selectedWallet, data: balancesData });
-      return balancesData;
+      const result = await response.json();
+      startTransition(() => setWalletBalances(result));
+      await setCachedData(cacheKey, result);
+      logger.log("Fetched and cached wallet balances:", { selectedWallet, data: result });
+      return result;
     },
     {
       revalidateOnFocus: false,
@@ -1577,14 +1389,14 @@ const ClusterTab = ({ recaptchaRef, initialClusterId, activeTab: propActiveTab, 
           <div className="w-[25%] sm:w-[25%] px-2 sm:px-3 text-[#FFF]/80 text-[9px] sm:text-[10px] text-center overflow-hidden text-ellipsis">
             <div className="flex flex-col items-center gap-1">
               <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[7px] sm:text-[8px] font-bold uppercase tracking-wider ${tx.type === 'swap'
-                  ? 'bg-blue-500/20 text-blue-300 border border-blue-500/40 shadow-lg shadow-blue-500/20'
+                  ? 'bg-neon-blue/20 text-neon-blue border border-neon-blue/20 shadow-lg shadow-neon-blue/20'
                   : tx.type === 'received' || isIncoming
-                    ? 'bg-green-500/20 text-green-300 border border-green-500/40 shadow-lg shadow-green-500/20'
+                    ? 'bg-emerald-400/20 text-emerald-400 border border-emerald-400/20 shadow-lg shadow-emerald-400/20'
                     : tx.type === 'sent' || isOutgoing
-                      ? 'bg-red-500/20 text-red-300 border border-red-500/40 shadow-lg shadow-red-500/20'
+                      ? 'bg-[#00FFFF20]/20 text-[#FFF]/80 border border-[#00FFFF20]/20 shadow-lg shadow-[#00FFFF20]/20'
                       : isInternal
-                        ? 'bg-yellow-500/20 text-yellow-300 border border-yellow-500/40 shadow-lg shadow-yellow-500/20'
-                        : 'bg-gray-500/20 text-gray-300 border border-gray-500/40'
+                        ? 'bg-gray-500/20 text-black/50 border border-gray-500/20 shadow-lg shadow-gray-500/20'
+                        : 'bg-gray-500/20 text-black/50 border border-gray-500/40'
                 }`}>
                 {typeDisplay}
               </span>
