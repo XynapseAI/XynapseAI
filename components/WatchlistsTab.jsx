@@ -1220,7 +1220,7 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
             />
           </div>
           <div className="flex flex-col items-center">
-            <span>{tokenSymbol}</span>
+            <span className="font-bold text-[10px] sm:text-[11px]">{tokenSymbol}</span>
             {token.price_usd != null && (
               <span className="text-[9px] sm:text-[10px] text-gray-500">{formatPrice(token.price_usd)}</span>
             )}

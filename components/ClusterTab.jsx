@@ -1395,8 +1395,8 @@ const ClusterTab = ({ recaptchaRef, initialClusterId, activeTab: propActiveTab, 
                     : tx.type === 'sent' || isOutgoing
                       ? 'bg-[#00FFFF20]/20 text-[#FFF]/80 border border-[#00FFFF20]/20 shadow-lg shadow-[#00FFFF20]/20'
                       : isInternal
-                        ? 'bg-gray-500/20 text-black/50 border border-gray-500/20 shadow-lg shadow-gray-500/20'
-                        : 'bg-gray-500/20 text-black/50 border border-gray-500/40'
+                        ? 'bg-gray-500/30 text-white/80 border border-gray-500/30 shadow-lg shadow-gray-500/30'
+                        : 'bg-gray-500/30 text-white/80 border border-gray-500/30'
                 }`}>
                 {typeDisplay}
               </span>
