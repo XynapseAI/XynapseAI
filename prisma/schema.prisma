@@ -491,3 +491,16 @@ model MiniAppNotification {
   @@index([fid])
   @@index([appFid])
 }
+
+model EtfFlows {
+  id         Int      @id @default(autoincrement())
+  chain      String
+  date       String   // e.g., "Dec 04, 2025"
+  symbol     String   // e.g., "IBIT"
+  flow       Float    // Positive: Inflow, Negative: Outflow ($M USD)
+  is_summary Boolean  @default(false)  // True for Total/Avg/Max/Min rows
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+
+  @@unique([chain, date, symbol], name: "chain_date_symbol")
+}

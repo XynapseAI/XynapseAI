@@ -11,6 +11,7 @@ import TreemapTab from '../../components/TreemapTab';
 import WatchlistsTab from '../../components/WatchlistsTab';
 import ClusterTab from '../../components/ClusterTab';
 import ExplorerTab from '../../components/ExplorerTab';
+import EtfTab from '../../components/EtfTab';
 import ReCAPTCHA from 'react-google-recaptcha';
 import { toast, ToastContainer } from 'react-toastify';
 import MatrixHoverEffect from '../../components/MatrixHoverEffect';
@@ -389,7 +390,7 @@ function DashboardInner() {
   useEffect(() => {
     setIsMounted(true);
     const tab = searchParams.get('tab');
-    if (tab && ['market', 'ai', 'profile', 'graph', 'watchlists', 'cluster', 'explorer'].includes(tab)) {  // Added 'explorer' to valid tabs
+    if (tab && ['market', 'etf' , 'ai', 'profile', 'graph', 'watchlists', 'cluster', 'explorer'].includes(tab)) {  // Added 'explorer' to valid tabs
       setActiveTab(tab);
     }
   }, [searchParams, router]);
@@ -1265,7 +1266,6 @@ function DashboardInner() {
               ) : (
                 <>
                   {activeTab === 'market' && (
-
                     <MarketTab
                       recaptchaRef={recaptchaRef}
                       toast={toast}
@@ -1273,6 +1273,7 @@ function DashboardInner() {
                       initialTokenSlug={searchParams.get('token') || undefined}
                     />
                   )}
+                  {activeTab === 'etf' && <EtfTab />}
                   {activeTab === 'cluster' && (
                     <ClusterTab
                       recaptchaRef={recaptchaRef}

@@ -5,9 +5,6 @@ import cron from "node-cron";
 import { PrismaClient } from "@prisma/client";
 import fs from "fs/promises";
 import path from "path";
-import { fi } from "zod/v4/locales";
-import { gray } from "d3";
-import { bit } from "drizzle-orm/pg-core";
 
 // --- Khởi tạo Prisma Client ---
 const prisma = new PrismaClient({
@@ -60,6 +57,12 @@ const TARGETS = [
     name: "Bitcoin ETFs",
     type: "bitbo",
     url: "https://bitbo.io/treasuries/us-etfs",
+    chainLabel: "bitcoin",
+  },
+  {
+    name: "Bitcoin ETF Flows",  // Mới
+    type: "bitbo-flows",
+    url: "https://bitbo.io/treasuries/etf-flows/",
     chainLabel: "bitcoin",
   },
 ];
@@ -176,39 +179,39 @@ const keywordToImage = {
   immutable: 'immutable.webp',
   kelpdao: 'kelpdao.webp',
   ens: 'ens.webp',
-  ishares : 'blackrock.webp',
-  fidelity : 'fidelity.webp',
-  '21shares' : '21shares.webp',
-  bitwise : 'bitwise.webp',
-  vaneck : 'vaneck.webp',
-  franklin : 'franklin.webp',
-  valkyrie : 'valkyrie.webp',
-  invesco : 'invesco.webp',
-  wisdom : 'wisdom.webp',
-  hashdex : 'hashdex.webp',
-  grayscale : 'grayscale.webp',
-  liquity : 'liquity.webp',
-  bittrex : 'bittrex.webp',
-  cow : 'cow.webp',
-  maker : 'makerdao.webp',
-  nexo : 'nexo.webp',
-  alchemix : 'alchemix.webp',
-  shiba : 'shiba.webp',
-  metamask : 'metamask.webp',
-  across : 'across.webp',
-  kyberswap : 'kyber.webp',
-  zerion : 'zerion.webp',
-  decentraland : 'decentraland.webp',
-  opensea : 'opensea.webp',
-  bitdao : 'bybit.webp',
-  convex : 'convex.webp',
-  korbit : 'korbit.webp',
-  fei : 'fei.webp',
-  safe : 'gnosis.webp',
-  compound : 'compound.webp',
-  coinlist : 'coinlist.webp',
-  bitpie : 'bitpie.webp',
-  bancor : 'bancor.webp',
+  ishares: 'blackrock.webp',
+  fidelity: 'fidelity.webp',
+  '21shares': '21shares.webp',
+  bitwise: 'bitwise.webp',
+  vaneck: 'vaneck.webp',
+  franklin: 'franklin.webp',
+  valkyrie: 'valkyrie.webp',
+  invesco: 'invesco.webp',
+  wisdom: 'wisdom.webp',
+  hashdex: 'hashdex.webp',
+  grayscale: 'grayscale.webp',
+  liquity: 'liquity.webp',
+  bittrex: 'bittrex.webp',
+  cow: 'cow.webp',
+  maker: 'makerdao.webp',
+  nexo: 'nexo.webp',
+  alchemix: 'alchemix.webp',
+  shiba: 'shiba.webp',
+  metamask: 'metamask.webp',
+  across: 'across.webp',
+  kyberswap: 'kyber.webp',
+  zerion: 'zerion.webp',
+  decentraland: 'decentraland.webp',
+  opensea: 'opensea.webp',
+  bitdao: 'bybit.webp',
+  convex: 'convex.webp',
+  korbit: 'korbit.webp',
+  fei: 'fei.webp',
+  safe: 'gnosis.webp',
+  compound: 'compound.webp',
+  coinlist: 'coinlist.webp',
+  bitpie: 'bitpie.webp',
+  bancor: 'bancor.webp',
 };
 
 // Utility: Normalize whitespace
@@ -542,6 +545,157 @@ async function crawlBitboTopHolders(url, chainName, chainLabel) {
   }
 }
 
+// Crawl function for Bitbo ETF Flows
+async function crawlBitboEtfFlows(url, chainName, chainLabel) {
+  console.log(`🚀 Starting data crawl for ${chainName} (Bitbo Flows)...`);
+  try {
+    const { data } = await axios.get(url, {
+      headers: {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+        "Accept-Language": "en-US,en;q=0.9",
+      },
+      timeout: 20000,
+    });
+
+    const $ = load(data);
+    const flows = [];  // Array of { date, symbol, flow: number (positive=inflow, negative=outflow), isTotal: false }
+
+    // Parse table: <table class="stats-table larger-table">
+    $("table.stats-table tbody tr").each((_, row) => {
+      const tds = $(row).find("td");
+      if (tds.length === 0) return;  // Skip header
+
+      const firstCell = $(tds[0]).text().trim();
+      if (firstCell === "Total" || firstCell === "Average" || firstCell === "Maximum" || firstCell === "Minimum") {
+        // Parse summary rows (e.g., Total for each symbol)
+        const date = firstCell;  // "Total", etc.
+        for (let i = 1; i < tds.length; i++) {
+          const symbol = $("th").eq(i).text().trim();  // Map from header th
+          if (!symbol || symbol === "Totals") continue;
+          const flowText = $(tds[i]).text().trim();
+          const flow = parseFloat(flowText.replace(/,/g, '')) || 0;
+          if (flow !== 0) {
+            flows.push({
+              chain: chainLabel,
+              date,
+              symbol,
+              flow,  // Positive = Inflow, Negative = Outflow ($M USD)
+              isSummary: true,
+            });
+          }
+        }
+        return;
+      }
+
+      // Parse daily rows
+      const date = firstCell;  // e.g., "Dec 04, 2025"
+      for (let i = 1; i < tds.length - 1; i++) {  // Skip last "Totals"
+        const thSymbol = $("th").eq(i).text().trim();
+        if (!thSymbol) continue;
+        const flowText = $(tds[i]).text().trim();
+        const flowClass = $(tds[i]).attr('class') || '';
+        const flow = parseFloat(flowText.replace(/,/g, '')) || 0;
+        flows.push({
+          chain: chainLabel,
+          date,
+          symbol: thSymbol,  // IBIT, FBTC, etc.
+          flow,
+          isSummary: false,
+        });
+      }
+    });
+
+    if (flows.length === 0) {
+      console.warn(`⚠️ [${chainName}] No data retrieved.`);
+      return;
+    }
+
+    console.log(`[DEBUG] Parsed ${flows.length} flows. Sample:`, flows.slice(0, 3));  // Debug log
+
+    // Lưu vào DB và JSON
+    await saveEtfFlowsToDatabase(flows, chainName);
+    await saveEtfFlowsToJson(flows);
+    console.log(`[${new Date().toISOString()}] ✅ [${chainName}] Saved ${flows.length} flows to DB and JSON`);
+  } catch (err) {
+    console.error(`❌ [${chainName}] Critical error:`, err.message);
+  }
+}
+
+// Hàm lưu ETF Flows vào JSON (tương tự saveHoldersToJson) - FIX: Tạo dir tự động
+async function saveEtfFlowsToJson(flows) {
+  const jsonPath = path.join(process.cwd(), 'public', 'data', 'etf-flows.json');
+  try {
+    // FIX: Tạo thư mục nếu chưa tồn tại
+    await fs.mkdir(path.dirname(jsonPath), { recursive: true });
+
+    let existingData = [];
+    try {
+      const existingContent = await fs.readFile(jsonPath, 'utf8');
+      existingData = JSON.parse(existingContent);
+    } catch (e) {
+      if (e.code !== 'ENOENT') console.warn(`Error reading JSON:`, e.message);
+    }
+
+    // Merge new data (avoid duplicates by date+symbol)
+    const uniqueFlows = flows.filter(newFlow =>
+      !existingData.some(existing => existing.date === newFlow.date && existing.symbol === newFlow.symbol)
+    );
+    existingData.push(...uniqueFlows);
+
+    await fs.writeFile(jsonPath, JSON.stringify(existingData, null, 2), 'utf8');
+    console.log(`✅ Saved ${uniqueFlows.length} flows to etf-flows.json`);
+  } catch (err) {
+    console.error(`Error saving JSON:`, err.message);
+  }
+}
+
+// Hàm lưu vào DB mới (batch upsert)
+async function saveEtfFlowsToDatabase(flows, chainName) {
+  const BATCH_SIZE = 50;
+  try {
+    // FIX: Debug check nếu model tồn tại
+    if (!prisma.etfFlows) {
+      throw new Error('Prisma model "etf_flows" not found. Run "npx prisma generate" to update client.');
+    }
+
+    for (let i = 0; i < flows.length; i += BATCH_SIZE) {
+      const batch = flows.slice(i, i + BATCH_SIZE);
+      await withRetry(async () => {
+        await prisma.$transaction(
+          batch.map(flow => prisma.etfFlows.upsert({
+            where: {
+              chain_date_symbol: {
+                chain: flow.chain,
+                date: flow.date,
+                symbol: flow.symbol,
+              },
+            },
+            update: {
+              flow: flow.flow,
+              is_summary: flow.isSummary,
+              updated_at: new Date(),
+            },
+            create: {
+              chain: flow.chain,
+              date: flow.date,
+              symbol: flow.symbol,
+              flow: flow.flow,
+              is_summary: flow.isSummary,
+              created_at: new Date(),
+              updated_at: new Date(),
+            },
+          }))
+        );
+      }, 3, 2000);
+      console.log(`[${chainName}] Batch ${Math.floor(i / BATCH_SIZE) + 1}: Saved ${batch.length} flows`);
+    }
+    console.log(`[${chainName}] Successfully saved ${flows.length} flows to DB`);
+  } catch (error) {
+    console.error(`[${chainName}] DB save error:`, error.message);
+    throw error;  // Re-throw để log rõ
+  }
+}
+
 // Hàm lưu dữ liệu vào database với batch và retry
 async function saveHoldersToDatabase(holders, chainName, chainLabel) {
   const BATCH_SIZE = 50;
@@ -594,9 +748,13 @@ async function saveHoldersToDatabase(holders, chainName, chainLabel) {
 async function ensurePrismaConnected() {
   try {
     await prisma.$connect();
-    console.log("Prisma client connected");
+    console.log("✅ Prisma client connected");
+    // FIX: Debug check model EtfFlows
+    if (!prisma.etfFlows) {
+      console.warn('⚠️ Warning: Prisma model "etf_flows" not available. Run "npx prisma generate"');
+    }
   } catch (error) {
-    console.error("Failed to connect Prisma client:", error.message);
+    console.error("❌ Failed to connect Prisma client:", error.message);
     throw error;
   }
 }
@@ -604,6 +762,7 @@ async function ensurePrismaConnected() {
 // Main function to run all crawlers
 async function runAllCrawlers() {
   console.log(`[${new Date().toISOString()}] Starting crawl cycle...`);
+  await ensurePrismaConnected();  // FIX: Đảm bảo connect trước
   for (const target of TARGETS) {
     if (target.type === "etherscan") {
       await crawlEtherscanTopHolders(target.url, target.name, target.chainLabel);
@@ -611,7 +770,10 @@ async function runAllCrawlers() {
       await crawlBitinfochartsTopHolders(target.urls, target.name, target.chainLabel);
     } else if (target.type === "bitbo") {
       await crawlBitboTopHolders(target.url, target.name, target.chainLabel);
+    } else if (target.type === "bitbo-flows") {
+      await crawlBitboEtfFlows(target.url, target.name, target.chainLabel);
     }
+    await delay(2000);  // Delay giữa các target để tránh rate limit
   }
   console.log(`[${new Date().toISOString()}] Crawl cycle completed.`);
 }

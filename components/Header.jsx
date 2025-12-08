@@ -35,6 +35,7 @@ export default function Header({ activeTab, setActiveTab, handleSignOut, selecte
 
   const tabs = [
     { id: 'market', label: 'Market', icon: BarChart3 },
+    { id: 'etf', label: 'ETF', icon: BarChart3 },
     // { id: 'ai', label: 'AI', icon: Zap },
     { id: 'cluster', label: 'Cluster', icon: Network },
     { id: 'graph', label: 'Graph', icon: Activity },
