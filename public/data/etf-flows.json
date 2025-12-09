@@ -978,5 +978,397 @@
     "symbol": "BTCW",
     "flow": 0,
     "isSummary": false
+  },
+  {
+    "chain": "bitcoin",
+    "date": "Dec 08, 2025",
+    "symbol": "IBIT",
+    "flow": -158,
+    "isSummary": false
+  },
+  {
+    "chain": "bitcoin",
+    "date": "Dec 08, 2025",
+    "symbol": "FBTC",
+    "flow": -25.4,
+    "isSummary": false
+  },
+  {
+    "chain": "bitcoin",
+    "date": "Dec 08, 2025",
+    "symbol": "GBTC",
+    "flow": -12.3,
+    "isSummary": false
+  },
+  {
+    "chain": "bitcoin",
+    "date": "Dec 08, 2025",
+    "symbol": "BTC",
+    "flow": 0,
+    "isSummary": false
+  },
+  {
+    "chain": "bitcoin",
+    "date": "Dec 08, 2025",
+    "symbol": "BITB",
+    "flow": 1.9,
+    "isSummary": false
+  },
+  {
+    "chain": "bitcoin",
+    "date": "Dec 08, 2025",
+    "symbol": "ARKB",
+    "flow": 43,
+    "isSummary": false
+  },
+  {
+    "chain": "bitcoin",
+    "date": "Dec 08, 2025",
+    "symbol": "HODL",
+    "flow": -14,
+    "isSummary": false
+  },
+  {
+    "chain": "bitcoin",
+    "date": "Dec 08, 2025",
+    "symbol": "BTCO",
+    "flow": 0,
+    "isSummary": false
+  },
+  {
+    "chain": "bitcoin",
+    "date": "Dec 08, 2025",
+    "symbol": "BRRR",
+    "flow": 0,
+    "isSummary": false
+  },
+  {
+    "chain": "bitcoin",
+    "date": "Dec 08, 2025",
+    "symbol": "EZBC",
+    "flow": 0,
+    "isSummary": false
+  },
+  {
+    "chain": "bitcoin",
+    "date": "Dec 08, 2025",
+    "symbol": "BTCW",
+    "flow": 0,
+    "isSummary": false
+  },
+  {
+    "chain": "bitcoin",
+    "date": "Dec 08, 2025",
+    "symbol": "DEFI",
+    "flow": 0,
+    "isSummary": false
+  },
+  {
+    "chain": "bitcoin",
+    "date": "-90.8",
+    "symbol": "IBIT",
+    "flow": 231.1,
+    "isSummary": false
+  },
+  {
+    "chain": "bitcoin",
+    "date": "-90.8",
+    "symbol": "FBTC",
+    "flow": 42.2,
+    "isSummary": false
+  },
+  {
+    "chain": "bitcoin",
+    "date": "-90.8",
+    "symbol": "GBTC",
+    "flow": 98.3,
+    "isSummary": false
+  },
+  {
+    "chain": "bitcoin",
+    "date": "-90.8",
+    "symbol": "BTC",
+    "flow": -10,
+    "isSummary": false
+  },
+  {
+    "chain": "bitcoin",
+    "date": "-90.8",
+    "symbol": "BITB",
+    "flow": -79.7,
+    "isSummary": false
+  },
+  {
+    "chain": "bitcoin",
+    "date": "-90.8",
+    "symbol": "ARKB",
+    "flow": -43.3,
+    "isSummary": false
+  },
+  {
+    "chain": "bitcoin",
+    "date": "-90.8",
+    "symbol": "HODL",
+    "flow": 0,
+    "isSummary": false
+  },
+  {
+    "chain": "bitcoin",
+    "date": "-90.8",
+    "symbol": "BTCO",
+    "flow": 0.8,
+    "isSummary": false
+  },
+  {
+    "chain": "bitcoin",
+    "date": "-90.8",
+    "symbol": "BRRR",
+    "flow": -0.8,
+    "isSummary": false
+  },
+  {
+    "chain": "bitcoin",
+    "date": "-90.8",
+    "symbol": "EZBC",
+    "flow": 0,
+    "isSummary": false
+  },
+  {
+    "chain": "bitcoin",
+    "date": "-90.8",
+    "symbol": "BTCW",
+    "flow": 0,
+    "isSummary": false
+  },
+  {
+    "chain": "bitcoin",
+    "date": "-9.1",
+    "symbol": "IBIT",
+    "flow": 23.1,
+    "isSummary": false
+  },
+  {
+    "chain": "bitcoin",
+    "date": "-9.1",
+    "symbol": "FBTC",
+    "flow": 4.2,
+    "isSummary": false
+  },
+  {
+    "chain": "bitcoin",
+    "date": "-9.1",
+    "symbol": "GBTC",
+    "flow": 9.8,
+    "isSummary": false
+  },
+  {
+    "chain": "bitcoin",
+    "date": "-9.1",
+    "symbol": "BTC",
+    "flow": -1,
+    "isSummary": false
+  },
+  {
+    "chain": "bitcoin",
+    "date": "-9.1",
+    "symbol": "BITB",
+    "flow": -8,
+    "isSummary": false
+  },
+  {
+    "chain": "bitcoin",
+    "date": "-9.1",
+    "symbol": "ARKB",
+    "flow": -4.3,
+    "isSummary": false
+  },
+  {
+    "chain": "bitcoin",
+    "date": "-9.1",
+    "symbol": "HODL",
+    "flow": 0,
+    "isSummary": false
+  },
+  {
+    "chain": "bitcoin",
+    "date": "-9.1",
+    "symbol": "BTCO",
+    "flow": 0.1,
+    "isSummary": false
+  },
+  {
+    "chain": "bitcoin",
+    "date": "-9.1",
+    "symbol": "BRRR",
+    "flow": -0.1,
+    "isSummary": false
+  },
+  {
+    "chain": "bitcoin",
+    "date": "-9.1",
+    "symbol": "EZBC",
+    "flow": 0,
+    "isSummary": false
+  },
+  {
+    "chain": "bitcoin",
+    "date": "-9.1",
+    "symbol": "BTCW",
+    "flow": 0,
+    "isSummary": false
+  },
+  {
+    "chain": "bitcoin",
+    "date": "118.3",
+    "symbol": "IBIT",
+    "flow": 176.3,
+    "isSummary": false
+  },
+  {
+    "chain": "bitcoin",
+    "date": "118.3",
+    "symbol": "FBTC",
+    "flow": 63.6,
+    "isSummary": false
+  },
+  {
+    "chain": "bitcoin",
+    "date": "118.3",
+    "symbol": "GBTC",
+    "flow": 90.2,
+    "isSummary": false
+  },
+  {
+    "chain": "bitcoin",
+    "date": "118.3",
+    "symbol": "BTC",
+    "flow": 7.3,
+    "isSummary": false
+  },
+  {
+    "chain": "bitcoin",
+    "date": "118.3",
+    "symbol": "BITB",
+    "flow": 86.9,
+    "isSummary": false
+  },
+  {
+    "chain": "bitcoin",
+    "date": "118.3",
+    "symbol": "ARKB",
+    "flow": 8.9,
+    "isSummary": false
+  },
+  {
+    "chain": "bitcoin",
+    "date": "118.3",
+    "symbol": "HODL",
+    "flow": 0,
+    "isSummary": false
+  },
+  {
+    "chain": "bitcoin",
+    "date": "118.3",
+    "symbol": "BTCO",
+    "flow": 0.8,
+    "isSummary": false
+  },
+  {
+    "chain": "bitcoin",
+    "date": "118.3",
+    "symbol": "BRRR",
+    "flow": 0,
+    "isSummary": false
+  },
+  {
+    "chain": "bitcoin",
+    "date": "118.3",
+    "symbol": "EZBC",
+    "flow": 0,
+    "isSummary": false
+  },
+  {
+    "chain": "bitcoin",
+    "date": "118.3",
+    "symbol": "BTCW",
+    "flow": 0,
+    "isSummary": false
+  },
+  {
+    "chain": "bitcoin",
+    "date": "-158.0",
+    "symbol": "IBIT",
+    "flow": -33.3,
+    "isSummary": false
+  },
+  {
+    "chain": "bitcoin",
+    "date": "-158.0",
+    "symbol": "FBTC",
+    "flow": -19.6,
+    "isSummary": false
+  },
+  {
+    "chain": "bitcoin",
+    "date": "-158.0",
+    "symbol": "GBTC",
+    "flow": -0.4,
+    "isSummary": false
+  },
+  {
+    "chain": "bitcoin",
+    "date": "-158.0",
+    "symbol": "BTC",
+    "flow": -12.7,
+    "isSummary": false
+  },
+  {
+    "chain": "bitcoin",
+    "date": "-158.0",
+    "symbol": "BITB",
+    "flow": -89.6,
+    "isSummary": false
+  },
+  {
+    "chain": "bitcoin",
+    "date": "-158.0",
+    "symbol": "ARKB",
+    "flow": -38.2,
+    "isSummary": false
+  },
+  {
+    "chain": "bitcoin",
+    "date": "-158.0",
+    "symbol": "HODL",
+    "flow": 0,
+    "isSummary": false
+  },
+  {
+    "chain": "bitcoin",
+    "date": "-158.0",
+    "symbol": "BTCO",
+    "flow": 0,
+    "isSummary": false
+  },
+  {
+    "chain": "bitcoin",
+    "date": "-158.0",
+    "symbol": "BRRR",
+    "flow": -0.8,
+    "isSummary": false
+  },
+  {
+    "chain": "bitcoin",
+    "date": "-158.0",
+    "symbol": "EZBC",
+    "flow": 0,
+    "isSummary": false
+  },
+  {
+    "chain": "bitcoin",
+    "date": "-158.0",
+    "symbol": "BTCW",
+    "flow": 0,
+    "isSummary": false
   }
 ]
