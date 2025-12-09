@@ -120,6 +120,7 @@ const SUPPORTED_EVM_CHAINS = [
   { value: 'mantle', coingeckoId: 'mantle', label: 'Mantle', chainId: 5000, testnet: false },
   { value: 'linea', coingeckoId: 'linea', label: 'Linea', chainId: 59144, testnet: false },
   { value: 'monad', coingeckoId: 'monad', label: 'Monad', chainId: 143, testnet: false },
+  { value: 'hyperevm', coingeckoId: 'hyperevm', label: 'HyperEVM', chainId: 999, testnet: false },
 ];
 
 export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initialTokenData }) => {

@@ -3,11 +3,11 @@ import { NextResponse } from 'next/server';
 import fs from 'fs/promises';
 import path from 'path';
 import Bottleneck from 'bottleneck';
-import { logger } from '../../../utils/serverLogger'; // Giả sử bạn có logger, nếu không thì comment out hoặc thêm
+import { logger } from '../../../utils/serverLogger';
 import { createClient } from 'redis';
 
 const limiterBottleneck = new Bottleneck({
-  maxConcurrent: 3,
+  maxConcurrent: 2,
   minTime: 250,
 });
 

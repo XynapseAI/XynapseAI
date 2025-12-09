@@ -120,6 +120,29 @@
   font-weight: bold;
 }
 
+.table-scrollbar::-webkit-scrollbar {
+  width: 6px;
+}
+
+.table-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.table-scrollbar::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 4px;
+}
+
+.table-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.3);
+}
+
+/* Đảm bảo không hide trên Firefox/IE */
+.table-scrollbar {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.2) transparent;
+}
+
 @media (max-width: 640px) {
   .w-48 {
     width: 6rem;

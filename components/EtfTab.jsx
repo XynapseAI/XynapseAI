@@ -170,7 +170,7 @@ export default function EtfTab() {
 
             {/* Right: Table */}
             <motion.div
-                className="w-full md:w-2/5 min-h-[500px] md:min-h-[550px] max-h-[644px] border border-[#FFFFFF20] rounded-2xl bg-[#0A0A0A]/90 backdrop-blur-xl shadow-2xl glow-[#FFFFFF10] p-6 overflow-y-auto"
+                className="w-full md:w-2/5 min-h-[500px] md:min-h-[550px] max-h-[644px] border border-[#FFFFFF20] rounded-2xl bg-[#0A0A0A]/90 backdrop-blur-xl shadow-2xl glow-[#FFFFFF10] p-6 overflow-y-auto overflow-x-hidden table-scrollbar"
                 initial={{ opacity: 0, x: 20 }}
                 animate={{ opacity: 1, x: 0 }}
                 transition={{ delay: 0.3 }}
@@ -180,16 +180,22 @@ export default function EtfTab() {
                     {tableData.map((etf, i) => (
                         <motion.div
                             key={i}
-                            className="flex items-center gap-4 p-4 bg-[#FFFFFF]/5 rounded-xl border border-[#FFFFFF10] hover:border-[#FFFFFF30] transition-all"
+                            className="flex flex-col sm:flex-row items-start gap-2 sm:gap-4 p-4 bg-[#FFFFFF]/5 rounded-xl border border-[#FFFFFF10] hover:border-[#FFFFFF30] transition-all"
                         >
-                            <Image src={etf.image} alt={etf.name} width={40} height={40} className="rounded-sm shadow-lg" />
-                            <div className="flex-1">
-                                <div className="text-sm font-bold text-white truncate">{etf.name}</div>
+                            <div className="flex flex-col items-start gap-1 flex-shrink-0">
+                                <Image 
+                                    width={40} 
+                                    height={40}
+                                    src={etf.image}
+                                    alt={etf.name} 
+                                    className="w-10 h-10 sm:w-12 sm:h-12 rounded-lg shadow-lg flex-shrink-0" 
+                                />
+                                <div className="text-xs sm:text-sm font-bold text-white m-1">{etf.name}</div>
                                 <div className="text-xs text-[#D4D4D4]">Ticker: <span className="text-emerald-400 font-bold">{etf.symbol}</span></div>
                             </div>
-                            <div className="text-right text-xs space-y-1">
+                            <div className="flex-1 w-full sm:ml-auto sm:text-right text-xs space-y-0.5 sm:space-y-1">
                                 <div className="text-[#D4D4D4]">Holding</div>
-                                <div className="text-lg font-bold text-white">{(etf.totalHolding / 1000).toFixed(3)}BTC</div>
+                                <div className="text-sm sm:text-base font-bold text-white">{(etf.totalHolding / 1000).toFixed(3)}BTC</div>
                                 <div className="text-xs text-[#888]">{formatPrice(etf.valueUSD)}</div>
                                 <div className={etf.inflow > 0 ? 'text-emerald-400 font-bold' : 'text-gray-500'}>
                                     {etf.inflow > 0 ? `+$${etf.inflow.toFixed(0)}M` : '–'}

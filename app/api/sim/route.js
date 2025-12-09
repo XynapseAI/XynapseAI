@@ -304,11 +304,11 @@ const CHAIN_ID_MAP = {
   zora: "7777777",
   monad: "143",
   plasma: "9745",
-  hyper_evm: "999",
+  hyperevm: "999",
 };
 
 const LIMIT_CONFIG = {
-  "top-holders": 100,
+  "top-holders": 200,
   "wallet-balances": 2000,
   transactions: 10000,
   collectibles: 200,
