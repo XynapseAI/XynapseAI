@@ -1,7 +1,7 @@
 // components/EtfTab.jsx
 'use client';
 import { useState, useEffect } from 'react';
-import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, BarChart, Bar } from 'recharts';
+import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LineChart, Line, BarChart, Bar } from 'recharts';
 import { motion } from 'framer-motion';
 import Image from 'next/image';
 
@@ -18,8 +18,40 @@ const safeFixed = (v, decimals = 1) => {
     return isNaN(num) ? '0' : num.toFixed(decimals);
 };
 
-// Custom Tooltip with color adjustments
-const CustomTooltip = ({ active, payload, label }) => {
+// Custom Tooltip for Area/Line Chart (ETF flows)
+const CustomAreaTooltip = ({ active, payload, label }) => {
+    if (active && payload && payload.length) {
+        return (
+            <motion.div
+                className="bg-[#0A0A0A]/95 backdrop-blur-xl border border-[#FFFFFF20] p-4 rounded-2xl text-[#FFF] text-sm font-medium shadow-2xl"
+                initial={{ opacity: 0, scale: 0.9 }}
+                animate={{ opacity: 1, scale: 1 }}
+                transition={{ duration: 0.2 }}
+            >
+                <p className="text-[#D4D4D4] text-xs mb-2">{label}</p>
+                {payload.map((entry, i) => {
+                    const value = entry.value || 0;
+                    const isOutflow = value < 0;
+                    const flowType = isOutflow ? ' (Outflow)' : ' (Inflow)';
+                    const absValue = Math.abs(value);
+                    return (
+                        <div key={i} className="flex items-center gap-3">
+                            <div className="w-3 h-3 rounded-sm" style={{ backgroundColor: entry.color }} />
+                            <span className="text-[#FFF]">{entry.name}:</span>
+                            <span className={`font-bold ${isOutflow ? 'text-red-500/60' : 'text-emerald-400'}`}>
+                                ${safeFixed(absValue)}M{flowType}
+                            </span>
+                        </div>
+                    );
+                })}
+            </motion.div>
+        );
+    }
+    return null;
+};
+
+// Custom Tooltip for Bar Chart (Inflow/Outflow)
+const CustomBarTooltip = ({ active, payload, label }) => {
     if (active && payload && payload.length) {
         return (
             <motion.div
@@ -50,20 +82,52 @@ const CustomTooltip = ({ active, payload, label }) => {
     return null;
 };
 
-// Custom Legend - hình vuông + text nhỏ hơn
-const CustomLegend = (props) => {
-    const { payload } = props;
+// Manual Legend for ETF filtering
+const ManualLegend = ({ activeSymbols, setActiveSymbols, topSymbols, symbolToColor }) => {
+    const toggleSymbol = (symbol) => {
+        if (symbol === 'ALL') {
+            setActiveSymbols(topSymbols);
+            return;
+        }
+        setActiveSymbols((prev) => {
+            const newActive = prev.includes(symbol) ? prev.filter((s) => s !== symbol) : [...prev, symbol];
+            // If empty after toggle, reset to ALL
+            return newActive.length === 0 ? topSymbols : newActive;
+        });
+    };
+
+    const isAllActive = activeSymbols.length === topSymbols.length;
+
     return (
-        <div className="flex flex-wrap justify-end gap-1">
-            {payload.map((entry, index) => (
-                <div key={`legend-${index}`} className="flex items-center gap-1">
+        <div className="flex flex-wrap justify-end gap-2 mb-3">
+            <div
+                onClick={() => toggleSymbol('ALL')}
+                className={`cursor-pointer flex items-center gap-1 px-2 py-1 rounded-md transition-colors ${
+                    isAllActive ? 'bg-[#FFFFFF20] text-white' : 'text-[#888]'
+                }`}
+            >
+                <div className="w-2 h-2 rounded-sm bg-gray-500" />
+                <span className="text-[10px] font-medium">ALL</span>
+            </div>
+            {topSymbols.map((sym) => {
+                const color = symbolToColor[sym];
+                const isActive = activeSymbols.includes(sym);
+                return (
                     <div
-                        className="w-2 h-2 rounded-sm shadow-lg"
-                        style={{ backgroundColor: entry.color, boxShadow: `0 0 10px ${entry.color}80` }}
-                    />
-                    <span className="text-[10px] text-[#D4D4D4] font-medium">{entry.value}</span>
-                </div>
-            ))}
+                        key={sym}
+                        onClick={() => toggleSymbol(sym)}
+                        className={`cursor-pointer flex items-center gap-1 px-2 py-1 rounded-md transition-colors ${
+                            isActive ? 'bg-[#FFFFFF20] text-white' : 'text-[#888]'
+                        }`}
+                    >
+                        <div
+                            className="w-2 h-2 rounded-sm shadow-lg"
+                            style={{ backgroundColor: color, boxShadow: `0 0 10px ${color}80` }}
+                        />
+                        <span className="text-[10px] font-medium">{sym}</span>
+                    </div>
+                );
+            })}
         </div>
     );
 };
@@ -74,6 +138,7 @@ export default function EtfTab() {
     const [tableData, setTableData] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
+    const [activeSymbols, setActiveSymbols] = useState([]);
 
     useEffect(() => {
         fetch('/api/etf-data')
@@ -82,6 +147,7 @@ export default function EtfTab() {
                 setChartArray(data.chartArray);
                 setFlowChartData(data.flowChartData);
                 setTableData(data.tableData);
+                setActiveSymbols(data.chartArray.length > 0 ? Object.keys(data.chartArray[0]).filter(k => k !== 'date') : []);
             })
             .catch(err => setError(err.message))
             .finally(() => setLoading(false));
@@ -91,12 +157,16 @@ export default function EtfTab() {
     if (error) return <div className="flex justify-center items-center h-full text-red-500/60">Error: {error}</div>;
 
     // Top 6 ETFs cho chart
-    const topSymbols = ['IBIT', 'FBTC', 'ARKB', 'BTC', 'GBTC', 'HODL'];
+    const topSymbols = ['IBIT', 'FBTC', 'GBTC' , 'BTC', 'BITB' , 'ARKB', 'HODL'];
 
     const symbolToColor = {};
     topSymbols.forEach((sym, i) => {
         symbolToColor[sym] = etfColors[i % etfColors.length];
     });
+
+    const isSingle = activeSymbols.length === 1;
+    const currentSymbol = isSingle ? activeSymbols[0] : null;
+    const currentColor = currentSymbol ? symbolToColor[currentSymbol] : null;
 
     return (
         <motion.div
@@ -107,43 +177,67 @@ export default function EtfTab() {
             {/* Left: Charts */}
             <div className="w-full md:w-3/5 flex flex-col gap-6">
 
-                {/* Daily Net Flows - Area Chart */}
+                {/* Daily Net Flows - Area/Line Chart */}
                 <motion.div
-                    className="h-[380px] border border-[#FFFFFF20] rounded-2xl bg-[#0A0A0A]/90 backdrop-blur-xl shadow-2xl glow-[#FFFFFF10] p-6"
+                    className="h-[380px] border border-[#FFFFFF20] rounded-2xl bg-[#0A0A0A]/90 backdrop-blur-xl shadow-2xl glow-[#FFFFFF10] p-6 relative"
                     initial={{ opacity: 0, y: 20 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ delay: 0.1 }}
                 >
-                    <h3 className="text-sm font-bold text-[#FFF] mb-4">Daily Net Flows by Top ETFs ($M USD)</h3>
-                    <ResponsiveContainer width="100%" height="95%">
-                        <AreaChart data={chartArray} margin={{ top: 10, right: 30, left: 0, bottom: 0 }}>
-                            <defs>
-                                {topSymbols.map((sym, i) => (
-                                    <linearGradient key={sym} id={`gradient-${sym}`} x1="0" y1="0" x2="0" y2="1">
-                                        <stop offset="0%" stopColor={etfColors[i]} stopOpacity={0.6} />
-                                        <stop offset="100%" stopColor={etfColors[i]} stopOpacity={0.05} />
-                                    </linearGradient>
-                                ))}
-                            </defs>
-                            <CartesianGrid stroke="#333333" strokeDasharray="4 4" />
-                            <XAxis dataKey="date" stroke="#888" tick={{ fontSize: 11 }} />
-                            <YAxis stroke="#888" tick={{ fontSize: 11 }} tickFormatter={(v) => `$${v.toFixed(0)}M`} />
-                            <Tooltip content={<CustomTooltip />} cursor={{ stroke: '#FFF', strokeWidth: 1, strokeDasharray: '5 5' }} />
-                            <Legend verticalAlign="top" align="right" content={<CustomLegend />} />
-                            {topSymbols.map((symbol, i) => (
-                                <Area
-                                    key={symbol}
+                    <h3 className="text-sm font-bold text-[#FFF] mb-2">
+                        Daily Net Flows by Top ETFs ($M USD){isSingle && ` - ${currentSymbol}`}
+                    </h3>
+                    <ManualLegend
+                        activeSymbols={activeSymbols}
+                        setActiveSymbols={setActiveSymbols}
+                        topSymbols={topSymbols}
+                        symbolToColor={symbolToColor}
+                    />
+                    <ResponsiveContainer width="100%" height="85%">
+                        {isSingle ? (
+                            <LineChart data={chartArray} margin={{ top: 10, right: 30, left: 0, bottom: 0 }}>
+                                <CartesianGrid stroke="#333333" strokeDasharray="4 4" />
+                                <XAxis dataKey="date" stroke="#888" tick={{ fontSize: 11 }} />
+                                <YAxis stroke="#888" tick={{ fontSize: 11 }} tickFormatter={(v) => `$${v.toFixed(0)}M`} />
+                                <Tooltip content={<CustomAreaTooltip />} cursor={{ stroke: '#FFF', strokeWidth: 1, strokeDasharray: '5 5' }} />
+                                <Line
                                     type="monotone"
-                                    dataKey={symbol}
-                                    stroke={etfColors[i]}
-                                    strokeWidth={2}
-                                    fillOpacity={1}
-                                    fill={`url(#gradient-${symbol})`}
-                                    dot={false}
+                                    dataKey={currentSymbol}
+                                    stroke={currentColor}
+                                    strokeWidth={3}
+                                    dot={{ r: 4, stroke: '#FFF', strokeWidth: 2 }}
                                     activeDot={{ r: 6, stroke: '#FFF', strokeWidth: 2 }}
                                 />
-                            ))}
-                        </AreaChart>
+                            </LineChart>
+                        ) : (
+                            <AreaChart data={chartArray} margin={{ top: 10, right: 30, left: 0, bottom: 0 }}>
+                                <defs>
+                                    {activeSymbols.map((sym, i) => (
+                                        <linearGradient key={sym} id={`gradient-${sym}`} x1="0" y1="0" x2="0" y2="1">
+                                            <stop offset="0%" stopColor={symbolToColor[sym]} stopOpacity={0.6} />
+                                            <stop offset="100%" stopColor={symbolToColor[sym]} stopOpacity={0.05} />
+                                        </linearGradient>
+                                    ))}
+                                </defs>
+                                <CartesianGrid stroke="#333333" strokeDasharray="4 4" />
+                                <XAxis dataKey="date" stroke="#888" tick={{ fontSize: 11 }} />
+                                <YAxis stroke="#888" tick={{ fontSize: 11 }} tickFormatter={(v) => `$${v.toFixed(0)}M`} />
+                                <Tooltip content={<CustomAreaTooltip />} cursor={{ stroke: '#FFF', strokeWidth: 1, strokeDasharray: '5 5' }} />
+                                {activeSymbols.map((symbol) => (
+                                    <Area
+                                        key={symbol}
+                                        type="monotone"
+                                        dataKey={symbol}
+                                        stroke={symbolToColor[symbol]}
+                                        strokeWidth={2}
+                                        fillOpacity={1}
+                                        fill={`url(#gradient-${symbol})`}
+                                        dot={false}
+                                        activeDot={{ r: 6, stroke: '#FFF', strokeWidth: 2 }}
+                                    />
+                                ))}
+                            </AreaChart>
+                        )}
                     </ResponsiveContainer>
                 </motion.div>
 
@@ -160,7 +254,7 @@ export default function EtfTab() {
                             <CartesianGrid stroke="#333333" strokeDasharray="4 4" />
                             <XAxis dataKey="date" stroke="#888" tick={{ fontSize: 11 }} />
                             <YAxis stroke="#888" tick={{ fontSize: 11 }} />
-                            <Tooltip content={<CustomTooltip />} />
+                            <Tooltip content={<CustomBarTooltip />} />
                             <Bar dataKey="inflow" fill="#00FF88" radius={[4, 4, 0, 0]} />
                             <Bar dataKey="outflow" fill="#FF4444" radius={[4, 4, 0, 0]} />
                         </BarChart>
@@ -195,7 +289,7 @@ export default function EtfTab() {
                             </div>
                             <div className="flex-1 w-full sm:ml-auto sm:text-right text-xs space-y-0.5 sm:space-y-1">
                                 <div className="text-[#D4D4D4]">Holding</div>
-                                <div className="text-sm sm:text-base font-bold text-white">{(etf.totalHolding / 1000).toFixed(3)}BTC</div>
+                                <div className="text-sm sm:text-base font-bold text-white">{(etf.totalHolding / 1000).toFixed(3)} BTC</div>
                                 <div className="text-xs text-[#888]">{formatPrice(etf.valueUSD)}</div>
                                 <div className={etf.inflow > 0 ? 'text-emerald-400 font-bold' : 'text-gray-500'}>
                                     {etf.inflow > 0 ? `+$${etf.inflow.toFixed(0)}M` : '–'}
