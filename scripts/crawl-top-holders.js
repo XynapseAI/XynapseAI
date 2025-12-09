@@ -212,6 +212,7 @@ const keywordToImage = {
   coinlist: 'coinlist.webp',
   bitpie: 'bitpie.webp',
   bancor: 'bancor.webp',
+  wisdomtree: 'wisdom.webp',
 };
 
 // Utility: Normalize whitespace

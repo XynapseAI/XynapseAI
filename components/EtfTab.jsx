@@ -38,7 +38,7 @@ const CustomAreaTooltip = ({ active, payload, label }) => {
                         <div key={i} className="flex items-center gap-3">
                             <div className="w-3 h-3 rounded-sm" style={{ backgroundColor: entry.color }} />
                             <span className="text-[#FFF]">{entry.name}:</span>
-                            <span className={`font-bold ${isOutflow ? 'text-red-500/60' : 'text-emerald-400'}`}>
+                            <span className={`font-bold ${isOutflow ? 'text-red-500/80' : 'text-emerald-400'}`}>
                                 ${safeFixed(absValue)}M{flowType}
                             </span>
                         </div>
@@ -70,7 +70,7 @@ const CustomBarTooltip = ({ active, payload, label }) => {
                         <div key={i} className="flex items-center gap-3">
                             <div className="w-3 h-3 rounded-sm" style={{ backgroundColor: entry.color }} />
                             <span className="text-[#FFF]">{entry.name}:</span>
-                            <span className={`font-bold ${isOutflow ? 'text-red-500/60' : 'text-emerald-400'}`}>
+                            <span className={`font-bold ${isOutflow ? 'text-red-500/80' : 'text-emerald-400'}`}>
                                 ${Math.abs(entry.value).toFixed(1)}M{flowType}
                             </span>
                         </div>
@@ -154,7 +154,7 @@ export default function EtfTab() {
     }, []);
 
     if (loading) return <div className="flex justify-center items-center h-full text-[#D4D4D4]">Loading ETF data...</div>;
-    if (error) return <div className="flex justify-center items-center h-full text-red-500/60">Error: {error}</div>;
+    if (error) return <div className="flex justify-center items-center h-full text-red-500/80">Error: {error}</div>;
 
     // Top 6 ETFs cho chart
     const topSymbols = ['IBIT', 'FBTC', 'GBTC' , 'BTC', 'BITB' , 'ARKB', 'HODL'];
@@ -294,7 +294,7 @@ export default function EtfTab() {
                                 <div className={etf.inflow > 0 ? 'text-emerald-400 font-bold' : 'text-gray-500'}>
                                     {etf.inflow > 0 ? `+$${etf.inflow.toFixed(0)}M` : '–'}
                                 </div>
-                                <div className={etf.outflow > 0 ? 'text-red-500/60 font-bold' : 'text-gray-500'}>
+                                <div className={etf.outflow > 0 ? 'text-red-500/80 font-bold' : 'text-gray-500'}>
                                     {etf.outflow > 0 ? `–$${etf.outflow.toFixed(0)}M` : '–'}
                                 </div>
                             </div>
