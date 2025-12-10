@@ -12,12 +12,13 @@ export default function UniversalSearch({
   placeholder = "Search wallets, nametags, tokens, or exchanges...",
   className = "",
   size = "default", // "small", "default", "large"
+  hideOrganizations = false,
 }) {
   const [searchQuery, setSearchQuery] = useState("");
   const [debouncedQuery, setDebouncedQuery] = useState(""); // State mới cho query đã debounce
   const [groupedResults, setGroupedResults] = useState({
     wallets: [],
-    organizations: [],
+    organizations: hideOrganizations ? [] : [],  // NEW: Always empty if hidden
     tokens: [],
     nametags: [],
   });
@@ -193,7 +194,9 @@ export default function UniversalSearch({
     const orgMatches = majorOrganizations.filter((org) =>
       org.name.toLowerCase().includes(debouncedQuery.toLowerCase()),
     );
-    newGrouped.organizations.push(...orgMatches);
+    if (!hideOrganizations) {  // NEW: Conditional for Treemap
+      newGrouped.organizations.push(...orgMatches);
+    }
 
     // 3. Add nametag results
     if (nametagData?.success && nametagData.data) {
@@ -212,29 +215,33 @@ export default function UniversalSearch({
 
     // 4. Add exchange results
     if (exchangeData?.data) {
-      newGrouped.organizations.push(
-        ...exchangeData.data.map((exchange) => ({
-          id: `exchange-${exchange.id}`,
-          type: "exchange",
-          name: exchange.name,
-          image: exchange.image,
-          exchangeId: exchange.id,
-        })),
-      );
+      if (!hideOrganizations) {  // NEW: Conditional for Treemap
+        newGrouped.organizations.push(
+          ...exchangeData.data.map((exchange) => ({
+            id: `exchange-${exchange.id}`,
+            type: "exchange",
+            name: exchange.name,
+            image: exchange.image,
+            exchangeId: exchange.id,
+          })),
+        );
+      }
     }
 
     // 5. Add cluster results
     if (clusterData?.success && clusterData.data) {
-      newGrouped.organizations.push(
-        ...clusterData.data.map((cluster) => ({
-          id: `cluster-${cluster.cluster_name}`,
-          type: "organization",
-          name: capitalize(cluster.cluster_name),
-          image: cluster.image,
-          exchangeId: cluster.cluster_name,
-          holder_addresses: cluster.holder_addresses || [],
-        })),
-      );
+      if (!hideOrganizations) {  // NEW: Conditional for Treemap
+        newGrouped.organizations.push(
+          ...clusterData.data.map((cluster) => ({
+            id: `cluster-${cluster.cluster_name}`,
+            type: "organization",
+            name: capitalize(cluster.cluster_name),
+            image: cluster.image,
+            exchangeId: cluster.cluster_name,
+            holder_addresses: cluster.holder_addresses || [],
+          })),
+        );
+      }
     }
 
     // 6. Add token results
@@ -437,7 +444,7 @@ export default function UniversalSearch({
               <div className="flex-1 overflow-y-auto p-4 mobile-scroll relative">
                 <LoadingOverlay isLoading={isLoading} isMobile={window.innerWidth <= 640} className="absolute inset-0 z-[60]" />
                 {Object.entries(groupedResults).map(([section, results]) => (
-                  results.length > 0 && (
+                  (section !== 'organizations' || !hideOrganizations) && results.length > 0 && (  // NEW: Skip organizations in Treemap
                     <div key={section} className="mb-6">
                       <h3 className="text-white font-bold text-sm mb-3">{getSectionTitle(section)}</h3>
                       {results.slice(0, 10).map((result) => (
@@ -505,7 +512,7 @@ export default function UniversalSearch({
                   )
                 ))}
                 {!isLoading && hasNoResults && (
-                  <motion.p 
+                  <motion.p
                     className="text-[10px] text-white/60 text-center mt-4 animate-pulse"
                     initial={{ opacity: 0 }}
                     animate={{ opacity: 1 }}

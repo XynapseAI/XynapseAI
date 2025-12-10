@@ -1734,9 +1734,10 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
             <div className="relative flex items-center w-full sm:w-auto">
               <UniversalSearch
                 onSelect={handleSearchSelect}
-                placeholder="Search wallet, nametag, token name/address, or exchange..."
+                placeholder="Search wallet, nametag, token name/address..."
                 size="default"
                 className="flex-1 min-w-0" // Responsive
+                hideOrganizations={true}
               />
               <button
                 onClick={handleSearch}
