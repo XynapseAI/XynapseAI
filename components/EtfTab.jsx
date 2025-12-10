@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LineChart, Line, BarChart, Bar } from 'recharts';
 import { motion } from 'framer-motion';
 import Image from 'next/image';
+import { LoadingOverlay } from '@/utils/helpers';
 
 const etfColors = [
     '#00FF88', '#00E7FF', '#FF44AA', '#FFD700', '#FF6B6B',
@@ -102,9 +103,8 @@ const ManualLegend = ({ activeSymbols, setActiveSymbols, topSymbols, symbolToCol
         <div className="flex flex-wrap justify-end gap-2 mb-3">
             <div
                 onClick={() => toggleSymbol('ALL')}
-                className={`cursor-pointer flex items-center gap-1 px-2 py-1 rounded-md transition-colors ${
-                    isAllActive ? 'bg-[#FFFFFF20] text-white' : 'text-[#888]'
-                }`}
+                className={`cursor-pointer flex items-center gap-1 px-2 py-1 rounded-md transition-colors ${isAllActive ? 'bg-[#FFFFFF20] text-white' : 'text-[#888]'
+                    }`}
             >
                 <div className="w-2 h-2 rounded-sm bg-gray-500" />
                 <span className="text-[10px] font-medium">ALL</span>
@@ -116,9 +116,8 @@ const ManualLegend = ({ activeSymbols, setActiveSymbols, topSymbols, symbolToCol
                     <div
                         key={sym}
                         onClick={() => toggleSymbol(sym)}
-                        className={`cursor-pointer flex items-center gap-1 px-2 py-1 rounded-md transition-colors ${
-                            isActive ? 'bg-[#FFFFFF20] text-white' : 'text-[#888]'
-                        }`}
+                        className={`cursor-pointer flex items-center gap-1 px-2 py-1 rounded-md transition-colors ${isActive ? 'bg-[#FFFFFF20] text-white' : 'text-[#888]'
+                            }`}
                     >
                         <div
                             className="w-2 h-2 rounded-sm shadow-lg"
@@ -139,6 +138,7 @@ export default function EtfTab() {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
     const [activeSymbols, setActiveSymbols] = useState([]);
+    const [isMobile, setIsMobile] = useState(typeof window !== 'undefined' && window.innerWidth <= 640);
 
     useEffect(() => {
         fetch('/api/etf-data')
@@ -153,11 +153,19 @@ export default function EtfTab() {
             .finally(() => setLoading(false));
     }, []);
 
-    if (loading) return <div className="flex justify-center items-center h-full text-[#D4D4D4]">Loading ETF data...</div>;
+    if (loading) return (
+        <div className="relative h-full">
+            <LoadingOverlay
+                isLoading={true}
+                isMobile={isMobile}
+                className="absolute inset-0 z-10 h-full"
+            />
+        </div>
+    );
     if (error) return <div className="flex justify-center items-center h-full text-red-500/80">Error: {error}</div>;
 
     // Top 6 ETFs cho chart
-    const topSymbols = ['IBIT', 'FBTC', 'GBTC' , 'BTC', 'BITB' , 'ARKB', 'HODL'];
+    const topSymbols = ['IBIT', 'FBTC', 'GBTC', 'BTC', 'BITB', 'ARKB', 'HODL'];
 
     const symbolToColor = {};
     topSymbols.forEach((sym, i) => {
@@ -277,12 +285,12 @@ export default function EtfTab() {
                             className="flex flex-col sm:flex-row items-start gap-2 sm:gap-4 p-4 bg-[#FFFFFF]/5 rounded-xl border border-[#FFFFFF10] hover:border-[#FFFFFF30] transition-all"
                         >
                             <div className="flex flex-col items-start gap-1 flex-shrink-0">
-                                <Image 
-                                    width={40} 
+                                <Image
+                                    width={40}
                                     height={40}
                                     src={etf.image}
-                                    alt={etf.name} 
-                                    className="w-10 h-10 sm:w-12 sm:h-12 rounded-lg shadow-lg flex-shrink-0" 
+                                    alt={etf.name}
+                                    className="w-10 h-10 sm:w-12 sm:h-12 rounded-lg shadow-lg flex-shrink-0"
                                 />
                                 <div className="text-xs sm:text-sm font-bold text-white m-1">{etf.name}</div>
                                 <div className="text-xs text-[#D4D4D4]">Ticker: <span className="text-emerald-400 font-bold">{etf.symbol}</span></div>

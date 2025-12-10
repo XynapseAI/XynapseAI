@@ -16,6 +16,7 @@ const nextConfig: NextConfig = {
       'cdn.dexscreener.com',
       'scontent.xx.fbcdn.net',
       'imagedelivery.net',
+      'res.cloudinary.com',
     ],
     remotePatterns: [
       {
@@ -35,8 +36,13 @@ const nextConfig: NextConfig = {
       },
       {
         protocol: 'https',
-        hostname: 'imagedelivery.net',  // Thêm hostname từ Neynar PFP
-        pathname: '/**',  // Cho phép tất cả path (an toàn cho PFP)
+        hostname: 'imagedelivery.net',
+        pathname: '/**', 
+      },
+      {
+        protocol: 'https',
+        hostname: 'res.cloudinary.com',
+        pathname: '/**',
       },
     ],
   },
