@@ -5,6 +5,10 @@ import path from 'path';
 import Bottleneck from 'bottleneck';
 import { logger } from '../../../utils/serverLogger';
 import { createClient } from 'redis';
+import { PrismaClient } from '@prisma/client';
+
+const prisma = globalThis.prisma || new PrismaClient();
+if (process.env.NODE_ENV !== 'production') globalThis.prisma = prisma;
 
 const limiterBottleneck = new Bottleneck({
   maxConcurrent: 2,
@@ -158,10 +162,19 @@ export const GET = handlerWrapper(async () => {
     const btcPrice = btcData.bitcoin?.usd || 100000;
 
     const holdersPath = path.join(process.cwd(), 'public/nametags/bitcoin-top-holders.json');
-    const flowsPath = path.join(process.cwd(), 'public/data/etf-flows.json');
 
     const holdersData = JSON.parse(await fs.readFile(holdersPath, 'utf8'));
-    const flows = JSON.parse(await fs.readFile(flowsPath, 'utf8'));
+
+    // Fetch flows from database (EtfFlows table)
+    const flows = await prisma.etfFlows.findMany({
+      where: {
+        chain: 'bitcoin',
+        is_summary: false,
+      },
+      orderBy: {
+        created_at: 'desc',
+      },
+    });
 
     const etfs = Object.values(holdersData).filter(item => {
       const nameTag = item.Labels?.bitcoin?.['Name Tag'] || '';
@@ -170,7 +183,7 @@ export const GET = handlerWrapper(async () => {
     });
 
     const validFlows = flows
-      .filter(f => f.date && typeof f.date === 'string' && f.date.match(/^[A-Z][a-z]{2} \d{1,2}, \d{4}$/) && !f.isSummary)
+      .filter(f => f.date && typeof f.date === 'string' && f.date.match(/^[A-Z][a-z]{2} \d{1,2}, \d{4}$/))
       .sort((a, b) => new Date(b.date.replace(/(\w+) (\d+), (\d+)/, '$1 $2 $3')) - new Date(a.date.replace(/(\w+) (\d+), (\d+)/, '$1 $2 $3')));
 
     // Top 6 ETFs cho chart
@@ -224,5 +237,7 @@ export const GET = handlerWrapper(async () => {
     const overallDuration = Date.now() - startOverall;
     if (logger) logger.error(`Error in /api/etf-data after ${overallDuration}ms: ${err.message}`, { stack: err.stack });
     return NextResponse.json({ error: err.message }, { status: 500 });
+  } finally {
+    await prisma.$disconnect();
   }
 });
