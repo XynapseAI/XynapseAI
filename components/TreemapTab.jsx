@@ -1152,7 +1152,7 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
         }
         let filteredLayer3ForCluster = [];
         if (fullLayer3Data.length > 0) {
-          const layer3Filter = fullLayer3Data.filter(tx => tx.nametag && tx.nametag !== 'Unknown');
+          const layer3Filter = fullLayer3Data;
           const layer3ToInclude = filterType === 'all' ? layer3Filter : layer3Filter.filter(tx => tx.type === filterType);
           filteredLayer3ForCluster = layer3ToInclude.map(tx => ({
             ...tx,
@@ -1204,8 +1204,16 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
         // Scale down initial positions for token query to bring clusters closer
         positionedNodesData.forEach(n => {
           if (!n.isRoot) {
-            n.x *= 0.3; // Giảm radius xuống 30% để gần hơn
-            n.y *= 0.3;
+            n.x *= 0.25; // Giảm radius xuống 25% để gần hơn
+            n.y *= 0.25;
+          }
+        });
+      } else {
+        // For non-token queries, slightly compress initial positions to bring clusters closer
+        positionedNodesData.forEach(n => {
+          if (!n.isRoot) {
+            n.x *= 0.6; // Compress by 60% for closer distribution
+            n.y *= 0.6;
           }
         });
       }
@@ -1236,14 +1244,14 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
           const autoLabel = node.autoLabel || cluster?.autoLabel || '';
           const nametag = node.isRoot ? '' : node.label !== 'Unknown' ? node.label : truncateAddress(node.id);
           return `
-        <div style="background: rgba(0,0,0,0.8); border: 1px solid rgba(255,255,255,0.1); color: rgba(255,255,255,0.8); padding: 4px 8px; border-radius: 4px; font-size: 12px;">
-          ${node.isRoot ? `<div>Cluster: ${clusterLabel}</div>` : `<div>${nametag}${node.layer === 3 ? ' (L3)' : ''}</div>`}
-          ${autoLabel ? `<div>Auto: ${autoLabel}</div>` : ''}
-          ${cluster ? `<div>Cluster: ${cluster.nametag}</div>` : ''}
-          <div>Tx: ${node.txCount} | Value: ${formatLargeNumber(Number(node.totalValue), 1)}$</div>
-          <div>Risk: ${(risk * 100).toFixed(0)}%</div>
-        </div>
-      `;
+      <div style="background: rgba(0,0,0,0.8); border: 1px solid rgba(255,255,255,0.1); color: rgba(255,255,255,0.8); padding: 4px 8px; border-radius: 4px; font-size: 12px;">
+        ${node.isRoot ? `<div>Cluster: ${clusterLabel}</div>` : `<div>${nametag}${node.layer === 3 ? ' (L3)' : ''}</div>`}
+        ${autoLabel ? `<div>Auto: ${autoLabel}</div>` : ''}
+        ${cluster ? `<div>Cluster: ${cluster.nametag}</div>` : ''}
+        <div>Tx: ${node.txCount} | Value: ${formatLargeNumber(Number(node.totalValue), 1)}$</div>
+        <div>Risk: ${(risk * 100).toFixed(0)}%</div>
+      </div>
+    `;
         })
         .nodeCanvasObject((node, ctx, globalScale) => {
           const size = node.val / globalScale;
@@ -1298,12 +1306,32 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
         .linkCanvasObjectMode(() => 'replace')
         .linkLabel(link => `${link.tokenSymbol || 'Unknown'} - ${formatLargeNumber(Number(link.value), 1)}`)
         .linkHoverPrecision(10)
-        .d3Force('charge', d3.forceManyBody().strength(isTokenQuery ? -2000 : -800)) // Yếu hơn cho token query
-        .d3Force('link', d3.forceLink().id(d => d.id).distance(isTokenQuery ? 5 : (link => link.layer === 3 ? 60 : 120)).strength(0.7)) // Giảm distance, tăng strength
+        .d3Force('charge', d3.forceManyBody().strength(node => {
+          if (node.layer === 2 || node.layer === 3) {
+            return -2000; // Further increase repulsion for layers 2/3 to prevent overlap when zoomed out
+          }
+          return isTokenQuery ? -3200 : -1400; // Increase overall repulsion for better spacing
+        }))
+        .d3Force('link', d3.forceLink().id(d => d.id).distance(link => {
+          if (link.source.id === rootId || link.target.id === rootId) {
+            return isTokenQuery ? 3 : 50; // Further reduce distance to root to pull clusters closer
+          }
+          return link.layer === 3 ? 30 : 80; // Reduce non-root distances slightly for compactness
+        }).strength(1.0)) // Increase strength to better enforce distances
+        .d3Force('radial', d3.forceRadial(node => {
+          const cluster = detectedClusters.find(c => c.clusterId === node.clusterId);
+          if (cluster && cluster.wallets.length > 5) { // Apply only to large clusters
+            const centerX = cluster.wallets.reduce((sum, w) => sum + w.x, 0) / cluster.wallets.length;
+            const centerY = cluster.wallets.reduce((sum, w) => sum + w.y, 0) / cluster.wallets.length;
+            return Math.hypot(node.x - centerX, node.y - centerY); // Distance to center
+          }
+          return 0; // No radial for small clusters
+        }).strength(0.3)) // Increase strength slightly for tighter circular arrangement
+        .d3Force('collide', d3.forceCollide().radius(node => node.val * 1.44).strength(0.7)) // Add collision to prevent overlaps
         .d3AlphaDecay(0.01)
         .d3VelocityDecay(0.6)
-        .warmupTicks(500) // Tăng để mượt hơn
-        .cooldownTicks(1500)
+        .warmupTicks(800) // Increase for smoother initial simulation
+        .cooldownTicks(2000)
         .enablePointerInteraction(true)
         .enableNodeDrag(true)
         .enableZoomInteraction(true)
@@ -1338,10 +1366,10 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
           node.fy = node.y;
         })
         .onEngineStop(() => {
-          graphRef.current.zoomToFit(1000, 100); // Tự động zoom to fit tất cả các node
+          graphRef.current.zoomToFit(1000, 150); // Increase padding for better fit without crowding
         });
       graphRef.current.centerAt(0, 0, 1500);
-      graphRef.current.zoom(isTokenQuery ? 0.3 : 0.8, 1500); // Zoom out hơn cho token query
+      graphRef.current.zoom(isTokenQuery ? 0.4 : 1.0, 1500); // Adjust initial zoom: higher for non-token to show spacing better
       // Lý do: Khôi phục kích thước gốc (val và nodeVal theo totalValue * multiplier), nhưng layer3 multiplier = layer2 (5.76). Giữ scale positions *0.4 và force adjustments cho token query để cụm gần root hơn. Zoom 2 cho token để fit view tốt hơn.
     } catch (err) {
       logger.error('Error initializing ForceGraph:', err);
