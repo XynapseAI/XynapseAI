@@ -39,7 +39,7 @@ const Modal = dynamic(() => import("./Modal"), {
   loading: () => <div className="flex items-center justify-center h-64"><SkeletonLoader height={20} width={200} /></div>
 });
 const LoginPrompt = dynamic(() => import('./LoginPrompt'), { ssr: false });
-const UniversalSearch = dynamic(() => import("./UniversalSearch"), { ssr: false });
+// const UniversalSearch = dynamic(() => import("./UniversalSearch"), { ssr: false });
 const CustomTooltip = ({ active, payload, label, currency }) => {
   if (active && payload && payload.length) {
     return (
@@ -751,13 +751,13 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                 )}
               </div>
               {/* Universal Search */}
-              <UniversalSearch
+              {/* <UniversalSearch
                 onSelect={handleSearchSelect}
                 placeholder="Search wallets, nametags, or exchanges..."
                 className="flex-1 w-full"
                 size="default"
                 aria-label="Search for cryptocurrency wallets, nametags, or exchanges"
-              />
+              /> */}
             </div>
           </div>
           {/* Trending Tokens Ticker */}
