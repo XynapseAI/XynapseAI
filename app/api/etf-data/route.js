@@ -27,6 +27,24 @@ const allowedOrigins = [
   'https://xynapse-ai-xynapse-projects.vercel.app',
 ].filter(Boolean);
 
+// ================= Redis Client =================
+let redisClient;
+async function getRedisClient() {
+  if (!redisClient) {
+    redisClient = createClient({
+      url: process.env.REDIS_URL || 'redis://localhost:6379',
+    });
+    redisClient.on('error', (err) => logger.error('Redis Client Error', { error: err.message }));
+    await redisClient.connect();
+    logger.info('Redis connected for etf-data');
+  } else if (!redisClient.isOpen) {
+    await redisClient.connect();
+    logger.info('Redis reconnected for etf-data');
+  }
+  return redisClient;
+}
+
+// ================= Security =================
 function isAllowedOrigin(origin, referer) {
   try {
     if (origin && (allowedOrigins.includes(origin) || new URL(origin).hostname.endsWith('xynapseai.net'))) {
@@ -56,24 +74,60 @@ function isAllowedOrigin(origin, referer) {
   }
 }
 
-// Redis Client
-let redisClient;
-async function getRedisClient() {
-  if (!redisClient) {
-    redisClient = createClient({
-      url: process.env.REDIS_URL || 'redis://localhost:6379',
-    });
-    redisClient.on('error', (err) => logger.error('Redis Client Error', { error: err.message }));
-    await redisClient.connect();
-    if (logger) logger.info('Redis connected for etf-data');
-  } else if (!redisClient.isOpen) {
-    await redisClient.connect();
-    if (logger) logger.info('Redis reconnected for etf-data');
+function securityHeaders(origin) {
+  const baseHeaders = {
+    'Content-Security-Policy': "default-src 'self'",
+    'X-Content-Type-Options': 'nosniff',
+    'X-Frame-Options': 'DENY',
+    'Strict-Transport-Security': 'max-age=31536000; includeSubDomains',
+    'X-XSS-Protection': '1; mode=block',
+    'Referrer-Policy': 'strict-origin-when-cross-origin',
+    'Permissions-Policy': 'geolocation=(), microphone=(), camera=()',
+  };
+  if (origin && origin !== 'null') {
+    baseHeaders['Access-Control-Allow-Origin'] = origin;
+    baseHeaders['Access-Control-Allow-Methods'] = 'GET, OPTIONS';
+    baseHeaders['Access-Control-Allow-Headers'] = 'Content-Type';
   }
-  return redisClient;
+  return baseHeaders;
 }
 
-// CORS wrapper
+async function banIP(ip, durationSeconds = 1800) {
+  const redisClient = await getRedisClient();
+  await redisClient.setEx(`banned_ip:${ip}`, durationSeconds, 'banned');
+  logger.info(`IP banned: ${ip} for ${durationSeconds} seconds`);
+}
+
+async function checkIPBan(ip) {
+  const redisClient = await getRedisClient();
+  const isBanned = await redisClient.get(`banned_ip:${ip}`);
+  if (isBanned) {
+    logger.error(`IP ban detected: ${ip}`);
+    throw new Error('IP temporarily banned due to excessive violations.');
+  }
+}
+
+async function trackViolation(ip, reason = 'Unknown', severity = 'severe') {
+  const nonCriticalReasons = ['Not allowed by CORS'];
+  if (nonCriticalReasons.includes(reason) || severity === 'warn') {
+    logger.warn(`Non-critical violation ignored: ${ip}, reason: ${reason}`);
+    return;
+  }
+  const redisClient = await getRedisClient();
+  const key = `violations:${ip}`;
+  const maxViolations = 10;
+  const windowMs = 30 * 60 * 1000;
+  const violations = parseInt(await redisClient.get(key)) || 0;
+  if (violations >= maxViolations) {
+    await banIP(ip);
+    logger.error(`IP banned due to repeated violations: ${ip}, reason: ${reason}`);
+    throw new Error('IP temporarily banned due to excessive violations.');
+  }
+  await redisClient.multi().incr(key).expire(key, windowMs / 1000).exec();
+  logger.warn(`Violation recorded: ${ip}, reason: ${reason}, violations: ${violations + 1}`);
+}
+
+// CORS wrapper (nâng cấp với IP ban)
 const handlerWrapper = (handler) =>
   limiterBottleneck.wrap(async (req) => {
     const ip = req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown';
@@ -83,7 +137,15 @@ const handlerWrapper = (handler) =>
     if (logger) logger.info(`Request to /api/etf-data from IP ${ip}, Origin: ${origin || 'null'}, Referer: ${referer || 'null'}`);
 
     if (!isAllowedOrigin(origin, referer)) {
+      await trackViolation(ip, 'Not allowed by CORS', 'warn');
       return NextResponse.json({ detail: 'Not allowed by CORS' }, { status: 403 });
+    }
+
+    try {
+      await checkIPBan(ip);
+    } catch (err) {
+      await trackViolation(ip, err.message, 'severe');
+      return NextResponse.json({ detail: err.message }, { status: 429 });
     }
 
     const res = await handler(req);
@@ -91,7 +153,9 @@ const handlerWrapper = (handler) =>
     res.headers.set('Access-Control-Allow-Origin', allowOrigin);
     res.headers.set('Access-Control-Allow-Methods', 'GET');
     res.headers.set('Access-Control-Allow-Headers', 'Content-Type');
-    res.headers.set('Content-Security-Policy', "default-src 'self'");
+    Object.entries(securityHeaders(allowOrigin)).forEach(([key, value]) => {
+      if (!res.headers.has(key)) res.headers.set(key, value);
+    });
     if (logger) logger.info(`Response for /api/etf-data, time: ${Date.now() - startTime}ms`, { ip });
     return res;
   });
@@ -135,6 +199,15 @@ const getImageForEtf = (name) => {
   }
   return keywordToImage.default;
 };
+
+export async function OPTIONS(request) {
+  const origin = request.headers.get('origin');
+  const referer = request.headers.get('referer');
+  if (!isAllowedOrigin(origin, referer)) {
+    return NextResponse.json({ detail: 'Not allowed by CORS' }, { status: 403, headers: securityHeaders(origin) });
+  }
+  return new NextResponse(null, { status: 204, headers: securityHeaders(origin) });
+}
 
 export const GET = handlerWrapper(async () => {
   const startOverall = Date.now();

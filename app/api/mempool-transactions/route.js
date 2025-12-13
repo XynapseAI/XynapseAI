@@ -95,7 +95,7 @@ async function isAllowedOrigin(origin, referer, pathname, ip) {
   }
 }
 
-// IP Ban and Rate Limiting (unchanged)
+// IP Ban and Rate Limiting (unchanged, nhưng tinh chỉnh nonCriticalReasons)
 async function banIP(ip, durationSeconds = 1800) {
   const redisClient = await getRedisClient();
   await redisClient.setEx(`banned_ip:${ip}`, durationSeconds, 'banned');
@@ -112,7 +112,7 @@ async function checkIPBan(ip) {
 }
 
 async function trackViolation(ip, reason = 'Unknown', severity = 'severe') {
-  const nonCriticalReasons = ['CORS blocked', 'Invalid Bitcoin address'];
+  const nonCriticalReasons = ['CORS blocked', 'Invalid Bitcoin address', 'Authentication required']; // Thêm 'Authentication required'
   if (nonCriticalReasons.includes(reason) || severity === 'warn') {
     logger.warn(`Non-critical violation ignored: ${ip}, reason: ${reason}`);
     return;
@@ -162,7 +162,7 @@ export async function OPTIONS(request) {
   });
 }
 
-// GET Handler
+// GET Handler (giữ nguyên, chỉ thêm logging tinh chỉnh)
 export async function GET(request) {
   const ip = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown';
   const origin = request.headers.get('origin');
