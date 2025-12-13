@@ -72,7 +72,7 @@ function securityHeaders(origin) {
 async function checkRateLimit(ip) {
   const redisClient = await getRedisClient();
   const key = `rate_limit:cluster:${ip}`;
-  const maxRequests = 10; // Thấp hơn vì clustering nặng
+  const maxRequests = 50; // Thấp hơn vì clustering nặng
   const windowMs = 60 * 1000;
   const requests = parseInt(await redisClient.get(key)) || 0;
   if (requests >= maxRequests) {
