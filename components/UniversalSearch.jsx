@@ -434,8 +434,8 @@ export default function UniversalSearch({
                     setGroupedResults({ wallets: [], organizations: [], tokens: [], nametags: [] });
                   }}
                   className="text-white/70 hover:bg-white/10 p-2 rounded-full transition-all duration-300 hover:shadow-neon-sm"
-                  whileHover={{ scale: 1.1 }}
-                  whileTap={{ scale: 0.9 }}
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.95 }}
                   aria-label="Close search modal"
                 >
                   <X size={config.icon} />
@@ -480,7 +480,6 @@ export default function UniversalSearch({
                               {/* MỚI: Type tag với màu sắc */}
                               <motion.span
                                 className={`inline-flex items-center px-2 py-0.5 rounded-full border font-medium ${config.tag} ${getTypeTagClass(result.type)}`}
-                                whileHover={{ scale: 1.05 }}
                               >
                                 {getTypeLabel(result.type)}
                               </motion.span>
@@ -488,7 +487,6 @@ export default function UniversalSearch({
                               {result.chain && result.type === "token" && (
                                 <motion.span
                                   className={`inline-flex items-center px-2 py-0.5 rounded-full border font-medium ${config.tag} ${getChainTagClass(result.chain)}`}
-                                  whileHover={{ scale: 1.05 }}
                                 >
                                   <Link2 className="w-2 h-2 mr-1" />
                                   {result.chain.toUpperCase()}
