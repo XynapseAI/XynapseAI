@@ -89,7 +89,7 @@ async function trackViolation(ip, reason = 'Unknown', severity = 'severe') {
   }
   const redisClient = await getRedisClient();
   const key = `violations:${ip}`;
-  const maxViolations = 10;
+  const maxViolations = 50;
   const windowMs = 30 * 60 * 1000;
   const violations = parseInt(await redisClient.get(key)) || 0;
   if (violations >= maxViolations) {
