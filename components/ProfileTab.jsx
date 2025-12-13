@@ -1343,7 +1343,7 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5, delay: 0.2 }}
         >
-          <div className="border-b border-white/15 bg-black/50 rounded-t-xl flex h-[32px] sm:h-[40px] overflow-hidden">
+          {/* <div className="border-b border-white/15 bg-black/50 rounded-t-xl flex h-[32px] sm:h-[40px] overflow-hidden">
             {['profile'].map((tab) => {
               const isActive = activeTab === tab;
               return (
@@ -1367,7 +1367,7 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
                 </motion.button>
               );
             })}
-          </div>
+          </div> */}
           <div className="flex-1 overflow-hidden relative">
             <AnimatePresence mode="wait">
               {activeTab === 'profile' && (

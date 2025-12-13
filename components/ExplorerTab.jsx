@@ -1301,7 +1301,7 @@ export default function ExplorerTab({ initialQuery, initialChain, isStandalone =
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
                 <div className="bg-[#FFFFFF]/5 backdrop-blur-md p-4 rounded-xl border border-[#FFFFFF20] shadow-[0_4px_12px_rgba(0,0,0,0.3)] glow-[#FFFFFF15]">
                     <h2 className="text-[12px] font-bold mb-3 flex items-center uppercase"><HashIcon className="w-4 h-4 mr-2 text-emerald-400" />Latest Blocks</h2>
-                    <div className="border border-[#FFFFFF20] rounded-xl overflow-hidden max-h-80 overflow-y-auto">
+                    <div className="border border-[#FFFFFF20] rounded-xl overflow-hidden max-h-[24rem] overflow-y-auto">
                         <div className="bg-[#0A0A0A]/80 flex px-3 py-2 text-[9px] font-semibold text-[#FFF] sticky top-0">
                             <span className="w-1/4 text-left">Block</span>
                             <span className="w-1/4 text-left">Age</span>
@@ -1320,7 +1320,7 @@ export default function ExplorerTab({ initialQuery, initialChain, isStandalone =
                 </div>
                 <div className="bg-[#FFFFFF]/5 backdrop-blur-md p-4 rounded-xl border border-[#FFFFFF20] shadow-[0_4px_12px_rgba(0,0,0,0.3)] glow-[#FFFFFF15]">
                     <h2 className="text-[12px] font-bold mb-3 flex items-center uppercase"><Activity className="w-4 h-4 mr-2 text-emerald-400" />Latest Transactions</h2>
-                    <div className="border border-[#FFFFFF20] rounded-xl overflow-hidden max-h-80 overflow-y-auto">
+                    <div className="border border-[#FFFFFF20] rounded-xl overflow-hidden max-h-[24rem] overflow-y-auto">
                         <div className="bg-[#0A0A0A]/80 flex px-3 py-2 text-[9px] font-semibold text-[#FFF] sticky top-0">
                             <span className="w-1/4 text-left">Hash</span>
                             <span className="w-1/4 text-left">From</span>
