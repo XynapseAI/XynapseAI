@@ -1,120 +1,10 @@
 // app/api/alchemy/route.js
 import { NextResponse } from 'next/server';
-import { Redis } from '@upstash/redis'; // Giữ Upstash vì đã dùng, nhưng thêm wrapper như node-redis
+import { Redis } from '@upstash/redis';
 import { ethers } from 'ethers';
-import { logger } from '../../../utils/serverLogger'; // Giả sử có logger
 
 const redis = Redis.fromEnv();
 const ALCHEMY_API_KEY = process.env.ALCHEMY_API_KEY;
-
-// ================= Security & Utils =================
-const allowedOrigins = [
-  process.env.NEXT_PUBLIC_APP_URL,
-  'http://localhost:3000',
-  'https://xynapse-ai.vercel.app',
-  'https://xynapseai.net',
-  'https://www.xynapseai.net',
-  'https://farcaster.xynapseai.net',
-  'https://base.xynapseai.net',
-  'https://xynapse-ai-xynapse-projects.vercel.app',
-].filter(Boolean);
-
-function isAllowedOrigin(origin, referer) {
-  try {
-    if (origin && (allowedOrigins.includes(origin) || new URL(origin).hostname.endsWith('xynapseai.net'))) {
-      return true;
-    }
-    if (!origin && referer) {
-      const refOrigin = new URL(referer).origin;
-      if (allowedOrigins.includes(refOrigin) || new URL(refOrigin).hostname.endsWith('xynapseai.net')) {
-        return true;
-      }
-    }
-    if (!origin && process.env.NODE_ENV === 'development') {
-      return true;
-    }
-    return false;
-  } catch {
-    return false;
-  }
-}
-
-function securityHeaders(origin) {
-  const baseHeaders = {
-    'Content-Security-Policy': "default-src 'self'; frame-ancestors 'self';",
-    'X-Content-Type-Options': 'nosniff',
-    'X-Frame-Options': 'DENY',
-    'Strict-Transport-Security': 'max-age=31536000; includeSubDomains',
-    'X-XSS-Protection': '1; mode=block',
-    'Referrer-Policy': 'strict-origin-when-cross-origin',
-    'Permissions-Policy': 'geolocation=(), microphone=(), camera=()',
-  };
-  if (origin && origin !== 'null') {
-    baseHeaders['Access-Control-Allow-Origin'] = origin;
-    baseHeaders['Access-Control-Allow-Methods'] = 'POST, OPTIONS';
-    baseHeaders['Access-Control-Allow-Headers'] = 'Content-Type';
-  }
-  return baseHeaders;
-}
-
-async function checkRateLimit(ip) {
-  const key = `rate_limit:alchemy:${ip}`;
-  const maxRequests = 50;
-  const windowMs = 60 * 1000;
-  const cached = await redis.get(key);
-  const requests = cached ? Number(cached) : 0;
-  if (requests >= maxRequests) {
-    const err = new Error('Too many requests, please try again later.');
-    err.ttl = 60;
-    logger.warn(`Rate limit exceeded for IP ${ip}: ${requests} requests`);
-    throw err;
-  }
-  await redis.set(key, requests + 1, { ex: Math.floor(windowMs / 1000) });
-  logger.info(`Rate limit check passed for IP ${ip}: ${requests + 1}/${maxRequests}`);
-}
-
-async function banIP(ip, durationSeconds = 1800) {
-  await redis.set(`banned_ip:${ip}`, 'banned', { ex: durationSeconds });
-  logger.info(`IP banned: ${ip} for ${durationSeconds} seconds`);
-}
-
-async function checkIPBan(ip) {
-  const isBanned = await redis.get(`banned_ip:${ip}`);
-  if (isBanned) {
-    logger.error(`IP ban detected: ${ip}`);
-    throw new Error('IP temporarily banned due to excessive violations.');
-  }
-}
-
-async function trackViolation(ip, reason = 'Unknown', severity = 'severe') {
-  const nonCriticalReasons = ['CORS blocked', 'Chain required', 'Invalid action'];
-  if (nonCriticalReasons.includes(reason) || severity === 'warn') {
-    logger.warn(`Non-critical violation ignored: ${ip}, reason: ${reason}`);
-    return;
-  }
-  const key = `violations:${ip}`;
-  const maxViolations = 10;
-  const windowMs = 30 * 60 * 1000;
-  const violations = await redis.get(key);
-  const numViolations = violations ? Number(violations) : 0;
-  if (numViolations >= maxViolations) {
-    await banIP(ip);
-    logger.error(`IP banned due to repeated violations: ${ip}, reason: ${reason}`);
-    throw new Error('IP temporarily banned due to excessive violations.');
-  }
-  await redis.set(key, numViolations + 1, { ex: Math.floor(windowMs / 1000) });
-  logger.warn(`Violation recorded: ${ip}, reason: ${reason}, violations: ${numViolations + 1}`);
-}
-
-export async function OPTIONS(request) {
-  const origin = request.headers.get('origin');
-  const referer = request.headers.get('referer');
-  if (!isAllowedOrigin(origin, referer)) {
-    logger.warn('CORS origin not allowed for OPTIONS', { origin, referer });
-    return NextResponse.json({ success: false, detail: 'Not allowed by CORS' }, { status: 403, headers: securityHeaders(origin) });
-  }
-  return new NextResponse(null, { status: 204, headers: securityHeaders(origin) });
-}
 
 const rpcMap = {
   ethereum: `https://eth-mainnet.g.alchemy.com/v2/${ALCHEMY_API_KEY}`,
@@ -175,7 +65,7 @@ async function fetchNativePrice(chain) {
       return price;
     }
   } catch (err) {
-    logger.warn(`CMC native price failed for ${chain}: ${err.message}`);
+    console.warn(`CMC native price failed for ${chain}: ${err.message}`);
   }
   return null;
 }
@@ -187,47 +77,14 @@ const getCachedData = async (key, defaultVal = []) => {
 };
 
 export async function POST(request) {
-  const ip = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown';
-  const origin = request.headers.get('origin');
-  const referer = request.headers.get('referer');
-  logger.info(`POST request to /api/alchemy from IP ${ip}`, { origin, timestamp: new Date().toISOString() });
-
-  if (!isAllowedOrigin(origin, referer)) {
-    await trackViolation(ip, 'CORS blocked', 'warn');
-    return NextResponse.json({ success: false, detail: 'Not allowed by CORS' }, { status: 403, headers: securityHeaders(origin) });
-  }
-
-  const headers = securityHeaders(origin);
-
-  try {
-    await checkIPBan(ip);
-    await checkRateLimit(ip);
-  } catch (err) {
-    if (err.message.includes('Too many requests')) {
-      return NextResponse.json({ success: false, detail: err.message }, { status: 429, headers: { ...headers, 'Retry-After': '60' } });
-    }
-    await trackViolation(ip, err.message, 'severe');
-    return NextResponse.json({ success: false, detail: err.message }, { status: 429, headers });
-  }
-
   if (!ALCHEMY_API_KEY) {
-    await trackViolation(ip, 'Alchemy API key required', 'warn');
-    return NextResponse.json({ error: 'Alchemy API key required' }, { status: 500, headers });
+    return NextResponse.json({ error: 'Alchemy API key required' }, { status: 500 });
   }
 
-  let body;
-  try {
-    body = await request.json();
-  } catch {
-    await trackViolation(ip, 'Invalid JSON body', 'warn');
-    return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400, headers });
-  }
+  const { action, chain } = await request.json();
 
-  const { action, chain } = body;
-
-  if (!chain || typeof chain !== 'string' || chain.trim() === '') {
-    await trackViolation(ip, 'Chain required', 'warn');
-    return NextResponse.json({ error: 'Chain required' }, { status: 400, headers });
+  if (!chain) {
+    return NextResponse.json({ error: 'Chain required' }, { status: 400 });
   }
 
   const isEVM = !['bitcoin', 'solana'].includes(chain);
@@ -241,7 +98,7 @@ export async function POST(request) {
           await redis.set(`price:${chain}`, price, { EX: 3600 });
         }
       }
-      return NextResponse.json({ price: Number(price) || 0 }, { headers });
+      return NextResponse.json({ price: Number(price) || 0 });
     }
 
     if (action === 'latest-blocks') {
@@ -270,7 +127,7 @@ export async function POST(request) {
           await redis.set(`blocks:${chain}`, JSON.stringify(blocks), { EX: 30 });
         }
       }
-      return NextResponse.json(blocks, { headers });
+      return NextResponse.json(blocks);
     }
 
     if (action === 'latest-txs') {
@@ -290,7 +147,7 @@ export async function POST(request) {
           await redis.set(`txs:${chain}`, JSON.stringify(txs), { EX: 30 });
         }
       }
-      return NextResponse.json(txs, { headers });
+      return NextResponse.json(txs);
     }
 
     if (action === 'chain-stats') {
@@ -306,14 +163,12 @@ export async function POST(request) {
           await redis.set(`stats:${chain}`, JSON.stringify(stats), { EX: 30 });
         }
       }
-      return NextResponse.json(stats, { headers });
+      return NextResponse.json(stats);
     }
 
-    await trackViolation(ip, 'Invalid action', 'warn');
-    return NextResponse.json({ error: 'Invalid action' }, { status: 400, headers });
+    return NextResponse.json({ error: 'Invalid action' }, { status: 400 });
   } catch (err) {
-    logger.error('API Error:', { error: err.message, stack: err.stack, ip });
-    await trackViolation(ip, err.message, 'severe');
-    return NextResponse.json({ error: err.message }, { status: 500, headers });
+    console.error('API Error:', err);
+    return NextResponse.json({ error: err.message }, { status: 500 });
   }
 }

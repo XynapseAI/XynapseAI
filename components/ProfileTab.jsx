@@ -843,7 +843,7 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
     }
     if (!userData) {
       return (
-        <div className="h-full flex items-center justify-center text-[#D4D4D4] text-sm">
+        <div className="h-full flex items-center justify-center text-gray-500 text-sm">
           No profile data available.
         </div>
       );
@@ -1338,7 +1338,7 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
       />
       <div className="flex flex-col flex-1 gap-4 sm:gap-5">
         <motion.div
-          className="border border-white/15 rounded-xl bg-gradient-to-r from-black/40 to-gray-900/40 flex flex-col shadow-xl relative flex-1"
+          className="bg-gradient-to-r from-black/40 to-gray-900/40 flex flex-col shadow-xl relative flex-1"
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5, delay: 0.2 }}
