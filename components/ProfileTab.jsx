@@ -131,11 +131,15 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
 
   // Updated: Use wagmi to read current counter for preview ID
   const { data: currentCounter } = useReadContract({
-    address: CONTRACT_ADDRESS,
-    abi: NFT_ABI,
-    functionName: 'counter',
-    chainId: BASE_CHAIN_ID,
-  });
+  address: CONTRACT_ADDRESS,
+  abi: NFT_ABI,
+  functionName: 'counter',
+  chainId: BASE_CHAIN_ID,
+  query: { 
+    enabled: !!address, 
+    staleTime: 30000, // 30s cache
+  },
+});
 
   // Updated: Fetch metadata for next token ID (preview) with timeout
   useEffect(() => {
@@ -1594,45 +1598,43 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
   };
   // Updated: Handle Mint NFT - Use BASE_CHAIN_ID, fix max supply msg to 10000, integrate useSendCalls for Builder Code attribution
   const handleMint = async () => {
-    try {
-      if (chainId !== BASE_CHAIN_ID) {
-        await switchChain({ chainId: BASE_CHAIN_ID });
-        return;
-      }
-      if (nftMinted) {
-        return;
-      }
-      const provider = new ethers.BrowserProvider(window.ethereum);
-      const balance = await getBalanceWithRetry(address);
-      const mintValue = parseEther("0.0002");
-      if (balance < mintValue) {
-        throw new Error('Insufficient balance for mint.');
-      }
-      // Use sendCalls with dataSuffix for ERC-8021 Builder Code attribution
-      const result = await sendCalls({
-        calls: [
-          {
-            to: CONTRACT_ADDRESS,
-            data: encodeFunctionData({
-              abi: NFT_ABI,
-              functionName: 'mint',
-              args: [],
-            }),
-            value: mintValue,
-          },
-        ],
-        capabilities: {
-          dataSuffix: dataSuffix,
+  try {
+    if (chainId !== BASE_CHAIN_ID) {
+      await switchChain({ chainId: BASE_CHAIN_ID });
+      return;
+    }
+    if (nftMinted) return;
+
+    const provider = new ethers.BrowserProvider(window.ethereum);
+    const balance = await getBalanceWithRetry(address);
+    const mintValue = parseEther("0.0002");
+    if (balance < mintValue) {
+      throw new Error('Insufficient balance for mint.');
+    }
+    const { hash } = await sendCalls({  
+      calls: [
+        {
+          to: CONTRACT_ADDRESS,
+          data: encodeFunctionData({
+            abi: NFT_ABI,
+            functionName: 'mint',
+            args: [],
+          }),
+          value: mintValue,
         },
-      });
-      const hash = result.hash;
-      let recorded = false;
-      let attempts = 0;
-      while (!recorded && attempts < 3) {
-        try {
-          await recordMintMutation.mutateAsync({ txHash: hash });
-          recorded = true;
-        } catch (err) {
+      ],
+      capabilities: {
+        dataSuffix: dataSuffix,
+      },
+    });
+
+    let recorded = false;
+    let attempts = 0;
+    while (!recorded && attempts < 3) {
+      try {
+        await recordMintMutation.mutateAsync({ txHash: hash }); 
+        recorded = true;
+      } catch (err) {
           if (err.response?.status === 403 && attempts < 2) {
             await queryClient.refetchQueries({ queryKey: ['csrfToken'] });
             attempts++;
@@ -1642,18 +1644,19 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
         }
       }
       setShowMintModal(false);
-      toast.success('OG Pass minted successfully!');
-      setNftMinted(true);
-    } catch (err) {
-      console.error('Mint error:', err);
-      let errorMsg = 'Mint failed. Check price (0.0002 ETH) and gas.';
-      if (err.message.includes('Max supply')) errorMsg = 'Max supply (10,000) reached!'; // Updated to 10000
-      else if (err.message.includes('Incorrect mint price')) errorMsg = 'Wrong ETH amount sent.';
-      else if (err.shortMessage) errorMsg = err.shortMessage;
-      else if (err.message.includes('RPC')) errorMsg = 'RPC error. Try a different wallet RPC.';
-      toast.error(errorMsg);
-    }
-  };
+    toast.success('OG Pass minted successfully!');
+    setNftMinted(true);
+  } catch (err) {
+    console.error('Mint error:', err);
+    let errorMsg = 'Mint failed. Check price (0.0002 ETH) and gas.';
+    if (err.message.includes('Max supply')) errorMsg = 'Max supply (10,000) reached!';
+    else if (err.message.includes('Incorrect mint price')) errorMsg = 'Wrong ETH amount sent.';
+    else if (err.shortMessage) errorMsg = err.shortMessage; // v2 error format
+    else if (err.message.includes('RPC')) errorMsg = 'RPC error. Try a different wallet RPC.';
+    else if (err.message.includes('User rejected')) errorMsg = 'Transaction rejected by wallet.';
+    toast.error(errorMsg);
+  }
+};
   // NEW: Handle modal steps progression - Skip if already completed/minted
   const handleNextStep = () => {
     if (mintStep === 'connectWallet' && walletConnected) {
