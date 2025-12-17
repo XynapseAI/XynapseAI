@@ -1,16 +1,7 @@
 import { NextResponse } from 'next/server';
-
-// ==========================================
-// CẤU HÌNH SERVERLESS (Tăng timeout nếu cần)
-// ==========================================
-export const maxDuration = 60; // Cho phép chạy tối đa 60s (trên gói Pro)
+export const maxDuration = 60;
 export const dynamic = 'force-dynamic';
 
-// ==========================================
-// PHẦN 1: UTILS & LOGIC XỬ LÝ (Pure JS)
-// ==========================================
-
-// Danh sách các nguồn gốc (origins) được phép truy cập API
 const allowedOrigins = [
   process.env.NEXT_PUBLIC_APP_URL,
   'http://localhost:3000',
@@ -200,10 +191,6 @@ async function autoLabelWallets(wallets, tf = null) {
   }
   return labels;
 }
-
-// ==========================================
-// PHẦN 2: LOGIC CLUSTERING CHÍNH
-// ==========================================
 
 async function detectClustersServer(nodes, edges, options = { useGNN: true, useDBSCAN: true, useIF: true }, tf = null, IsolationForest = null) {
   // 1. Filter Nodes
@@ -414,7 +401,6 @@ async function detectClustersServer(nodes, edges, options = { useGNN: true, useD
           n.velocity || 0
         ]);
         iforest.fit(trainData);
-        // Tìm index trong trainData tương ứng
         const localIdx = groupWallets.findIndex(w => w.id === node.id);
         if (localIdx >= 0) {
             anomalyScore = iforest.anomalyScore([trainData[localIdx]])[0];
@@ -500,10 +486,6 @@ async function detectClustersServer(nodes, edges, options = { useGNN: true, useD
   return finalClusters;
 }
 
-
-// ==========================================
-// PHẦN 3: API HANDLER (Next.js App Router)
-// ==========================================
 
 export async function POST(request) {
   const startOverall = Date.now();

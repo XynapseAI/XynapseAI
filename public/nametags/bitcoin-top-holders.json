@@ -205,7 +205,7 @@
   },
   "bc1q4j7fcl8zx5yl56j00nkqez9zf3f6ggqchwzzcs5hjxwqhsgxvavq3qfgpr": {
     "Address": "bc1q4j7fcl8zx5yl56j00nkqez9zf3f6ggqchwzzcs5hjxwqhsgxvavq3qfgpr",
-    "Balance": 41839,
+    "Balance": 41821,
     "Labels": {
       "bitcoin": {
         "Name Tag": "Coincheck",
@@ -421,7 +421,7 @@
   },
   "bc1qlt5nm3kflne7rht4alsnzdzad878ld5rcu4na0": {
     "Address": "bc1qlt5nm3kflne7rht4alsnzdzad878ld5rcu4na0",
-    "Balance": 14648,
+    "Balance": 14715,
     "Labels": {
       "bitcoin": {
         "Name Tag": null,
@@ -553,7 +553,7 @@
   },
   "bc1qx2x5cqhymfcnjtg902ky6u5t5htmt7fvqztdsm028hkrvxcl4t2sjtpd9l": {
     "Address": "bc1qx2x5cqhymfcnjtg902ky6u5t5htmt7fvqztdsm028hkrvxcl4t2sjtpd9l",
-    "Balance": 19557,
+    "Balance": 19606,
     "Labels": {
       "bitcoin": {
         "Name Tag": "Bitbank-coldwallet",
@@ -577,7 +577,7 @@
   },
   "bc1qr4dl5wa7kl8yu792dceg9z5knl2gkn220lk7a9": {
     "Address": "bc1qr4dl5wa7kl8yu792dceg9z5knl2gkn220lk7a9",
-    "Balance": 17895,
+    "Balance": 18288,
     "Labels": {
       "bitcoin": {
         "Name Tag": "Crypto.com-coldwallet",
@@ -613,7 +613,7 @@
   },
   "bc1qhk0ghcywv0mlmcmz408sdaxudxuk9tvng9xx8g": {
     "Address": "bc1qhk0ghcywv0mlmcmz408sdaxudxuk9tvng9xx8g",
-    "Balance": 30793,
+    "Balance": 31823,
     "Labels": {
       "bitcoin": {
         "Name Tag": "92995586",
@@ -661,7 +661,7 @@
   },
   "bc1qm34lsc65zpw79lxes69zkqmk6ee3ewf0j77s3h": {
     "Address": "bc1qm34lsc65zpw79lxes69zkqmk6ee3ewf0j77s3h",
-    "Balance": 12602,
+    "Balance": 21724,
     "Labels": {
       "bitcoin": {
         "Name Tag": "Binance-wallet",
@@ -721,7 +721,7 @@
   },
   "bc1qchctnvmdva5z9vrpxkkxck64v7nmzdtyxsrq64": {
     "Address": "bc1qchctnvmdva5z9vrpxkkxck64v7nmzdtyxsrq64",
-    "Balance": 13276,
+    "Balance": 13127,
     "Labels": {
       "bitcoin": {
         "Name Tag": "BitMEX",
@@ -1069,7 +1069,7 @@
   },
   "bc1q7t9fxfaakmtk8pj7tdxjvwsng6y9x76czuaf5h": {
     "Address": "bc1q7t9fxfaakmtk8pj7tdxjvwsng6y9x76czuaf5h",
-    "Balance": 6893,
+    "Balance": 6667,
     "Labels": {
       "bitcoin": {
         "Name Tag": "Binance-coldwallet",
@@ -1657,7 +1657,7 @@
   },
   "bc1qefquzwru2k8f4m2guh2rs388l9q73qecf0dejm": {
     "Address": "bc1qefquzwru2k8f4m2guh2rs388l9q73qecf0dejm",
-    "Balance": 6731,
+    "Balance": 6746,
     "Labels": {
       "bitcoin": {
         "Name Tag": null,
@@ -2137,7 +2137,7 @@
   },
   "bc1q8urxlm2uye3t6nwg0y44sn32p0ynvefxpqseu4": {
     "Address": "bc1q8urxlm2uye3t6nwg0y44sn32p0ynvefxpqseu4",
-    "Balance": 6529,
+    "Balance": 6569,
     "Labels": {
       "bitcoin": {
         "Name Tag": "98590549",
@@ -2617,7 +2617,7 @@
   },
   "blackrock-ibit": {
     "Address": "blackrock-ibit",
-    "Balance": 776645.4,
+    "Balance": 778052.2,
     "Labels": {
       "bitcoin": {
         "Name Tag": "iShares Bitcoin Trust (Blackrock)",
@@ -2629,7 +2629,7 @@
   },
   "fidelity-fbtc": {
     "Address": "fidelity-fbtc",
-    "Balance": 203558,
+    "Balance": 199723.5,
     "Labels": {
       "bitcoin": {
         "Name Tag": "Fidelity Wise Origin Bitcoin Fund",
@@ -2641,7 +2641,7 @@
   },
   "grayscale": {
     "Address": "grayscale",
-    "Balance": 167010.2,
+    "Balance": 166522.4,
     "Labels": {
       "bitcoin": {
         "Name Tag": "Grayscale Bitcoin Trust",
@@ -2653,7 +2653,7 @@
   },
   "grayscale-mini": {
     "Address": "grayscale-mini",
-    "Balance": 48987.9,
+    "Balance": 48867.4,
     "Labels": {
       "bitcoin": {
         "Name Tag": "Grayscale Bitcoin Mini Trust",
@@ -2665,7 +2665,7 @@
   },
   "21shares-arkb": {
     "Address": "21shares-arkb",
-    "Balance": 39202.5,
+    "Balance": 38428.9,
     "Labels": {
       "bitcoin": {
         "Name Tag": "ARK 21Shares Bitcoin ETF",
@@ -2677,7 +2677,7 @@
   },
   "bitwise-bitb": {
     "Address": "bitwise-bitb",
-    "Balance": 40321.1,
+    "Balance": 39315.8,
     "Labels": {
       "bitcoin": {
         "Name Tag": "Bitwise Bitcoin ETF",
@@ -2689,7 +2689,7 @@
   },
   "vaneck-hodl": {
     "Address": "vaneck-hodl",
-    "Balance": 16969.3,
+    "Balance": 16509.7,
     "Labels": {
       "bitcoin": {
         "Name Tag": "Vaneck Bitcoin Trust",
@@ -2737,7 +2737,7 @@
   },
   "wisdomtree-btcw": {
     "Address": "wisdomtree-btcw",
-    "Balance": 1588,
+    "Balance": 1598,
     "Labels": {
       "bitcoin": {
         "Name Tag": "WisdomTree Bitcoin Fund",
@@ -2809,7 +2809,7 @@
   },
   "1Ay8vMC7R1UbyCCZRVULMV7iQpHSAbguJP": {
     "Address": "1Ay8vMC7R1UbyCCZRVULMV7iQpHSAbguJP",
-    "Balance": 61835,
+    "Balance": 62537,
     "Labels": {
       "bitcoin": {
         "Name Tag": "Mr.100",
@@ -2917,7 +2917,7 @@
   },
   "3FuhQLprN9s9MR3bZzR5da7mw75fuahsaU": {
     "Address": "3FuhQLprN9s9MR3bZzR5da7mw75fuahsaU",
-    "Balance": 29273,
+    "Balance": 29674,
     "Labels": {
       "bitcoin": {
         "Name Tag": null,
@@ -3001,7 +3001,7 @@
   },
   "1Pzaqw98PeRfyHypfqyEgg5yycJRsENrE7": {
     "Address": "1Pzaqw98PeRfyHypfqyEgg5yycJRsENrE7",
-    "Balance": 7241,
+    "Balance": 7365,
     "Labels": {
       "bitcoin": {
         "Name Tag": "Binance-coldwallet",
@@ -3037,7 +3037,7 @@
   },
   "1PJiGp2yDLvUgqeBsuZVCBADArNsk6XEiw": {
     "Address": "1PJiGp2yDLvUgqeBsuZVCBADArNsk6XEiw",
-    "Balance": 13842,
+    "Balance": 13944,
     "Labels": {
       "bitcoin": {
         "Name Tag": "Binance-coldwallet",
@@ -3049,7 +3049,7 @@
   },
   "3FM9vDYsN2iuMPKWjAcqgyahdwdrUxhbJ3": {
     "Address": "3FM9vDYsN2iuMPKWjAcqgyahdwdrUxhbJ3",
-    "Balance": 15414,
+    "Balance": 14962,
     "Labels": {
       "bitcoin": {
         "Name Tag": "OKEx",
@@ -3097,7 +3097,7 @@
   },
   "17MWdxfjPYP2PYhdy885QtihfbW181r1rn": {
     "Address": "17MWdxfjPYP2PYhdy885QtihfbW181r1rn",
-    "Balance": 14495,
+    "Balance": 9343,
     "Labels": {
       "bitcoin": {
         "Name Tag": null,
@@ -3409,7 +3409,7 @@
   },
   "3NWndKFmvV6cJ6ENgXVeaDTo3mBfAvr27H": {
     "Address": "3NWndKFmvV6cJ6ENgXVeaDTo3mBfAvr27H",
-    "Balance": 9086,
+    "Balance": 9076,
     "Labels": {
       "bitcoin": {
         "Name Tag": null,
@@ -3421,7 +3421,7 @@
   },
   "162bzZT2hJfv5Gm3ZmWfWfHJjCtMD6rHhw": {
     "Address": "162bzZT2hJfv5Gm3ZmWfWfHJjCtMD6rHhw",
-    "Balance": 8596,
+    "Balance": 9179,
     "Labels": {
       "bitcoin": {
         "Name Tag": "gate.io-coldwallet",
@@ -3517,7 +3517,7 @@
   },
   "34ovCavdkQgEYbrJk9Q1onhK7uWqq6J7DC": {
     "Address": "34ovCavdkQgEYbrJk9Q1onhK7uWqq6J7DC",
-    "Balance": 7383,
+    "Balance": 7393,
     "Labels": {
       "bitcoin": {
         "Name Tag": "45505834",
@@ -3541,7 +3541,7 @@
   },
   "12VuUfQHTGqWDvBzm8TBad1mZBm4hjGEzN": {
     "Address": "12VuUfQHTGqWDvBzm8TBad1mZBm4hjGEzN",
-    "Balance": 8066,
+    "Balance": 8163,
     "Labels": {
       "bitcoin": {
         "Name Tag": null,
@@ -3553,7 +3553,7 @@
   },
   "3BHXygmhNMaCcNn76S8DLdnZ5ucPtNtWGb": {
     "Address": "3BHXygmhNMaCcNn76S8DLdnZ5ucPtNtWGb",
-    "Balance": 5476,
+    "Balance": 5427,
     "Labels": {
       "bitcoin": {
         "Name Tag": null,
@@ -3685,7 +3685,7 @@
   },
   "3FupZp77ySr7jwoLYEJ9mwzJpvoNBXsBnE": {
     "Address": "3FupZp77ySr7jwoLYEJ9mwzJpvoNBXsBnE",
-    "Balance": 7833,
+    "Balance": 7872,
     "Labels": {
       "bitcoin": {
         "Name Tag": "OKEx",
@@ -4105,7 +4105,7 @@
   },
   "19oLGXykNUBj8f7w1tT9emuaEbaSFj1p27": {
     "Address": "19oLGXykNUBj8f7w1tT9emuaEbaSFj1p27",
-    "Balance": 5631,
+    "Balance": 5193,
     "Labels": {
       "bitcoin": {
         "Name Tag": null,
@@ -4261,7 +4261,7 @@
   },
   "bc1qvzgrkefd8v536de2vqhx4d25e5rly7lgk3p2vp": {
     "Address": "bc1qvzgrkefd8v536de2vqhx4d25e5rly7lgk3p2vp",
-    "Balance": 9378,
+    "Balance": 9250,
     "Labels": {
       "bitcoin": {
         "Name Tag": null,
@@ -4345,7 +4345,7 @@
   },
   "bc1q9n37v8rdr2tla849xp2znxyp70lnqu8rw0m02a": {
     "Address": "bc1q9n37v8rdr2tla849xp2znxyp70lnqu8rw0m02a",
-    "Balance": 6583,
+    "Balance": 6832,
     "Labels": {
       "bitcoin": {
         "Name Tag": null,
@@ -4429,7 +4429,7 @@
   },
   "bc1qx9n80t5q7tfmutzaj0ramzzzsvtveara68zntc": {
     "Address": "bc1qx9n80t5q7tfmutzaj0ramzzzsvtveara68zntc",
-    "Balance": 11185,
+    "Balance": 11838,
     "Labels": {
       "bitcoin": {
         "Name Tag": null,
@@ -4597,7 +4597,7 @@
   },
   "bc1quhruqrghgcca950rvhtrg7cpd7u8k6svpzgzmrjy8xyukacl5lkq0r8l2d": {
     "Address": "bc1quhruqrghgcca950rvhtrg7cpd7u8k6svpzgzmrjy8xyukacl5lkq0r8l2d",
-    "Balance": 6505,
+    "Balance": 5161,
     "Labels": {
       "bitcoin": {
         "Name Tag": "okx-hot",
@@ -4609,7 +4609,7 @@
   },
   "32qqF3w9W96S6br5x3cR75fgtFZwshjh4X": {
     "Address": "32qqF3w9W96S6br5x3cR75fgtFZwshjh4X",
-    "Balance": 7481,
+    "Balance": 8846,
     "Labels": {
       "bitcoin": {
         "Name Tag": null,
@@ -4705,7 +4705,7 @@
   },
   "3GPAWK5aUB5Ve9akvTzZgp69USjgbhFbay": {
     "Address": "3GPAWK5aUB5Ve9akvTzZgp69USjgbhFbay",
-    "Balance": 7928,
+    "Balance": 8217,
     "Labels": {
       "bitcoin": {
         "Name Tag": "78163677",
@@ -4897,7 +4897,7 @@
   },
   "3KNViZo8uJwnLyxrWed5gRavbPZibEdAq3": {
     "Address": "3KNViZo8uJwnLyxrWed5gRavbPZibEdAq3",
-    "Balance": 10484,
+    "Balance": 12277,
     "Labels": {
       "bitcoin": {
         "Name Tag": "111784770",
@@ -5006,6 +5006,42 @@
   "bc1pueepze0zflc9vhtmt2tjhnp8d73f2lmle27wxvk6z6crh73ju9nsjw0qkx": {
     "Address": "bc1pueepze0zflc9vhtmt2tjhnp8d73f2lmle27wxvk6z6crh73ju9nsjw0qkx",
     "Balance": 6950,
+    "Labels": {
+      "bitcoin": {
+        "Name Tag": null,
+        "Description": null,
+        "Subcategory": "Others",
+        "image": null
+      }
+    }
+  },
+  "bc1qptc9cz269u2mc5yguun5a5d6yd5c7f7ne4qj26": {
+    "Address": "bc1qptc9cz269u2mc5yguun5a5d6yd5c7f7ne4qj26",
+    "Balance": 16400,
+    "Labels": {
+      "bitcoin": {
+        "Name Tag": null,
+        "Description": null,
+        "Subcategory": "Others",
+        "image": null
+      }
+    }
+  },
+  "bc1ps450ed869jpspyy78rf50zn00azx3mxqsj9f6cdzgj2qcr6pevvq7qkxkr": {
+    "Address": "bc1ps450ed869jpspyy78rf50zn00azx3mxqsj9f6cdzgj2qcr6pevvq7qkxkr",
+    "Balance": 6500,
+    "Labels": {
+      "bitcoin": {
+        "Name Tag": null,
+        "Description": null,
+        "Subcategory": "Others",
+        "image": null
+      }
+    }
+  },
+  "bc1q23e3x8hwxtl67w62uu4p7cypac9n2h62jcv9mn": {
+    "Address": "bc1q23e3x8hwxtl67w62uu4p7cypac9n2h62jcv9mn",
+    "Balance": 5152,
     "Labels": {
       "bitcoin": {
         "Name Tag": null,

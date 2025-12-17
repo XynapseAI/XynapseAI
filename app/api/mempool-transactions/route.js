@@ -203,28 +203,25 @@ export async function GET(request) {
       );
     }
 
-    // Tối ưu: Parse query params để filter động và pagination
     const url = new URL(request.url);
-    let maxAgeSeconds = parseInt(url.searchParams.get('maxAge')) || (5 * 24 * 60 * 60); // Mặc định 5 ngày
+    let maxAgeSeconds = parseInt(url.searchParams.get('maxAge')) || (5 * 24 * 60 * 60);
     const maxAllowedAge = 5 * 24 * 60 * 60; // Max 5 ngày
     if (maxAgeSeconds > maxAllowedAge) {
       maxAgeSeconds = maxAllowedAge;
     }
-    const limit = Math.min(parseInt(url.searchParams.get('limit')) || 50, 100); // Giới hạn max 100 per page để giảm traffic
+    const limit = Math.min(parseInt(url.searchParams.get('limit')) || 50, 100); 
     const page = Math.max(parseInt(url.searchParams.get('page')) || 1, 1);
     const offset = (page - 1) * limit;
     logger.info(`Using params: maxAgeSeconds=${maxAgeSeconds}, limit=${limit}, page=${page} for request`);
 
-    // NEW: Tích hợp Redis cache cho paginated results - chỉ nếu logged in
     const redisClient = await getRedisClient();
-    const cacheKey = `mempool:paginated:${maxAgeSeconds}:${limit}:${page}`; // Shared key dựa trên params
+    const cacheKey = `mempool:paginated:${maxAgeSeconds}:${limit}:${page}`;
     const cachedData = await redisClient.get(cacheKey);
     if (cachedData) {
       logger.info(`Cache hit for mempool paginated: ${cacheKey}`, { ip });
       return NextResponse.json(JSON.parse(cachedData), { headers });
     }
 
-    // Nếu không hit cache, process như cũ
     const now = Math.floor(Date.now() / 1000);
     const minTs = now - maxAgeSeconds;
     const cleanupMinScore = -minTs + 1;
@@ -246,7 +243,6 @@ export async function GET(request) {
       paginatedData = jsons
         .map((json, idx) => {
           if (!json) {
-            // Remove missing from set
             redisClient.zRem('mempool-txids', txids[idx]);
             return null;
           }
@@ -280,7 +276,6 @@ export async function GET(request) {
       },
     };
 
-    // NEW: Cache response với TTL 300s (5 phút), chỉ nếu logged in
     await redisClient.setEx(cacheKey, 300, JSON.stringify(responseData));
     logger.info(`Cached mempool paginated: ${cacheKey}`, { ip });
 

@@ -17,6 +17,8 @@ const nextConfig: NextConfig = {
       'scontent.xx.fbcdn.net',
       'imagedelivery.net',
       'res.cloudinary.com',
+      'gold-tired-panda-407.mypinata.cloud',
+      
     ],
     remotePatterns: [
       {
@@ -43,6 +45,21 @@ const nextConfig: NextConfig = {
         protocol: 'https',
         hostname: 'res.cloudinary.com',
         pathname: '/**',
+      },
+      {
+        protocol: 'https',
+        hostname: 'gold-tired-panda-407.mypinata.cloud',
+        pathname: '/ipfs/**',
+      },
+      {
+        protocol: 'https',
+        hostname: 'ipfs.io',
+        pathname: '/ipfs/**',
+      },
+      {
+        protocol: 'https',
+        hostname: '*.mypinata.cloud',
+        pathname: '/ipfs/**',
       },
     ],
   },

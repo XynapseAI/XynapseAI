@@ -1,9 +1,9 @@
-// components/UniversalSearch.jsx (Cập nhật để fix UI và tags)
+// components/UniversalSearch.jsx
 "use client";
 
 import { motion, AnimatePresence } from "framer-motion";
 import { useState, useEffect, useRef, useCallback } from "react";
-import { Search, Wallet, Building2, Hash, DollarSign, X, Link2 } from "lucide-react"; // Thêm Link2 cho chain nếu cần
+import { Search, Wallet, Building2, Hash, DollarSign, X, Link2 } from "lucide-react";
 import useSWR from "swr";
 import { LoadingOverlay } from "../utils/helpers";
 
@@ -15,7 +15,7 @@ export default function UniversalSearch({
   hideOrganizations = false,
 }) {
   const [searchQuery, setSearchQuery] = useState("");
-  const [debouncedQuery, setDebouncedQuery] = useState(""); // State mới cho query đã debounce
+  const [debouncedQuery, setDebouncedQuery] = useState("");
   const [groupedResults, setGroupedResults] = useState({
     wallets: [],
     organizations: hideOrganizations ? [] : [],  // NEW: Always empty if hidden
@@ -25,7 +25,7 @@ export default function UniversalSearch({
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const searchRef = useRef(null);
-  const debounceTimer = useRef(null); // Timer cho debouncing
+  const debounceTimer = useRef(null);
 
   // Size configurations
   const sizeConfig = {
@@ -108,7 +108,6 @@ export default function UniversalSearch({
     { revalidateOnFocus: false, dedupingInterval: 30000, refreshInterval: 300000 },
   );
 
-  // SWR cho token search
   const { data: tokenData, error: tokenError, isLoading: isLoadingTokens } = useSWR(
     debouncedQuery ? `/api/search-tokens?query=${encodeURIComponent(debouncedQuery)}` : null,
     fetcher,
@@ -128,7 +127,6 @@ export default function UniversalSearch({
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  // Validate Ethereum address (cho wallet/token)
   const isValidAddress = (address) => {
     return /^0x[a-fA-F0-9]{40}$/.test(address);
   };
@@ -289,9 +287,8 @@ export default function UniversalSearch({
   // Handle result selection
   const handleResultSelect = (result) => {
     if (onSelect) {
-      // Đảm bảo chỉ gửi address hợp lệ (wallet hoặc token)
       if ((result.type === "wallet" || result.type === "nametag" || result.type === "token") && result.address && isValidAddress(result.address)) {
-        onSelect({ ...result, isValid: true }); // Thêm flag valid
+        onSelect({ ...result, isValid: true });
       } else {
         onSelect({ ...result, isValid: false });
       }
@@ -319,7 +316,6 @@ export default function UniversalSearch({
     }
   };
 
-  // Get tag class for result type (MỚI: Nâng cấp UI với màu sắc và gradient)
   const getTypeTagClass = (type) => {
     switch (type) {
       case "organization":
@@ -336,7 +332,6 @@ export default function UniversalSearch({
     }
   };
 
-  // Get chain tag class (MỚI: Cho token chain)
   const getChainTagClass = (chain) => {
     const chainColors = {
       ethereum: "bg-gradient-to-r from-purple-500/20 to-indigo-600/20 text-purple-300 border-purple-500/30",
@@ -477,13 +472,11 @@ export default function UniversalSearch({
                           <div className="flex-1 min-w-0">
                             <div className="flex items-center gap-2 mb-1">
                               <span className="font-bold text-white truncate text-sm">{result.name || result.symbol}</span>
-                              {/* MỚI: Type tag với màu sắc */}
                               <motion.span
                                 className={`inline-flex items-center px-2 py-0.5 rounded-full border font-medium ${config.tag} ${getTypeTagClass(result.type)}`}
                               >
                                 {getTypeLabel(result.type)}
                               </motion.span>
-                              {/* MỚI: Chain tag cho token, inline */}
                               {result.chain && result.type === "token" && (
                                 <motion.span
                                   className={`inline-flex items-center px-2 py-0.5 rounded-full border font-medium ${config.tag} ${getChainTagClass(result.chain)}`}

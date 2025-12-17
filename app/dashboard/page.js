@@ -34,6 +34,7 @@ import { useMiniApp, MiniAppProvider } from '@neynar/react';
 import { MiniKit } from '@worldcoin/minikit-js';  // FIXED: Import MiniKit from root, MiniKitProvider from sub-module
 import { MiniKitProvider as WorldMiniKitProvider } from '@worldcoin/minikit-js/minikit-provider';  // FIXED: Import correct path
 import { preconnect } from 'react-dom'; // NEW: For preconnect to Quick Auth server
+import { SafeArea } from '@coinbase/onchainkit/minikit';
 
 gsap.registerPlugin(MotionPathPlugin);
 
@@ -312,13 +313,13 @@ function DashboardInner() {
   }, []);
 
   const { data: session, status, update } = useSession();
-  const { isConnected, address } = useAccount();
+  const { isConnected: walletConnected, address: walletAddress } = useAccount();
   const { disconnect } = useDisconnect();
   const { signMessageAsync } = useSignMessage();
   const router = useRouter();
   const searchParams = useSearchParams();
   const [isMounted, setIsMounted] = useState(false);
-  const [activeTab, setActiveTab] = useState('market'); // FIXED: Revert to 'profile' like old file for consistency on unauth
+  const [activeTab, setActiveTab] = useState('profile'); // FIXED: Revert to 'profile' like old file for consistency on unauth
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [providers, setProviders] = useState(null);
@@ -390,7 +391,7 @@ function DashboardInner() {
   useEffect(() => {
     setIsMounted(true);
     const tab = searchParams.get('tab');
-    if (tab && ['market', 'etf' , 'ai', 'profile', 'graph', 'watchlists', 'cluster', 'explorer'].includes(tab)) {  // Added 'explorer' to valid tabs
+    if (tab && ['market', 'etf', 'ai', 'profile', 'graph', 'watchlists', 'cluster', 'explorer'].includes(tab)) {  // Added 'explorer' to valid tabs
       setActiveTab(tab);
     }
   }, [searchParams, router]);
@@ -463,7 +464,7 @@ function DashboardInner() {
     const miniAppDetected = (isSDKLoaded && (context === 'miniapp' || !!miniAppUser)) || isWarpcastDetected || sdkAvailable || isBaseAppDetected; // Giữ để support Neynar nếu cần cho khác
     setIsMiniApp(miniAppDetected);
     if (isBaseAppDetected) {
-      setFallbackToManual(true); // Giữ cho auth manual trong Base
+      setFallbackToManual(true); 
     }
     safeLog('Mini App Detection Debug:', { isSDKLoaded, context, miniAppUser, userAgent, sdkAvailable, miniAppDetected, isWarpcast: isWarpcastDetected, isBaseApp: isBaseAppDetected });
     if (miniAppDetected && miniAppUser) {
@@ -638,10 +639,10 @@ function DashboardInner() {
     }
 
     try {
-      const response = await sdk.actions.addMiniApp();   // Sử dụng Farcaster SDK chính thức để trigger dialog hệ thống mặc định của Base/Warpcast
+      const response = await sdk.actions.addMiniApp(); 
 
       if (response?.notificationDetails) {
-        safeLog('Notification details:', response.notificationDetails); // Debug: Log token và url (lưu server nếu cần)
+        safeLog('Notification details:', response.notificationDetails);
       }
     } catch (error) {
       safeError('Error adding Mini App:', error);
@@ -687,13 +688,14 @@ function DashboardInner() {
 
   const handleConnectWallet = async () => {
     try {
-      if (!session?.user || !isConnected || !address || !recaptchaRef.current) throw new Error('Prerequisites not met');
+      if (!session?.user || !recaptchaRef.current) throw new Error('Prerequisites not met');
+      if (!walletConnected || !walletAddress) throw new Error('Wallet not connected');
+
       const recaptchaToken = await recaptchaRef.current.executeAsync();
-      const message = `Sign this message to authenticate: ${address}`;
+      const message = `Verify wallet for UID: ${session.user.id} - Address: ${walletAddress}`;
       const signature = await signMessageAsync({ message });
       const jwtToken = session?.accessToken;
-      const payload = { walletAddress: address, signature, message, uid: session.user.id };
-      // Use polyfill HMAC (browser compatible)
+      const payload = { walletAddress: walletAddress, signature, message, uid: session.user.id };
       const sortedPayload = JSON.stringify(payload, Object.keys(payload).sort());
       const hmacSignature = await hmacSha256(process.env.HMAC_SECRET || "default-secret", sortedPayload);
       const response = await fetch(`${API_BASE_URL}/api/verify-wallet`, {
@@ -799,7 +801,7 @@ function DashboardInner() {
       attemptedAuthRef.current = false; // Reset for next session
       setFallbackToManual(false); // NEW: Reset fallback
       setBaseAuthFailed(false); // NEW: Reset Base failed
-      if (isConnected) {
+      if (walletConnected) {
         disconnect();
       }
 
@@ -912,6 +914,7 @@ function DashboardInner() {
 
   return (
     <CurrencyProvider>
+      {isBaseApp && <SafeArea />}
       <AuthKitProvider
         config={{
           domain: appDomain,
@@ -1169,12 +1172,12 @@ function DashboardInner() {
                               value={email}
                               onChange={(e) => setEmail(e.target.value)}
                               placeholder="Enter your email"
-                              className="w-full px-4 py-2.5 bg-black/60 border border-white/15 rounded-2xl text-white text-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-white/30 transition-all duration-300"
+                              className="w-full px-4 py-2.5 bg-black/60 border border-white/15 rounded-lg text-white text-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-white/30 transition-all duration-300"
                               required
                             />
                             <button
                               type="submit"
-                              className="w-full px-4 py-2.5 border-2 border-white/15 bg-white/10 text-white rounded-2xl text-sm font-semibold transition-all duration-300 hover:border-white/30 hover:bg-white/20 flex items-center justify-center"
+                              className="w-full px-4 py-2.5 bg-white/90 text-black rounded-lg text-sm font-semibold transition-all duration-300 hover:border-white/30 hover:bg-white/20 flex items-center justify-center"
                             >
                               <MatrixHoverEffect text="Sign in with Email" hoverColor="#FFFFFF" />
                             </button>
@@ -1188,7 +1191,7 @@ function DashboardInner() {
                       {providers?.google && !isWorldMiniApp && (  // FIXED: Show Google if not World
                         <button
                           onClick={handleGoogleSignIn}
-                          className="m-4 w-full px-4 py-2.5 bg-black/20 border border-white/25 rounded-2xl text-white text-sm font-semibold flex items-center justify-center gap-3 transition-all duration-300 hover:bg-gray-800/30 hover:border-white/40"
+                          className="m-4 w-full px-4 py-2.5 bg-black/20 border border-white/25 rounded-lg text-white text-sm font-semibold flex items-center justify-center gap-3 transition-all duration-300 hover:bg-gray-800/30 hover:border-white/40"
                         >
                           <Image src="/logos/google.webp" alt="Google Logo" width={20} height={20} className="w-5 h-5 object-contain" />
                           <MatrixHoverEffect text="Sign in with Google" />
@@ -1293,7 +1296,7 @@ function DashboardInner() {
                       userData={userData}
                       loading={loading}
                       error={error}
-                      isConnected={isConnected}
+                      isConnected={walletConnected}
                       handleConnectWallet={handleConnectWallet}
                       recaptchaRef={recaptchaRef}
                       handleSignOut={handleSignOut}

@@ -175,6 +175,7 @@ model users {
   legacyAccounts     accounts[]
   task_completions   task_completions[]
   twitter_handles    twitter_handles?
+  has_minted_nft     Boolean             @default(false)
   miniAppNotifications MiniAppNotification[] @relation("MiniAppNotificationToUser") // Added opposite relation field
 
   @@index([ai_points], map: "idx_users_ai_points")

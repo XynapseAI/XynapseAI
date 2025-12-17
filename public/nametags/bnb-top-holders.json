@@ -1,7 +1,7 @@
 {
   "0xff3f428583c15a5681584e9e5e86e270418ac4d3": {
     "Address": "0xff3f428583c15a5681584e9e5e86e270418ac4d3",
-    "Balance": 29888000.15810232,
+    "Balance": 29888000.15811178,
     "Labels": {
       "binance-smart-chain": {
         "Name Tag": null,
@@ -13,7 +13,7 @@
   },
   "0x0000000000000000000000000000000000001004": {
     "Address": "0x0000000000000000000000000000000000001004",
-    "Balance": 25987588.22211059,
+    "Balance": 25987381.31741168,
     "Labels": {
       "binance-smart-chain": {
         "Name Tag": "BSC: Token Hub",
@@ -49,7 +49,7 @@
   },
   "0xf977814e90da44bfa03b6295a0616a897441acec": {
     "Address": "0xf977814e90da44bfa03b6295a0616a897441acec",
-    "Balance": 9606629.142,
+    "Balance": 9516629.14195302,
     "Labels": {
       "binance-smart-chain": {
         "Name Tag": "Binance: Hot Wallet 20",
@@ -61,7 +61,7 @@
   },
   "0x000000000000000000000000000000000000dead": {
     "Address": "0x000000000000000000000000000000000000dead",
-    "Balance": 11922589.01429709,
+    "Balance": 11922843.99797545,
     "Labels": {
       "binance-smart-chain": {
         "Name Tag": "Null: 0x000...dEaD",
@@ -121,7 +121,7 @@
   },
   "0x5a52e96bacdabb82fd05763e25335261b270efcb": {
     "Address": "0x5a52e96bacdabb82fd05763e25335261b270efcb",
-    "Balance": 2741337.0096041,
+    "Balance": 2763551.00957799,
     "Labels": {
       "binance-smart-chain": {
         "Name Tag": "Binance 28",
@@ -133,7 +133,7 @@
   },
   "0x835678a611b28684005a5e2233695fb6cbbb0007": {
     "Address": "0x835678a611b28684005a5e2233695fb6cbbb0007",
-    "Balance": 2098913.32225039,
+    "Balance": 2085078.32224882,
     "Labels": {
       "binance-smart-chain": {
         "Name Tag": "Binance 70",
@@ -157,7 +157,7 @@
   },
   "0xbb4cdb9cbd36b01bd1cbaebf2de08d9173bc095c": {
     "Address": "0xbb4cdb9cbd36b01bd1cbaebf2de08d9173bc095c",
-    "Balance": 1331189.24250899,
+    "Balance": 1337828.74707905,
     "Labels": {
       "binance-smart-chain": {
         "Name Tag": "BNB Chain: WBNB Token",
@@ -169,7 +169,7 @@
   },
   "0xec06cb25d9add4bdd67b61432163aff9028aa921": {
     "Address": "0xec06cb25d9add4bdd67b61432163aff9028aa921",
-    "Balance": 1021769.52777494,
+    "Balance": 1023769.75823941,
     "Labels": {
       "binance-smart-chain": {
         "Name Tag": null,
@@ -181,7 +181,7 @@
   },
   "0xf378f76a9c334f9c337bd3aa1704278d7fd3f0e1": {
     "Address": "0xf378f76a9c334f9c337bd3aa1704278d7fd3f0e1",
-    "Balance": 911069.23932372,
+    "Balance": 910909.06432951,
     "Labels": {
       "binance-smart-chain": {
         "Name Tag": null,
@@ -193,7 +193,7 @@
   },
   "0x857afcc43ba66cfab52ed8d92c01bda3072705d0": {
     "Address": "0x857afcc43ba66cfab52ed8d92c01bda3072705d0",
-    "Balance": 1106842.54396883,
+    "Balance": 1106941.07484346,
     "Labels": {
       "binance-smart-chain": {
         "Name Tag": null,
@@ -205,7 +205,7 @@
   },
   "0xc437593d9c296bf9a5002522a86dad8a4d4af808": {
     "Address": "0xc437593d9c296bf9a5002522a86dad8a4d4af808",
-    "Balance": 1183621.83833996,
+    "Balance": 1182983.01701974,
     "Labels": {
       "binance-smart-chain": {
         "Name Tag": null,
@@ -217,7 +217,7 @@
   },
   "0x57d6be3ba78e611e71e8de981309f85ee5cb67e4": {
     "Address": "0x57d6be3ba78e611e71e8de981309f85ee5cb67e4",
-    "Balance": 1089953.86143892,
+    "Balance": 1089929.0945136,
     "Labels": {
       "binance-smart-chain": {
         "Name Tag": null,
@@ -229,7 +229,7 @@
   },
   "0xb4c7b55664622ed960b3418e626d868a2151c470": {
     "Address": "0xb4c7b55664622ed960b3418e626d868a2151c470",
-    "Balance": 851685.75825323,
+    "Balance": 851746.49723125,
     "Labels": {
       "binance-smart-chain": {
         "Name Tag": null,
@@ -241,7 +241,7 @@
   },
   "0xe48ff82faa5aab796bb7e1f2208cb43008462022": {
     "Address": "0xe48ff82faa5aab796bb7e1f2208cb43008462022",
-    "Balance": 627359.93796794,
+    "Balance": 627398.8886643,
     "Labels": {
       "binance-smart-chain": {
         "Name Tag": null,
@@ -253,7 +253,7 @@
   },
   "0xbe7e6c64fbe05fcdac6d11e8cc83cdf5e1a32399": {
     "Address": "0xbe7e6c64fbe05fcdac6d11e8cc83cdf5e1a32399",
-    "Balance": 1158687.37449779,
+    "Balance": 1157613.65650313,
     "Labels": {
       "binance-smart-chain": {
         "Name Tag": null,
@@ -265,7 +265,7 @@
   },
   "0xf1e586c740c2d7622ea4114a7ee0033fbfbc8563": {
     "Address": "0xf1e586c740c2d7622ea4114a7ee0033fbfbc8563",
-    "Balance": 1362850.46098442,
+    "Balance": 1362780.98471327,
     "Labels": {
       "binance-smart-chain": {
         "Name Tag": null,
@@ -289,7 +289,7 @@
   },
   "0x831d7345efc4a0ad0056ec98d3a0fd35ae4790a8": {
     "Address": "0x831d7345efc4a0ad0056ec98d3a0fd35ae4790a8",
-    "Balance": 588310.33757167,
+    "Balance": 588362.76826739,
     "Labels": {
       "binance-smart-chain": {
         "Name Tag": null,
@@ -301,7 +301,7 @@
   },
   "0xdb92739a910f9261b62ffcd536eeeac5df8461b4": {
     "Address": "0xdb92739a910f9261b62ffcd536eeeac5df8461b4",
-    "Balance": 856275.86967912,
+    "Balance": 856711.32406042,
     "Labels": {
       "binance-smart-chain": {
         "Name Tag": null,
@@ -313,7 +313,7 @@
   },
   "0x30e0be360d1e7c6dd3f7c54e2f098b9cab1a9227": {
     "Address": "0x30e0be360d1e7c6dd3f7c54e2f098b9cab1a9227",
-    "Balance": 1366694.78572188,
+    "Balance": 1366900.66506458,
     "Labels": {
       "binance-smart-chain": {
         "Name Tag": null,
@@ -325,7 +325,7 @@
   },
   "0x4afc633e7b6beb8e552ccddbe06cca3754991e9a": {
     "Address": "0x4afc633e7b6beb8e552ccddbe06cca3754991e9a",
-    "Balance": 1221469.52803579,
+    "Balance": 1220639.18599516,
     "Labels": {
       "binance-smart-chain": {
         "Name Tag": null,
@@ -337,7 +337,7 @@
   },
   "0xefbb75e446ec2d8493b3d4d91ac3118953f69b55": {
     "Address": "0xefbb75e446ec2d8493b3d4d91ac3118953f69b55",
-    "Balance": 1192694.36950825,
+    "Balance": 1192794.39238118,
     "Labels": {
       "binance-smart-chain": {
         "Name Tag": null,
@@ -349,7 +349,7 @@
   },
   "0x17592497267112e1d764ed49bb0c78f8073e9d7b": {
     "Address": "0x17592497267112e1d764ed49bb0c78f8073e9d7b",
-    "Balance": 1020118.11092146,
+    "Balance": 1020209.88856626,
     "Labels": {
       "binance-smart-chain": {
         "Name Tag": null,
@@ -361,7 +361,7 @@
   },
   "0x487f2663c8e134eb98495249bba5c602a89ceaa7": {
     "Address": "0x487f2663c8e134eb98495249bba5c602a89ceaa7",
-    "Balance": 1021310.82926123,
+    "Balance": 1021423.01143032,
     "Labels": {
       "binance-smart-chain": {
         "Name Tag": null,
@@ -373,7 +373,7 @@
   },
   "0x2804ada1c219e50898e75b2bd052030580f4fbac": {
     "Address": "0x2804ada1c219e50898e75b2bd052030580f4fbac",
-    "Balance": 1161567.1460054,
+    "Balance": 1161102.30404127,
     "Labels": {
       "binance-smart-chain": {
         "Name Tag": null,
@@ -385,7 +385,7 @@
   },
   "0x6006a1d3e973f2e4e575fc006a56396ebefc8dbd": {
     "Address": "0x6006a1d3e973f2e4e575fc006a56396ebefc8dbd",
-    "Balance": 786293.85984493,
+    "Balance": 786353.83255763,
     "Labels": {
       "binance-smart-chain": {
         "Name Tag": null,
@@ -397,7 +397,7 @@
   },
   "0x8e01cf1c95fe6699c06aac0a9f3e33297778d682": {
     "Address": "0x8e01cf1c95fe6699c06aac0a9f3e33297778d682",
-    "Balance": 773340.71146167,
+    "Balance": 773256.6200176,
     "Labels": {
       "binance-smart-chain": {
         "Name Tag": null,
@@ -409,7 +409,7 @@
   },
   "0x6cbeecb3a0591eaab5d4a6380f0bbbafb06859f2": {
     "Address": "0x6cbeecb3a0591eaab5d4a6380f0bbbafb06859f2",
-    "Balance": 833467.06440569,
+    "Balance": 833908.91401334,
     "Labels": {
       "binance-smart-chain": {
         "Name Tag": null,
@@ -421,7 +421,7 @@
   },
   "0x2d09c57cb8eaf970deeaf30546ec4dc3781c63cf": {
     "Address": "0x2d09c57cb8eaf970deeaf30546ec4dc3781c63cf",
-    "Balance": 932149.61652136,
+    "Balance": 932952.16241066,
     "Labels": {
       "binance-smart-chain": {
         "Name Tag": null,
@@ -436,16 +436,16 @@
     "Balance": 572917.5117685,
     "Labels": {
       "binance-smart-chain": {
-        "Name Tag": null,
+        "Name Tag": "Ceffu: Custody Hot Wallet 2",
         "Description": null,
         "Subcategory": "Others",
-        "image": null
+        "image": "/icons/ceffu.webp"
       }
     }
   },
   "0x53aaf2d46a0baa1a36f2819c9c50427d89f81397": {
     "Address": "0x53aaf2d46a0baa1a36f2819c9c50427d89f81397",
-    "Balance": 203910.53661775,
+    "Balance": 203922.9605591,
     "Labels": {
       "binance-smart-chain": {
         "Name Tag": null,
@@ -457,7 +457,7 @@
   },
   "0xa07c5b74c9b40447a954e1466938b865b6bbea36": {
     "Address": "0xa07c5b74c9b40447a954e1466938b865b6bbea36",
-    "Balance": 301498.68236354,
+    "Balance": 292676.89954926,
     "Labels": {
       "binance-smart-chain": {
         "Name Tag": "Venus: vBNB Token",
@@ -469,7 +469,7 @@
   },
   "0x6ec070c6af6e2b3cfd1c625bc2888bbc7d9eabe6": {
     "Address": "0x6ec070c6af6e2b3cfd1c625bc2888bbc7d9eabe6",
-    "Balance": 168214.38347922,
+    "Balance": 168219.14601768,
     "Labels": {
       "binance-smart-chain": {
         "Name Tag": null,
@@ -481,7 +481,7 @@
   },
   "0x3890f2104045548ba7d933740a440405d58cc4b3": {
     "Address": "0x3890f2104045548ba7d933740a440405d58cc4b3",
-    "Balance": 323142.86548378,
+    "Balance": 323148.04444706,
     "Labels": {
       "binance-smart-chain": {
         "Name Tag": null,
@@ -493,7 +493,7 @@
   },
   "0x830bfdaea0984a5e48b00a06ed09067f2056b512": {
     "Address": "0x830bfdaea0984a5e48b00a06ed09067f2056b512",
-    "Balance": 168509.36114335,
+    "Balance": 168498.87880796,
     "Labels": {
       "binance-smart-chain": {
         "Name Tag": null,
@@ -505,7 +505,7 @@
   },
   "0x0dcd7180fa216ee32873a4672254f6355827fac0": {
     "Address": "0x0dcd7180fa216ee32873a4672254f6355827fac0",
-    "Balance": 213407.42838831,
+    "Balance": 213122.8314022,
     "Labels": {
       "binance-smart-chain": {
         "Name Tag": null,
@@ -517,7 +517,7 @@
   },
   "0x7597e59607a1e91e5b4af6b63c3a0c5070445a52": {
     "Address": "0x7597e59607a1e91e5b4af6b63c3a0c5070445a52",
-    "Balance": 224814.37358056,
+    "Balance": 224820.97484826,
     "Labels": {
       "binance-smart-chain": {
         "Name Tag": null,
@@ -529,7 +529,7 @@
   },
   "0xdbc326a25bc5a77cd3c47efc831acaec5a1226ba": {
     "Address": "0xdbc326a25bc5a77cd3c47efc831acaec5a1226ba",
-    "Balance": 165795.26035148,
+    "Balance": 165803.87948968,
     "Labels": {
       "binance-smart-chain": {
         "Name Tag": null,
@@ -541,7 +541,7 @@
   },
   "0xa3f20731a621e4adcebf5e67ad7a6bdd256c21d8": {
     "Address": "0xa3f20731a621e4adcebf5e67ad7a6bdd256c21d8",
-    "Balance": 167208.82505683,
+    "Balance": 167221.56284449,
     "Labels": {
       "binance-smart-chain": {
         "Name Tag": null,
@@ -553,7 +553,7 @@
   },
   "0xe7d23547f5e98d59480a29dee112b4299fad983b": {
     "Address": "0xe7d23547f5e98d59480a29dee112b4299fad983b",
-    "Balance": 167593.76849872,
+    "Balance": 167605.95650684,
     "Labels": {
       "binance-smart-chain": {
         "Name Tag": null,
@@ -565,7 +565,7 @@
   },
   "0xd7a2d4ba21abac4e4d8569f572975ddd139067fc": {
     "Address": "0xd7a2d4ba21abac4e4d8569f572975ddd139067fc",
-    "Balance": 173740.00704879,
+    "Balance": 173743.79110431,
     "Labels": {
       "binance-smart-chain": {
         "Name Tag": null,
@@ -577,7 +577,7 @@
   },
   "0xcd3f68a23323d64c57cd9d9d23a8193077dfec66": {
     "Address": "0xcd3f68a23323d64c57cd9d9d23a8193077dfec66",
-    "Balance": 166439.07574608,
+    "Balance": 166447.58014743,
     "Labels": {
       "binance-smart-chain": {
         "Name Tag": null,
@@ -589,7 +589,7 @@
   },
   "0x19480607194ff38bff28d3314f5852ab4d5e7a91": {
     "Address": "0x19480607194ff38bff28d3314f5852ab4d5e7a91",
-    "Balance": 165531.93204145,
+    "Balance": 165529.19478374,
     "Labels": {
       "binance-smart-chain": {
         "Name Tag": null,
@@ -601,7 +601,7 @@
   },
   "0x8370245e6b7ee1b3051fd6ceeb766a5443e46934": {
     "Address": "0x8370245e6b7ee1b3051fd6ceeb766a5443e46934",
-    "Balance": 252068.43762278,
+    "Balance": 252076.44934213,
     "Labels": {
       "binance-smart-chain": {
         "Name Tag": null,
@@ -613,7 +613,7 @@
   },
   "0x9c065e07da5f95e11c0baefdaac648dff6df4bfc": {
     "Address": "0x9c065e07da5f95e11c0baefdaac648dff6df4bfc",
-    "Balance": 230446.36649006,
+    "Balance": 230457.51711999,
     "Labels": {
       "binance-smart-chain": {
         "Name Tag": null,
@@ -625,7 +625,7 @@
   },
   "0xf7c5625578bd28777a69d7b0bb3e3c2292bbd560": {
     "Address": "0xf7c5625578bd28777a69d7b0bb3e3c2292bbd560",
-    "Balance": 300175.42762036,
+    "Balance": 300184.79686118,
     "Labels": {
       "binance-smart-chain": {
         "Name Tag": null,
@@ -637,7 +637,7 @@
   },
   "0x78e204a7c1eefac5584f2f2a56017c4087c1c858": {
     "Address": "0x78e204a7c1eefac5584f2f2a56017c4087c1c858",
-    "Balance": 166902.58793165,
+    "Balance": 166908.66894022,
     "Labels": {
       "binance-smart-chain": {
         "Name Tag": null,
@@ -649,7 +649,7 @@
   },
   "0x80403b12587cc9bcf72ed43de178dfae63a32564": {
     "Address": "0x80403b12587cc9bcf72ed43de178dfae63a32564",
-    "Balance": 164810.26232518,
+    "Balance": 164696.22484919,
     "Labels": {
       "binance-smart-chain": {
         "Name Tag": null,
@@ -661,7 +661,7 @@
   },
   "0xd77c88b0f7adb2a014cf34c62c12046df1a4229e": {
     "Address": "0xd77c88b0f7adb2a014cf34c62c12046df1a4229e",
-    "Balance": 202973.82926093,
+    "Balance": 203029.87760622,
     "Labels": {
       "binance-smart-chain": {
         "Name Tag": null,
@@ -697,7 +697,7 @@
   },
   "0xa7c0d36c4698981fab42a7d8c783674c6fe2592d": {
     "Address": "0xa7c0d36c4698981fab42a7d8c783674c6fe2592d",
-    "Balance": 152785.17916179,
+    "Balance": 144406.17916021,
     "Labels": {
       "binance-smart-chain": {
         "Name Tag": "Binance 74",
@@ -736,16 +736,16 @@
     "Balance": 131098.52112842,
     "Labels": {
       "binance-smart-chain": {
-        "Name Tag": null,
+        "Name Tag": "Binance US 9",
         "Description": null,
         "Subcategory": "Others",
-        "image": null
+        "image": "/icons/binance.webp"
       }
     }
   },
   "0x47cdb61e41b7806ab23b5d4c1296aacc11cad489": {
     "Address": "0x47cdb61e41b7806ab23b5d4c1296aacc11cad489",
-    "Balance": 152278.17293905,
+    "Balance": 146126.45371953,
     "Labels": {
       "binance-smart-chain": {
         "Name Tag": null,
@@ -757,7 +757,7 @@
   },
   "0x7714c9a4ea6e0731eaf6c47ae9f66aad27c67b94": {
     "Address": "0x7714c9a4ea6e0731eaf6c47ae9f66aad27c67b94",
-    "Balance": 165680.36328708,
+    "Balance": 165652.81840763,
     "Labels": {
       "binance-smart-chain": {
         "Name Tag": null,
@@ -769,7 +769,7 @@
   },
   "0x98346bc9118e863388cc83107fb8151b12eefcd8": {
     "Address": "0x98346bc9118e863388cc83107fb8151b12eefcd8",
-    "Balance": 165644.91177728,
+    "Balance": 165619.46882942,
     "Labels": {
       "binance-smart-chain": {
         "Name Tag": null,
@@ -781,7 +781,7 @@
   },
   "0xc096e7781c95a2fc6feb1efe776b570270b3965d": {
     "Address": "0xc096e7781c95a2fc6feb1efe776b570270b3965d",
-    "Balance": 165369.81133666,
+    "Balance": 165348.33913323,
     "Labels": {
       "binance-smart-chain": {
         "Name Tag": null,
@@ -793,7 +793,7 @@
   },
   "0x19a96b6de86fad8c6603d3c35692cf32e4e55ac2": {
     "Address": "0x19a96b6de86fad8c6603d3c35692cf32e4e55ac2",
-    "Balance": 149340.82346145,
+    "Balance": 149837.26663097,
     "Labels": {
       "binance-smart-chain": {
         "Name Tag": null,
@@ -805,7 +805,7 @@
   },
   "0xd38ae55b29ec84d9633d166bae977fa4618bf621": {
     "Address": "0xd38ae55b29ec84d9633d166bae977fa4618bf621",
-    "Balance": 160869.22939519,
+    "Balance": 160877.72729265,
     "Labels": {
       "binance-smart-chain": {
         "Name Tag": null,
@@ -829,7 +829,7 @@
   },
   "0x0fab00071be18caad4c9984ec68e860e84c68dad": {
     "Address": "0x0fab00071be18caad4c9984ec68e860e84c68dad",
-    "Balance": 87591.14421161,
+    "Balance": 87583.05245704,
     "Labels": {
       "binance-smart-chain": {
         "Name Tag": null,
@@ -841,13 +841,13 @@
   },
   "0x18e226459ccf0eec276514a4fd3b226d8961e4d1": {
     "Address": "0x18e226459ccf0eec276514a4fd3b226d8961e4d1",
-    "Balance": 167181.09287052,
+    "Balance": 167234.72645149,
     "Labels": {
       "binance-smart-chain": {
-        "Name Tag": null,
+        "Name Tag": "Binance 107",
         "Description": null,
         "Subcategory": "Others",
-        "image": null
+        "image": "/icons/binance.webp"
       }
     }
   },
@@ -889,7 +889,7 @@
   },
   "0x0000000000000000000000000000000000000000": {
     "Address": "0x0000000000000000000000000000000000000000",
-    "Balance": 99226.99849404,
+    "Balance": 99227.25071122,
     "Labels": {
       "binance-smart-chain": {
         "Name Tag": "Null: 0x000...000",
@@ -901,7 +901,7 @@
   },
   "0x8894e0a0c962cb723c1976a4421c95949be2d4e3": {
     "Address": "0x8894e0a0c962cb723c1976a4421c95949be2d4e3",
-    "Balance": 79237.80794282,
+    "Balance": 152353.63173762,
     "Labels": {
       "binance-smart-chain": {
         "Name Tag": "Binance 51",
@@ -949,7 +949,7 @@
   },
   "0x1876ea7702c0ad0c6a2ae6036de7733edfbca519": {
     "Address": "0x1876ea7702c0ad0c6a2ae6036de7733edfbca519",
-    "Balance": 89066.48975081,
+    "Balance": 89061.05235442,
     "Labels": {
       "binance-smart-chain": {
         "Name Tag": "opBNB: Optimism Portal Proxy",
@@ -1033,19 +1033,19 @@
   },
   "0x318d2aae4c99c2e74f7b5949fa1c34df837789b8": {
     "Address": "0x318d2aae4c99c2e74f7b5949fa1c34df837789b8",
-    "Balance": 56415.98994195,
+    "Balance": 58774.20533145,
     "Labels": {
       "binance-smart-chain": {
-        "Name Tag": null,
+        "Name Tag": "Bybit 17",
         "Description": null,
         "Subcategory": "Others",
-        "image": null
+        "image": "/icons/bybit.webp"
       }
     }
   },
   "0x98adef6f2ac8572ec48965509d69a8dd5e8bba9d": {
     "Address": "0x98adef6f2ac8572ec48965509d69a8dd5e8bba9d",
-    "Balance": 3043562.24684761,
+    "Balance": 3038992.16393962,
     "Labels": {
       "binance-smart-chain": {
         "Name Tag": "Binance 93",
@@ -1057,7 +1057,7 @@
   },
   "0x611f7bf868a6212f871e89f7e44684045ddfb09d": {
     "Address": "0x611f7bf868a6212f871e89f7e44684045ddfb09d",
-    "Balance": 87638.53149373,
+    "Balance": 76260.29916585,
     "Labels": {
       "binance-smart-chain": {
         "Name Tag": null,
@@ -1069,13 +1069,13 @@
   },
   "0x42ed232dc3e65b3534dbb42d07a3f67a618f66a3": {
     "Address": "0x42ed232dc3e65b3534dbb42d07a3f67a618f66a3",
-    "Balance": 53178.22264152,
+    "Balance": 53402.4445018,
     "Labels": {
       "binance-smart-chain": {
-        "Name Tag": null,
+        "Name Tag": "Crypto.com 33",
         "Description": null,
         "Subcategory": "Others",
-        "image": null
+        "image": "/icons/crypto.webp"
       }
     }
   },
@@ -1108,7 +1108,7 @@
     "Balance": 41999.03176103,
     "Labels": {
       "binance-smart-chain": {
-        "Name Tag": null,
+        "Name Tag": "eToro 5",
         "Description": null,
         "Subcategory": "Others",
         "image": null
@@ -1381,7 +1381,7 @@
   },
   "0xc882b111a75c0c657fc507c04fbfcd2cc984f071": {
     "Address": "0xc882b111a75c0c657fc507c04fbfcd2cc984f071",
-    "Balance": 39036.59247286,
+    "Balance": 32871.11387614,
     "Labels": {
       "binance-smart-chain": {
         "Name Tag": "Gate 5",
@@ -1429,7 +1429,7 @@
   },
   "0xa9e6e5d63b81c4913109263e07b688d529122015": {
     "Address": "0xa9e6e5d63b81c4913109263e07b688d529122015",
-    "Balance": 35000.24837522,
+    "Balance": 30000.14837529,
     "Labels": {
       "binance-smart-chain": {
         "Name Tag": null,
@@ -1465,7 +1465,7 @@
   },
   "0x3dcea6afba8af84b25f1f8947058af1ac4c06131": {
     "Address": "0x3dcea6afba8af84b25f1f8947058af1ac4c06131",
-    "Balance": 80506.42718212,
+    "Balance": 92155.58091421,
     "Labels": {
       "binance-smart-chain": {
         "Name Tag": null,

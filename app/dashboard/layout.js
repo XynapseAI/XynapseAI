@@ -8,16 +8,16 @@ export async function generateMetadata() {
     const userName = session?.user?.name || '';
     const title = `${userName} Dashboard`;
     const description = `Manage your cryptocurrency wallet, track market trends, and analyze interactions with Xynapse's advanced dashboard.`;
-    
+
     return {
       title,
       description,
       keywords: 'cryptocurrency, dashboard, wallet, blockchain, market trends, Xynapse',
       robots: 'index, follow',
       alternates: {
-        canonical: 'https://xynapseai.net/dashboard', // Cập nhật cho Base subdomain
+        canonical: 'https://xynapseai.net/dashboard',
       },
-      other: { // Thêm fc:miniapp cho dashboard
+      other: {
         'fc:miniapp': JSON.stringify({
           version: 'next',
           imageUrl: 'https://xynapseai.net/og.png',
@@ -43,6 +43,8 @@ export async function generateMetadata() {
             height: 630,
             alt: 'Xynapse Dashboard Logo',
           },
+          { url: 'https://xynapseai.net/og.png', width: 1200, height: 630, alt: 'Xynapse Dashboard Logo' },
+          { url: 'https://xynapseai.net/base-wallet-og.png', width: 1200, height: 630, alt: 'Connect Wallet on Base' },
         ],
       },
       twitter: {

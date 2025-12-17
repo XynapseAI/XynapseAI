@@ -1,230 +1,171 @@
+// app/api/verify-wallet/route.js
 import { NextResponse } from 'next/server';
-import { z } from 'zod';
-import { logger } from '../../../utils/serverLogger';;
-import { createClient } from 'redis';
-import { query } from '../../../utils/postgres';
 import { ethers } from 'ethers';
 import { auth } from '@/lib/auth';
 import { verifyRecaptcha } from '../../../utils/verifyRecaptcha';
-import jwt from 'jsonwebtoken';
+import { PrismaClient } from '@prisma/client';
 
-const redisClient = createClient({ url: process.env.REDIS_URL || 'redis://localhost:6379' });
-redisClient.on('error', (err) => logger.error('Redis Client Error', err));
-await redisClient.connect();
+const prisma = new PrismaClient();
 
-async function checkRateLimit(ip) {
-  const key = `rate_limit:verify_wallet:${ip}`;
-  const requests = await redisClient.get(key) || 0;
-  const windowMs = 15 * 60 * 1000;
-  if (requests >= 200) {
-    throw new Error('Too many requests, please try again later.');
+// Simple in-memory rate limit for dev
+const rateLimitMap = new Map();
+
+function isRateLimited(ip) {
+  const now = Date.now();
+  const key = ip || 'anonymous';
+  const record = rateLimitMap.get(key) || { count: 0, resetTime: now + 15 * 60 * 1000 };
+
+  if (now > record.resetTime) {
+    record.count = 0;
+    record.resetTime = now + 15 * 60 * 1000;
   }
-  await redisClient.multi()
-    .incr(key)
-    .expire(key, windowMs / 1000)
-    .exec();
+
+  if (record.count >= 5) return true;
+
+  record.count++;
+  rateLimitMap.set(key, record);
+  return false;
 }
-
-const bodySchema = z.object({
-  action: z.enum(['verify-wallet', 'disconnect-wallet'], { message: 'Invalid action' }),
-  uid: z.string().max(100, 'Invalid UID'),
-  recaptchaToken: z.string({ message: 'Invalid reCAPTCHA token' }),
-  walletAddress: z.string().regex(/^0x[a-fA-F0-9]{40}$/, 'Invalid wallet address').optional(),
-  signature: z.string().optional(),
-  message: z.string().optional(),
-}).refine(
-  (data) => (data.action === 'verify-wallet' ? !!data.walletAddress && !!data.signature && !!data.message : true),
-  { message: 'Missing wallet address, signature, or message for verify-wallet', path: ['walletAddress', 'signature', 'message'] }
-);
-
-async function checkCSRF(request, session) {
-  const csrfToken = request.headers.get('x-csrf-token');
-  if (!csrfToken || !session?.csrfToken || csrfToken !== session.csrfToken) {
-    logger.warn(`CSRF check failed: Invalid CSRF token: ${csrfToken}`, { ip: request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown' });
-    return false;
-  }
-  return true;
-}
-
-const allowedOrigins = [
-  process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000',
-  'http://localhost:3000',
-  'https://xynapseai.net',
-  'https://www.xynapseai.net',
-  'https://farcaster.xynapseai.net',
-  "https://base.xynapseai.net",
-];
 
 export async function POST(request) {
-  const ip = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown';
-  logger.info(`Request to /api/verify-wallet from IP ${ip}`);
-
-  const origin = request.headers.get('origin');
-  if (!origin || !allowedOrigins.includes(origin)) {
-    logger.error(`CORS error: Origin ${origin} not allowed`, { allowedOrigins });
-    return NextResponse.json({ detail: 'Not allowed by CORS' }, { status: 403 });
-  }
-
   try {
-    await checkRateLimit(ip);
-  } catch (err) {
-    logger.error(`Rate limit error: ${err.message}`, { ip });
-    return NextResponse.json({ detail: err.message }, { status: 429 });
-  }
+    const ip = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ||
+               request.headers.get('x-real-ip') ||
+               request.headers.get('x-vercel-forwarded-for') ||
+               'unknown';
 
-  const session = await auth();
-  if (!session || !session.user?.id) {
-    logger.warn('Session not authenticated or missing user ID', { ip });
-    return NextResponse.json({ detail: 'Not signed in' }, { status: 401 });
-  }
-
-  if (!(await checkCSRF(request, session))) {
-    return NextResponse.json({ detail: 'CSRF check không hợp lệ.' }, { status: 403 });
-  }
-
-  const authHeader = request.headers.get('authorization');
-  if (!authHeader || !authHeader.startsWith('Bearer ')) {
-    logger.warn('Missing or invalid Authorization header', { ip });
-    return NextResponse.json({ detail: 'Missing or invalid JWT' }, { status: 401 });
-  }
-
-  const token = authHeader.split(' ')[1];
-  try {
-    if (!process.env.JWT_SECRET) {
-      logger.error('JWT_SECRET is not configured');
-      return NextResponse.json({ detail: 'Server configuration error: Missing JWT_SECRET' }, { status: 500 });
+    if (isRateLimited(ip)) {
+      return NextResponse.json(
+        { success: false, detail: 'Too many requests. Please wait 15 minutes and try again.' },
+        { status: 429 }
+      );
     }
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    if (decoded.userId !== session.user.id) {
-      logger.warn(`JWT userId mismatch: jwtUserId=${decoded.userId}, sessionUserId=${session.user.id}`, { ip });
-      return NextResponse.json({ detail: 'Invalid JWT' }, { status: 401 });
+
+    const csrfToken = request.headers.get('x-csrf-token');
+    if (!csrfToken) {
+      return NextResponse.json(
+        { success: false, detail: 'Missing CSRF token' },
+        { status: 403 }
+      );
     }
-    logger.info('JWT verified successfully', { userId: decoded.userId, ip });
-  } catch (error) {
-    logger.error(`JWT verification failed: ${error.message}`, { token: token.substring(0, 8) + '...', ip });
-    return NextResponse.json({ detail: `Invalid JWT: ${error.message}` }, { status: 401 });
-  }
 
-  let body;
-  try {
-    body = await request.json();
-  } catch (err) {
-    logger.warn(`Invalid JSON body: ${err.message}`, { ip });
-    return NextResponse.json({ detail: 'Invalid JSON body' }, { status: 400 });
-  }
+    const body = await request.json();
+    const { uid, walletAddress, signature, message, nonce, recaptchaToken } = body; // UPDATED: Add nonce
 
-  let parsedBody;
-  try {
-    parsedBody = bodySchema.parse(body);
-  } catch (err) {
-    logger.warn(`Validation error: ${err.message}`, { ip });
-    return NextResponse.json({ detail: 'Invalid input data', errors: err.errors }, { status: 400 });
-  }
+    if (!uid || !walletAddress || !signature || !message || !nonce) { // UPDATED: Check nonce
+      return NextResponse.json(
+        { success: false, detail: 'Missing required fields' },
+        { status: 400 }
+      );
+    }
 
-  const { action, uid, recaptchaToken, walletAddress, signature, message } = parsedBody;
+    const session = await auth();
+    if (!session || !session.user || session.user.id !== uid) {
+      return NextResponse.json(
+        { success: false, detail: 'Unauthorized: User ID mismatch' },
+        { status: 401 }
+      );
+    }
 
-  try {
-    await verifyRecaptcha(recaptchaToken, action, ip);
-    logger.info(`reCAPTCHA verified successfully for ${action}`, { ip });
-  } catch (error) {
-    logger.error(`reCAPTCHA verification error: ${error.message}`, { ip });
-    return NextResponse.json({ detail: `reCAPTCHA verification error: ${error.message}` }, { status: 403 });
-  }
+    const skipRecaptcha = process.env.SKIP_RECAPTCHA === 'true';
 
-  if (uid !== session.user.id) {
-    logger.warn(`Unauthorized: uid=${uid}, sessionUserId=${session.user.id}`, { ip });
-    return NextResponse.json({ detail: 'Invalid UID' }, { status: 403 });
-  }
+    if (!skipRecaptcha && process.env.NODE_ENV !== 'development') {
+      if (!recaptchaToken || typeof recaptchaToken !== 'string') {
+        return NextResponse.json(
+          { success: false, detail: 'Missing reCAPTCHA token' },
+          { status: 400 }
+        );
+      }
 
-  return new NextResponse(
-    new ReadableStream({
-      async start(controller) {
-        try {
-          if (action === 'verify-wallet') {
-            const normalizedAddress = walletAddress.toLowerCase();
-            const recoveredAddress = ethers.verifyMessage(message, signature);
-            if (recoveredAddress.toLowerCase() !== normalizedAddress) {
-              logger.warn('Invalid wallet signature', { recoveredAddress, walletAddress, ip });
-              controller.enqueue(JSON.stringify({ detail: 'Invalid signature' }));
-              controller.close();
-              return;
-            }
-
-            await query(
-              `UPDATE users
-               SET wallet_address = $1, last_connected = $2
-               WHERE id = $3`,
-              [normalizedAddress, new Date(), session.user.id]
+      try {
+        const recaptchaResponse = await verifyRecaptcha(recaptchaToken, 'verify_wallet', ip);
+        if (!recaptchaResponse.success) {
+          if (recaptchaResponse.needsFallback) {
+            return NextResponse.json(
+              { success: false, detail: 'low_score_fallback' },
+              { status: 403 }
             );
-
-            await query(
-              `INSERT INTO wallet_histories (user_id, wallet_address, action, data, created_at)
-               VALUES ($1, $2, $3, $4, $5)`,
-              [session.user.id, normalizedAddress, 'connect', { signature, message }, new Date()]
-            );
-
-            const userResult = await query(
-              `SELECT id, twitter_handle, twitter_access_token, discord_access_token, wallet_address, task_points, points, last_connected
-               FROM users
-               WHERE id = $1`,
-              [session.user.id]
-            );
-            const user = userResult.rows[0];
-            logger.info(`Wallet verified for user: ${uid}`, { walletAddress: normalizedAddress, ip });
-            controller.enqueue(JSON.stringify({ success: true, user }));
-            controller.close();
-          } else if (action === 'disconnect-wallet') {
-            const userResult = await query(
-              `SELECT wallet_address
-               FROM users
-               WHERE id = $1`,
-              [session.user.id]
-            );
-            const user = userResult.rows[0];
-
-            await query(
-              `UPDATE users
-               SET wallet_address = NULL, last_connected = $1
-               WHERE id = $2`,
-              [new Date(), session.user.id]
-            );
-
-            await query(
-              `INSERT INTO wallet_histories (user_id, wallet_address, action, data, created_at)
-               VALUES ($1, $2, $3, $4, $5)`,
-              [session.user.id, user.wallet_address || 'unknown', 'disconnect', {}, new Date()]
-            );
-
-            const updatedUserResult = await query(
-              `SELECT id, twitter_handle, twitter_access_token, discord_access_token, wallet_address, task_points, points, last_connected
-               FROM users
-               WHERE id = $1`,
-              [session.user.id]
-            );
-            const updatedUser = updatedUserResult.rows[0];
-            logger.info(`Wallet disconnected for user: ${uid}`, { ip });
-            controller.enqueue(JSON.stringify({ success: true, user: updatedUser }));
-            controller.close();
-          } else {
-            logger.warn(`Invalid action: ${action}`, { ip });
-            controller.enqueue(JSON.stringify({ detail: 'Invalid action' }));
-            controller.close();
           }
-        } catch (error) {
-          logger.error(`Error processing request: ${error.message}`, { stack: error.stack, ip });
-          controller.enqueue(JSON.stringify({ detail: `Server error: ${error.message}` }));
-          controller.close();
+          return NextResponse.json(
+            { success: false, detail: 'reCAPTCHA verification failed' },
+            { status: 403 }
+          );
         }
-      },
-    }),
-    {
-      headers: {
-        'Content-Type': 'application/json',
-        'Content-Security-Policy': "default-src 'self'",
-        'Access-Control-Allow-Origin': origin,
-        'Access-Control-Allow-Methods': 'POST',
-        'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-CSRF-Token, X-Recaptcha-Token',
-      },
+      } catch (error) {
+        console.error('reCAPTCHA verification error:', error);
+        return NextResponse.json(
+          { success: false, detail: 'reCAPTCHA verification failed' },
+          { status: 403 }
+        );
+      }
+    } else {
+      console.log('reCAPTCHA skipped for verify-wallet');
     }
-  );
+
+    // Verify signature
+    const recoveredAddress = ethers.verifyMessage(message, signature);
+    if (recoveredAddress.toLowerCase() !== walletAddress.toLowerCase()) {
+      return NextResponse.json(
+        { success: false, detail: 'Invalid signature' },
+        { status: 400 }
+      );
+    }
+
+    // UPDATED: Check timestamp expiration (5 minutes)
+    const timestampMatch = message.match(/Timestamp:\s*(\d+)/);
+    if (!timestampMatch) {
+      return NextResponse.json(
+        { success: false, detail: 'Invalid message format' },
+        { status: 400 }
+      );
+    }
+    const timestamp = parseInt(timestampMatch[1]);
+    if (Date.now() - timestamp > 5 * 60 * 1000) {
+      return NextResponse.json(
+        { success: false, detail: 'Signature expired' },
+        { status: 400 }
+      );
+    }
+
+    // UPDATED: Basic nonce check (ensure it's present and matches message format for now; for full anti-replay, store used nonces in DB)
+    const nonceMatch = message.match(/Nonce:\s*([a-f0-9\-]+)/i);
+    if (!nonceMatch || nonceMatch[1] !== nonce) {
+      return NextResponse.json(
+        { success: false, detail: 'Invalid nonce' },
+        { status: 400 }
+      );
+    }
+
+    const existingUser = await prisma.users.findUnique({ where: { id: uid } });
+    if (existingUser?.wallet_address && existingUser.wallet_address !== walletAddress.toLowerCase()) {
+      return NextResponse.json(
+        { success: false, detail: 'Wallet already linked to another address. Disconnect first.' },
+        { status: 400 }
+      );
+    }
+
+    const user = await prisma.users.update({
+      where: { id: uid },
+      data: {
+        wallet_address: walletAddress.toLowerCase(),
+      },
+    });
+
+    return NextResponse.json({
+      success: true,
+      user: {
+        id: user.id,
+        walletAddress: user.wallet_address,
+      },
+    });
+
+  } catch (error) {
+    console.error('Verify wallet error:', error);
+    return NextResponse.json(
+      { success: false, detail: error.message || 'Internal server error' },
+      { status: 500 }
+    );
+  } finally {
+    await prisma.$disconnect();
+  }
 }

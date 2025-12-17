@@ -39,7 +39,6 @@ export async function GET() {
   }
 }
 
-// Giữ DELETE (cleanup nonce on success/fail - gọi sau auth thành công trong World flow)
 export async function DELETE(request) {
   try {
     const body = await request.json().catch(() => null);  // Handle no/invalid body

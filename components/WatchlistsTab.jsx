@@ -1857,7 +1857,6 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
                 </div>
 
                 {/* Main content*/}
-                {/* Main content */}
                 <div className="flex-1 flex flex-col">
                   <AnimatePresence mode="wait">
                     <motion.div
@@ -1868,7 +1867,6 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
                       transition={{ duration: 0.3, ease: 'easeInOut' }}
                       className="h-full flex flex-col"
                     >
-                      {/* Header cố định */}
                       <div className="flex bg-[#0A0A0A]/20 border-b border-[#FFFFFF20] px-2 py-2 text-[9px] sm:text-[10px] font-semibold text-[#FFF] sticky top-0 z-10 shrink-0">
                         {activeTab === 'PORTFOLIO' ? (
                           <>
@@ -1888,7 +1886,6 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
                         ) : null}
                       </div>
 
-                      {/* Virtuoso - phần quan trọng nhất */}
                       <div className="flex-1 relative">
                         <LoadingOverlay
                           className="absolute inset-0 z-20"
@@ -1929,7 +1926,6 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
                         ) : activeTab === 'ACTIVITY' ? (
                           filteredTransactions.length > 0 ? (
                             <>
-                              {/* Pagination chỉ hiện ở Activity */}
                               <div className="flex items-center justify-center gap-2 p-2 border-b border-[#FFFFFF20] bg-[#0A0A0A]/50 shrink-0">
                                 <motion.button
                                   onClick={() => handlePageChange(Math.max(1, currentPage - 1))}
@@ -2107,7 +2103,6 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
 }
 // Custom CSS to hide scrollbar
 <style jsx global>{`
-  /* Đè chết background của Virtuoso */
   .virtuoso-container,
   [data-viewport="virtuoso"],
   div[data-test-id="virtuoso-scroller"],
@@ -2115,7 +2110,6 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
     background: transparent !important;
   }
 
-  /* Scrollbar mượt */
   .custom-scrollbar::-webkit-scrollbar {
     width: 5px;
   }

@@ -1,4 +1,5 @@
-// app/layout.js - Updated metadata for better SEO baseline
+// app/layout.js - Fixed: Removed direct OnchainKitProvider usage in server component (moved to ClientProviders)
+// Import and usage of client components in server layouts causes ReferenceError
 import '../styles/globals.css';
 import ClientProviders from './ClientProviders';
 
@@ -12,7 +13,10 @@ export const metadata = {
   openGraph: {
     title: 'Xynapse',
     description: 'Explore blockchain transactions with Xynapse. Fast, secure, and insightful crypto explorer.',
-    images: ['https://xynapseai.net/og.png'],
+    images: [
+      'https://xynapseai.net/og.png',
+      'https://xynapseai.net/base-wallet-og.png',  // Added for wallet connect OG
+    ],
     url: 'https://xynapseai.net/dashboard?tab=explorer',
     siteName: 'Xynapse',
     type: 'website',
@@ -38,6 +42,7 @@ export const metadata = {
         },
       },
     }),
+    'base:app_id': '690858f0aa8286a3a56039d4',
   },
 };
 

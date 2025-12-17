@@ -782,27 +782,20 @@ export async function POST(request) {
             const chainParam = targetAddresses.some((addr) => isValidSolanaAddress(addr))
               ? `chains=${SUPPORTED_SVM_CHAINS.join(",")}`
               : `chain_ids=${SUPPORTED_CHAIN_IDS}`;
-
-            // FIX: Cap total limit dựa trên single vs cluster
-            let totalLimit = effectiveLimit;  // Default 10000 từ LIMIT_CONFIG
+            let totalLimit = effectiveLimit; 
             if (isCluster) {
-              totalLimit = Math.min(effectiveLimit, 1000);  // Cap total 1000 tx cho cluster (tổng tất cả ví)
+              totalLimit = Math.min(effectiveLimit, 1000); 
             }
-
-            // Phân bổ per address (min 50 để có data, tránh 0 nếu nhiều ví)
             const perAddressLimit = isCluster
               ? Math.max(50, Math.floor(totalLimit / targetAddresses.length))
               : totalLimit;
 
-            // NEW: Time cutoff cho cluster + minValueUsd (dừng nếu tx cũ hơn 180 ngày để speed up)
             const MAX_AGE_SECONDS = 180 * 24 * 3600; // 180 days
             const useTimeCutoff = isCluster && minValueUsd && minValueUsd > 0;
-
-            // NEW: Tích hợp Redis cache - chỉ nếu logged in (session tồn tại)
             const redisClient = await getRedisClient();
             const cacheKey = `sim:transactions:${targetAddresses.sort().join(',')}:${minValueUsd || 0}:${perAddressLimit}${useTimeCutoff ? `:maxAge${MAX_AGE_SECONDS}` : ''}`; // Shared key dựa trên params
             let cachedData = null;
-            if (session && session.user?.id) { // Chỉ load cache nếu logged in
+            if (session && session.user?.id) {
               cachedData = await redisClient.get(cacheKey);
               if (cachedData) {
                 logger.info(`Cache hit for transactions: ${cacheKey}`, { ip });
@@ -811,24 +804,21 @@ export async function POST(request) {
               }
             }
 
-            // NEW: Nếu không hit cache, fetch như cũ, rồi cache nếu logged in
-            // NEW: Tối ưu parallel với concurrency limit (tối đa 5 concurrent để tránh rate limit 5 res/s)
             const concurrencyLimiter = new Bottleneck({
-              maxConcurrent: 5, // Giới hạn 5 parallel fetches
-              minTime: 200, // 200ms giữa mỗi request để an toàn với 5 res/s
+              maxConcurrent: 5,
+              minTime: 200,
             });
 
-            // Parallelize fetches for each address với limiter
             const fetchPromises = targetAddresses.map((addr) =>
               concurrencyLimiter.schedule(async () => {
                 const isEVM = isAddress(addr);
-                const perCallLimit = 100; // Max của API, thống nhất
+                const perCallLimit = 100; 
                 let allTransactions = [];
                 let nextOffset = null;
-                let remainingLimit = perAddressLimit;  // Sử dụng perAddressLimit
+                let remainingLimit = perAddressLimit; 
                 let pageCount = 0;
                 const maxPages = isEVM
-                  ? (isCluster ? 2 : 10)  // Giảm maxPages cho cluster (max ~200 tx/address)
+                  ? (isCluster ? 2 : 10) 
                   : (isCluster ? 2 : 10);
 
                 // Paginate loop for this address
@@ -853,8 +843,6 @@ export async function POST(request) {
                     );
 
                     const transactions = (isEVM ? response.data.activity : response.data.transactions) || [];
-
-                    // Early filter minValueUsd cho EVM để giảm data
                     let filteredPage = transactions;
                     if (isEVM && minValueUsd) {
                       filteredPage = transactions.filter(tx => {
@@ -866,14 +854,12 @@ export async function POST(request) {
                     allTransactions.push(...filteredPage);
                     nextOffset = response.data.next_offset || null;
                     remainingLimit -= filteredPage.length;
-
-                    // NEW: Time cutoff - dừng nếu oldest tx trong page quá cũ (chỉ cho cluster + minValueUsd)
                     if (useTimeCutoff && transactions.length > 0) {
                       const oldestBlockTime = new Date(transactions[transactions.length - 1].block_time).getTime() / 1000;
                       const cutoffTime = Date.now() / 1000 - MAX_AGE_SECONDS;
                       if (oldestBlockTime < cutoffTime) {
                         logger.info(`Time cutoff reached for addr ${addr.slice(0, 8)}... at page ${pageCount} (oldest: ${Math.floor(Date.now() / 1000 - oldestBlockTime)}s ago)`, { ip });
-                        nextOffset = null; // Dừng fetch pages cũ hơn
+                        nextOffset = null;
                       }
                     }
 
@@ -889,8 +875,6 @@ export async function POST(request) {
                     }
                   }
                 } while (nextOffset && remainingLimit > 0 && allTransactions.length < perAddressLimit && pageCount <= maxPages);
-
-                // Process collected transactions (giữ nguyên logic filter/processing từ new code)
                 const filteredTransactions = await Promise.all(
                   allTransactions.slice(0, perAddressLimit).map(async (tx) => {
                     if (isEVM) {
@@ -1084,8 +1068,6 @@ export async function POST(request) {
             try {
               const results = await Promise.all(fetchPromises);
               let allTransactions = results.flat();
-
-              // FIX: Cap total nếu exceed (do rounding perAddress)
               if (isCluster && allTransactions.length > totalLimit) {
                 allTransactions = allTransactions.slice(0, totalLimit);
                 logger.info(`Capped total transactions to ${totalLimit} for cluster`, { ip });
@@ -1093,7 +1075,6 @@ export async function POST(request) {
 
               logger.info(`Processed transactions data: ${allTransactions.length} transactions total`, { ip });
 
-              // NEW: Cache nếu logged in, TTL 300s (5 phút)
               if (session && session.user?.id) {
                 await redisClient.setEx(cacheKey, 300, JSON.stringify(allTransactions));
                 logger.info(`Cached transactions: ${cacheKey}`, { ip });

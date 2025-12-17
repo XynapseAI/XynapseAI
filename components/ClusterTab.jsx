@@ -35,7 +35,7 @@ const NAMETAG_LOGOS = {
   "grayscale-mini": "/icons/grayscale.webp",
   "21shares-arkb": "/icons/21shares.webp",
   "bitwise-bitb": "/icons/bitwise.webp",
-  "vaneck-hodl": "/icons/vaneck.webp", // Assuming, adjust if needed
+  "vaneck-hodl": "/icons/vaneck.webp", 
   // Thêm các nametag khác nếu cần
 };
 const EXCHANGE_MAPPING = {
@@ -968,7 +968,6 @@ const ClusterTab = ({ recaptchaRef, initialClusterId, activeTab: propActiveTab, 
             chainLogos[value.toLowerCase()] || "/fallback-image.webp",
     }));
   }, [memoizedPortfolioData, memoizedWalletData, chainLogos]);
-  // FIX: Di chuyển logic hiển thị nameTag ra ngoài để áp dụng cho cả Blockchair (Bitcoin)
 
   const truncateAddressWithHover = (address, nameTag, source) => {
     if (!address || address === 'None' || typeof address !== 'string' || address === 'N/A') {
@@ -993,7 +992,6 @@ const ClusterTab = ({ recaptchaRef, initialClusterId, activeTab: propActiveTab, 
       const { text, shortAddress: computedShortAddress } = truncateAddress(address, { [normalizedAddress]: { name: nameTag } }, source);
       shortAddress = computedShortAddress;
     }
-    // FIX: Di chuyển ra ngoài để áp dụng cho cả Blockchair - hiển thị nameTag nếu có
     if (nameTag && nameTag !== 'N/A' && nameTag !== address) {
       return (
         <div className="flex items-center gap-2 group relative">
@@ -1182,7 +1180,6 @@ const ClusterTab = ({ recaptchaRef, initialClusterId, activeTab: propActiveTab, 
                   >
                     <td className="px-3 py-2.5 text-[#FFF] truncate">
                       <div className="flex items-center gap-1">
-                        {/* FIX: Hiển thị hai logo cho BTC/Doge/LTC (cluster bên trái + chain bên phải), một logo cho EVM. Sử dụng object-contain để tránh bóp méo, giảm kích thước trên mobile nếu cần */}
                         {(() => {
                           if (isSpecialCoin && chainLogo) {
                             return (
@@ -1340,17 +1337,13 @@ const ClusterTab = ({ recaptchaRef, initialClusterId, activeTab: propActiveTab, 
               <span className="text-[7px] sm:text-[9px] truncate max-w-[60px] sm:max-w-[80px]">{tokenSymbol}</span>
             </div>
           </div>
-          {/* From/To Column – PHIÊN BẢN ĐƠN GIẢN, CHỈ 1 MŨI TÊN XUỐNG MÀU XANH */}
           <div className="w-[35%] sm:w-[35%] px-2 sm:px-3 text-[#FFF]/80 text-[8px] sm:text-[10px] flex items-center">
             <div className="flex items-center gap-2 w-full">
-              {/* Icon mũi tên xuống đơn giản, màu xanh neon */}
               <div className="flex-shrink-0">
                 <svg width="10" height="14" viewBox="0 0 20 28" fill="none" xmlns="http://www.w3.org/2000/svg">
                   <path d="M10 0 V22 M10 22 L4 16 M10 22 L16 16" stroke="#00e77bff" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
                 </svg>
               </div>
-
-              {/* From (trên) & To (dưới) – xếp dọc bên phải mũi tên */}
               <div className="flex flex-col justify-center flex-1 min-w-0 leading-tight">
                 {/* FROM */}
                 <div className="flex items-center gap-1.5 group">
@@ -1506,7 +1499,6 @@ const ClusterTab = ({ recaptchaRef, initialClusterId, activeTab: propActiveTab, 
     );
   };
 
-  // NEW: Function to get trust score badge class (inspired by Arkham/Nansen trust indicators)
   const getTrustScoreBadge = (score) => {
     if (score === "N/A" || !score) return "bg-gray-600 text-[#D4D4D4]";
     const numScore = Number(score);
@@ -1796,11 +1788,9 @@ const ClusterTab = ({ recaptchaRef, initialClusterId, activeTab: propActiveTab, 
             const chainLower = w.chain?.toLowerCase();
             const nameTagLower = w.name_tag?.toLowerCase();
             let image;
-            // Ưu tiên logo từ NAMETAG_LOGOS nếu nametag khớp
             if (nameTagLower && NAMETAG_LOGOS[nameTagLower]) {
               image = NAMETAG_LOGOS[nameTagLower];
             } else {
-              // Fallback về w.image hoặc logo của chain
               image = w.name_tag_image || w.image ||
                 (chainLower === "bitcoin" ? BITCOIN_LOGO :
                   chainLower === "dogecoin" ? DOGECOIN_LOGO :

@@ -109,8 +109,8 @@ async function fetchWithRateLimit(url, config) {
 
 const limiterBottleneck = new Bottleneck({
   maxConcurrent: 25,
-  minTime: 30, // Giảm từ 40ms để nhanh hơn
-  reservoir: 300, // Tăng từ 200 để chịu nhiều calls hơn
+  minTime: 30,
+  reservoir: 300,
   reservoirRefreshAmount: 300,
   reservoirRefreshInterval: 30 * 1000,
 });
@@ -579,9 +579,9 @@ async function fetchLayer3Transactions(layer2Addresses, chain, limit, page) {
   const layer2Nametags = await getNametagsBatch(layer2Addresses);
   const validLayer2Addresses = layer2Addresses.filter(
     (addr) => layer2Nametags[addr.toLowerCase()]?.name !== 'Unknown'
-  ).slice(0, 10); // Giảm từ 20 xuống 10 để giảm txs raw
+  ).slice(0, 10);
   logger.info(`Fetching Layer 3 transactions for ${validLayer2Addresses.length} valid Layer 2 addresses (limited)`);
-  const layer3Limit = 20; // Giảm từ 50 xuống 20 để giảm allRawTxs
+  const layer3Limit = 20;
   const batchSize = 5;
   const batches = [];
   for (let i = 0; i < validLayer2Addresses.length; i += batchSize) {
@@ -669,7 +669,6 @@ async function fetchLayer3Transactions(layer2Addresses, chain, limit, page) {
   const allBatchResults = await Promise.all(batchPromises);
   allRawTxs.push(...allBatchResults.flat());
 
-  // MỚI: Batch unique contracts trước khi process txs
   const uniqueContracts = [...new Set(allRawTxs
     .filter(tx => tx.rawContract?.address && isAddress(tx.rawContract.address))
     .map(tx => tx.rawContract.address.toLowerCase())
@@ -679,7 +678,6 @@ async function fetchLayer3Transactions(layer2Addresses, chain, limit, page) {
     tokenPrices = await getTokenCurrentPriceBatch(chainIdToName[chain], uniqueContracts);
   }
 
-  // Process txs với prices đã batch
   const txPromises = allRawTxs.map(async (tx) => {
     let value = '0';
     let tokenSymbol = chainConfig.name === 'ethereum' ? 'ETH' : chainConfig.name.toUpperCase();
@@ -702,7 +700,6 @@ async function fetchLayer3Transactions(layer2Addresses, chain, limit, page) {
       blockTime = tx.metadata.blockTimestamp;
       if (contractAddress) {
         tokenImage = await getTokenImage(contractAddress, chain);
-        // SỬA: Dùng batch prices thay vì call per-tx
         const price = tokenPrices[contractAddress.toLowerCase()]?.usd || 0; // Fallback 0 nếu miss
         usdValue = parseFloat(value) * price;
       } else {
@@ -723,7 +720,6 @@ async function fetchLayer3Transactions(layer2Addresses, chain, limit, page) {
         layer2Address: tx.fromAddress,
       };
     } else {
-      // Phần non-alchemy giữ nguyên (không thay đổi nhiều)
       if (chain === 'solana') {
         value = (tx.lamports / 1e9).toString();
         tokenSymbol = 'SOL';
@@ -909,7 +905,6 @@ export async function POST(request) {
         tokenImage = await getTokenImage(address, chain);
       }
     }
-    // ────────────────────── TOKEN QUERY PATH (re-written) ──────────────────────
     if (isTokenQuery) {
       const network = alchemyNetworks[chain];
       const baseUrl = `https://${network}.g.alchemy.com/v2/${ALCHEMY_API_KEY}`;
@@ -927,18 +922,15 @@ export async function POST(request) {
           maxCount: `0x${limit.toString(16)}`,
           category: ["erc20"],
           withMetadata: true,
-          order: "desc", // BẮT BUỘC THÊM DÒNG NÀY – mới nhất trước!
-          // KHÔNG truyền pageKey khi page === 1 → luôn lấy trang mới nhất
+          order: "desc",
         }]
       });
       if (resToken.data.error) throw new Error(resToken.data.error.message);
       const transfers = resToken.data.result.transfers || [];
       const newPageKey = resToken.data.result.pageKey;
-      // Chỉ lưu pageKey để dùng cho "Load More" (khi người dùng bấm nút)
       if (newPageKey && page === 1) {
         await redisClient.setEx(`pagekey_token_latest_${chain}_${address}`, 3600, newPageKey);
       }
-      // Khi bấm "Load More" (page > 1) mới dùng pageKey cũ
       let continuationPageKey = null;
       if (page > 1) {
         continuationPageKey = await redisClient.get(`pagekey_token_latest_${chain}_${address}`);
@@ -1043,9 +1035,7 @@ export async function POST(request) {
       await redisClient.setEx(cacheKey, 3600, JSON.stringify(result));
       return NextResponse.json(result, { headers: securityHeaders });
     }
-    // ────────────────────── ORIGINAL WALLET QUERY PATH (restored from old file) ──────────────────────
     else {
-      // Khôi phục logic wallet từ file cũ, đảm bảo khai báo biến đúng scope
       let incoming = [];
       let outgoing = [];
       let nativePrice = await getCurrentPrice(chainConfig.coingeckoId);

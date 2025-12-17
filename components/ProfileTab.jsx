@@ -1,15 +1,15 @@
-// components/ProfileTab.jsx
+// components\ProfileTab.jsx
 'use client';
 import { motion, AnimatePresence } from 'framer-motion';
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef, Fragment } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import axios from 'axios';
 import { useSession, signOut } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
-import { Trophy, Award, Flame, User, Crown, Calendar, Info, Check, Coins, Shield, Users, Eye, EyeOff, RefreshCw, Copy, Wallet } from 'lucide-react'; // Add Copy, Wallet icons
+import { Trophy, Award, Flame, User, Crown, Calendar, Info, Check, Coins, Shield, Users, Eye, EyeOff, RefreshCw, Copy, Wallet } from 'lucide-react'; // Added Wallet icon
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceDot } from 'recharts';
-import { ethers } from 'ethers';
+import { ethers, parseEther } from 'ethers';
 import { ToastContainer, toast } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 import { cacheData, getCachedData, clearCache, clearAllCaches } from '../utils/indexedDB';
@@ -18,7 +18,27 @@ import { debounce } from 'lodash';
 import LoginPrompt from './LoginPrompt';
 import ReCAPTCHA from 'react-google-recaptcha';
 import { logger } from '../utils/clientLogger';
+import {
+  ConnectWallet,
+  Wallet as OnchainWalletWrapper, // Renamed to avoid conflict with lucide Wallet icon
+} from '@coinbase/onchainkit/wallet';
+import { Signature } from '@coinbase/onchainkit/signature';
+import { useAccount, useDisconnect, useChainId, useWriteContract, useSwitchChain, useSignMessage, useReadContract, useSendCalls } from 'wagmi';
+import { encodeFunctionData } from 'viem';
+import { Attribution } from 'ox/erc8021';
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:3000/api';
+
+// Updated: Use faster Cloudflare IPFS gateway for baseURI to reduce loading time
+const BASE_URI_GATEWAY = 'https://ipfs.io/ipfs/QmNoskhe6ES3e7X6huo6PJRuKhpGU5MuuZqhHAvavzaV5J/';
+const CONTRACT_ADDRESS = "0x22EE9eE1a5986ff354d34ed19Eb28E65091C7648"; // Deployed contract address
+const BASE_CHAIN_ID = 8453; // Base Sepolia for testing; change to 8453 for mainnet if deployed there
+
+// NEW: Builder Code for Base attribution (replace with your actual code from base.dev)
+const builderCode = process.env.NEXT_PUBLIC_BUILDER_CODE || "bc_kne07rwd"; // e.g., "abcd1234"
+const dataSuffix = Attribution.toDataSuffix({
+  codes: [builderCode]
+});
+
 // Enhanced Spinner component - Accepts className and color props for flexibility
 const Spinner = ({ className = "h-4 w-4", color = "text-blue-400" }) => (
   <svg className={`animate-spin ${className} ${color}`} xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
@@ -34,95 +54,6 @@ const BlinkingDots = () => (
     <span className="w-1 h-1 bg-blue-400 rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></span>
   </div>
 );
-/*
-const DailyCheckinBar = ({ last7Days, streak, onCheckin, isLoading, userData, twitterConnected }) => {
-  const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-  const todayIndex = new Date().getDay();
-  const [tooltipVisible, setTooltipVisible] = useState(false);
-  const getDayIndex = (index) => {
-    const daysBack = 6 - index;
-    return (todayIndex - daysBack + 7) % 7;
-  };
-  const isTodayChecked = last7Days[last7Days.length - 1];
-  const handleCheckinClick = () => {
-    if (!twitterConnected) {
-      toast.info('Please connect your X (Twitter) account first to unlock check-in.', { position: 'top-center', autoClose: 4000 });
-      return;
-    }
-    onCheckin();
-  };
-  return (
-    <div className="relative w-full bg-[#0A0A0A]/80 backdrop-blur-md border border-[#FFFFFF20] rounded-xl p-3 mb-2 shadow-[0_4px_12px_rgba(0,0,0,0.3)] glow-[#FFFFFF15]">
-      <div className="relative z-20 flex justify-between items-center mb-3">
-        <div className="flex items-center gap-1">
-          <Calendar className="w-4 h-4 text-[#00FFFF]" />
-          <h3 className="text-[#FFF] font-bold text-[12px]">Daily Check-in</h3>
-        </div>
-        <div className="relative">
-          <Info
-            className="w-4 h-4 text-[#D4D4D4] cursor-help"
-            onMouseEnter={() => setTooltipVisible(true)}
-            onMouseLeave={() => setTooltipVisible(false)}
-          />
-          {tooltipVisible && (
-            <div className="absolute top-full right-0 mt-1 p-2 bg-[#0A0A0A]/95 backdrop-blur-xl border border-[#FFFFFF20] rounded-lg text-[10px] sm:text-[11px] text-[#D4D4D4] z-80 w-48 shadow-2xl">
-              Maintain a 7-day streak to earn double points (20 pts/day) and unlock exclusive rewards! Breaking the streak resets to normal (10 pts).
-            </div>
-          )}
-        </div>
-      </div>
-      <div className="relative z-20 flex justify-around items-center">
-        {last7Days.map((checked, index) => {
-          const dayIndex = getDayIndex(index);
-          return (
-            <div key={index} className="flex flex-col items-center gap-1">
-              <div className={`w-7 h-7 rounded-lg flex items-center justify-center text-[9px] font-bold transition-all duration-300 ${checked
-                ? 'bg-gradient-to-r from-[#FFF] to-[#D4D4D4] text-[#0A0A0A] shadow-lg shadow-[#D4D4D4]/25'
-                : 'bg-[#FFFFFF]/10 text-[#FFF]/50 border border-[#FFFFFF20]'
-                }`}>
-                {checked ? (
-                  <Check className="w-3 h-3 text-[#0A0A0A]" />
-                ) : (
-                  days[dayIndex]
-                )}
-              </div>
-              {index === last7Days.length - 1 && !checked && (
-                <motion.button
-                  onClick={handleCheckinClick}
-                  disabled={isLoading || !twitterConnected}
-                  className={`mt-1 px-2 py-1 rounded-full text-[9px] font-semibold transition-all duration-300 flex items-center justify-center gap-1 ${isLoading || !twitterConnected
-                    ? 'bg-[#FFFFFF]/10 text-[#FFF]/70 cursor-not-allowed relative overflow-hidden border border-[#FFFFFF20]'
-                    : 'bg-[#0A0A0A]/80 border border-[#FFFFFF] text-[#FFF] hover:from-[#00FFFF]/20 hover:to-emerald-400/20 shadow-lg shadow-[#00FFFF]/25'
-                    }`}
-                  whileHover={{ scale: (isLoading || !twitterConnected) ? 1 : 1 }}
-                  whileTap={{ scale: (isLoading || !twitterConnected) ? 1 : 1 }}
-                >
-                  {isLoading ? (
-                    <BlinkingDots />
-                  ) : !twitterConnected ? (
-                    'Connect Twitter'
-                  ) : (
-                    'Check-in'
-                  )}
-                  {(isLoading || !twitterConnected) && (
-                    <div className="absolute inset-0 bg-gradient-to-r from-transparent via-[#FFFFFF]/10 to-transparent animate-shimmer"></div>
-                  )}
-                </motion.button>
-              )}
-            </div>
-          );
-        })}
-      </div>
-      {streak >= 7 && (
-        <div className="relative z-20 flex items-center justify-center mt-3 gap-1">
-          <Flame className="w-4 h-4 text-emerald-400 animate-pulse" />
-          <span className="text-emerald-400 font-bold text-sm">Streak: {streak} days - Double Points Active!</span>
-        </div>
-      )}
-    </div>
-  );
-};
-*/
 const CustomTooltip = ({ active, payload, label }) => {
   if (active && payload && payload.length) {
     return (
@@ -141,22 +72,112 @@ const CustomTooltip = ({ active, payload, label }) => {
   }
   return null;
 };
+
+// Updated ABI: Added counter function for preview ID
+const NFT_ABI = [
+  {
+    name: 'mint',
+    type: 'function',
+    stateMutability: 'payable',
+    inputs: [],
+    outputs: [],
+  },
+  {
+    name: 'tokenURI',
+    type: 'function',
+    stateMutability: 'view',
+    inputs: [{ name: 'tokenId', type: 'uint256' }],
+    outputs: [{ name: '', type: 'string' }],
+  },
+  {
+    name: 'counter',
+    type: 'function',
+    stateMutability: 'view',
+    inputs: [],
+    outputs: [{ name: '', type: 'uint256' }],
+  },
+];
 export default function ProfileTab({ recaptchaRef, handleSignOut }) {
   const { data: session, status } = useSession();
   const queryClient = useQueryClient();
   const router = useRouter();
   const [isMobile, setIsMobile] = useState(typeof window !== 'undefined' && window.innerWidth <= 640);
   const [activeTab, setActiveTab] = useState('profile');
-  const [currentPage, setCurrentPage] = useState({ leaderboard: 1 });
   const [isSigningOut, setIsSigningOut] = useState(false);
-  const [followedTasks, setFollowedTasks] = useState(new Set());
-  const [immediateLoading, setImmediateLoading] = useState(false);
   const [showEmail, setShowEmail] = useState(false);
-  const [showV2Modal, setShowV2Modal] = useState(false);
-  const [pendingTask, setPendingTask] = useState(null);
   const [showWallet, setShowWallet] = useState(false); // Add state for wallet display
+  // NEW: States for Badge tab mint flow
+  const [showMintModal, setShowMintModal] = useState(false);
+  const [mintStep, setMintStep] = useState('connectWallet'); // 'connectWallet', 'connectTwitter', 'mintNFT'
+  const [nftMinted, setNftMinted] = useState(false); // Track if minted to show "Minted" tag
+  // NEW: Track completion of each step
+  const [walletConnected, setWalletConnected] = useState(false);
+  const [twitterConnected, setTwitterConnected] = useState(false);
+  // NEW: For wallet verification
+  const [needsVerification, setNeedsVerification] = useState(false);
+  const [verificationMessage, setVerificationMessage] = useState('');
+  const [verificationNonce, setVerificationNonce] = useState(''); // NEW: Nonce state
   const recaptchaV2Ref = useRef(null);
-  const itemsPerPage = 20;
+  const { address, isConnected, connector } = useAccount();
+  const { disconnect } = useDisconnect(); // For manual disconnect
+  const { writeContractAsync } = useWriteContract();
+  const { switchChain } = useSwitchChain();
+  const { sendCalls } = useSendCalls();
+  const [nftImageSrc, setNftImageSrc] = useState('');
+  const chainId = useChainId();
+  const [isSavingWallet, setIsSavingWallet] = useState(false);
+  const [hasUpdatedWallet, setHasUpdatedWallet] = useState(false);
+  const hasTriggeredRef = useRef(false);
+
+  // Updated: Use wagmi to read current counter for preview ID
+  const { data: currentCounter } = useReadContract({
+    address: CONTRACT_ADDRESS,
+    abi: NFT_ABI,
+    functionName: 'counter',
+    chainId: BASE_CHAIN_ID,
+  });
+
+  // Updated: Fetch metadata for next token ID (preview) with timeout
+  useEffect(() => {
+    const fetchMetadata = async () => {
+      if (!currentCounter) return; // Wait for counter
+
+      console.log('Current counter:', currentCounter); // Debug: Check ID
+
+      try {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 10000); // 10s timeout
+
+        const previewId = currentCounter.toString();
+        const metadataUrl = `${BASE_URI_GATEWAY}${previewId}.json`;
+        console.log('Fetching metadata URL:', metadataUrl); // Debug: Check URL
+
+        const response = await fetch(metadataUrl, { signal: controller.signal });
+        clearTimeout(timeoutId);
+
+        if (!response.ok) throw new Error(`Failed to fetch metadata: ${response.status}`);
+        const data = await response.json();
+        console.log('Metadata fetched:', data); // Debug: Check JSON
+
+        // Replace ipfs:// with reliable gateway
+        const imageUrl = data.image.replace('ipfs://', 'https://ipfs.io/ipfs/');
+        console.log('Image URL:', imageUrl); // Debug: Check image URL
+
+        setNftImageSrc(imageUrl);
+      } catch (err) {
+        if (err.name === 'AbortError') {
+          console.warn('Metadata fetch timed out after 10s');
+        } else {
+          console.error('Error fetching NFT metadata:', err);
+        }
+        setNftImageSrc('/placeholder_nft.png'); // Fallback immediately
+      }
+    };
+    if (currentCounter) {
+      fetchMetadata();
+    }
+  }, [currentCounter]);
+
   const { data: csrfToken, isLoading: csrfLoading, error: csrfError } = useQuery({
     queryKey: ['csrfToken'],
     queryFn: async () => {
@@ -177,24 +198,161 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
       });
     },
   });
+  const { data: userData, isLoading: userLoading, error: userError } = useQuery({
+    queryKey: ['userData', session?.user?.id, csrfToken],
+    queryFn: async () => {
+      const cacheKey = `userData-${session.user.id}`;
+      const cached = await getCachedData(cacheKey);
+      if (cached) {
+        if (cached.twitterHandle && window.location.search.includes('twitterConnected=true')) {
+          await clearCache(cacheKey);
+          throw new Error('Cache invalidated due to Twitter connection');
+        }
+        return cached;
+      }
+      try {
+        const response = await axios.get(`/api/user?uid=${encodeURIComponent(session.user.id)}`, {
+          headers: {
+            'x-csrf-token': csrfToken,
+          },
+          withCredentials: true,
+        });
+        if (!response.data.success) throw new Error(response.data.detail || 'Unable to fetch user data');
+        const user = {
+          ...response.data.user,
+          isPremium: response.data.user.isPremium || false,
+          tier: response.data.user.isPremium ? 'Premium' : response.data.user.tier || 'Basic',
+          twitterHandle: response.data.user.twitterHandle || null,
+          profilePicture: response.data.user.profilePicture || '',
+          googleName: response.data.user.googleName || '',
+          walletAddress: response.data.user.walletAddress || null, // Ensure wallet from API
+          daysActive: response.data.user.daysActive || 0,
+          streak: response.data.user.streak || 0,
+          last7Days: response.data.user.last7Days || [],
+          hasMintedNft: response.data.user.has_minted_nft || false, // NEW: Add minted status
+        };
+        await cacheData(cacheKey, user, 24 * 60 * 1000);
+        return user;
+      } catch (err) {
+        if (process.env.NODE_ENV !== 'production') {
+          logger.error('Error fetching user data:', err.response?.data || err.message);
+        }
+        throw err;
+      }
+    },
+    enabled: status === 'authenticated' && !!session?.user?.id && !!csrfToken,
+    staleTime: 5 * 60 * 1000,
+    retry: 3,
+    retryDelay: (attempt) => Math.min(1000 * 2 ** attempt, 30000),
+    onError: async (err) => {
+      if (process.env.NODE_ENV !== 'production') {
+        logger.error('Error fetching user data:', err.response?.data || err.message);
+      }
+      let errorMessage = 'Unable to load your profile data. Please try refreshing the page.';
+      if (err.response?.status === 429) {
+        errorMessage = 'Request limit reached. Please wait a moment and refresh.';
+      } else if (err.response?.status === 403) {
+        errorMessage = 'Authentication issue detected. Please log in again.';
+        await signOut({ redirect: false });
+        window.location.href = '/auth/signin';
+      } else if (err.response?.status === 404) {
+        errorMessage = 'Profile not found. Please log in again to sync your data.';
+        await signOut({ redirect: false });
+        window.location.href = '/auth/signin';
+      } else {
+        errorMessage = err.response?.data?.detail || err.message || 'Profile load failed unexpectedly.';
+      }
+      toast.error(errorMessage, { position: 'top-center', autoClose: 6000 });
+    },
+  });
+
+  // UPDATED: Generate nonce and message only when verification is needed (on wallet connect/change)
   useEffect(() => {
-    if (process.env.NODE_ENV === 'production') {
-      console.log = () => { };
-      console.error = () => { };
-      console.warn = () => { };
+    if (isConnected && !!address && userData?.walletAddress !== address) {
+      const nonce = crypto.randomUUID();
+      setVerificationNonce(nonce);
+      setVerificationMessage(`Verify wallet ownership for XynapseAI. Timestamp: ${Date.now()}. Nonce: ${nonce}`);
+      setNeedsVerification(true);
+    } else {
+      setNeedsVerification(false);
+      setVerificationNonce('');
+      setVerificationMessage('');
     }
-  }, []);
-  useEffect(() => {
-    const handleResize = () => setIsMobile(window.innerWidth <= 640);
-    window.addEventListener('resize', handleResize);
-    handleResize();
-    return () => window.addEventListener('resize', handleResize);
-  }, []);
-  const onSignOut = async () => {
-    setIsSigningOut(true);
-    await handleSignOut();
-    setIsSigningOut(false);
-  };
+  }, [isConnected, address, userData?.walletAddress]);
+
+  /*
+  const { data: tasks, isLoading: tasksLoading, error: tasksError } = useQuery({
+    queryKey: ['tasks', session?.user?.id, csrfToken],
+    queryFn: async () => {
+      const cacheKey = `tasks-${session.user.id}`;
+      const cached = await getCachedData(cacheKey);
+      if (cached) return cached;
+      const response = await axios.get('/api/tasks', {
+        headers: {
+          'x-csrf-token': csrfToken,
+        },
+        withCredentials: true,
+      });
+      if (!response.data.success) throw new Error(response.data.detail || 'Failed to fetch tasks.');
+      await cacheData(cacheKey, response.data.tasks, 10 * 60 * 1000);
+      return response.data.tasks;
+    },
+    enabled: status === 'authenticated' && !!session?.user?.id && !!csrfToken,
+    staleTime: 10 * 60 * 1000,
+  });
+  const { data: taskProgress, isLoading: taskProgressLoading, error: taskProgressError } = useQuery({
+    queryKey: ['taskProgress', session?.user?.id, csrfToken],
+    queryFn: async () => {
+      const cacheKey = `taskProgress-${session.user.id}`;
+      const cached = await getCachedData(cacheKey);
+      if (cached) return cached;
+      const response = await axios.get(`/api/task-progress?uid=${session.user.id}`, {
+        headers: {
+          'x-csrf-token': csrfToken,
+        },
+        withCredentials: true,
+      });
+      const progress = response.data.progress || {};
+      await cacheData(cacheKey, progress, 10 * 60 * 1000);
+      return progress;
+    },
+    enabled: status === 'authenticated' && !!session?.user?.id && !!csrfToken,
+    staleTime: 10 * 60 * 1000,
+  });
+  const { data: rankings, isLoading: leaderboardLoading, error: leaderboardError } = useQuery({
+    queryKey: ['leaderboard', session?.user?.id, csrfToken],
+    queryFn: async () => {
+      const cacheKey = `leaderboard-${session.user.id}`;
+      const cached = await getCachedData(cacheKey);
+      if (cached) {
+        return cached;
+      }
+      const response = await axios.get('/api/leaderboard', {
+        headers: {
+          'x-csrf-token': csrfToken,
+        },
+        withCredentials: true,
+      }).catch(err => {
+        logger.error('Leaderboard fetch error:', err.response?.data || err.message);
+        throw err;
+      });
+      if (!response.data.success) throw new Error(response.data.detail || 'Failed to fetch leaderboard.');
+      await cacheData(cacheKey, response.data.rankings, 5 * 60 * 1000);
+      return response.data.rankings;
+    },
+    enabled: status === 'authenticated' && !!session?.user?.id && !!csrfToken,
+    staleTime: 30 * 60 * 1000,
+    retry: 1,
+    retryDelay: 2000,
+    onError: (err) => {
+      logger.error('Leaderboard error:', err);
+      toast.error('Unable to load leaderboard at this time. Please check your connection and try again.', {
+        position: 'top-center',
+        autoClose: 5000
+      });
+    },
+  });
+  */
   /*
   const handleFollow = (taskId) => {
     const followUrl = `https://x.com/intent/follow?screen_name=XynapseAI`;
@@ -205,39 +363,6 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
       autoClose: 6000
     });
   };
-  */
-  let isExecuting = false;
-  const debouncedExecuteRecaptcha = useCallback(
-    async (action, retries = 3) => {
-      if (!recaptchaRef.current) {
-        if (process.env.NODE_ENV !== 'production') {
-          logger.error('reCAPTCHA ref is null');
-        }
-        throw new Error('reCAPTCHA not initialized');
-      }
-      for (let i = 0; i < retries; i++) {
-        try {
-          await recaptchaRef.current.reset();
-          const token = await Promise.race([
-            recaptchaRef.current.executeAsync(),
-            new Promise((_, reject) => setTimeout(() => reject(new Error('reCAPTCHA timeout')), 20000)),
-          ]);
-          if (!token) throw new Error('Empty reCAPTCHA token');
-          return token;
-        } catch (error) {
-          if (process.env.NODE_ENV !== 'production') {
-            logger.error(`reCAPTCHA attempt ${i + 1} failed for ${action}: ${error.message}`);
-          }
-          if (i === retries - 1) {
-            throw new Error(`reCAPTCHA failed after ${retries} attempts: ${error.message}`);
-          }
-          await new Promise((resolve) => setTimeout(resolve, 1000));
-        }
-      }
-    },
-    [recaptchaRef]
-  );
-  /*
   const verifyTaskMutation = useMutation({
     mutationFn: async ({ task, v2Token }) => {
       if (task.task_type === 'follow') {
@@ -312,9 +437,6 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
       toast.error(errorMessage, { position: 'top-center', autoClose: 6000 });
     },
   });
-  */
-  // v2 fallback handler
-  /*
   const handleV2Change = useCallback((token) => {
     if (token && pendingTask) {
       setImmediateLoading(true);
@@ -330,256 +452,32 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
       setShowV2Modal(false);
     }
   }, [pendingTask, verifyTaskMutation]);
-  */
-  const createChargeMutation = useMutation({
-    mutationFn: async () => {
-      if (!session?.user?.id) throw new Error('Not authenticated');
-      if (!csrfToken) throw new Error('CSRF token not available');
-      const token = await debouncedExecuteRecaptcha('create_charge');
-      const response = await axios.post(
-        '/api/coinbase/create-charge',
-        { userId: session.user.id, plan: 'premium' },
-        {
-          headers: {
-            'x-csrf-token': csrfToken,
-            'X-Recaptcha-Token': token,
-            'Content-Type': 'application/json',
-          },
-          withCredentials: true,
-        }
-      );
-      if (!response.data.success) throw new Error(response.data.detail || 'Unable to create charge');
-      return response.data.hostedUrl;
-    },
-    onSuccess: async (hostedUrl) => {
-      window.location.href = hostedUrl;
-      await queryClient.invalidateQueries(['userData', session?.user?.id]);
-    },
-    onError: (err) => {
-      let errorMessage = 'Unable to process payment initiation. Please try again shortly.';
-      if (err.message.includes('CSRF token not available')) {
-        errorMessage = 'Session security issue detected. Please refresh the page.';
-      } else if (err.response?.status === 500) {
-        errorMessage = 'Temporary server issue. Our team has been notified—please try again in a moment.';
-      } else if (err.response?.status === 403) {
-        errorMessage = 'Security verification failed. Please try the action again. If it persists, refresh the page.';
-      } else if (err.response?.status === 401) {
-        errorMessage = 'Your session has expired. Please log in again to continue.';
-      } else if (err.response?.status === 429) {
-        errorMessage = 'Request limit reached. Please wait 1 minute before retrying.';
-      } else {
-        errorMessage = err.response?.data?.detail || err.message || 'Payment initiation failed unexpectedly.';
-      }
-      toast.error(errorMessage, { position: 'top-center', autoClose: 6000 });
-    },
-  });
-
-  const { data: userData, isLoading: userLoading, error: userError } = useQuery({
-    queryKey: ['userData', session?.user?.id, csrfToken],
-    queryFn: async () => {
-      const cacheKey = `userData-${session.user.id}`;
-      const cached = await getCachedData(cacheKey);
-      if (cached) {
-        if (cached.twitterHandle && window.location.search.includes('twitterConnected=true')) {
-          await clearCache(cacheKey);
-          throw new Error('Cache invalidated due to Twitter connection');
-        }
-        return cached;
-      }
-      try {
-        const response = await axios.get(`/api/user?uid=${encodeURIComponent(session.user.id)}`, {
-          headers: {
-            'x-csrf-token': csrfToken,
-          },
-          withCredentials: true,
-        });
-        if (!response.data.success) throw new Error(response.data.detail || 'Unable to fetch user data');
-        const user = {
-          ...response.data.user,
-          isPremium: response.data.user.isPremium || false,
-          tier: response.data.user.isPremium ? 'Premium' : response.data.user.tier || 'Basic',
-          twitterHandle: response.data.user.twitterHandle || null,
-          profilePicture: response.data.user.profilePicture || '',
-          googleName: response.data.user.googleName || '',
-          walletAddress: response.data.user.walletAddress || null, // Ensure wallet from API
-          daysActive: response.data.user.daysActive || 0,
-          streak: response.data.user.streak || 0,
-          last7Days: response.data.user.last7Days || [],
-        };
-        await cacheData(cacheKey, user, 24 * 60 * 1000);
-        return user;
-      } catch (err) {
-        if (process.env.NODE_ENV !== 'production') {
-          logger.error('Error fetching user data:', err.response?.data || err.message);
-        }
-        throw err;
-      }
-    },
-    enabled: status === 'authenticated' && !!session?.user?.id && !!csrfToken,
-    staleTime: 5 * 60 * 1000,
-    retry: 3,
-    retryDelay: (attempt) => Math.min(1000 * 2 ** attempt, 30000),
-    onError: async (err) => {
-      if (process.env.NODE_ENV !== 'production') {
-        logger.error('Error fetching user data:', err.response?.data || err.message);
-      }
-      let errorMessage = 'Unable to load your profile data. Please try refreshing the page.';
-      if (err.response?.status === 429) {
-        errorMessage = 'Request limit reached. Please wait a moment and refresh.';
-      } else if (err.response?.status === 403) {
-        errorMessage = 'Authentication issue detected. Please log in again.';
-        await signOut({ redirect: false });
-        window.location.href = '/auth/signin';
-      } else if (err.response?.status === 404) {
-        errorMessage = 'Profile not found. Please log in again to sync your data.';
-        await signOut({ redirect: false });
-        window.location.href = '/auth/signin';
-      } else {
-        errorMessage = err.response?.data?.detail || err.message || 'Profile load failed unexpectedly.';
-      }
-      toast.error(errorMessage, { position: 'top-center', autoClose: 6000 });
-    },
-  });
-
-  useEffect(() => {
-    if (userData?.twitterHandle && !userData?.profilePicture.includes('pbs.twimg.com') && status === 'authenticated') {
-      logger.warn('Twitter handle present but profile picture is not from Twitter, triggering refetch');
-      const cacheKey = `userData-${session.user.id}`;
-      clearCache(cacheKey).then(() => {
-        queryClient.invalidateQueries(['userData', session?.user?.id, csrfToken]);
-        queryClient.refetchQueries(['userData', session?.user?.id, csrfToken]);
-      });
-    }
-  }, [userData, session, csrfToken, queryClient, status]);
-  const handleCopyWallet = async () => {
-    if (userData?.walletAddress) {
-      await navigator.clipboard.writeText(userData.walletAddress);
-      toast.success('Wallet address copied!', { position: 'top-center', autoClose: 2000 });
-    }
+  const handleDailyCheckin = () => {
+    setImmediateLoading(true);
+    const task = { id: 'daily_checkin', description: 'Daily Check-in', points: 10, task_type: 'daily_checkin' };
+    verifyTaskMutation.mutate({ task }, {
+      onSettled: () => {
+        setImmediateLoading(false);
+      },
+    });
   };
-  const email = userData?.email || '';
-  const isBaseAccount = email.includes('@base.xynapseai.net');
-  const displayInfo = isBaseAccount ? (userData?.walletAddress || '') : email;
-  const maskedInfo = isBaseAccount
-    ? `${userData?.walletAddress?.slice(0, 6) || ''}...${userData?.walletAddress?.slice(-4) || ''}`
-    : (email ? email.replace(/./g, '*') : '********');
-  const fullInfo = displayInfo;
-  const renderWalletSection = () => {
-    if (!userData?.walletAddress) return null;
-    return (
-      <div className="h-[22vh] rounded-xl p-3 bg-[#0A0A0A]/80 backdrop-blur-md border border-[#FFFFFF20] shadow-[0_4px_12px_rgba(0,0,0,0.3)] glow-[#FFFFFF15] relative">
-        <div className="flex justify-between items-center mb-3">
-          <div className="flex items-center gap-2">
-            <Wallet className="w-5 h-5 text-[#00FFFF]" />
-            <span className="text-[#FFF] font-semibold text-sm">Wallet</span>
-          </div>
-          <span className="text-emerald-400 text-xs font-medium">Connected</span>
-        </div>
-        <div className="flex flex-col gap-2">
-          <div className="flex items-center gap-1">
-            <p className="text-xs text-[#D4D4D4] truncate flex-1">
-              {showWallet ? userData.walletAddress : `${userData.walletAddress.slice(0, 6)}...${userData.walletAddress.slice(-4)}`}
-            </p>
-            <motion.button
-              onClick={handleCopyWallet}
-              className="text-[#D4D4D4] hover:text-[#FFF]/80 transition-colors p-1"
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.95 }}
-            >
-              <Copy className="w-3 h-3" />
-            </motion.button>
-            <motion.button
-              onClick={() => setShowWallet(!showWallet)}
-              className="text-[#D4D4D4] hover:text-[#FFF]/80 transition-colors p-1"
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.95 }}
-            >
-              {showWallet ? <EyeOff className="w-3 h-3" /> : <Eye className="w-3 h-3" />}
-            </motion.button>
-          </div>
-        </div>
-      </div>
-    );
-  };
-  /*
-  // Fetch Tasks - No reCAPTCHA for faster load
-  const { data: tasks, isLoading: tasksLoading, error: tasksError } = useQuery({
-    queryKey: ['tasks', session?.user?.id, csrfToken],
-    queryFn: async () => {
-      const cacheKey = `tasks-${session.user.id}`;
-      const cached = await getCachedData(cacheKey);
-      if (cached) return cached;
-      const response = await axios.get('/api/tasks', {
-        headers: {
-          'x-csrf-token': csrfToken,
-        },
-        withCredentials: true,
-      });
-      if (!response.data.success) throw new Error(response.data.detail || 'Failed to fetch tasks.');
-      await cacheData(cacheKey, response.data.tasks, 10 * 60 * 1000);
-      return response.data.tasks;
-    },
-    enabled: status === 'authenticated' && !!session?.user?.id && !!csrfToken,
-    staleTime: 10 * 60 * 1000,
-  });
-  // Fetch Task Progress - Removed reCAPTCHA for faster load
-  const { data: taskProgress, isLoading: taskProgressLoading, error: taskProgressError } = useQuery({
-    queryKey: ['taskProgress', session?.user?.id, csrfToken],
-    queryFn: async () => {
-      const cacheKey = `taskProgress-${session.user.id}`;
-      const cached = await getCachedData(cacheKey);
-      if (cached) return cached;
-      const response = await axios.get(`/api/task-progress?uid=${session.user.id}`, {
-        headers: {
-          'x-csrf-token': csrfToken,
-        },
-        withCredentials: true,
-      });
-      const progress = response.data.progress || {};
-      await cacheData(cacheKey, progress, 10 * 60 * 1000);
-      return progress;
-    },
-    enabled: status === 'authenticated' && !!session?.user?.id && !!csrfToken,
-    staleTime: 10 * 60 * 1000,
-  });
-  */
-
-  /*
-  // Fetch Leaderboard - Removed Authorization header to fix 403 for Email login, increased stale time
-  const { data: rankings, isLoading: leaderboardLoading, error: leaderboardError } = useQuery({
-    queryKey: ['leaderboard', session?.user?.id, csrfToken],
-    queryFn: async () => {
-      const cacheKey = `leaderboard-${session.user.id}`;
-      const cached = await getCachedData(cacheKey);
-      if (cached) {
-        return cached;
-      }
-      const response = await axios.get('/api/leaderboard', {
-        headers: {
-          'x-csrf-token': csrfToken,
-          // Removed 'Authorization' header to fix 403 error for Email login
-        },
-        withCredentials: true,
-      }).catch(err => {
-        logger.error('Leaderboard fetch error:', err.response?.data || err.message);
-        throw err;
-      });
-      if (!response.data.success) throw new Error(response.data.detail || 'Failed to fetch leaderboard.');
-      await cacheData(cacheKey, response.data.rankings, 5 * 60 * 1000);
-      return response.data.rankings;
-    },
-    enabled: status === 'authenticated' && !!session?.user?.id && !!csrfToken,
-    staleTime: 30 * 60 * 1000,
-    retry: 1,
-    retryDelay: 2000,
-    onError: (err) => {
-      logger.error('Leaderboard error:', err);
-      toast.error('Unable to load leaderboard at this time. Please check your connection and try again.', {
-        position: 'top-center',
-        autoClose: 5000
-      });
-    },
-  });
+  const getPaginatedData = useCallback((data, tab) => {
+    const startIndex = (currentPage[tab] - 1) * itemsPerPage;
+    const endIndex = startIndex + itemsPerPage;
+    return data.slice(startIndex, endIndex);
+  }, [currentPage]);
+  const getTotalPages = useCallback((data) => Math.ceil(data.length / itemsPerPage), []);
+  const handlePageChange = useCallback((tab, page) => {
+    setCurrentPage((prev) => ({ ...prev, [tab]: page }));
+  }, []);
+  const handleVerifyTask = useCallback((task) => {
+    setImmediateLoading(true);
+    verifyTaskMutation.mutate({ task }, {
+      onSettled: () => {
+        setImmediateLoading(false);
+      },
+    });
+  }, [verifyTaskMutation]);
   */
   const connectTwitterMutation = useMutation({
     mutationFn: async () => {
@@ -593,158 +491,6 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
       });
     },
   });
-  const disconnectTwitterMutation = useMutation({
-    mutationFn: async ({ v2Token } = {}) => {
-      const token = v2Token || await debouncedExecuteRecaptcha('disconnect_twitter');
-      const response = await axios.post(
-        '/api/twitter/connect',
-        { action: 'disconnect', uid: session.user.id, recaptchaToken: token },
-        {
-          headers: { 'x-csrf-token': csrfToken, 'Content-Type': 'application/json' },
-          withCredentials: true,
-        }
-      ).catch(err => {
-        logger.error('Disconnect Twitter error:', err.response?.data || err.message);
-        throw err;
-      });
-      if (!response.data.success) throw new Error(response.data.detail || 'Unable to disconnect Twitter');
-      await clearAllCaches(session.user.id);
-    },
-    onSuccess: async () => {
-      toast.success('Twitter account disconnected successfully. Your profile has been updated.', {
-        position: 'top-center',
-        autoClose: 5000
-      });
-      await Promise.all([
-        queryClient.invalidateQueries(['userData', session?.user?.id, csrfToken]),
-        /*
-        queryClient.invalidateQueries(['leaderboard', session?.user?.id, csrfToken]),
-        */
-      ]);
-      await Promise.all([
-        queryClient.refetchQueries(['userData', session?.user?.id, csrfToken]),
-        /*
-        queryClient.refetchQueries(['leaderboard', session?.user?.id, csrfToken]),
-        */
-      ]);
-    },
-    onError: (err) => {
-      if (err.response?.status === 403 && err.response.data.detail === 'low_score_fallback') {
-        // For disconnect, you can add similar fallback logic if needed
-        toast.info('Please complete the security check to continue.', { position: 'top-center', autoClose: 4000 });
-        return;
-      }
-      let errorMessage = err.response?.data?.detail || 'Unable to disconnect Twitter at this time.';
-      if (err.response?.status === 429) {
-        errorMessage = 'Request limit reached. Please wait a moment and try again.';
-      } else if (err.response?.status === 403) {
-        if (err.response?.data?.detail === 'Invalid CSRF check.') {
-          errorMessage = 'Session security issue detected. Please refresh the page.';
-        } else if (err.response?.data?.detail?.includes('reCAPTCHA')) {
-          errorMessage = 'Security verification failed. Please try the action again. If it persists , try another browser.';
-        } else {
-          errorMessage = 'Security verification failed. Please try the action again. If it persists, refresh the page.';
-        }
-      }
-      toast.error(errorMessage, { position: 'top-center', autoClose: 5000 });
-    },
-  });
-  const connectWalletMutation = useMutation({
-    mutationFn: async ({ v2Token } = {}) => {
-      if (!window.ethereum) throw new Error('Please install MetaMask.');
-      const provider = new ethers.BrowserProvider(window.ethereum);
-      const accounts = await provider.send('eth_requestAccounts', []);
-      const walletAddress = accounts[0];
-      const signer = await provider.getSigner();
-      const message = `Verify wallet for UID: ${session.user.id}`;
-      const signature = await signer.signMessage(message);
-      const token = v2Token || await debouncedExecuteRecaptcha('verify-wallet');
-      const response = await axios.post(
-        '/api/verify-wallet',
-        { action: 'verify-wallet', walletAddress, signature, message, uid: session.user.id, recaptchaToken: token },
-        {
-          headers: { 'x-csrf-token': csrfToken, 'Content-Type': 'application/json' },
-          withCredentials: true,
-        }
-      );
-      if (!response.data.success) throw new Error(response.data.detail || 'Unable to verify wallet');
-      return walletAddress;
-    },
-    onSuccess: (walletAddress) => {
-      toast.success(`Wallet ${walletAddress.slice(0, 6)}... connected successfully.`, {
-        position: 'top-center',
-        autoClose: 5000
-      });
-      queryClient.invalidateQueries(['userData', session?.user?.id, csrfToken]);
-    },
-    onError: (err) => {
-      if (err.response?.status === 403 && err.response.data.detail === 'low_score_fallback') {
-        // Similar fallback for wallet if needed
-        toast.info('Please complete the security check to continue.', { position: 'top-center', autoClose: 4000 });
-        return;
-      }
-      toast.error(`Wallet connection failed: ${err.message}. Please ensure MetaMask is installed and try again.`, {
-        position: 'top-center',
-        autoClose: 5000
-      });
-    },
-  });
-  const disconnectWalletMutation = useMutation({
-    mutationFn: async ({ v2Token } = {}) => {
-      const token = v2Token || await debouncedExecuteRecaptcha('disconnect-wallet');
-      const response = await axios.post(
-        '/api/verify-wallet',
-        { action: 'disconnect-wallet', uid: session.user.id, recaptchaToken: token },
-        {
-          headers: { 'x-csrf-token': csrfToken, 'Content-Type': 'application/json' },
-          withCredentials: true,
-        }
-      );
-      if (!response.data.success) throw new Error(response.data.detail || 'Unable to disconnect wallet');
-    },
-    onSuccess: () => {
-      toast.success('Wallet disconnected successfully.', { position: 'top-center', autoClose: 5000 });
-      queryClient.invalidateQueries(['userData', session?.user?.id, csrfToken]);
-    },
-    onError: (err) => {
-      if (err.response?.status === 403 && err.response.data.detail === 'low_score_fallback') {
-        toast.info('Please complete the security check to continue.', { position: 'top-center', autoClose: 4000 });
-        return;
-      }
-      toast.error(`Unable to disconnect wallet: ${err.message}`, { position: 'top-center', autoClose: 5000 });
-    },
-  });
-  const debouncedHandleSignOut = useCallback(
-    debounce(() => handleSignOut(), 1000, { leading: true, trailing: false }),
-    [handleSignOut]
-  );
-  /*
-  // Handle Daily Check-in - Updated to pass {task}
-  const handleDailyCheckin = () => {
-    setImmediateLoading(true);
-    const task = { id: 'daily_checkin', description: 'Daily Check-in', points: 10, task_type: 'daily_checkin' };
-    verifyTaskMutation.mutate({ task }, {
-      onSettled: () => {
-        setImmediateLoading(false);
-      },
-    });
-  };
-  */
-  // Get Days Active
-  const getDaysActive = useCallback(() => {
-    return userData?.daysActive || 0;
-  }, [userData]);
-  /*
-  const getPaginatedData = useCallback((data, tab) => {
-    const startIndex = (currentPage[tab] - 1) * itemsPerPage;
-    const endIndex = startIndex + itemsPerPage;
-    return data.slice(startIndex, endIndex);
-  }, [currentPage]);
-  const getTotalPages = useCallback((data) => Math.ceil(data.length / itemsPerPage), []);
-  const handlePageChange = useCallback((tab, page) => {
-    setCurrentPage((prev) => ({ ...prev, [tab]: page }));
-  }, []);
-  */
   const getProfilePictureSrc = useCallback((profilePicture) => {
     const isValidUrl = (url) => {
       try {
@@ -761,247 +507,93 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
     return '/fallback-image.webp';
   }, []);
   /*
-  const renderUserRow = useCallback(
-    (user, index, isCurrentUser = false) => {
-      const rank = rankings?.findIndex((u) => u.id === user.id) + 1 || 'N/A';
-      const getRankIcon = (r) => {
-        if (r === 1) return <Trophy className="w-4 h-4 sm:w-5 sm:h-5 text-emerald-400" />;
-        if (r === 2) return <Flame className="w-4 h-4 sm:w-5 sm:h-5 text-yellow-400" />;
-        if (r === 3) return <Award className="w-4 h-4 sm:w-5 sm:h-5 text-[#D4D4D4]" />;
-        return null;
-      };
-      const rankIcon = getRankIcon(rank);
-      return (
-        <motion.tr
-          key={user.id}
-          className={`border-t border-[#FFFFFF10] hover:bg-[#FFFFFF]/10 transition-all duration-300`}
-          initial={{ opacity: 0, y: 10 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.3, delay: index * 0.02 }}
-        >
-          <td className="px-4 py-2 text-[#FFF] text-sm sm:text-base truncate align-middle flex items-center gap-1 min-w-[4rem]">
-            {rankIcon}
-            {rank}
-          </td>
-          <td className="px-4 py-2 text-[#FFF] text-sm sm:text-base truncate align-middle min-w-0">
-            <div className="flex items-center">
-              <Image
-                src={getProfilePictureSrc(user.profilePicture)}
-                alt={user.googleName || user.twitterHandle || 'User Avatar'}
-                width={isMobile ? 24 : 32}
-                height={isMobile ? 24 : 32}
-                className="rounded-full border border-[#FFFFFF20] mr-3 object-cover shadow-md flex-shrink-0"
-              />
-              <div className="flex items-center gap-1 truncate min-w-0 ml-1">
-                <span className="truncate">{user.googleName || user.twitterHandle || 'Anonymous'}</span>
-                {user.twitterHandle && (
-                  <a href={`https://x.com/${user.twitterHandle}`} target="_blank" rel="noopener noreferrer">
-                    <img src="/logos/x.webp" alt="X Logo" className="ml-1 w-4 h-4 sm:w-5 sm:h-5 text-[#00FFFF] hover:text-emerald-400 flex-shrink-0" />
-                  </a>
-                )}
-                {isCurrentUser && (
-                  <span className="ml-2 text-[9px] md:text-[10px] font-semibold text-[#0A0A0A] px-1 py-0.5 rounded-lg border border-[#FFFFFF] bg-gradient-to-r from-[#FFF] to-[#D4D4D4] whitespace-nowrap">
-                    You
-                  </span>
-                )}
-              </div>
-            </div>
-          </td>
-          <td className="px-4 py-2 text-[#00FFFF] text-sm sm:text-base text-right truncate align-middle min-w-[5rem]">{user.points || 0}</td>
-        </motion.tr>
-      );
-    },
-    [isMobile, rankings, getProfilePictureSrc]
-  );
-  const handleVerifyTask = useCallback((task) => {
-    setImmediateLoading(true);
-    verifyTaskMutation.mutate({ task }, {
-      onSettled: () => {
-        setImmediateLoading(false);
-      },
-    });
-  }, [verifyTaskMutation]);
-  */
-  const renderProfileSection = useCallback(() => {
-    if (userLoading) {
-      return (
-        <div className="h-full flex items-center justify-center">
-          <LoadingOverlay isLoading={true} isMobile={isMobile} />
-        </div>
-      );
-    }
-    if (userError) {
-      return (
-        <motion.div
-          initial={{ opacity: 0, y: -10 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="h-full flex items-center justify-center text-red-400 text-sm p-4 text-center"
-        >
-          Error: {userError.message}
-        </motion.div>
-      );
-    }
-    if (!userData) {
-      return (
-        <div className="h-full flex items-center justify-center text-gray-500 text-sm">
-          No profile data available.
-        </div>
-      );
-    }
+  const DailyCheckinBar = ({ last7Days, streak, onCheckin, isLoading, userData, twitterConnected }) => {
+    const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+    const todayIndex = new Date().getDay();
+    const [tooltipVisible, setTooltipVisible] = useState(false);
+    const getDayIndex = (index) => {
+      const daysBack = 6 - index;
+      return (todayIndex - daysBack + 7) % 7;
+    };
+    const isTodayChecked = last7Days[last7Days.length - 1];
+    const handleCheckinClick = () => {
+      if (!twitterConnected) {
+        toast.info('Please connect your X (Twitter) account first to unlock check-in.', { position: 'top-center', autoClose: 4000 });
+        return;
+      }
+      onCheckin();
+    };
     return (
-      <div className="space-y-4">
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
-          <div className="h-[22vh] rounded-xl p-3 bg-[#0A0A0A]/80 backdrop-blur-md border border-[#FFFFFF20] shadow-[0_4px_12px_rgba(0,0,0,0.3)] glow-[#FFFFFF15] relative">
-            <div className="absolute top-1 right-1 p-2 flex gap-1 items-center z-10">
-              <motion.button
-                onClick={() => queryClient.invalidateQueries({ queryKey: ['userData', session?.user?.id, csrfToken] })}
-                className="p-1 rounded-lg bg-[#FFFFFF]/10 hover:bg-emerald-400/20 transition-all duration-300 z-10 border border-[#FFFFFF20]"
-                whileHover={{ scale: 1.05 }}
-                whileTap={{ scale: 0.95 }}
-                title="Refresh Profile"
-              >
-                <RefreshCw className="w-4 h-4 text-[#FFF]" />
-              </motion.button>
-              <motion.button
-                onClick={onSignOut}
-                disabled={isSigningOut}
-                className={`p-1 rounded-lg bg-[#FFFFFF]/10 ${isSigningOut ? 'opacity-50 cursor-not-allowed' : 'hover:bg-red-400/20'} z-10 border border-[#FFFFFF20]`}
-                whileHover={{ scale: isSigningOut ? 1 : 1.05 }}
-                whileTap={{ scale: isSigningOut ? 1 : 0.9 }}
-                aria-label="Sign out"
-              >
-                {isSigningOut ? (
-                  <span className="text-[8px] sm:text-[10px] text-[#FFF]">Signing out...</span>
-                ) : (
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    className="w-4 h-4 text-red-400"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  >
-                    <path d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
-                  </svg>
-                )}
-              </motion.button>
-            </div>
-            <div className="relative mb-3">
-              <div className={`relative w-20 h-20 mx-auto border-4 rounded-3xl overflow-hidden ${userData.tier === 'Premium' ? 'border-emerald-400' : 'border-[#D4D4D4]'} border-b-transparent`}>
-                <Image
-                  src={getProfilePictureSrc(userData.profilePicture)}
-                  alt={userData.googleName || userData.twitterHandle || 'User Avatar'}
-                  width={80}
-                  height={80}
-                  className="w-full h-full object-cover"
-                />
-              </div>
-              <div className={`w-[60px] absolute -bottom-2 left-1/2 transform -translate-x-1/2 bg-[#0A0A0A]/80 border-2 ${userData.tier === 'Premium' ? 'border-emerald-400' : 'border-[#D4D4D4]'} rounded-full px-2 py-0.5 flex items-center justify-center`}>
-                <span className={`text-[9px] font-bold ${userData.tier === 'Premium' ? 'text-emerald-400' : 'text-[#D4D4D4]'}`}>
-                  {userData.tier}
-                </span>
-              </div>
-            </div>
-            <div className="flex flex-col items-center gap-1 mb-3">
-              <h4 className="text-sm sm:text-base font-bold text-[#FFF] bg-gradient-to-r from-[#00FFFF] to-emerald-400 bg-clip-text text-transparent">
-                {userData.googleName}
-              </h4>
-              <div className="flex items-center gap-2 text-[#D4D4D4] w-full justify-center">
-                <span className="text-[10px] sm:text-[11px]">
-                  {showEmail ? fullInfo : maskedInfo}
-                </span>
-                <motion.button
-                  onClick={() => setShowEmail(!showEmail)}
-                  className="p-1 rounded-lg hover:bg-[#FFFFFF]/10 transition-colors"
-                  whileHover={{ scale: 1.05 }}
-                  whileTap={{ scale: 0.95 }}
-                >
-                  {showEmail ? <EyeOff className="w-3 h-3" /> : <Eye className="w-3 h-3" />}
-                </motion.button>
-              </div>
-            </div>
+      <div className="relative w-full bg-[#0A0A0A]/80 backdrop-blur-md border border-[#FFFFFF20] rounded-xl p-3 mb-2 shadow-[0_4px_12px_rgba(0,0,0,0.3)] glow-[#FFFFFF15]">
+        <div className="relative z-20 flex justify-between items-center mb-3">
+          <div className="flex items-center gap-1">
+            <Calendar className="w-4 h-4 text-[#00FFFF]" />
+            <h3 className="text-[#FFF] font-bold text-[12px]">Daily Check-in</h3>
           </div>
-          <div className="h-[22vh] rounded-xl p-3 bg-[#0A0A0A]/80 backdrop-blur-md border border-[#FFFFFF20] shadow-[0_4px_12px_rgba(0,0,0,0.3)] glow-[#FFFFFF15] relative">
-            <div className="flex justify-between items-center mb-3">
-              <div className="flex items-center gap-2">
-                <img src="/logos/x.webp" alt="X Logo" className="w-7 h-7 text-[#00FFFF] m-2" />
-              </div>
-              <span className={`px-2 py-1 rounded-full text-xs font-medium flex items-center gap-1 ${userData.twitterHandle ? 'text-emerald-400' : 'text-[#D4D4D4]'}`}>
-                {userData.twitterHandle ? <Check className="w-3 h-3 text-emerald-400" /> : null}
-                {userData.twitterHandle ? 'Connected' : 'Not Connected'}
-              </span>
-            </div>
-            {userData.twitterHandle && (
-              <div className="absolute bottom-3 left-3">
-                <a
-                  href={`https://x.com/${userData.twitterHandle}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="m-2 text-[#FFF] text-sm font-semibold underline hover:decoration-emerald-400 transition-colors"
-                >
-                  @{userData.twitterHandle}
-                </a>
+          <div className="relative">
+            <Info
+              className="w-4 h-4 text-[#D4D4D4] cursor-help"
+              onMouseEnter={() => setTooltipVisible(true)}
+              onMouseLeave={() => setTooltipVisible(false)}
+            />
+            {tooltipVisible && (
+              <div className="absolute top-full right-0 mt-1 p-2 bg-[#0A0A0A]/95 backdrop-blur-xl border border-[#FFFFFF20] rounded-lg text-[10px] sm:text-[11px] text-[#D4D4D4] z-80 w-48 shadow-2xl">
+                Maintain a 7-day streak to earn double points (20 pts/day) and unlock exclusive rewards! Breaking the streak resets to normal (10 pts).
               </div>
             )}
-            <motion.button
-              onClick={() => userData.twitterHandle ? disconnectTwitterMutation.mutate({}) : connectTwitterMutation.mutate()}
-              disabled={disconnectTwitterMutation.isLoading || connectTwitterMutation.isLoading}
-              className={`absolute bottom-3 right-3 px-4 py-2 rounded-xl text-[9px] sm:text-[11px] font-medium transition-all duration-300 flex items-center justify-center gap-1 shadow-lg ${userData.twitterHandle
-                ? 'bg-red-400/20 text-[#FFF] hover:from-red-500/20 hover:to-red-400/20 border border-red-400/40'
-                : 'text-[#FFF] border border-[#00FFFF]/50 bg-[#FFFFFF]/10 hover:bg-[#00FFFF]/20'
-                }`}
-              whileHover={{ scale: (disconnectTwitterMutation.isLoading || connectTwitterMutation.isLoading) ? 1 : 1 }}
-              whileTap={{ scale: (disconnectTwitterMutation.isLoading || connectTwitterMutation.isLoading) ? 1 : 0.97 }}
-            >
-              {disconnectTwitterMutation.isLoading || connectTwitterMutation.isLoading ? (
-                <BlinkingDots />
-              ) : userData.twitterHandle ? (
-                <>
-                  Disconnect
-                  <svg className="w-3 h-3 text-red-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <path d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
-                  </svg>
-                </>
-              ) : (
-                <>
-                  Connect
-                  <img src="/logos/x.webp" alt="X Logo" className="w-3 h-3" />
-                </>
-              )}
-            </motion.button>
-          </div>
-          {userData?.walletAddress ? renderWalletSection() : null}
-          {/* Commented out points section for synchronization */}
-          <div className="relative h-[22vh] rounded-xl p-3 bg-gradient-to-br from-black/80 to-gray-900/80 border border-white/20 shadow-lg shadow-black/20 flex flex-col items-center justify-center">
-            <div className="absolute inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center rounded-xl z-10">
-              <span className="text-white text-lg font-medium">Coming Soon</span>
-            </div>
-            {/* <span className="absolute top-3 left-3 m-2 text-white/80 text-xs uppercase">POINTS</span> */}
-            <div className="flex flex-col items-center gap-1">
-              <span className="text-white text-2xl sm:text-3xl font-bold">
-                {userData?.points || 0}
-              </span>
-            </div>
-            {/* <div className="flex flex-row absolute bottom-3 right-3 text-white/70 text-[10px] flex items-center gap-1">
-              <span>Days Active: </span>
-              <span className="text-white font-bold">{getDaysActive()}</span>
-              <span className={`flex ml-4 items-center gap-1 text-[10px] ${userData.streak >= 7 ? 'text-orange-400' : 'text-white/70'}`}>
-                {userData.streak >= 7 && <Flame className="w-3 h-3 text-orange-500 animate-pulse" />}
-                Streak:
-                <span className="text-white font-bold">{userData.streak}</span>
-              </span>
-            </div> */}
           </div>
         </div>
+        <div className="relative z-20 flex justify-around items-center">
+          {last7Days.map((checked, index) => {
+            const dayIndex = getDayIndex(index);
+            return (
+              <div key={index} className="flex flex-col items-center gap-1">
+                <div className={`w-7 h-7 rounded-lg flex items-center justify-center text-[9px] font-bold transition-all duration-300 ${checked
+                  ? 'bg-gradient-to-r from-[#FFF] to-[#D4D4D4] text-[#0A0A0A] shadow-lg shadow-[#D4D4D4]/25'
+                  : 'bg-[#FFFFFF]/10 text-[#FFF]/50 border border-[#FFFFFF20]'
+                  }`}>
+                  {checked ? (
+                    <Check className="w-3 h-3 text-[#0A0A0A]" />
+                  ) : (
+                    days[dayIndex]
+                  )}
+                </div>
+                {index === last7Days.length - 1 && !checked && (
+                  <motion.button
+                    onClick={handleCheckinClick}
+                    disabled={isLoading || !twitterConnected}
+                    className={`mt-1 px-2 py-1 rounded-full text-[9px] font-semibold transition-all duration-300 flex items-center justify-center gap-1 ${isLoading || !twitterConnected
+                      ? 'bg-[#FFFFFF]/10 text-[#FFF]/70 cursor-not-allowed relative overflow-hidden border border-[#FFFFFF20]'
+                      : 'bg-[#0A0A0A]/80 border border-[#FFFFFF] text-[#FFF] hover:from-[#00FFFF]/20 hover:to-emerald-400/20 shadow-lg shadow-[#00FFFF]/25'
+                      }`}
+                    whileHover={{ scale: (isLoading || !twitterConnected) ? 1 : 1 }}
+                    whileTap={{ scale: (isLoading || !twitterConnected) ? 1 : 1 }}
+                  >
+                    {isLoading ? (
+                      <BlinkingDots />
+                    ) : !twitterConnected ? (
+                      'Connect Twitter'
+                    ) : (
+                      'Check-in'
+                    )}
+                    {(isLoading || !twitterConnected) && (
+                      <div className="absolute inset-0 bg-gradient-to-r from-transparent via-[#FFFFFF]/10 to-transparent animate-shimmer"></div>
+                    )}
+                  </motion.button>
+                )}
+              </div>
+            );
+          })}
+        </div>
+        {streak >= 7 && (
+          <div className="relative z-20 flex items-center justify-center mt-3 gap-1">
+            <Flame className="w-4 h-4 text-emerald-400 animate-pulse" />
+            <span className="text-emerald-400 font-bold text-sm">Streak: {streak} days - Double Points Active!</span>
+          </div>
+        )}
       </div>
     );
-  }, [userData, userLoading, userError, isMobile, session, csrfToken, queryClient, isSigningOut, showEmail, showWallet, getDaysActive, getProfilePictureSrc, handleCopyWallet, connectTwitterMutation, disconnectTwitterMutation, immediateLoading/*
-  , verifyTaskMutation
-  */]);
-  /*
-  // Render Tasks Section - Cards in 3-column grid
+  };
   const renderTasksSection = useCallback(() => {
     if (!userData?.twitterHandle) {
       return (
@@ -1172,7 +764,58 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
   }, [tasks, tasksLoading, taskProgressLoading, tasksError, taskProgress, verifyTaskMutation, userData, isMobile, followedTasks, immediateLoading, handleVerifyTask, connectTwitterMutation, handleDailyCheckin]);
   */
   /*
-  // Render Leaderboard Section - Increased sizes
+  const renderUserRow = useCallback(
+    (user, index, isCurrentUser = false) => {
+      const rank = rankings?.findIndex((u) => u.id === user.id) + 1 || 'N/A';
+      const getRankIcon = (r) => {
+        if (r === 1) return <Trophy className="w-4 h-4 sm:w-5 sm:h-5 text-emerald-400" />;
+        if (r === 2) return <Flame className="w-4 h-4 sm:w-5 sm:h-5 text-yellow-400" />;
+        if (r === 3) return <Award className="w-4 h-4 sm:w-5 sm:h-5 text-[#D4D4D4]" />;
+        return null;
+      };
+      const rankIcon = getRankIcon(rank);
+      return (
+        <motion.tr
+          key={user.id}
+          className={`border-t border-[#FFFFFF10] hover:bg-[#FFFFFF]/10 transition-all duration-300`}
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.3, delay: index * 0.02 }}
+        >
+          <td className="px-4 py-2 text-[#FFF] text-sm sm:text-base truncate align-middle flex items-center gap-1 min-w-[4rem]">
+            {rankIcon}
+            {rank}
+          </td>
+          <td className="px-4 py-2 text-[#FFF] text-sm sm:text-base truncate align-middle min-w-0">
+            <div className="flex items-center">
+              <Image
+                src={getProfilePictureSrc(user.profilePicture)}
+                alt={user.googleName || user.twitterHandle || 'User Avatar'}
+                width={isMobile ? 24 : 32}
+                height={isMobile ? 24 : 32}
+                className="rounded-full border border-[#FFFFFF20] mr-3 object-cover shadow-md flex-shrink-0"
+              />
+              <div className="flex items-center gap-1 truncate min-w-0 ml-1">
+                <span className="truncate">{user.googleName || user.twitterHandle || 'Anonymous'}</span>
+                {user.twitterHandle && (
+                  <a href={`https://x.com/${user.twitterHandle}`} target="_blank" rel="noopener noreferrer">
+                    <img src="/logos/x.webp" alt="X Logo" className="ml-1 w-4 h-4 sm:w-5 sm:h-5 text-[#00FFFF] hover:text-emerald-400 flex-shrink-0" />
+                  </a>
+                )}
+                {isCurrentUser && (
+                  <span className="ml-2 text-[9px] md:text-[10px] font-semibold text-[#0A0A0A] px-1 py-0.5 rounded-lg border border-[#FFFFFF] bg-gradient-to-r from-[#FFF] to-[#D4D4D4] whitespace-nowrap">
+                    You
+                  </span>
+                )}
+              </div>
+            </div>
+          </td>
+          <td className="px-4 py-2 text-[#00FFFF] text-sm sm:text-base text-right truncate align-middle min-w-[5rem]">{user.points || 0}</td>
+        </motion.tr>
+      );
+    },
+    [isMobile, rankings, getProfilePictureSrc]
+  );
   const renderLeaderboardSection = useCallback(() => {
     const leaderboardUsers = rankings?.filter(u => u.id !== (session?.user?.id || '')) || [];
     if (leaderboardLoading) {
@@ -1259,6 +902,632 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
     );
   }, [leaderboardLoading, leaderboardError, rankings, userData, isMobile, currentPage, getPaginatedData, getTotalPages, handlePageChange, renderUserRow, session]);
   */
+  useEffect(() => {
+    if (process.env.NODE_ENV === 'production') {
+      console.log = () => { };
+      console.error = () => { };
+      console.warn = () => { };
+    }
+  }, []);
+  useEffect(() => {
+    const handleResize = () => setIsMobile(window.innerWidth <= 640);
+    window.addEventListener('resize', handleResize);
+    handleResize();
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+  // UPDATED: Detect if verification is needed
+  useEffect(() => {
+    setNeedsVerification(isConnected && !!address && userData?.walletAddress !== address);
+  }, [isConnected, address, userData?.walletAddress]);
+  const onSignOut = async () => {
+    setIsSigningOut(true);
+    await handleSignOut();
+    setIsSigningOut(false);
+  };
+  let isExecuting = false;
+  const debouncedExecuteRecaptcha = useCallback(
+    async (action, retries = 3) => {
+      if (!recaptchaRef.current) {
+        if (process.env.NODE_ENV !== 'production') {
+          logger.error('reCAPTCHA ref is null');
+        }
+        throw new Error('reCAPTCHA not initialized');
+      }
+      for (let i = 0; i < retries; i++) {
+        try {
+          await recaptchaRef.current.reset();
+          const token = await Promise.race([
+            recaptchaRef.current.executeAsync(),
+            new Promise((_, reject) => setTimeout(() => reject(new Error('reCAPTCHA timeout')), 20000)),
+          ]);
+          if (!token) throw new Error('Empty reCAPTCHA token');
+          return token;
+        } catch (error) {
+          if (process.env.NODE_ENV !== 'production') {
+            logger.error(`reCAPTCHA attempt ${i + 1} failed for ${action}: ${error.message}`);
+          }
+          if (i === retries - 1) {
+            throw new Error(`reCAPTCHA failed after ${retries} attempts: ${error.message}`);
+          }
+          await new Promise((resolve) => setTimeout(resolve, 1000));
+        }
+      }
+    },
+    [recaptchaRef]
+  );
+  const createChargeMutation = useMutation({
+    mutationFn: async () => {
+      if (!session?.user?.id) throw new Error('Not authenticated');
+      if (!csrfToken) throw new Error('CSRF token not available');
+      const token = await debouncedExecuteRecaptcha('create_charge');
+      const response = await axios.post(
+        '/api/coinbase/create-charge',
+        { userId: session.user.id, plan: 'premium' },
+        {
+          headers: {
+            'x-csrf-token': csrfToken,
+            'X-Recaptcha-Token': token,
+            'Content-Type': 'application/json',
+          },
+          withCredentials: true,
+        }
+      );
+      if (!response.data.success) throw new Error(response.data.detail || 'Unable to create charge');
+      return response.data.hostedUrl;
+    },
+    onSuccess: async () => {
+      await queryClient.invalidateQueries(['userData', session?.user?.id, csrfToken]);
+    },
+    onError: (err) => {
+      let errorMessage = 'Failed to record mint. Please contact support if already minted on-chain.';
+      if (err.response?.status === 400 && err.response.data.detail === 'Already minted') {
+        errorMessage = 'Already minted!.';
+        setNftMinted(true);
+        queryClient.invalidateQueries(['userData', session?.user?.id, csrfToken]);
+      } else if (err.response?.status === 400 && err.response.data.detail === 'Transaction not from your wallet') {
+        errorMessage = 'Transaction mismatch. Ensure you minted from connected wallet.';
+      } else if (err.response?.status === 403) {
+        errorMessage = 'Security verification failed. Please try again.';
+      } else if (err.response?.status === 429) {
+        errorMessage = 'Rate limit. Wait and retry.';
+      }
+    },
+  });
+  // NEW: Sync nftMinted with userData on load/update
+  useEffect(() => {
+    setNftMinted(userData?.hasMintedNft || false);
+  }, [userData?.hasMintedNft]);
+  useEffect(() => {
+    if (userData?.twitterHandle && !userData?.profilePicture.includes('pbs.twimg.com') && status === 'authenticated') {
+      logger.warn('Twitter handle present but profile picture is not from Twitter, triggering refetch');
+      const cacheKey = `userData-${session.user.id}`;
+      clearCache(cacheKey).then(() => {
+        queryClient.invalidateQueries(['userData', session?.user?.id, csrfToken]);
+        queryClient.refetchQueries(['userData', session?.user?.id, csrfToken]);
+      });
+    }
+  }, [userData, session, csrfToken, queryClient, status]);
+  // Sync wallet and twitter connection states for modal
+  useEffect(() => {
+    setWalletConnected(!!address || !!userData?.walletAddress);
+    setTwitterConnected(!!userData?.twitterHandle);
+  }, [address, userData?.walletAddress, userData?.twitterHandle]);
+  const handleCopyWallet = async () => {
+    if (userData?.walletAddress || address) {
+      await navigator.clipboard.writeText(userData?.walletAddress || address);
+      toast.success('Wallet address copied!', { position: 'top-center', autoClose: 2000 });
+    }
+  };
+  const email = userData?.email || '';
+  const isBaseAccount = email.includes('@base.xynapseai.net');
+  const displayInfo = isBaseAccount ? (userData?.walletAddress || address || '') : email;
+  const maskedInfo = isBaseAccount
+    ? `${(userData?.walletAddress || address)?.slice(0, 6) || ''}...${(userData?.walletAddress || address)?.slice(-4) || ''}`
+    : (email ? email.replace(/./g, '*') : '********');
+  const fullInfo = displayInfo;
+
+  // UPDATED: Mutation for verifying and saving wallet with signature, nonce, and timestamp checks
+  const verifyAndUpdateWalletMutation = useMutation({
+    mutationFn: async ({ signature }) => {
+      if (!session?.user?.id || !address || !csrfToken || !verificationNonce) throw new Error('Missing required data');
+
+      const token = await debouncedExecuteRecaptcha('verify_wallet');
+
+      const response = await axios.post(
+        '/api/verify-wallet',
+        {
+          uid: session.user.id,
+          walletAddress: address,
+          signature,
+          message: verificationMessage,
+          nonce: verificationNonce, // NEW: Send nonce
+          recaptchaToken: token,
+        },
+        {
+          headers: { 'x-csrf-token': csrfToken, 'Content-Type': 'application/json' },
+          withCredentials: true,
+        }
+      );
+      if (!response.data.success) throw new Error(response.data.detail || 'Unable to verify and save wallet');
+      return response.data;
+    },
+    onSuccess: async () => {
+      toast.success('Wallet verified and saved successfully!', { position: 'top-center', autoClose: 5000 });
+      setHasUpdatedWallet(true);
+      setNeedsVerification(false);
+      setIsSavingWallet(false);
+      setVerificationNonce(''); // Reset nonce after success - moved before refetch to hide button immediately
+      const cacheKey = `userData-${session.user.id}`;
+      await clearCache(cacheKey);
+      await queryClient.refetchQueries(['userData', session?.user?.id, csrfToken]);
+    },
+    onError: (err) => {
+      let errorMsg = err.message || 'Unknown error';
+      if (err.response?.status === 429) {
+        errorMsg = 'Rate limit exceeded. Wait 15 minutes and retry.';
+      } else if (err.response?.status === 403) {
+        errorMsg = 'Security check failed. Refresh and retry.';
+      } else if (err.response?.status === 400 && err.response.data.detail?.includes('Invalid signature')) {
+        errorMsg = 'Signature verification failed. Please try signing again.';
+      } else if (err.response?.status === 400 && err.response.data.detail?.includes('expired')) {
+        errorMsg = 'Verification expired. Please try again.';
+      }
+      toast.error(`Verification failed: ${errorMsg}`, { position: 'top-center', autoClose: 6000 });
+      setHasUpdatedWallet(false);
+      setIsSavingWallet(false);
+      setVerificationNonce(''); // Reset on error
+    },
+  });
+
+  const disconnectTwitterMutation = useMutation({
+    mutationFn: async ({ v2Token } = {}) => {
+      const token = v2Token || await debouncedExecuteRecaptcha('disconnect_twitter');
+      const response = await axios.post(
+        '/api/twitter/connect',
+        { action: 'disconnect', uid: session.user.id, recaptchaToken: token },
+        {
+          headers: { 'x-csrf-token': csrfToken, 'Content-Type': 'application/json' },
+          withCredentials: true,
+        }
+      ).catch(err => {
+        logger.error('Disconnect Twitter error:', err.response?.data || err.message);
+        throw err;
+      });
+      if (!response.data.success) throw new Error(response.data.detail || 'Unable to disconnect Twitter');
+      await clearAllCaches(session.user.id);
+    },
+    onSuccess: async () => {
+      await Promise.all([
+        queryClient.invalidateQueries(['userData', session?.user?.id, csrfToken]),
+        /*
+        queryClient.invalidateQueries(['leaderboard', session?.user?.id, csrfToken]),
+        */
+      ]);
+      await Promise.all([
+        queryClient.refetchQueries(['userData', session?.user?.id, csrfToken]),
+        /*
+        queryClient.refetchQueries(['leaderboard', session?.user?.id, csrfToken]),
+        */
+      ]);
+    },
+    onError: (err) => {
+      if (err.response?.status === 403 && err.response.data.detail === 'low_score_fallback') {
+        // For disconnect, you can add similar fallback logic if needed
+        toast.info('Please complete the security check to continue.', { position: 'top-center', autoClose: 4000 });
+        return;
+      }
+      let errorMessage = err.response?.data?.detail || 'Unable to disconnect Twitter at this time.';
+      if (err.response?.status === 429) {
+        errorMessage = 'Request limit reached. Please wait a moment and try again.';
+      } else if (err.response?.status === 403) {
+        if (err.response?.data?.detail === 'Invalid CSRF check.') {
+          errorMessage = 'Session security issue detected. Please refresh the page.';
+        } else if (err.response?.data?.detail?.includes('reCAPTCHA')) {
+          errorMessage = 'Security verification failed. Please try the action again. If it persists , try another browser.';
+        } else {
+          errorMessage = 'Security verification failed. Please try the action again. If it persists, refresh the page.';
+        }
+      }
+      toast.error(errorMessage, { position: 'top-center', autoClose: 5000 });
+    },
+  });
+  const updateWalletMutation = useMutation({
+    mutationFn: async ({ walletAddress, v2Token } = {}) => {
+      const token = v2Token || await debouncedExecuteRecaptcha('update_wallet');
+      const response = await axios.patch(
+        '/api/user',
+        { uid: session.user.id, walletAddress, recaptchaToken: token },
+        {
+          headers: { 'x-csrf-token': csrfToken, 'Content-Type': 'application/json' },
+          withCredentials: true,
+        }
+      );
+      if (!response.data.success) throw new Error(response.data.detail || 'Unable to update wallet');
+    },
+    onSuccess: async () => {
+      setHasUpdatedWallet(true);
+      await queryClient.refetchQueries(['userData', session?.user?.id, csrfToken]);
+      setIsSavingWallet(false);
+    },
+    onError: (err) => {
+      let errorMsg = err.message || 'Unknown error';
+      if (err.response?.status === 429) {
+        errorMsg = 'Rate limit exceeded. Wait 15 minutes and retry.';
+      } else if (err.response?.status === 403) {
+        errorMsg = 'Security check failed. Refresh and retry.';
+      }
+      toast.error(`Update failed: ${errorMsg}`, { position: 'top-center', autoClose: 6000 });
+      setHasUpdatedWallet(false);  // Reset flag on error
+    },
+  });
+
+  const disconnectWalletMutation = useMutation({
+    mutationFn: async ({ v2Token } = {}) => {
+      const token = v2Token || await debouncedExecuteRecaptcha('disconnect_wallet');
+      const response = await axios.patch(
+        '/api/user',
+        { uid: session.user.id, walletAddress: null, recaptchaToken: token },
+        {
+          headers: { 'x-csrf-token': csrfToken, 'Content-Type': 'application/json' },
+          withCredentials: true,
+        }
+      );
+      if (!response.data.success) throw new Error(response.data.detail || 'Unable to disconnect wallet');
+    },
+    onSuccess: async () => {
+      disconnect();
+      setWalletConnected(false);
+      setHasUpdatedWallet(false);  // Reset flag
+      hasTriggeredRef.current = false;
+      setNeedsVerification(false);
+      setVerificationNonce(''); // Reset nonce
+      toast.success('Wallet disconnected successfully.', { position: 'top-center', autoClose: 5000 });
+      const cacheKey = `userData-${session.user.id}`;
+      await clearCache(cacheKey);
+      await queryClient.refetchQueries(['userData', session?.user?.id, csrfToken]);
+    },
+    onError: (err) => {
+      toast.error(`Unable to disconnect wallet: ${err.message}`, { position: 'top-center', autoClose: 5000 });
+    },
+  });
+  // NEW: Mutation to record mint after on-chain success
+  const recordMintMutation = useMutation({
+    mutationFn: async ({ txHash }) => {
+      if (!session?.user?.id || !address) throw new Error('User or wallet not available');
+      if (!csrfToken) throw new Error('CSRF token not available');
+      const token = await debouncedExecuteRecaptcha('record_mint');
+      const response = await axios.post(
+        '/api/record-mint',
+        { txHash, uid: session.user.id, walletAddress: address },
+        {
+          headers: {
+            'x-csrf-token': csrfToken,
+            'X-Recaptcha-Token': token,
+            'Content-Type': 'application/json',
+          },
+          withCredentials: true,
+        }
+      );
+      if (!response.data.success) throw new Error(response.data.detail || 'Unable to record mint');
+      return response.data;
+    },
+    onSuccess: async () => {
+      toast.success('NFT mint confirmed.', { position: 'top-center', autoClose: 5000 });
+      setNftMinted(true);
+      await queryClient.invalidateQueries(['userData', session?.user?.id, csrfToken]);
+    },
+    onError: (err) => {
+      let errorMessage = 'Failed to record mint. Please contact support if already minted on-chain.';
+      if (err.response?.status === 400 && err.response.data.detail === 'Already minted') {
+        errorMessage = 'Already minted!';
+        setNftMinted(true);
+        queryClient.invalidateQueries(['userData', session?.user?.id, csrfToken]);
+      } else if (err.response?.status === 400 && err.response.data.detail === 'Transaction not from your wallet') {
+        errorMessage = 'Transaction mismatch. Ensure you minted from connected wallet.';
+      } else if (err.response?.status === 403) {
+        errorMessage = 'Security verification failed. Please try again.';
+      } else if (err.response?.status === 429) {
+        errorMessage = 'Rate limit. Wait and retry.';
+      }
+      toast.error(errorMessage, { position: 'top-center', autoClose: 6000 });
+    },
+  });
+  const debouncedHandleSignOut = useCallback(
+    debounce(() => handleSignOut(), 1000, { leading: true, trailing: false }),
+    [handleSignOut]
+  );
+  // Get Days Active
+  const getDaysActive = useCallback(() => {
+    return userData?.daysActive || 0;
+  }, [userData]);
+
+  const renderProfileSection = useCallback(() => {
+    if (userLoading) {
+      return (
+        <div className="h-full flex items-center justify-center">
+          <LoadingOverlay isLoading={true} isMobile={isMobile} />
+        </div>
+      );
+    }
+    if (userError) {
+      return (
+        <motion.div
+          initial={{ opacity: 0, y: -10 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="h-full flex items-center justify-center text-red-400 text-sm p-4 text-center"
+        >
+          Error: {userError.message}
+        </motion.div>
+      );
+    }
+    if (!userData) {
+      return (
+        <div className="h-full flex items-center justify-center text-gray-500 text-xs">
+          No profile data available.
+        </div>
+      );
+    }
+    const currentAddress = address || userData?.walletAddress;
+    const isCurrentlyConnected = !!address;
+    const isVerified = userData?.walletAddress === address && !!address;
+    const displayedAddress = isCurrentlyConnected ? currentAddress : userData?.walletAddress;
+    return (
+      <div className="space-y-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-2 gap-4">
+          <div className="h-[30vh] rounded-xl p-3 mt-3 bg-[#0A0A0A]/80 backdrop-blur-md border border-[#FFFFFF20] shadow-[0_4px_12px_rgba(0,0,0,0.3)] glow-[#FFFFFF15] relative col-span-1">
+            <div className="absolute top-1 right-1 p-2 flex gap-1 items-center z-10">
+              <motion.button
+                onClick={() => queryClient.invalidateQueries({ queryKey: ['userData', session?.user?.id, csrfToken] })}
+                className="p-1 rounded-lg bg-[#FFFFFF]/10 hover:bg-emerald-400/20 transition-all duration-300 z-10 border border-[#FFFFFF20]"
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
+                title="Refresh Profile"
+              >
+                <RefreshCw className="w-4 h-4 text-[#FFF]" />
+              </motion.button>
+              <motion.button
+                onClick={onSignOut}
+                disabled={isSigningOut}
+                className={`p-1 rounded-lg bg-[#FFFFFF]/10 ${isSigningOut ? 'opacity-50 cursor-not-allowed' : 'hover:bg-red-400/20'} z-10 border border-[#FFFFFF20]`}
+                whileHover={{ scale: isSigningOut ? 1 : 1.05 }}
+                whileTap={{ scale: isSigningOut ? 1 : 0.9 }}
+                aria-label="Sign out"
+              >
+                {isSigningOut ? (
+                  <span className="text-[8px] sm:text-[10px] text-[#FFF]">Signing out...</span>
+                ) : (
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    className="w-4 h-4 text-red-400"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  >
+                    <path d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+                  </svg>
+                )}
+              </motion.button>
+            </div>
+            <div className="relative mb-3 flex justify-center">
+              <div className={`relative w-20 h-20 sm:w-20 sm:h-20 border-3 rounded-3xl overflow-hidden ${userData.tier === 'Premium' ? 'border-emerald-400' : 'border-[#D4D4D4]'} border-b-transparent`}>
+                <Image
+                  src={getProfilePictureSrc(userData.profilePicture)}
+                  alt={userData.googleName || userData.twitterHandle || 'User Avatar'}
+                  width={80}
+                  height={80}
+                  className="w-full h-full object-cover"
+                  onError={(e) => {
+                    e.target.src = '/fallback-image.webp'; // Ensure fallback on error
+                  }}
+                />
+              </div>
+              <div className={`w-[65px] sm:w-[65px] absolute -bottom-2 bg-[#0A0A0A]/80 border-2 ${userData.tier === 'Premium' ? 'border-emerald-400' : 'border-[#D4D4D4]'} rounded-lg px-2 py-0.5 flex items-center justify-center text-[8px] sm:text-[9px]`}>
+                <span className={`font-bold ${userData.tier === 'Premium' ? 'text-emerald-400' : 'text-[#D4D4D4]'}`}>
+                  {userData.tier}
+                </span>
+              </div>
+            </div>
+            <div className="flex flex-col items-center gap-1 mb-3">
+              <h4 className="text-xs sm:text-sm font-bold text-[#FFF] bg-gradient-to-r from-[#00FFFF] to-emerald-400 bg-clip-text text-transparent truncate max-w-full">
+                {userData.googleName}
+              </h4>
+              <div className="flex items-center gap-2 text-[#D4D4D4] w-full justify-center">
+                <span className="text-[9px] sm:text-[10px] truncate">
+                  {showEmail ? fullInfo : maskedInfo}
+                </span>
+                <motion.button
+                  onClick={() => setShowEmail(!showEmail)}
+                  className="p-1 rounded-lg hover:bg-[#FFFFFF]/10 transition-colors"
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.95 }}
+                >
+                  {showEmail ? <EyeOff className="w-3 h-3" /> : <Eye className="w-3 h-3" />}
+                </motion.button>
+              </div>
+            </div>
+          </div>
+          <div className="h-[30vh] mt-3 rounded-xl p-3 bg-[#0A0A0A]/80 backdrop-blur-md border border-[#FFFFFF20] shadow-[0_4px_12px_rgba(0,0,0,0.3)] glow-[#FFFFFF15] relative col-span-1"> {/* Twitter card */}
+            <div className="flex justify-between items-center mb-3">
+              <div className="flex items-center gap-2 flex-1 min-w-0">
+                <img src="/logos/x.webp" alt="X Logo" className="w-3 h-3 sm:w-4 sm:h-4 text-[#00FFFF] flex-shrink-0" />
+                <span className="text-[#FFF] font-semibold text-sm flex-shrink-0">Twitter :</span>
+                {userData.twitterHandle && (
+                  <a
+                    href={`https://x.com/${userData.twitterHandle}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-[#FFF] text-sm underline hover:decoration-emerald-400 transition-colors truncate ml-1 flex-1"
+                  >
+                    @{userData.twitterHandle}
+                  </a>
+                )}
+              </div>
+              <span className={`px-2 py-1 rounded-full text-xs font-medium flex items-center gap-1 ${userData.twitterHandle ? 'text-emerald-400' : 'text-[#D4D4D4]'}`}>
+                {userData.twitterHandle ? <Check className="w-3 h-3 text-emerald-400" /> : null}
+                {userData.twitterHandle ? 'Connected' : 'Not Connected'}
+              </span>
+            </div>
+            <motion.button
+              onClick={() => userData.twitterHandle ? disconnectTwitterMutation.mutate({}) : connectTwitterMutation.mutate()}
+              disabled={disconnectTwitterMutation.isLoading || connectTwitterMutation.isLoading}
+              className={`absolute bottom-3 right-3 px-3 py-1.5 rounded-lg text-xs font-medium transition-all duration-300 flex items-center justify-center gap-1 shadow-lg ${userData.twitterHandle
+                ? 'text-red-300 hover:bg-red-400/30 border border-red-400/30'
+                : 'text-[#00FFFF] border border-[#00FFFF]/50 bg-[#00FFFF]/10 hover:bg-[#00FFFF]/20'
+                }`}
+              whileTap={{ scale: (disconnectTwitterMutation.isLoading || connectTwitterMutation.isLoading) ? 1 : 0.98 }}
+            >
+              {disconnectTwitterMutation.isLoading || connectTwitterMutation.isLoading ? (
+                <BlinkingDots />
+              ) : userData.twitterHandle ? (
+                'Disconnect'
+              ) : (
+                'Connect'
+              )}
+            </motion.button>
+          </div>
+          {/* Wallet card inline */}
+          <div className="h-[30vh] rounded-xl p-3 bg-[#0A0A0A]/80 backdrop-blur-md border border-[#FFFFFF20] shadow-[0_4px_12px_rgba(0,0,0,0.3)] glow-[#FFFFFF15] relative flex flex-col col-span-1">
+            {/* Force full width with outer wrapper */}
+            <div className="w-full h-full flex flex-col">
+              <OnchainWalletWrapper>
+                {/* Header - full width */}
+                <div className="w-full flex justify-between items-start mb-3">
+                  <div className="flex items-center gap-2">
+                    <Wallet className="w-5 h-5 text-[#00FFFF]" />
+                    <span className="text-[#FFF] font-semibold text-sm">Wallet</span>
+                  </div>
+                  <span className={`px-2 py-1 rounded-full text-xs font-medium flex items-center gap-1 ${isCurrentlyConnected
+                    ? (isVerified ? 'text-emerald-400' : 'text-emerald-400')
+                    : 'text-[#D4D4D4]'
+                    }`}>
+                    {isCurrentlyConnected
+                      ? (isVerified ? <Check className="w-3 h-3 text-emerald-400" /> : null)
+                      : null}
+                    {isCurrentlyConnected
+                      ? (isVerified ? 'Verified' : 'Connected')
+                      : 'Not Connected'}
+                  </span>
+                </div>
+                {/* Body - full width, take remaining space */}
+                <div className="w-full flex-1 flex flex-col justify-between">
+                  {/* Address + icons section - fixed height to prevent layout shift */}
+                  <div className="w-full min-h-[3rem] flex items-center justify-between relative">
+                    {(isCurrentlyConnected || userData?.walletAddress) && (
+                      <>
+                        <p className={`text-xs text-[#D4D4D4] pr-2 flex-1 min-w-0 ${showWallet ? 'whitespace-pre-wrap break-words max-h-[3rem] overflow-y-auto' : 'truncate'}`}>
+                          {showWallet
+                            ? displayedAddress
+                            : `${displayedAddress?.slice(0, 6)}...${displayedAddress?.slice(-4)}`
+                          }
+                        </p>
+                        <div className="flex items-center gap-2 flex-shrink-0 absolute right-0 top-1/2 -translate-y-1/2">
+                          <motion.button
+                            onClick={handleCopyWallet}
+                            className="text-[#D4D4D4] hover:text-[#FFF] transition-colors p-1"
+                            whileTap={{ scale: 0.9 }}
+                          >
+                            <Copy className="w-3 h-3" />
+                          </motion.button>
+                          <motion.button
+                            onClick={() => setShowWallet(!showWallet)}
+                            className="text-[#D4D4D4] hover:text-[#FFF] transition-colors p-1"
+                            whileHover={{ scale: 1.1 }}
+                            whileTap={{ scale: 0.9 }}
+                          >
+                            {showWallet ? <EyeOff className="w-3 h-3" /> : <Eye className="w-3 h-3" />}
+                          </motion.button>
+                        </div>
+                      </>
+                    )}
+                  </div>
+                  {/* Spacer to push buttons to bottom */}
+                  <div className="flex-1 min-h-0" />
+                  {/* Verify & Save - full width, fixed position above spacer if needed, but keep in flow */}
+                  {isCurrentlyConnected && !isVerified && !isSavingWallet && needsVerification && verificationNonce && (
+                    <div className="w-full mb-2">
+                      <Signature
+                        message={verificationMessage}
+                        label="Verify"
+                        onSuccess={(sig) => {
+                          setIsSavingWallet(true);
+                          verifyAndUpdateWalletMutation.mutate({ signature: sig });
+                        }}
+                        onError={(error) => {
+                          toast.error(`Signing failed: ${error.message || 'Please try again.'}`);
+                          setIsSavingWallet(false);
+                        }}
+                        className="w-full text-xs"
+                        disabled={verifyAndUpdateWalletMutation.isPending}
+                      />
+                    </div>
+                  )}
+                  {/* Loading when verifying - full width, centered */}
+                  {isSavingWallet && (
+                    <div className="w-full flex justify-center items-center gap-2 text-[#D4D4D4] mb-2">
+                      <Spinner className="h-4 w-4" />
+                      <span className="text-xs">Verifying...</span>
+                    </div>
+                  )}
+                </div>
+              </OnchainWalletWrapper>
+              {/* Disconnect / Connect button - absolute positioned at bottom right, like Twitter */}
+              {(isCurrentlyConnected || userData?.walletAddress) ? (
+                <motion.button
+                  onClick={() => disconnectWalletMutation.mutate({})}
+                  disabled={isSavingWallet || disconnectWalletMutation.isLoading}
+                  className={`absolute bottom-3 right-3 px-3 py-1.5 rounded-lg text-xs font-medium transition-all duration-300 flex items-center justify-center gap-1 shadow-lg text-red-300 hover:bg-red-400/30 border border-red-400/30 disabled:opacity-50`}
+                  whileTap={{ scale: (isSavingWallet || disconnectWalletMutation.isLoading) ? 1 : 0.98 }}
+                >
+                  {disconnectWalletMutation.isLoading ? <BlinkingDots /> : 'Disconnect'}
+                </motion.button>
+              ) : (
+                <ConnectWallet>
+                  {({ onClick, isLoading }) => (
+                    <motion.button
+                      onClick={onClick}
+                      disabled={isLoading}
+                      className="absolute bottom-3 right-3 px-3 py-1.5 rounded-lg text-xs font-medium transition-all duration-300 flex items-center justify-center gap-1 shadow-lg text-[#00FFFF] border border-[#00FFFF]/50 bg-[#00FFFF]/10 hover:bg-[#00FFFF]/20 disabled:opacity-50"
+                      whileTap={{ scale: isLoading ? 1 : 0.98 }}
+                    >
+                      {isLoading ? <BlinkingDots /> : 'Connect'}
+                    </motion.button>
+                  )}
+                </ConnectWallet>
+              )}
+            </div>
+          </div>
+          {/* Points card - balanced with others */}
+          <div className="h-[30vh] rounded-xl p-3 bg-[#0A0A0A]/80 backdrop-blur-md border border-[#FFFFFF20] shadow-[0_4px_12px_rgba(0,0,0,0.3)] glow-[#FFFFFF15] relative col-span-1">
+            <div className="absolute inset-0 bg-black/90 backdrop-blur-xl flex items-center justify-center rounded-xl z-10">
+              <span className="text-white text-lg font-medium">Coming Soon</span>
+            </div>
+            <div className="flex justify-between items-start mb-3">
+              <div className="flex items-center gap-2">
+                <Coins className="w-5 h-5 text-[#00FFFF]" />
+                <span className="text-[#FFF] font-semibold text-sm">Points</span>
+              </div>
+            </div>
+            <div className="flex flex-col items-center justify-center h-full gap-1">
+              <span className="text-white text-2xl sm:text-3xl font-bold">
+                {userData?.points || 0}
+              </span>
+              {/* <div className="flex flex-row text-white/70 text-[10px] items-center gap-2">
+              <span>Days Active: <span className="text-white font-bold">{getDaysActive()}</span></span>
+              <span className={`flex items-center gap-1 ${userData.streak >= 7 ? 'text-orange-400' : 'text-white/70'}`}>
+                {userData.streak >= 7 && <Flame className="w-3 h-3 text-orange-500 animate-pulse" />}
+                Streak: <span className="text-white font-bold">{userData.streak}</span>
+              </span>
+            </div> */}
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }, [userData, userLoading, userError, isMobile, session, csrfToken, queryClient, isSigningOut, showEmail, showWallet, getDaysActive, getProfilePictureSrc, handleCopyWallet, connectTwitterMutation, disconnectTwitterMutation, address, isConnected, needsVerification, verificationMessage, verifyAndUpdateWalletMutation, isSavingWallet, disconnectWalletMutation, verificationNonce]); // remove immediateLoading
+
   // Handle Twitter redirect callback
   useEffect(() => {
     const urlParams = new URLSearchParams(window.location.search);
@@ -1291,6 +1560,7 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
             position: 'top-center',
             autoClose: 5000
           });
+          setTwitterConnected(true);
         })
         .catch((err) => {
           logger.error('Error handling Twitter connection callback:', err);
@@ -1311,13 +1581,327 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
       toast.error('Failed to clear cache. Please refresh the page manually.', { position: 'top-center', autoClose: 5000 });
     }
   };
+  const getBalanceWithRetry = async (address, retries = 3) => {
+    for (let i = 0; i < retries; i++) {
+      try {
+        const provider = new ethers.BrowserProvider(window.ethereum);
+        return await provider.getBalance(address);
+      } catch (err) {
+        if (i === retries - 1 || !err.message.includes('RPC')) throw err;
+        await new Promise(resolve => setTimeout(resolve, 1000 * (i + 1)));
+      }
+    }
+  };
+  // Updated: Handle Mint NFT - Use BASE_CHAIN_ID, fix max supply msg to 10000, integrate useSendCalls for Builder Code attribution
+  const handleMint = async () => {
+    try {
+      if (chainId !== BASE_CHAIN_ID) {
+        await switchChain({ chainId: BASE_CHAIN_ID });
+        return;
+      }
+      if (nftMinted) {
+        return;
+      }
+      const provider = new ethers.BrowserProvider(window.ethereum);
+      const balance = await getBalanceWithRetry(address);
+      const mintValue = parseEther("0.0002");
+      if (balance < mintValue) {
+        throw new Error('Insufficient balance for mint.');
+      }
+      // Use sendCalls with dataSuffix for ERC-8021 Builder Code attribution
+      const result = await sendCalls({
+        calls: [
+          {
+            to: CONTRACT_ADDRESS,
+            data: encodeFunctionData({
+              abi: NFT_ABI,
+              functionName: 'mint',
+              args: [],
+            }),
+            value: mintValue,
+          },
+        ],
+        capabilities: {
+          dataSuffix: dataSuffix,
+        },
+      });
+      const hash = result.hash;
+      let recorded = false;
+      let attempts = 0;
+      while (!recorded && attempts < 3) {
+        try {
+          await recordMintMutation.mutateAsync({ txHash: hash });
+          recorded = true;
+        } catch (err) {
+          if (err.response?.status === 403 && attempts < 2) {
+            await queryClient.refetchQueries({ queryKey: ['csrfToken'] });
+            attempts++;
+          } else {
+            throw err;
+          }
+        }
+      }
+      setShowMintModal(false);
+      toast.success('OG Pass minted successfully!');
+      setNftMinted(true);
+    } catch (err) {
+      console.error('Mint error:', err);
+      let errorMsg = 'Mint failed. Check price (0.0002 ETH) and gas.';
+      if (err.message.includes('Max supply')) errorMsg = 'Max supply (10,000) reached!'; // Updated to 10000
+      else if (err.message.includes('Incorrect mint price')) errorMsg = 'Wrong ETH amount sent.';
+      else if (err.shortMessage) errorMsg = err.shortMessage;
+      else if (err.message.includes('RPC')) errorMsg = 'RPC error. Try a different wallet RPC.';
+      toast.error(errorMsg);
+    }
+  };
+  // NEW: Handle modal steps progression - Skip if already completed/minted
+  const handleNextStep = () => {
+    if (mintStep === 'connectWallet' && walletConnected) {
+      setMintStep('connectTwitter');
+    } else if (mintStep === 'connectTwitter' && twitterConnected) {
+      if (nftMinted) {
+        setShowMintModal(false);
+        toast.info('Already minted!');
+      } else {
+        setMintStep('mintNFT');
+      }
+    }
+  };
+  const handleConnectWallet = () => {
+    updateWalletMutation.mutate({ walletAddress: address });
+  };
+  const handleConnectTwitter = () => {
+    connectTwitterMutation.mutate();
+  };
+  // Render Badge Section - UPDATED: Rely on nftMinted from userData, show Minted if true
+  const renderBadgeSection = useCallback(() => {
+    return (
+      <div className="h-full p-4 overflow-y-auto hide-scrollbar">
+        <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-5 xl:grid-cols-5 gap-6">
+          {/* NFT Card */}
+          <div className="bg-[#0A0A0A]/80 backdrop-blur-md border border-[#FFFFFF20] rounded-2xl overflow-hidden shadow-2xl glow-[#FFFFFF15] flex flex-col">
+            {/* Image - full width */}
+            <div className="relative w-full aspect-square">
+              {nftImageSrc ? (
+                <Image
+                  src={nftImageSrc}
+                  alt="Xynapse Genesis"
+                  fill
+                  className="object-cover"
+                  unoptimized={true}
+                  loading="eager"
+                  priority={true}
+                  onError={(e) => {
+                    console.error('Image load failed:', nftImageSrc); // Debug
+                    e.target.src = '/placeholder_nft.png';
+                  }}
+                />
+              ) : (
+                <div className="w-full h-full flex items-center justify-center bg-[#0A0A0A]/60">
+                  <Spinner className="h-12 w-12 text-[#00FFFF]" />
+                </div>
+              )}
+              {nftMinted && (
+                <div className="absolute top-3 left-3">
+                  <span className="bg-emerald-500 text-black px-3 py-1.5 rounded-full text-xs font-bold shadow-lg">
+                    Minted
+                  </span>
+                </div>
+              )}
+            </div>
+            <div className="p-5 flex flex-col flex-grow">
+              <h3 className="text-xs text-[#FFF] font-bold text-lg mb-4 text-center">
+                Xynapse Genesis NFT
+              </h3>
+              <div className="mt-auto">
+                {nftMinted ? (
+                  <div className="text-emerald-400 text-xs font-medium text-center">
+                    Already owned
+                  </div>
+                ) : (
+                  <motion.button
+                    onClick={() => setShowMintModal(true)}
+                    className="w-full py-3 bg-white text-black rounded-xl text-sm font-semibold hover:bg-[#00FFFF]/30 transition-all duration-300 border border-[#00FFFF]/50 shadow-lg"
+                    whileTap={{ scale: 0.98 }}
+                  >
+                    Mint (Free)
+                  </motion.button>
+                )}
+              </div>
+            </div>
+          </div>
+          {/* <div className="bg-[#0A0A0A]/60 rounded-2xl flex items-center justify-center">
+          <span className="text-[#D4D4D4]/50 text-sm">Coming Soon</span>
+        </div> */}
+        </div>
+      </div>
+    );
+  }, [nftMinted, setShowMintModal, nftImageSrc]);
+  // UPDATED: Render Mint Modal - Professional 3-step with lines, checkmarks, green on complete; skip if minted
+  const renderMintModal = () => (
+    <AnimatePresence>
+      {showMintModal && !nftMinted && (
+        <motion.div
+          className="fixed inset-0 bg-[#0A0A0A]/90 backdrop-blur-md z-50 flex items-center justify-center p-4"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          onClick={() => setShowMintModal(false)}
+        >
+          <motion.div
+            className="bg-[#111111] backdrop-blur-xl border border-[#FFFFFF30] rounded-3xl p-8 max-w-lg w-full relative overflow-hidden shadow-2xl"
+            initial={{ scale: 0.9, opacity: 0, y: 20 }}
+            animate={{ scale: 1, opacity: 1, y: 0 }}
+            exit={{ scale: 0.9, opacity: 0, y: 20 }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h3 className="text-[#FFFFFF] font-bold text-xl mb-8 text-center">Mint Process</h3>
 
+            {/* Progress steps */}
+            <div className="flex items-center justify-between mb-10">
+              {['connectWallet', 'connectTwitter', 'mintNFT'].map((step, index) => {
+                const isCompleted =
+                  (step === 'connectWallet' && walletConnected) ||
+                  (step === 'connectTwitter' && twitterConnected) ||
+                  (step === 'mintNFT' && false);
+                const isActive = mintStep === step;
+
+                return (
+                  <Fragment key={step}>
+                    <div className="flex flex-col items-center gap-3">
+                      <div
+                        className={`w-12 h-12 rounded-full flex items-center justify-center text-base font-bold border-4 transition-all duration-300 ${isCompleted
+                            ? 'bg-white text-black border-white'
+                            : isActive
+                              ? 'border-white bg-[#FFFFFF20] text-white scale-110 shadow-lg shadow-white/20'
+                              : 'border-[#FFFFFF40] bg-transparent text-[#AAAAAA]'
+                          }`}
+                      >
+                        {isCompleted ? <Check className="w-6 h-6" /> : index + 1}
+                      </div>
+                      <span className="text-xs text-[#CCCCCC] capitalize">
+                        {step === 'connectWallet' ? 'Wallet' : step === 'connectTwitter' ? 'Twitter' : 'Mint NFT'}
+                      </span>
+                    </div>
+
+                    {index < 2 && (
+                      <div className="flex-1 h-0.5 bg-[#FFFFFF30] mx-4" />
+                    )}
+                  </Fragment>
+                );
+              })}
+            </div>
+
+            {/* Step content */}
+            <div className="min-h-[200px] flex flex-col items-center justify-center">
+              {mintStep === 'connectWallet' && (
+                <div className="text-center space-y-6">
+                  <p className="text-[#CCCCCC] text-sm">Connect your wallet to Base network</p>
+                  {walletConnected ? (
+                    <div className="flex gap-4 w-full">
+                      <button
+                        onClick={() => setShowMintModal(false)}
+                        className="flex-1 px-6 py-3 bg-[#FFFFFF10] text-white rounded-xl hover:bg-[#FFFFFF20] border border-[#FFFFFF30] transition"
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        onClick={handleNextStep}
+                        className="flex-1 px-6 py-3 bg-white text-black rounded-xl font-medium hover:bg-gray-200 transition"
+                      >
+                        Next
+                      </button>
+                    </div>
+                  ) : (
+                    <OnchainWalletWrapper>
+                      <ConnectWallet
+                        onConnect={handleConnectWallet}
+                        theme="dark"
+                        className="px-8 py-3"
+                      />
+                    </OnchainWalletWrapper>
+                  )}
+                </div>
+              )}
+
+              {mintStep === 'connectTwitter' && (
+                <div className="text-center space-y-6">
+                  <p className="text-[#CCCCCC] text-sm">Connect your X account for verification</p>
+                  {twitterConnected ? (
+                    <div className="flex gap-4 w-full">
+                      <button
+                        onClick={() => setShowMintModal(false)}
+                        className="flex-1 px-6 py-3 bg-[#FFFFFF10] text-white rounded-xl hover:bg-[#FFFFFF20] border border-[#FFFFFF30] transition"
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        onClick={handleNextStep}
+                        className="flex-1 px-6 py-3 bg-white text-black rounded-xl font-medium hover:bg-gray-200 transition"
+                      >
+                        Next
+                      </button>
+                    </div>
+                  ) : (
+                    <button
+                      onClick={handleConnectTwitter}
+                      className="px-8 py-3 bg-white text-black rounded-xl font-medium hover:bg-gray-200 transition flex items-center gap-3"
+                    >
+                      Connect X
+                    </button>
+                  )}
+                </div>
+              )}
+
+              {mintStep === 'mintNFT' && (
+                <div className="text-center space-y-8">
+                  <p className="text-[#CCCCCC] text-sm">All done ! Mint your exclusive Genesis NFT</p>
+                  <div className="relative w-64 h-64 mx-auto rounded-2xl overflow-hidden shadow-2xl">
+                    {nftImageSrc ? (
+                      <Image
+                        src={nftImageSrc}
+                        alt="NFT Preview"
+                        fill
+                        className="object-cover"
+                        unoptimized={true}
+                        priority
+                        onError={(e) => (e.target.src = '/placeholder_nft.png')}
+                      />
+                    ) : (
+                      <div className="w-full h-full flex items-center justify-center bg-[#222222]">
+                        <Spinner className="h-12 w-12 text-white" />
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="flex gap-4 w-full">
+                    <button
+                      onClick={() => setShowMintModal(false)}
+                      className="flex-1 px-6 py-3 bg-[#FFFFFF10] text-white rounded-xl hover:bg-[#FFFFFF20] border border-[#FFFFFF30] transition"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      onClick={handleMint}
+                      className="flex-1 px-6 py-3 bg-white text-black rounded-xl font-medium hover:bg-gray-200 transition"
+                    >
+                      Mint Now
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+          </motion.div>
+        </motion.div>
+      )}
+    </AnimatePresence>
+  );
   if (!session) {
     return <LoginPrompt />;
   }
-  const overallLoading = immediateLoading /*
-  || verifyTaskMutation.isLoading
-  */;
+  // const overallLoading = immediateLoading /*
+  // || verifyTaskMutation.isLoading
+  // */;
   return (
     <motion.div
       initial={{ opacity: 0, y: 20 }}
@@ -1343,8 +1927,8 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5, delay: 0.2 }}
         >
-          {/* <div className="border-b border-white/15 bg-black/50 rounded-t-xl flex h-[32px] sm:h-[40px] overflow-hidden">
-            {['profile'].map((tab) => {
+          <div className="border-b border-white/15 bg-black/50 rounded-t-xl flex h-[32px] sm:h-[40px] overflow-hidden">
+            {['profile', 'genesis'].map((tab) => {
               const isActive = activeTab === tab;
               return (
                 <motion.button
@@ -1356,6 +1940,9 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
                     }`}
                 >
                   {tab === 'profile' && <User className="w-3 h-3 sm:w-4 sm:h-4" />}
+                  {tab === 'tasks' && <Check className="w-3 h-3 sm:w-4 sm:h-4" />}
+                  {tab === 'leaderboard' && <Trophy className="w-3 h-3 sm:w-4 sm:h-4" />}
+                  {tab === 'genesis' && <Shield className="w-3 h-3 sm:w-4 sm:h-4" />}
                   {tab.charAt(0).toUpperCase() + tab.slice(1)}
                   {isActive && (
                     <motion.div
@@ -1367,7 +1954,7 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
                 </motion.button>
               );
             })}
-          </div> */}
+          </div>
           <div className="flex-1 overflow-hidden relative">
             <AnimatePresence mode="wait">
               {activeTab === 'profile' && (
@@ -1381,7 +1968,6 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
                   {renderProfileSection()}
                 </motion.div>
               )}
-              /*
               {activeTab === 'tasks' && (
                 <motion.div
                   key="tasks"
@@ -1404,13 +1990,25 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
                   {renderLeaderboardSection()}
                 </motion.div>
               )}
-              */
+              {activeTab === 'genesis' && (
+                <motion.div
+                  key="genesis"
+                  className="h-full overflow-y-auto hide-scrollbar"
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -10 }}
+                >
+                  {renderBadgeSection()}
+                </motion.div>
+              )}
             </AnimatePresence>
           </div>
         </motion.div>
       </div>
+      {/* UPDATED: Render Mint Modal */}
+      {renderMintModal()}
       {/* v2 Fallback Modal */}
-      <AnimatePresence>
+      {/* <AnimatePresence>
         {showV2Modal && (
           <motion.div
             className="fixed inset-0 bg-[#0A0A0A]/50 backdrop-blur-sm z-50 flex items-center justify-center p-4"
@@ -1453,7 +2051,7 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
             </motion.div>
           </motion.div>
         )}
-      </AnimatePresence>
+      </AnimatePresence> */}
       <style jsx>{`
         .hide-scrollbar::-webkit-scrollbar {
           display: none;
@@ -1477,6 +2075,32 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
           0% { transform: translateX(-100%); }
           100% { transform: translateX(100%); }
         }
+        .glow-emerald {
+          box-shadow: 0 0 20px rgba(6, 78, 59, 0.3);
+        }
+        .glow-nft {
+          box-shadow: 0 0 20px rgba(0, 255, 255, 0.3);
+        }
+        .animate-glow {
+          animation: glow 2s ease-in-out infinite alternate;
+        }
+        @keyframes glow {
+          from { opacity: 0.5; }
+          to { opacity: 1; }
+        }
+        .animate-scan {
+          animation: scan 3s linear infinite;
+        }
+        .animate-scan-slow {
+          animation: scan 5s linear infinite;
+        }
+        @keyframes scan {
+          0% { transform: translateY(-100%); }
+          100% { transform: translateY(100%); }
+        }
+        .animate-pulse-slow {
+          animation: pulse 3s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+        }
         @media (max-width: 640px) {
           .text-base { font-size: 0.875rem; }
           .text-lg { font-size: 1rem; }
@@ -1487,9 +2111,10 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
           .text-[8px] { font-size: 6px; }
           .h-[52px] { height: 48px; }
           .min-h-[100px] { min-height: 80px; }
+          .grid-cols-4 { grid-template-columns: repeat(1, 1fr); } /* Stack on mobile */
         }
         @media (min-width: 641px) and (max-width: 1024px) {
-          .grid-cols-3 { grid-template-columns: repeat(2, 1fr); }
+          .grid-cols-4 { grid-template-columns: repeat(2, 1fr); } /* 2 cols on tablet */
         }
       `}</style>
     </motion.div>

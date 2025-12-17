@@ -8,9 +8,9 @@ export default function QueryProvider({ children }) {
   const [queryClient] = useState(() => new QueryClient({
     defaultOptions: {
       queries: {
-        staleTime: 5 * 60 * 1000, // Cache dữ liệu trong 5 phút
-        cacheTime: 10 * 60 * 1000, // Giữ cache trong 10 phút
-        refetchOnWindowFocus: false, // Không refetch khi window focus
+        staleTime: 5 * 60 * 1000, 
+        cacheTime: 10 * 60 * 1000, 
+        refetchOnWindowFocus: false, 
       },
     },
   }));

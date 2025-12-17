@@ -625,11 +625,11 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
     const observer = new IntersectionObserver((entries) => {
       entries.forEach(entry => {
         if (entry.isIntersecting) {
-          entry.target.classList.add('visible'); // Trigger CSS animation nếu cần
+          entry.target.classList.add('visible');
         }
       });
     }, { threshold: 0.1 });
-    const sections = document.querySelectorAll('.tab-content, .chart-panel'); // Class cho sections heavy
+    const sections = document.querySelectorAll('.tab-content, .chart-panel'); 
     sections.forEach(sec => observer.observe(sec));
     return () => observer.disconnect();
   }, []);
@@ -2109,7 +2109,6 @@ export default React.memo(MarketTab, (prev, next) => {
 });
 
 <style jsx global>{`
-  /* Scrollbar mượt */
   .custom-scrollbar::-webkit-scrollbar {
     width: 5px;
   }

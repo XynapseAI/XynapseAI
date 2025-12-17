@@ -9,6 +9,7 @@ export default {
 		'./components/**/*.{js,ts,jsx,tsx}',
 		'./scenes/**/*.{js,ts,jsx,tsx}',
 	],
+	safelist: ['dark'],
 	theme: {
 		extend: {
 			colors: {

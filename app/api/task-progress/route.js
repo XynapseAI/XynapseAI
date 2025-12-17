@@ -118,7 +118,7 @@ async function checkDoubleSubmitCSRF(request, ip, userId) {
       cookieLength: cookieToken.length,
       storedLength: storedToken.length,
     });
-    return false;  // Invalid, không throw
+    return false; 
   }
 
   const valid = crypto.timingSafeEqual(Buffer.from(headerToken), Buffer.from(cookieToken)) &&

@@ -159,7 +159,6 @@ export default function ExplorerTab({ initialQuery, initialChain, isStandalone =
                 body: JSON.stringify({ action: 'native-price', chain: selectedChain })
             });
             const priceData = priceRes.ok ? await priceRes.json() : { price: 0 };
-            // Cập nhật giá vào chainStats (giữ nguyên các giá trị khác)
             setChainStats(prevStats => ({
                 ...prevStats,
                 nativePrice: priceData.price
@@ -221,9 +220,7 @@ export default function ExplorerTab({ initialQuery, initialChain, isStandalone =
         }
     };
     useEffect(() => {
-        // 1. Fetch giá lần đầu ngay lập tức
         fetchNativePrice();
-        // 2. Thiết lập Polling Giá (Mỗi 1 giờ)
         const ONE_HOUR_MS = 3600000;
         const priceIntervalId = setInterval(() => {
             fetchNativePrice();
@@ -232,16 +229,13 @@ export default function ExplorerTab({ initialQuery, initialChain, isStandalone =
         return () => clearInterval(priceIntervalId);
     }, [selectedChain]);
     useEffect(() => {
-        // 1. Reset loading khi đổi chain
+
         setDashboardLoading(true);
         setLatestBlocks([]);
         setLatestTxs([]);
         setNametags({});
-        // Không reset nativePrice ở đây để tránh bị 0 trong lúc chờ fetch price mới (vì giá chỉ fetch 1h/lần)
         setChainStats(prev => ({ blockNumber: 0, gasPrice: '0', nativePrice: prev.nativePrice || 0 }));
-        // 2. Fetch Dashboard Data (không bao gồm price) lần đầu ngay lập tức
         fetchDashboardData();
-        // 3. Thiết lập Polling cho Blocks/Txs/Stats (Mỗi 5 giây)
         const dataIntervalId = setInterval(() => {
             fetchDashboardData();
         }, 300000);
@@ -580,7 +574,7 @@ export default function ExplorerTab({ initialQuery, initialChain, isStandalone =
             return <span className="font-mono break-all text-[10px] sm:text-[12px]">{addr}</span>;
         }
         if (!addr) {
-            return <span className="font-mono text-gray-500 text-[10px] sm:text-[12px]">N/A</span>; // Sửa: Không hiển thị "Unknown", thay bằng "N/A"
+            return <span className="font-mono text-gray-500 text-[10px] sm:text-[12px]">N/A</span>;
         }
         const normalized = addr.toLowerCase();
         const tag = nametags[normalized];
@@ -702,12 +696,10 @@ export default function ExplorerTab({ initialQuery, initialChain, isStandalone =
             const fee = (gasUsed * effectiveGasPrice) / 1e18;
             const nativeValue = Number(parseInt(transaction.value || '0x0', 16)) / 1e18;
             const symbol = nativeSymbols[detectedChain] || 'ETH';
-            // Bổ sung: Lấy giá từ chainStats
-            const nativePrice = chainStats.nativePrice || 0; // <--- Truy cập chainStats
-            // Bổ sung: Tính toán USD
+            const nativePrice = chainStats.nativePrice || 0; 
             const nativeValueUSD = nativeValue * nativePrice;
             const feeUSD = fee * nativePrice;
-            txData.nativeValueUSD = nativeValueUSD; // <-- Cập nhật lại
+            txData.nativeValueUSD = nativeValueUSD; 
             txData.feeUSD = feeUSD;
             tx = { ...transaction, receipt, internalTxs, tokenTransfers };
             return (
@@ -990,7 +982,7 @@ export default function ExplorerTab({ initialQuery, initialChain, isStandalone =
                     )}
                 </motion.div>
             );
-        } else if (chain === 'solana') { // Fix: Xóa duplicate else if rỗng ở trên
+        } else if (chain === 'solana') {
             const status = tx.status || 'Success';
             const isSuccess = tx.isSuccess || status === 'Success';
             const timestamp = tx.timestamp || Date.now();

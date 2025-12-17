@@ -821,7 +821,7 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
     if (edges.length > 0) {
       fetchTokenImages();
     }
-  }, [edges, selectedChain, apiBaseUrl]); // Dependency giữ nguyên
+  }, [edges, selectedChain, apiBaseUrl]);
   const updateUrl = (chain, address) => {
     const newParams = new URLSearchParams();
     newParams.set('tab', 'treemap');
@@ -829,7 +829,7 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
     if (address) newParams.set('address', address);
     router.replace(`/dashboard?${newParams.toString()}`, { scroll: false });
   };
-  const fetchTransactions = useCallback(async (address, page = 1, isToken = false) => { // Thêm param isToken
+  const fetchTransactions = useCallback(async (address, page = 1, isToken = false) => {
     const isBitcoin = selectedChain === 'bitcoin';
     if (!isAddress(address) && !['solana', 'tron', 'bitcoin'].includes(selectedChain)) {
       logger.error('Invalid wallet address.');
@@ -856,7 +856,6 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
       });
       return;
     }
-    // MỚI: Clear cache nếu là token search lần đầu để tránh stale data
     if (isToken) {
       const cacheKey = `graph_full_${selectedChain}_${address.toLowerCase()}_${page}`;
       await cacheData(cacheKey, null, 0); // Invalidate cache
@@ -900,7 +899,7 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
         limit: selectedLimit,
         page,
         fetchLayer3: true,
-        isToken: isToken // Flag cho backend
+        isToken: isToken 
       };
       const signature = generateHmacSignature(payload);
       const response = await fetch(`${apiBaseUrl}/api/get-transactions`, {
@@ -1020,7 +1019,6 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
       (isBitcoin && bitcoinRegex.test(address)) ||
       (!['solana', 'tron', 'bitcoin'].includes(selectedChain) && isAddress(address))
     ) {
-      // Clear state trước khi fetch
       setPage(1);
       setFullIncomingData([]);
       setFullOutgoingData([]);
@@ -1030,7 +1028,6 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
       setNametags({});
       setClusters([]);
       setSelectedEntity({ type: null, data: { transactions: [] } });
-      // Fetch trực tiếp
       fetchTransactions(address, 1, isToken);
     } else {
       const errorMsg = isToken ? 'Invalid token address.' : 'Invalid wallet address.';
@@ -1091,7 +1088,6 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
         options: { useGNN: true, useDBSCAN: true, useIF: true }
       });
       if (response.data.success) {
-        // Thêm metrics cho server clusters nếu thiếu (từ worker)
         const enrichedClusters = await Promise.all(response.data.clusters.map(async (cluster) => {
           if (!cluster.velocity || !cluster.uniqueTokens || !cluster.topTokensVolume || !cluster.outstandingTxs || !cluster.totalValue) {
             const metrics = await computeMetricsInWorker(cluster.transactions, cluster.wallets);
@@ -1126,7 +1122,6 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
       const rootId = walletInfo.address.toLowerCase();
       const detectedClusters = clusters;
       const positionedNodesData = await positionInWorker(nodes.map(n => ({ ...n.data })), edges.map(e => ({ ...e.data })));
-      // Set selectedEntity for root node/cluster data (FIX: Định nghĩa clusterData nếu cần fallback)
       let clusterData;
       const rootCluster = detectedClusters.find(c => c.wallets.some(w => w.id.toLowerCase() === rootId));
       if (rootCluster) {
@@ -1204,7 +1199,7 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
         // Scale down initial positions for token query to bring clusters closer
         positionedNodesData.forEach(n => {
           if (!n.isRoot) {
-            n.x *= 0.25; // Giảm radius xuống 25% để gần hơn
+            n.x *= 0.25;
             n.y *= 0.25;
           }
         });
@@ -1300,7 +1295,7 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
           ctx.lineTo(end.x, end.y);
           const isLayer3 = link.layer === 3;
           ctx.strokeStyle = isLayer3 ? 'rgba(255, 255, 255, 0.3)' : 'rgba(255, 255, 255, 0.6)';
-          ctx.lineWidth = (isLayer3 ? 0.2 : 0.4) / globalScale; // Tăng độ dày đường link
+          ctx.lineWidth = (isLayer3 ? 0.2 : 0.4) / globalScale; 
           ctx.stroke();
         })
         .linkCanvasObjectMode(() => 'replace')
@@ -1337,7 +1332,6 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
         .enableZoomInteraction(true)
         .enablePanInteraction(true)
         .onNodeClick((node, event) => {
-          // FIX: Click node để update tables (wallet hoặc cluster)
           const walletId = node.id;
           const cluster = detectedClusters.find(c => c.wallets.some(w => w.id.toLowerCase() === walletId.toLowerCase()));
           if (cluster) {
@@ -1370,7 +1364,6 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
         });
       graphRef.current.centerAt(0, 0, 1500);
       graphRef.current.zoom(isTokenQuery ? 0.4 : 1.0, 1500); // Adjust initial zoom: higher for non-token to show spacing better
-      // Lý do: Khôi phục kích thước gốc (val và nodeVal theo totalValue * multiplier), nhưng layer3 multiplier = layer2 (5.76). Giữ scale positions *0.4 và force adjustments cho token query để cụm gần root hơn. Zoom 2 cho token để fit view tốt hơn.
     } catch (err) {
       logger.error('Error initializing ForceGraph:', err);
       toast.error('Graph visualization failed. Please refresh.', { position: 'top-right', theme: 'dark' });
@@ -1483,7 +1476,6 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
       toast.error('Invalid address selected.', { theme: 'dark' });
       return;
     }
-    // Set flag và state
     setIsTokenSearch(result.type === 'token');
     setWalletAddress(result.address);
     if (result.type === 'nametag') {
@@ -1501,7 +1493,6 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
         chainLogo: '/icons/default.webp',
       });
     }
-    // Gọi trực tiếp validation và fetch, không cần timeout vì address đã valid ở onSelect
     validateAndFetch(result.address, result.type === 'token');
   }, [validateAndFetch]);
   const handleFilterChange = useCallback(() => {

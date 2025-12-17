@@ -1663,8 +1663,6 @@ export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initi
           const fetchFn = async () => {
             let newTrades = [];
             let uniqueAddresses = new Set();
-
-            // Sequential fetch để tránh rate limit
             for (const ch of availableChains) {
               const platformId = ch.coingeckoId;
               const tokenAddr = selectedToken.detail_platforms?.[platformId]?.contract_address;
@@ -1869,18 +1867,16 @@ export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initi
     if (isBitcoin) return;
     const paginated = getPaginatedTrades(currentDexPage);
     setDexData(prev => ({ ...prev, trades: paginated }));
-    setIsLoadingPage(false); // Hide loading sau update
+    setIsLoadingPage(false);
   }, [currentDexPage, getPaginatedTrades, selectedToken]);
 
   const goToDexPage = useCallback((page) => {
     if (page < 1 || page > Math.ceil((dexData.fullTrades?.length || 0) / dexPaginationSize)) return;
     setIsLoadingPage(true);
     setCurrentDexPage(page);
-
-    // Nếu chưa đủ data cho page này, trigger load more background
     const requiredTxs = page * dexPaginationSize;
     if (dexData.fullTrades.length < requiredTxs) {
-      loadMoreDexData(); // Sẽ load batch thêm
+      loadMoreDexData();
     } else {
       setTimeout(() => setIsLoadingPage(false), 300); // Short delay for smooth UX
     }
