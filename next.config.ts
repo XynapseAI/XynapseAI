@@ -131,15 +131,15 @@ const nextConfig: NextConfig = {
       };
     }
     if (!options.dev) {
-      config.optimization.minimizer.push(
-        new (require('terser-webpack-plugin'))({
-          terserOptions: {
-            compress: {
-              drop_console: true,
-            },
-          },
-        })
-      );
+      // config.optimization.minimizer.push(
+      //   new (require('terser-webpack-plugin'))({
+      //     terserOptions: {
+      //       compress: {
+      //         drop_console: true,
+      //       },
+      //     },
+      //   })
+      // );
     }
     return config;
   },
