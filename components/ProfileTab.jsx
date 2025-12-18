@@ -1574,11 +1574,9 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
   const handleManualCacheClear = async () => {
     try {
       await clearAllCaches(session.user.id);
-      toast.success('Local cache cleared successfully. Reloading profile...', { position: 'top-center', autoClose: 3000 });
       window.location.reload();
     } catch (err) {
       logger.error('Error clearing cache:', err);
-      toast.error('Failed to clear cache. Please refresh the page manually.', { position: 'top-center', autoClose: 5000 });
     }
   };
   const getBalanceWithRetry = async (address, retries = 3) => {
@@ -1646,7 +1644,7 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
       setNftMinted(true);
     } catch (err) {
       console.error('Mint error:', err);
-      let errorMsg = 'Mint failed. Check price (0.0002 ETH) and gas.';
+      let errorMsg = 'Mint failed. Make sure you have enough gas fee.';
       if (err.message.includes('Max supply')) errorMsg = 'Max supply (10,000) reached!'; // Updated to 10000
       else if (err.message.includes('Incorrect mint price')) errorMsg = 'Wrong ETH amount sent.';
       else if (err.shortMessage) errorMsg = err.shortMessage;
