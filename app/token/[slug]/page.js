@@ -83,11 +83,11 @@ export async function generateStaticParams() {
     }
 
     const tokens = response;
-    const topTokens = tokens.slice(0, 100); // Tăng lên 100 token
+    const topTokens = tokens.slice(0, 5);
 
     const redisClient = await getRedisClient();
     await Promise.all(
-      topTokens.slice(0, 50).map(async (token) => { // Cache 50 token
+      topTokens.slice(0, 50).map(async (token) => {
         const cacheKey = `token-full-${token.id}-1-usd`;
         const cached = await redisClient.get(cacheKey);
         if (!cached) {
@@ -131,7 +131,7 @@ export async function generateMetadata({ params }) {
     keywords: `${slug}, ${tokenData.symbol?.toUpperCase() || 'token'}, cryptocurrency, crypto market, blockchain, price data, token analysis`,
     robots: 'index, follow',
     alternates: {
-      canonical: `https://xynapseai.net/dashboard?tab=market&token=${slug}`, // Thêm canonical URL
+      canonical: `https://xynapseai.net/dashboard?tab=market&token=${slug}`, 
     },
     openGraph: {
       title,
@@ -179,7 +179,6 @@ export default async function TokenPage({ params, searchParams }) {
     await revalidateTokenPath(slug);
   }
 
-  // Thêm JSON-LD
   const jsonLd = {
     '@context': 'https://schema.org',
     '@type': 'CryptoCurrency',

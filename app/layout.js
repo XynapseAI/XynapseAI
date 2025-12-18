@@ -1,5 +1,6 @@
 // app/layout.js - Fixed: Removed direct OnchainKitProvider usage in server component (moved to ClientProviders)
 // Import and usage of client components in server layouts causes ReferenceError
+export const dynamic = 'force-dynamic';
 import '../styles/globals.css';
 import ClientProviders from './ClientProviders';
 
@@ -59,7 +60,6 @@ function hasCircularReference(obj, seen = new WeakSet()) {
 }
 
 export default function RootLayout({ children }) {
-  // Kiểm tra children hoặc dữ liệu khác nếu cần
   if (hasCircularReference(children)) {
     console.error('Circular reference detected in children:', children);
     throw new Error('Circular reference in layout');

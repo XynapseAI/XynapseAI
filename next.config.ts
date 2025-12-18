@@ -2,7 +2,16 @@ import type { NextConfig } from 'next'
 
 const nextConfig: NextConfig = {
   reactStrictMode: true,
-  transpilePackages: [],
+  serverExternalPackages: [
+    'wagmi',
+    'viem',
+    '@wagmi/core',
+    '@tensorflow/tfjs',
+    '@tensorflow/tfjs-node',
+    'ml-isolation-forest',
+    'rate-limiter-flexible',
+  ],
+
   images: {
     domains: [
       'ipfs.io',
@@ -19,7 +28,6 @@ const nextConfig: NextConfig = {
       'imagedelivery.net',
       'res.cloudinary.com',
       'gold-tired-panda-407.mypinata.cloud',
-      
     ],
     remotePatterns: [
       {
@@ -64,6 +72,7 @@ const nextConfig: NextConfig = {
       },
     ],
   },
+
   async headers() {
     const allowedOrigins = [
       process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:3000',
@@ -99,18 +108,6 @@ const nextConfig: NextConfig = {
       },
     ]
   },
-  async rewrites() {
-    return [
-      {
-        source: '/privacy-policy',
-        destination: '/',
-      },
-      {
-        source: '/terms-of-service',
-        destination: '/',
-      },
-    ]
-  },
   webpack: (config, options) => {
     if (options.isServer) {
       config.resolve.alias = {
@@ -140,10 +137,6 @@ const nextConfig: NextConfig = {
     }
     
     return config
-  },
-  experimental: {
-    // Giúp xử lý các thư viện native hoặc ESM-only bên phía server
-    serverComponentsExternalPackages: ['@tensorflow/tfjs', '@tensorflow/tfjs-node', 'ml-isolation-forest' , 'rate-limiter-flexible'],
   },
 }
 
