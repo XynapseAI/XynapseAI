@@ -3,7 +3,7 @@
 import { motion, AnimatePresence } from 'framer-motion';
 import { useState, useEffect, useRef } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation'; // Added useSearchParams for preserving query/chain in explorer
-import { Power, Search as SearchIcon, BarChart3, Network, Activity, List, User, BadgeDollarSign , Zap } from 'lucide-react'; // Added Zap for AI (or reuse Activity)
+import { Power, Search as SearchIcon, BarChart3, Network, Activity, List, User, BadgeDollarSign, Zap } from 'lucide-react'; // Added Zap for AI (or reuse Activity)
 import Link from 'next/link';
 import Image from 'next/image';
 import { useCurrency } from './CurrencyContext';
@@ -310,7 +310,7 @@ export default function Header({ activeTab, setActiveTab, handleSignOut, selecte
           {isMenuOpen && (
             <motion.div
               ref={menuRef}
-              className="fixed top-[5vh] left-0 -translate-x-1/2 w-[80vw] h-[70vh] bg-black/95 backdrop-blur-xs z-[60] flex flex-col p-4 sm:hidden rounded-xl border border-white/10 shadow-2xl shadow-neon-blue/20 overflow-y-auto hide-scrollbar"
+              className="fixed top-[5vh] left-1/2 -translate-x-1/2 w-[80vw] h-[70vh] bg-black/95 backdrop-blur-xs z-[60] flex flex-col p-4 sm:hidden rounded-xl border border-white/10 shadow-2xl shadow-neon-blue/20 overflow-y-auto hide-scrollbar"
               initial="closed"
               animate="open"
               exit="closed"
