@@ -1,6 +1,6 @@
-import type { NextConfig } from 'next'
+/** @type {import('next').NextConfig} */
 
-const nextConfig: NextConfig = {
+const nextConfig = {
   reactStrictMode: true,
   compiler: {
     removeConsole: process.env.NODE_ENV === 'production',
@@ -118,17 +118,17 @@ const nextConfig: NextConfig = {
         'node:crypto': 'crypto',
         'node:fs': 'fs',
         'node:path': 'path',
-      }
+      };
     } else {
       config.resolve.fallback = {
         ...config.resolve.fallback,
         crypto: false,
         fs: false,
         path: false,
-      }
+      };
     }
-    return config
+    return config;
   },
-}
+};
 
 export default nextConfig
