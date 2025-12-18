@@ -5,8 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "set NODE_OPTIONS=--max-old-space-size=4096 && next dev",
-    "postinstall": "prisma generate",
-    "build": "next build",
+    "build": "prisma generate && next build",
     "start": "next start",
     "lint": "next lint"
   },
@@ -27,8 +26,8 @@
     "@neynar/nodejs-sdk": "^3.34.0",
     "@neynar/react": "^1.2.22",
     "@pigment-css/react": "^0.0.30",
-    "@prisma/client": "^6.12.0",
-    "prisma": "^6.12.0",
+    "@pinata/sdk": "^2.1.0",
+    "@prisma/client": "6.12.0",
     "@privy-io/react-auth": "^2.20.0",
     "@privy-io/server-auth": "^1.28.8",
     "@radix-ui/react-slot": "^1.2.3",
@@ -54,7 +53,8 @@
     "@tensorflow/tfjs-layers": "^4.22.0",
     "@upstash/redis": "^1.35.7",
     "@vercel/edge-config": "^1.4.0",
-    "@wagmi/connectors": "^7.0.2",
+    "@wagmi/connectors": "^5.8.5",
+    "@web3modal/wagmi": "^5.1.11",
     "@worldcoin/minikit-js": "^1.9.8",
     "@xenova/transformers": "^2.17.2",
     "3d": "^0.0.0",
@@ -102,6 +102,8 @@
     "express-rate-limit": "^7.5.1",
     "express-validator": "^7.2.1",
     "files-from-path": "^1.1.4",
+    "firebase": "^11.9.1",
+    "firebase-functions": "^6.3.2",
     "framer-motion": "^12.23.12",
     "graphology": "^0.26.0",
     "graphology-layout-forceatlas2": "^0.10.1",
@@ -131,6 +133,7 @@
     "next": "^15.5.7",
     "next-auth": "^5.0.0-beta.29",
     "next-intl": "^4.3.9",
+    "nft.storage": "^7.2.0",
     "node-cache": "^5.1.2",
     "node-cron": "^4.2.1",
     "node-fetch": "^2.7.0",
@@ -141,6 +144,7 @@
     "ox": "^0.10.0",
     "p-limit": "^6.2.0",
     "pg": "^8.16.3",
+    "phaser": "^3.90.0",
     "pino": "^9.7.0",
     "pixi.js": "^8.10.1",
     "prom-client": "^15.1.3",
@@ -197,20 +201,21 @@
     "winston": "^3.17.0",
     "workerpool": "^10.0.1",
     "ws": "^8.14.2",
-    "zod": "^4.0.14",
-    "typescript": "5.8.3"
+    "zod": "^4.0.14"
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3",
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
+    "@wagmi/core": "^2.17.2",
     "eslint": "^9",
     "eslint-config-next": "15.1.8",
+    "pino-pretty": "^13.0.0",
     "postcss": "^8",
+    "prisma": "6.12.0",
     "tailwindcss": "^4.1.18",
     "terser": "^5.43.1",
-    "terser-webpack-plugin": "^5.2.1"
-  },
-  "overrides": {}
+    "typescript": "^5"
+  }
 }

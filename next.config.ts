@@ -1,17 +1,8 @@
-import type { NextConfig } from 'next';
+import type { NextConfig } from 'next'
 
 const nextConfig: NextConfig = {
   reactStrictMode: true,
-  // Cấu hình build cho Next.js 15+
-  // Đưa các thư viện server-side nặng hoặc gây lỗi build vào đây
-  serverExternalPackages: [
-    'rate-limiter-flexible', 
-    '@tensorflow/tfjs', 
-    '@tensorflow/tfjs-node', 
-    'ml-isolation-forest',
-    'pino',
-    'winston'
-  ],
+  transpilePackages: [],
   images: {
     domains: [
       'ipfs.io',
@@ -28,6 +19,7 @@ const nextConfig: NextConfig = {
       'imagedelivery.net',
       'res.cloudinary.com',
       'gold-tired-panda-407.mypinata.cloud',
+      
     ],
     remotePatterns: [
       {
@@ -48,7 +40,7 @@ const nextConfig: NextConfig = {
       {
         protocol: 'https',
         hostname: 'imagedelivery.net',
-        pathname: '/**',
+        pathname: '/**', 
       },
       {
         protocol: 'https',
@@ -57,12 +49,17 @@ const nextConfig: NextConfig = {
       },
       {
         protocol: 'https',
-        hostname: '*.mypinata.cloud',
+        hostname: 'gold-tired-panda-407.mypinata.cloud',
         pathname: '/ipfs/**',
       },
       {
         protocol: 'https',
         hostname: 'ipfs.io',
+        pathname: '/ipfs/**',
+      },
+      {
+        protocol: 'https',
+        hostname: '*.mypinata.cloud',
         pathname: '/ipfs/**',
       },
     ],
@@ -100,7 +97,7 @@ const nextConfig: NextConfig = {
           { key: 'Content-Type', value: 'application/json' },
         ],
       },
-    ];
+    ]
   },
   async rewrites() {
     return [
@@ -112,7 +109,7 @@ const nextConfig: NextConfig = {
         source: '/terms-of-service',
         destination: '/',
       },
-    ];
+    ]
   },
   webpack: (config, options) => {
     if (options.isServer) {
@@ -121,30 +118,33 @@ const nextConfig: NextConfig = {
         'node:crypto': 'crypto',
         'node:fs': 'fs',
         'node:path': 'path',
-      };
+      }
     } else {
       config.resolve.fallback = {
         ...config.resolve.fallback,
         crypto: false,
         fs: false,
         path: false,
-      };
+      }
     }
     if (!options.dev) {
-      // config.optimization.minimizer.push(
-      //   new (require('terser-webpack-plugin'))({
-      //     terserOptions: {
-      //       compress: {
-      //         drop_console: true,
-      //       },
-      //     },
-      //   })
-      // );
+      config.optimization.minimizer.push(
+        new (require('terser-webpack-plugin'))({
+          terserOptions: {
+            compress: {
+              drop_console: true,
+            },
+          },
+        })
+      );
     }
-    return config;
+    
+    return config
   },
   experimental: {
+    // Giúp xử lý các thư viện native hoặc ESM-only bên phía server
+    serverComponentsExternalPackages: ['@tensorflow/tfjs', '@tensorflow/tfjs-node', 'ml-isolation-forest' , 'rate-limiter-flexible'],
   },
-};
+}
 
-export default nextConfig;
+export default nextConfig
