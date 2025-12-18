@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "set NODE_OPTIONS=--max-old-space-size=4096 && next dev",
-    "postinstall": "prisma generate",
+    "postinstall": "npx prisma generate",
     "build": "prisma generate && next build",
     "start": "next start",
     "lint": "next lint"
@@ -199,7 +199,8 @@
     "winston": "^3.17.0",
     "workerpool": "^10.0.1",
     "ws": "^8.14.2",
-    "zod": "^4.0.14"
+    "zod": "^4.0.14",
+    "prisma": "6.12.0"
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3",
@@ -211,7 +212,6 @@
     "eslint-config-next": "15.1.8",
     "pino-pretty": "^13.0.0",
     "postcss": "^8",
-    "prisma": "6.12.0",
     "tailwindcss": "^4.1.18",
     "terser": "^5.43.1",
     "typescript": "^5"
