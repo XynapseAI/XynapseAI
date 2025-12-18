@@ -2,6 +2,9 @@ import type { NextConfig } from 'next'
 
 const nextConfig: NextConfig = {
   reactStrictMode: true,
+  compiler: {
+    removeConsole: process.env.NODE_ENV === 'production',
+  },
   serverExternalPackages: [
     'wagmi',
     'viem',
@@ -124,18 +127,6 @@ const nextConfig: NextConfig = {
         path: false,
       }
     }
-    if (!options.dev) {
-      config.optimization.minimizer.push(
-        new (require('terser-webpack-plugin'))({
-          terserOptions: {
-            compress: {
-              drop_console: true,
-            },
-          },
-        })
-      );
-    }
-    
     return config
   },
 }
