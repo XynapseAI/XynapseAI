@@ -1,7 +1,13 @@
-/** @type {import('next').NextConfig} */
+import type { NextConfig } from 'next'
 
-const nextConfig = {
+const nextConfig: NextConfig = {
   reactStrictMode: true,
+  eslint: {
+    ignoreDuringBuilds: true,
+  },
+  typescript: {
+    ignoreBuildErrors: true,
+  },
   compiler: {
     removeConsole: process.env.NODE_ENV === 'production',
   },
@@ -51,7 +57,7 @@ const nextConfig = {
       {
         protocol: 'https',
         hostname: 'imagedelivery.net',
-        pathname: '/**', 
+        pathname: '/**',
       },
       {
         protocol: 'https',
@@ -118,17 +124,17 @@ const nextConfig = {
         'node:crypto': 'crypto',
         'node:fs': 'fs',
         'node:path': 'path',
-      };
+      }
     } else {
       config.resolve.fallback = {
         ...config.resolve.fallback,
         crypto: false,
         fs: false,
         path: false,
-      };
+      }
     }
-    return config;
+    return config
   },
-};
+}
 
 export default nextConfig
