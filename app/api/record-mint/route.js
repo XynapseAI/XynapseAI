@@ -1,8 +1,6 @@
-// app/api/record-mint/route.js
 import { NextResponse } from 'next/server';
 import { PrismaClient } from '@prisma/client';
 import { auth } from '@/lib/auth';
-import { verifyRecaptcha } from '../../../utils/verifyRecaptcha';
 import { z } from 'zod';
 import { logger } from '../../../utils/serverLogger';
 import { createClient } from 'redis';
@@ -14,9 +12,7 @@ import Bottleneck from 'bottleneck';
 import { RateLimiterRedis } from 'rate-limiter-flexible';
 import { query } from '@/utils/postgres';
 
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
 const scrypt = util.promisify(crypto.scrypt);
-
 const prisma = new PrismaClient({
   errorFormat: 'minimal',
   datasources: {
@@ -45,7 +41,7 @@ async function getRedisClient() {
         logger.error('Failed to connect to Redis after max retries', { err: err?.message });
         if (process.env.NODE_ENV === 'development') {
           logger.warn('Bypassing Redis in development mode');
-          return null; // Bypass in dev if fail
+          return null;
         }
         throw new Error('Failed to connect to Redis');
       }
@@ -78,9 +74,8 @@ async function withRetry(fn, retries = 3, delay = 2000) {
   }
 }
 
-// ================= Security Headers =================
 const securityHeaders = {
-  'Content-Security-Policy': "default-src 'self'; frame-ancestors *;", // Allow all for Farcaster iframe/WebView
+  'Content-Security-Policy': "default-src 'self'; frame-ancestors *;",
   'X-Content-Type-Options': 'nosniff',
   'X-Frame-Options': 'DENY',
   'Strict-Transport-Security': 'max-age=63072000; includeSubDomains; preload',
@@ -88,7 +83,6 @@ const securityHeaders = {
   'Permissions-Policy': 'geolocation=(), microphone=(), camera=()',
 };
 
-// ================= Allowed Origins =================
 const allowedOrigins = [
   process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000',
   'https://xynapseai.net',
@@ -96,14 +90,13 @@ const allowedOrigins = [
   'https://xynapse-ai-xynapse-projects.vercel.app',
   'https://xynapse-ai.vercel.app',
   'https://base.xynapseai.net',
-  'https://warpcast.com', 
+  'https://warpcast.com',
   'https://farcaster.xyz',
   'https://base.org',
-  'https://id.worldcoin.org', // World App
+  'https://id.worldcoin.org',
   'https://world.org',
 ].filter((v, i, a) => a.indexOf(v) === i);
 
-// IMPROVED: isAllowedOrigin
 async function isAllowedOrigin(origin, referer, pathname, ip) {
   logger.info('Checking origin for record-mint', { origin, referer, pathname, ip, allowedOrigins });
   try {
@@ -113,7 +106,6 @@ async function isAllowedOrigin(origin, referer, pathname, ip) {
     }
     if (origin === 'null' && referer) {
       const refOrigin = new URL(referer).origin;
-      // Allow if referer from trusted apps or own domains
       if (
         allowedOrigins.includes(refOrigin) ||
         referer.includes('farcaster.xyz') ||
@@ -154,7 +146,6 @@ async function isAllowedOrigin(origin, referer, pathname, ip) {
   }
 }
 
-// ================= IP Ban Logic =================
 async function banIP(ip, durationSeconds = 3600) {
   const client = await getRedisClient();
   if (client) {
@@ -198,7 +189,6 @@ async function trackViolation(ip, pathname, reason = 'Unknown') {
   }
 }
 
-// ================= Dynamic Rate Limit =================
 async function getAccountAge(userId) {
   if (!userId) return 0;
   try {
@@ -215,42 +205,39 @@ async function getAccountAge(userId) {
 async function dynamicRateLimit(ip, userId = null, pathname) {
   if (process.env.NODE_ENV === 'development') {
     logger.info('Bypassing rate limit in development mode', { userId, ip });
-    return; // Bypass rate limit in dev to avoid local Redis issues
+    return;
   }
   const client = await getRedisClient();
   if (!client) {
     logger.warn('Skipping rate limit due to Redis unavailable', { userId, ip });
     return;
   }
-  const windowSeconds = 15 * 60;
-  const ipKey = `rate:ip:${ip}`;
-  const userKey = userId ? `rate:user:${userId}` : null;
-  const accountAge = await getAccountAge(userId);
-  const isPremium = false;
   const limits = {
-    newUser: { points: 50, duration: 15 * 60 },
-    regularUser: { points: 100, duration: 15 * 60 },
+    newUser: { points: 100, duration: 15 * 60 },
+    regularUser: { points: 200, duration: 15 * 60 },
     premiumUser: { points: 500, duration: 15 * 60 },
   };
+  const accountAge = await getAccountAge(userId);
+  const isPremium = false;
   const limitType = isPremium ? 'premiumUser' : accountAge < 7 ? 'newUser' : 'regularUser';
   const rateLimiter = new RateLimiterRedis({
     storeClient: client,
     keyPrefix: `rate_limit:mint:${userId || ip}`,
-    points: limits[limitType].points, 
-    duration: limits[limitType].duration, // duration in seconds
-    inmemoryBlockOnConsumed: limits[limitType].points + 1, // Block if exceeded
+    points: limits[limitType].points,
+    duration: limits[limitType].duration,
+    inmemoryBlockOnConsumed: limits[limitType].points + 1,
   });
   try {
-    await rateLimiter.consume(userId || ip, 1); // Consume 1 point per request
+    await rateLimiter.consume(userId || ip, 1);
     logger.info('Rate limit consumed successfully', { userId, ip });
   } catch (err) {
     if (err instanceof Error && err.message.includes('ECONNREFUSED')) {
       logger.error('Redis connection refused in rate limit', { err: err.message });
-      return; // Skip rate limit if Redis down
+      return;
     }
-    let msBeforeNext = err.msBeforeNext || 60000; // Default 60s if undefined
+    let msBeforeNext = err.msBeforeNext || 60000;
     if (typeof msBeforeNext !== 'number' || isNaN(msBeforeNext)) {
-      msBeforeNext = 60000; // Fallback if not number
+      msBeforeNext = 60000;
       logger.warn('msBeforeNext invalid, using fallback', { msBeforeNext: err.msBeforeNext });
     }
     const secs = Math.ceil(msBeforeNext / 1000);
@@ -259,7 +246,6 @@ async function dynamicRateLimit(ip, userId = null, pathname) {
   }
 }
 
-// ================= CSRF & Other Utils =================
 function parseCookies(request) {
   const raw = request.headers.get('cookie') || '';
   try {
@@ -277,7 +263,7 @@ async function setCSRFToken(ip, userId) {
   const client = await getRedisClient();
   if (!client) {
     logger.warn('Skipping setCSRFToken due to Redis unavailable');
-    return generateCSRFToken(); // Fallback to generate but not store
+    return generateCSRFToken();
   }
   const token = await generateCSRFToken();
   const key = `csrf:${userId || ip}`;
@@ -289,45 +275,32 @@ async function checkDoubleSubmitCSRF(request, ip, userId) {
   const headerToken = request.headers.get('x-csrf-token') || '';
   const cookies = parseCookies(request);
   const cookieToken = cookies['csrf_token'] || '';
-
   if (process.env.NODE_ENV === 'development' && headerToken === 'dev-csrf' && cookieToken === 'dev-csrf') {
-    if (process.env.NODE_ENV !== 'production') {
-      logger.info('Development CSRF bypass used');
-    }
+    logger.info('Development CSRF bypass used');
     return true;
   }
-
   if (process.env.NODE_ENV === 'development') {
     logger.info('Bypassing CSRF in development mode');
-    return true; // Bypass CSRF in dev
+    return true;
   }
-
   if (!headerToken || !cookieToken) {
-    if (process.env.NODE_ENV !== 'production') {
-      logger.warn('CSRF tokens missing', {
-        headerProvided: !!headerToken,
-        cookieProvided: !!cookieToken,
-      });
-    }
+    logger.warn('CSRF tokens missing', {
+      headerProvided: !!headerToken,
+      cookieProvided: !!cookieToken,
+    });
     return false;
   }
-
   const client = await getRedisClient();
   if (!client) {
     logger.warn('Skipping CSRF check due to Redis unavailable - allowing request');
-    return true; // Allow if Redis down to avoid blocking
+    return true;
   }
   const storedToken = await client.get(`csrf:${userId || ip}`);
   if (!storedToken) {
-    if (process.env.NODE_ENV !== 'production') {
-      logger.warn('CSRF token not found in Redis', { key: `csrf:${userId || ip}` });
-    }
+    logger.warn('CSRF token not found in Redis', { key: `csrf:${userId || ip}` });
     return false;
   }
-
-  // FIXED: Add debug log for lengths
   logger.info('CSRF token lengths', { header: headerToken.length, cookie: cookieToken.length, stored: storedToken.length });
-
   const valid = crypto.timingSafeEqual(Buffer.from(headerToken), Buffer.from(cookieToken)) &&
     crypto.timingSafeEqual(Buffer.from(cookieToken), Buffer.from(storedToken));
   if (!valid && process.env.NODE_ENV !== 'production') {
@@ -345,7 +318,6 @@ function mask(value, keep = 6) {
   return value.length <= keep ? '••••' : value.slice(0, keep) + '••••';
 }
 
-// ================= Rate Limit + CORS wrapper =================
 const limiter = new Bottleneck({ maxConcurrent: 5, minTime: 200 });
 const rateLimitedHandler = (handler) =>
   limiter.wrap(async (request) => {
@@ -354,18 +326,15 @@ const rateLimitedHandler = (handler) =>
     const origin = request.headers.get('origin');
     const referer = request.headers.get('referer');
     logger.info(`Record-mint Request: IP=${ip}, Origin=${origin || 'null'}, Referer=${referer || 'null'}, Pathname=${pathname}`);
-
     if (!(await isAllowedOrigin(origin, referer, pathname, ip))) {
       return NextResponse.json({ detail: 'CORS Not Allowed' }, { status: 403, headers: securityHeaders });
     }
-
     try {
       await checkIPBan(ip, pathname);
     } catch (err) {
       logger.warn('IP ban triggered', { message: err.message, ip, pathname });
       return NextResponse.json({ detail: err.message }, { status: 429, headers: securityHeaders });
     }
-
     try {
       const session = await auth();
       const userId = session?.user?.id || null;
@@ -375,13 +344,12 @@ const rateLimitedHandler = (handler) =>
       logger.warn('Rate limit triggered', { message: err.message, ip, pathname });
       return NextResponse.json({ detail: err.message }, { status: 429, headers: securityHeaders });
     }
-
     try {
       const res = await handler(request);
       const newHeaders = new Headers(res.headers || {});
       Object.entries(securityHeaders).forEach(([k, v]) => newHeaders.set(k, v));
       newHeaders.set('Access-Control-Allow-Credentials', 'true');
-      let allowOrigin = 'https://xynapseai.net'; // Default
+      let allowOrigin = 'https://xynapseai.net';
       if (origin && allowedOrigins.includes(origin)) {
         allowOrigin = origin;
       } else if (origin === 'null' && referer) {
@@ -391,7 +359,7 @@ const rateLimitedHandler = (handler) =>
           allowOrigin = allowedOrigins[0] || 'https://xynapseai.net';
         }
       }
-      newHeaders.set('Access-Control-Allow-Origin', allowOrigin); // NOT 'null'
+      newHeaders.set('Access-Control-Allow-Origin', allowOrigin);
       newHeaders.set('Access-Control-Allow-Methods', 'POST');
       newHeaders.set('Access-Control-Allow-Headers', 'Content-Type,X-Recaptcha-Token,X-CSRF-Token');
       logger.info('Set CORS origin for record-mint:', { allowOrigin, origin, referer });
@@ -402,14 +370,12 @@ const rateLimitedHandler = (handler) =>
     }
   });
 
-// Schema for POST body
 const postSchema = z.object({
   txHash: z.string().min(1, 'txHash is required'),
   uid: z.string().min(1, 'UID is required'),
   walletAddress: z.string().min(42, 'Wallet address is invalid'),
 });
 
-// NFT ABI for verification
 const NFT_ABI = [
   {
     name: 'mint',
@@ -420,23 +386,19 @@ const NFT_ABI = [
   },
 ];
 
-// Provider setup
 const BASE_RPC = process.env.BASE_RPC || 'https://mainnet.base.org';
 const provider = new ethers.JsonRpcProvider(BASE_RPC);
 const CONTRACT_ADDRESS = process.env.NFT_CONTRACT_ADDRESS || '0x22EE9eE1a5986ff354d34ed19Eb28E65091C7648';
 
-// Replace the POST function in app/api/record-mint/route.js with this (remove reCAPTCHA check):
 export async function POST(request) {
   return rateLimitedHandler(async (request) => {
     try {
       const session = await auth();
       const userId = session?.user?.id || null;
-
       if (!session || !userId) {
         await trackViolation(getClientIp(request), request.url, 'Unauthenticated request');
         return NextResponse.json({ detail: 'Not authenticated' }, { status: 401 });
       }
-
       let newCsrfToken;
       const csrfOk = await checkDoubleSubmitCSRF(request, getClientIp(request), userId);
       if (!csrfOk) {
@@ -452,10 +414,8 @@ export async function POST(request) {
             path: '/',
           });
         }
-        return NextResponse.json({ detail: 'Invalid CSRF token. Please try again.' }, { status: 403, headers });
+        return NextResponse.json({ detail: 'Invalid CSRF check.' }, { status: 403, headers });
       }
-
-      // Removed entire reCAPTCHA block
 
       let body;
       try {
@@ -498,7 +458,6 @@ export async function POST(request) {
       }
 
       const { txHash, uid, walletAddress } = parsedBody;
-
       if (session.user.id !== uid) {
         newCsrfToken = newCsrfToken || await setCSRFToken(getClientIp(request), userId);
         const headers = { ...securityHeaders };
@@ -516,23 +475,17 @@ export async function POST(request) {
         return NextResponse.json({ detail: 'Not authorized' }, { status: 401, headers });
       }
 
-      // Verify txHash is valid and a mint from walletAddress
       try {
-        // FIXED: Validate txHash format first to avoid null params
         if (!txHash || !ethers.isHexString(txHash, 32)) {
           return NextResponse.json({ detail: 'Invalid txHash format' }, { status: 400 });
         }
-
         const receipt = await provider.getTransactionReceipt(txHash);
         if (!receipt || receipt.status !== 1) {
           return NextResponse.json({ detail: 'Invalid or failed transaction' }, { status: 400 });
         }
-
         if (receipt.from.toLowerCase() !== walletAddress.toLowerCase()) {
           return NextResponse.json({ detail: 'Transaction not from your wallet' }, { status: 403 });
         }
-
-        // Verify it's a mint call (optional, but secure)
         const iface = new ethers.Interface(NFT_ABI);
         const tx = await provider.getTransaction(txHash);
         if (tx) {
@@ -546,7 +499,6 @@ export async function POST(request) {
         return NextResponse.json({ detail: 'Failed to verify transaction on chain' }, { status: 500 });
       }
 
-      // Check if already minted
       try {
         const user = await withRetry(() => prisma.users.findUnique({ where: { id: uid } }));
         if (!user) {
@@ -560,7 +512,6 @@ export async function POST(request) {
         return NextResponse.json({ detail: 'Server error checking status' }, { status: 500 });
       }
 
-      // Update user
       try {
         await withRetry(() =>
           prisma.users.update({
@@ -568,8 +519,6 @@ export async function POST(request) {
             data: { has_minted_nft: true }
           })
         );
-
-        // Invalidate cache
         try {
           const client = await getRedisClient();
           if (client) {
@@ -611,7 +560,6 @@ export async function POST(request) {
   })(request);
 }
 
-// ================= Graceful shutdown =================
 process.on('SIGTERM', async () => {
   if (redisClient?.isOpen) await redisClient.quit();
   logger.info('Redis connection closed on SIGTERM');
