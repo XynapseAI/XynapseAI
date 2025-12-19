@@ -1230,7 +1230,7 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
           const baseVal = Math.sqrt(tv) + 1;
           if (node.layer === 1) return baseVal * 5.6;
           if (node.layer === 2) return baseVal * 4.0;
-          if (node.layer === 3) return baseVal * 2.8;
+          if (node.layer === 3) return baseVal * 2.0;
           return baseVal * 2.0;
         })
         .nodeLabel(node => {
@@ -1361,10 +1361,10 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
           node.fy = node.y;
         })
         .onEngineStop(() => {
-          graphRef.current.zoomToFit(1000, 150); // Increase padding for better fit without crowding
+          graphRef.current.zoomToFit(1200, 200); // Increase padding for better fit without crowding
         });
       graphRef.current.centerAt(0, 0, 1500);
-      graphRef.current.zoom(isTokenQuery ? 0.4 : 1.0, 1500); // Adjust initial zoom: higher for non-token to show spacing better
+      graphRef.current.zoom(isTokenQuery ? 0.35 : 0.7, 1500); // Adjust initial zoom: higher for non-token to show spacing better
     } catch (err) {
       logger.error('Error initializing ForceGraph:', err);
       toast.error('Graph visualization failed. Please refresh.', { position: 'top-right', theme: 'dark' });

@@ -9,8 +9,8 @@ import { query } from "@/utils/postgres";
 import { logger } from "@/utils/serverLogger";
 import crypto from 'crypto';
 import util from 'util';
-import { NeynarAPIClient, Configuration } from "@neynar/nodejs-sdk";  // THAY ĐỔI: Import Configuration cho v2
-import { createClient as createQuickAuthClient } from '@farcaster/quick-auth'; // NEW: Cho quickauth token verify
+import { NeynarAPIClient, Configuration } from "@neynar/nodejs-sdk";
+import { createClient as createQuickAuthClient } from '@farcaster/quick-auth';
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 import { createPublicClient, http, hexToBytes, hashMessage } from 'viem';
 import * as chains from 'viem/chains';
@@ -18,7 +18,6 @@ import * as chains from 'viem/chains';
 
 const scrypt = util.promisify(crypto.scrypt);
 
-// Hàm hashApiKey (giữ nguyên)
 async function hashApiKey(apiKey) {
   const salt = crypto.randomBytes(16).toString('hex');
   const derived = await scrypt(apiKey, salt, 64);
@@ -28,7 +27,7 @@ async function hashApiKey(apiKey) {
   };
 }
 
-// NEW: Verify quickauth JWT token (cho miniapp)
+// NEW: Verify quickauth JWT token
 async function verifyFarcasterJwt(token, req) {
   try {
     const quickAuthClient = createQuickAuthClient();
@@ -44,20 +43,17 @@ async function verifyFarcasterJwt(token, req) {
   }
 }
 
-// NEW: Verify World SIWE (tương tự Farcaster nhưng cho wallet address)
 async function verifyWorldSiwe(messageStr, signature) {
   try {
     const message = new SiweMessage(messageStr);
-
-    // Log đầu vào để debug
     logger.info('World SIWE input details', {
       chainId: message.chainId,
       address: message.address?.toLowerCase(),
-      signaturePreview: signature.substring(0, 10) + '...' + signature.slice(-10),  // Check nếu '0x...'
+      signaturePreview: signature.substring(0, 10) + '...' + signature.slice(-10),
       messagePreview: messageStr.substring(0, 50) + '...'
     });
 
-    // Bước 1: Thử standard ECDSA verify
+    // Bước 1: standard ECDSA verify
     let valid = false;
     try {
       valid = await message.verify({ signature });
@@ -76,7 +72,7 @@ async function verifyWorldSiwe(messageStr, signature) {
       return address;
     }
 
-    // Bước 2: Fallback EIP-1271 cho smart wallet
+    // Bước 2: Fallback EIP-1271 smart wallet
     logger.info('Fallback to EIP-1271 verification...');
     const chainId = Number(message.chainId);
     let chainConfig;
@@ -91,7 +87,7 @@ async function verifyWorldSiwe(messageStr, signature) {
         name: 'World Chain',
         nativeCurrency: { decimals: 18, name: 'Ether', symbol: 'ETH' },
         rpcUrls: {
-          default: { http: ['https://worldchain-mainnet.g.alchemy.com/public'] },  // Official public RPC (Alchemy, no key needed)
+          default: { http: ['https://worldchain-mainnet.g.alchemy.com/public'] },
         },
         blockExplorers: { default: { name: 'WorldScan', url: 'https://worldscan.org' } },
       };
@@ -108,12 +104,10 @@ async function verifyWorldSiwe(messageStr, signature) {
     const preparedMessage = message.prepareMessage();
     const messageHash = hashMessage(preparedMessage);  // '0x...' hex
 
-    // Check hex valid để tránh replace error
     if (!messageHash.startsWith('0x') || !signature.startsWith('0x')) {
       throw new Error(`Invalid hex format: messageHash=${messageHash.substring(0, 10)}..., signature=${signature.substring(0, 10)}...`);
     }
 
-    // Gọi readContract với args hex string (an toàn hơn Uint8Array)
     const isValidSig = await publicClient.readContract({
       address: address,
       abi: [{
@@ -127,7 +121,7 @@ async function verifyWorldSiwe(messageStr, signature) {
         stateMutability: 'view'
       }],
       functionName: 'isValidSignature',
-      args: [messageHash, signature],  // Hex strings trực tiếp
+      args: [messageHash, signature],
     });
 
     const MAGIC_VALUE = '0x1626ba7e';
@@ -148,7 +142,7 @@ async function verifyWorldSiwe(messageStr, signature) {
   }
 }
 
-// ================== Email Transporter (giữ nguyên) ==================
+// ================== Email Transporter ==================
 const transporter = createTransport({
   host: process.env.EMAIL_SERVER_HOST,
   port: process.env.EMAIL_SERVER_PORT,
@@ -158,7 +152,7 @@ const transporter = createTransport({
   },
 });
 
-// ================== Custom Adapter (giữ nguyên + FIX cho Farcaster + NEW cho World) ==================
+// ================== Custom Adapter ==================
 const customAdapter = {
   async getUserByEmail(email) {
     logger.info("Fetching user by email", { email });
@@ -181,12 +175,11 @@ const customAdapter = {
     );
     return rows[0] ? { ...rows[0], id: rows[0].id.toString() } : null;
   },
-  // FIXED: getUserByFid - Pass 2 params: number cho farcaster_fid (bigint), string cho id (text)
   async getUserByFid(fid) {
-    const fidNum = Number(fid);  // Đảm bảo number cho bigint
-    const fidStr = fid.toString();  // String cho text id
+    const fidNum = Number(fid);
+    const fidStr = fid.toString(); 
     const { rows } = await query(
-      `SELECT * FROM users WHERE farcaster_fid = $1 OR id = $2`,  // No cast needed, params đúng kiểu
+      `SELECT * FROM users WHERE farcaster_fid = $1 OR id = $2`,
       [fidNum, fidStr]
     );
     return rows[0] ? { ...rows[0], id: rows[0].id.toString() } : null;
@@ -209,10 +202,7 @@ const customAdapter = {
       throw new Error("Email is required for user creation");
     }
 
-    // FIXED: Cho Farcaster, đảm bảo id là string (vì column id text)
     const userId = typeof id === 'number' ? id.toString() : id;
-
-    // Tạo API key và hash
     const plainApiKey = randomBytes(32).toString("hex");
     const { api_key_hash, api_key_salt } = await hashApiKey(plainApiKey);
 
@@ -266,7 +256,7 @@ const customAdapter = {
     logger.info("User updated", { id: data.id, rowCount: rows.length });
     return { ...rows[0], id: rows[0].id.toString() };
   },
-  // NEW: Update cho Farcaster/QuickAuth (thêm farcaster_fid nếu có) - fidNum là number
+
   async updateFarcasterUser(id, fid) {
     const fidNum = Number(fid);
     await query(
@@ -376,7 +366,7 @@ export const authOptions = {
       credentials: {
         message: { label: "SIWE Message", type: "text" },
         signature: { label: "Signature", type: "text" },
-        token: { label: "QuickAuth Token", type: "text" }, // NEW: Cho quickauth
+        token: { label: "QuickAuth Token", type: "text" }, // NEW: quickauth
       },
       async authorize(credentials, req) {
         try {
@@ -406,7 +396,6 @@ export const authOptions = {
               return null;
             }
 
-            // THAY ĐỔI: Chuyển sang Base chainId 8453 (thay vì Optimism 10) - nhưng Farcaster vẫn dùng Optimism 10
             if (Number(message.chainId) !== 10) {
               logger.error("Invalid Farcaster chainId: expected 10 (Optimism)", {
                 chainId: message.chainId,
@@ -450,11 +439,8 @@ export const authOptions = {
             throw new Error('Missing credentials for Farcaster auth');
           }
 
-          // FIXED: Đảm bảo fid là number
           const fidNum = Number(fid);
           const fidStr = fid.toString();
-
-          // THAY ĐỔI: Neynar v2 - Khởi tạo config và client
           const config = new Configuration({
             apiKey: process.env.NEYNAR_API_KEY,
             baseOptions: {
@@ -465,18 +451,17 @@ export const authOptions = {
           });
           const client = new NeynarAPIClient(config);
 
-          // THAY ĐỔI: fetchBulkUsers thay vì fetchUser (v2 API)
-          let userInfo = { pfp_url: null, display_name: null, username: null };  // FIX: Init với pfp_url
+          let userInfo = { pfp_url: null, display_name: null, username: null }; 
           try {
-            const res = await client.fetchBulkUsers({ fids: [fidNum] });  // Array FID, parseInt cho số
-            const fetchedUser = res.users[0];  // Lấy user đầu tiên
+            const res = await client.fetchBulkUsers({ fids: [fidNum] }); 
+            const fetchedUser = res.users[0]; 
             if (fetchedUser) {
               userInfo = {
-                pfp_url: fetchedUser.pfp_url || null,  // FIX: Dùng pfp_url trực tiếp (không phải pfp.url)
+                pfp_url: fetchedUser.pfp_url || null, 
                 display_name: fetchedUser.display_name || null,
                 username: fetchedUser.username || null,
               };
-              logger.info("Neynar user fetched successfully", { fid: fidNum, pfp_url: userInfo.pfp_url ? 'present' : 'missing' });  // THÊM: Log để debug
+              logger.info("Neynar user fetched successfully", { fid: fidNum, pfp_url: userInfo.pfp_url ? 'present' : 'missing' }); 
             } else {
               logger.warn("No user found in Neynar response", { fid: fidNum });
             }
@@ -486,19 +471,17 @@ export const authOptions = {
 
           const fakeEmail = `${fid}@farcaster.local`;
 
-          // FIXED: Sử dụng fidStr cho id lookup (vì id text)
           const existingUser = await customAdapter.getUserByFid(fidStr);
 
           if (existingUser) {
-            await customAdapter.updateFarcasterUser(existingUser.id, fidNum); // NEW: Update FID nếu có
+            await customAdapter.updateFarcasterUser(existingUser.id, fidNum); // NEW: Update FID 
             return existingUser;
           }
 
-          // Tạo user mới với id = fidStr (string)
           const newUser = await customAdapter.createUser({
             id: fidStr,  // FIXED: String cho text column
             email: fakeEmail,
-            profile_picture: userInfo.pfp_url || null,  // FIX: Dùng pfp_url thay pfp?.url
+            profile_picture: userInfo.pfp_url || null, 
             google_name: userInfo.display_name || userInfo.username || null,
             email_verified: true,
           });
@@ -511,7 +494,7 @@ export const authOptions = {
             [newUser.id, 'credentials', 'farcaster', fidStr]  // FIXED: providerAccountId string
           );
 
-          // NEW: Update FID column nếu có (migration needed: ALTER TABLE users ADD COLUMN farcaster_fid BIGINT;)
+          // NEW: Update FID column (migration needed: ALTER TABLE users ADD COLUMN farcaster_fid BIGINT;)
           await query(`UPDATE users SET farcaster_fid = $1 WHERE id = $2`, [fidNum, newUser.id]);
 
           logger.info("Farcaster user created/authorized", { fid: fidNum });
@@ -522,7 +505,7 @@ export const authOptions = {
         }
       },
     }),
-    // NEW: CredentialsProvider cho World (SIWE via Wallet Auth)
+    // NEW: CredentialsProvider World (SIWE via Wallet Auth)
     CredentialsProvider({
       id: 'world',
       name: 'Sign in with World',
@@ -540,8 +523,6 @@ export const authOptions = {
           const address = await verifyWorldSiwe(credentials.message, credentials.signature);
 
           const fakeEmail = `${address}@world.local`;
-
-          // Tìm user bằng wallet_address
           const existingUser = await customAdapter.getUserByWallet(address);
 
           if (existingUser) {
@@ -549,17 +530,15 @@ export const authOptions = {
             return existingUser;
           }
 
-          // Tạo user mới
           const newUser = await customAdapter.createUser({
-            id: uuidv4(),  // UUID cho id
+            id: uuidv4(),  // UUID 
             email: fakeEmail,
-            profile_picture: null,  // Có thể fetch nếu có API
-            google_name: address.slice(0, 6) + '...' + address.slice(-4),  // Display name từ address
+            profile_picture: null, 
+            google_name: address.slice(0, 6) + '...' + address.slice(-4),
             email_verified: true,
             wallet_address: address,
           });
 
-          // Link account (tương tự Farcaster)
           await query(
             `INSERT INTO accounts (userId, type, provider, providerAccountId)
              VALUES ($1, $2, $3, $4)
@@ -567,7 +546,6 @@ export const authOptions = {
             [newUser.id, 'credentials', 'world', address]
           );
 
-          // Update wallet_address (redundant nhưng an toàn)
           await query(`UPDATE users SET wallet_address = $1 WHERE id = $2`, [address, newUser.id]);
 
           logger.info("World user created/authorized", { address });
@@ -592,7 +570,6 @@ export const authOptions = {
         }
 
         if (account.provider === "google") {
-          // ... (giữ nguyên phần Google)
           email = profile.email || user.email || "";
           if (!email) {
             logger.error("Google sign-in failed: No email in profile", { providerAccountId: profile.sub });
@@ -605,17 +582,39 @@ export const authOptions = {
           userId = googleId;
 
           const existingUser = await customAdapter.getUserByEmail(email);
-          if (existingUser && !existingUser.google_id) {
-            logger.warn("Google sign-in denied: Account exists with email only", { email });
-            return "This account was registered with email. Please use the old login method (by Email).";
-          }
+          if (existingUser) {
+            if (existingUser.google_id) {
+              userId = existingUser.id;
+            } else {
+              userId = existingUser.id;
+              await query(
+                `UPDATE users SET 
+                google_id = $1, google_name = $2, profile_picture = COALESCE($3, profile_picture),
+                email_verified = $4, last_connected = $5, connected = $6, updated_at = $7
+              WHERE id = $8`,
+                [googleId, googleName, profilePic, verified, new Date(), true, new Date(), userId]
+              );
+              logger.info("Merged Google to existing email user", { userId, email });
 
-          // Cho Google: Luôn INSERT/UPDATE với ON CONFLICT google_id
-          const plainApiKey = randomBytes(32).toString("hex");
-          const { api_key_hash, api_key_salt } = await hashApiKey(plainApiKey);
+              // Link account
+              await query(
+                `INSERT INTO accounts (userId, type, provider, providerAccountId, access_token, expires_at, token_type, scope, id_token)
+               VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+               ON CONFLICT (provider, providerAccountId) DO NOTHING`,
+                [
+                  userId, account.type, account.provider, account.providerAccountId,
+                  account.access_token, account.expires_at ? account.expires_at : null,
+                  account.token_type, account.scope, account.id_token,
+                ]
+              );
+            }
+          } else {
+            // Tạo mới (như cũ)
+            const plainApiKey = randomBytes(32).toString("hex");
+            const { api_key_hash, api_key_salt } = await hashApiKey(plainApiKey);
 
-          const result = await query(
-            `INSERT INTO users (
+            const result = await query(
+              `INSERT INTO users (
               id, email, google_id, google_name, email_verified, profile_picture,
               connected, last_connected, points, tweet_points, ai_points, task_points,
               is_creator, is_ai_rank, tier, is_plus, is_premium, api_key_hash, api_key_salt, created_at
@@ -624,30 +623,29 @@ export const authOptions = {
               email=EXCLUDED.email, google_name=EXCLUDED.google_name, email_verified=EXCLUDED.email_verified, 
               profile_picture=COALESCE(users.profile_picture, EXCLUDED.profile_picture), connected=EXCLUDED.connected,
               last_connected=EXCLUDED.last_connected, updated_at=CURRENT_TIMESTAMP, api_key_hash=EXCLUDED.api_key_hash, api_key_salt=EXCLUDED.api_key_salt`,
-            [
-              userId, email, googleId, googleName, verified, profilePic, true, new Date(),
-              0, 0, 0, 0, false, false, "Basic", false, false, api_key_hash, api_key_salt, new Date(),
-            ]
-          );
-
-          logger.info("Google user insert/update result", { userId, email, rowCount: result.rowCount });
-
-          await query(
-            `INSERT INTO accounts (userId, type, provider, providerAccountId, access_token, expires_at, token_type, scope, id_token)
+              [
+                userId, email, googleId, googleName, verified, profilePic, true, new Date(),
+                0, 0, 0, 0, false, false, "Basic", false, false, api_key_hash, api_key_salt, new Date(),
+              ]
+            );
+            await query(
+              `INSERT INTO accounts (userId, type, provider, providerAccountId, access_token, expires_at, token_type, scope, id_token)
              VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
              ON CONFLICT (provider, providerAccountId) DO UPDATE SET
                access_token = $5, expires_at = $6, token_type = $7, scope = $8, id_token = $9`,
-            [
-              userId, account.type, account.provider, account.providerAccountId,
-              account.access_token, account.expires_at ? account.expires_at : null,
-              account.token_type, account.scope, account.id_token,
-            ]
-          );
+              [
+                userId, account.type, account.provider, account.providerAccountId,
+                account.access_token, account.expires_at ? account.expires_at : null,
+                account.token_type, account.scope, account.id_token,
+              ]
+            );
+          }
+          user.id = userId.toString();
 
-          logger.info("Sign-in successful", { userId, email });
+          logger.info("Google user merged/created", { userId, email });
           return true;
         }
-        // FIXED: Đổi account.providerId -> account.provider (Auth.js v5 set provider = id cho credentials)
+        // FIXED: account.providerId -> account.provider (Auth.js v5 set provider = id cho credentials)
         else if (account.provider === "farcaster") {
           // FIXED: Đảm bảo user.id là string
           user.id = account.providerAccountId.toString();
@@ -660,7 +658,6 @@ export const authOptions = {
           return true;
         }
         else if (account.provider === "email") {
-          // ... (giữ nguyên phần Email)
           email = user.email || account.user?.email || "";
           if (!email) {
             logger.error("Email sign-in failed: No email provided", { token: account.token });
@@ -675,13 +672,11 @@ export const authOptions = {
             // Update existing user
             await query(
               `UPDATE users SET 
-                last_connected = $1, connected = $2, email_verified = $3, updated_at = $4
-              WHERE id = $5`,
+              last_connected = $1, connected = $2, email_verified = $3, updated_at = $4
+            WHERE id = $5`,
               [new Date(), true, verified, new Date(), userId]
             );
             logger.info("Existing email user updated", { userId, email });
-
-            // Update API key nếu cần (tùy chọn, vì đã có từ trước)
             const plainApiKey = randomBytes(32).toString("hex");
             const { api_key_hash, api_key_salt } = await hashApiKey(plainApiKey);
             await query(
@@ -690,6 +685,8 @@ export const authOptions = {
             );
 
             logger.info("Sign-in successful for existing user", { userId, email });
+            // FIXED: Set user.id = DB userId
+            user.id = userId.toString();
             return true;
           } else {
             // Tạo user mới cho email
@@ -699,10 +696,10 @@ export const authOptions = {
 
             const result = await query(
               `INSERT INTO users (
-                id, email, google_id, google_name, email_verified, profile_picture,
-                connected, last_connected, points, tweet_points, ai_points, task_points,
-                is_creator, is_ai_rank, tier, is_plus, is_premium, api_key_hash, api_key_salt, created_at
-              ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20)`,
+              id, email, google_id, google_name, email_verified, profile_picture,
+              connected, last_connected, points, tweet_points, ai_points, task_points,
+              is_creator, is_ai_rank, tier, is_plus, is_premium, api_key_hash, api_key_salt, created_at
+            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20)`,
               [
                 userId, email, null, null, verified, null, true, new Date(),
                 0, 0, 0, 0, false, false, "Basic", false, false, api_key_hash, api_key_salt, new Date(),
@@ -711,27 +708,27 @@ export const authOptions = {
 
             logger.info("New email user created", { userId, email, rowCount: result.rowCount });
             logger.info("Sign-in successful", { userId, email });
+            // FIXED: Set user.id = DB userId
+            user.id = userId.toString();
             return true;
           }
         }
 
-        logger.error("Sign-in failed: Unsupported provider", { provider: account.provider, providerId: account.providerId || account.id });  // FIX: Log account.id thêm
+        logger.error("Sign-in failed: Unsupported provider", { provider: account.provider, providerId: account.providerId || account.id });  // FIX: Log account.id
         return false;
       } catch (err) {
         logger.error("signIn error", { error: err.message, stack: err.stack });
         return false;
       }
     },
-    // ... (giữ nguyên jwt, session) - FIXED: token.id luôn string
-    async jwt({ token, account, profile }) {
+    async jwt({ token, user, account, profile }) { 
       logger.info("JWT callback", { tokenId: token.id, email: token.email });
-      if (account) {
-        // FIXED: Đảm bảo id string
-        token.id = (account.provider === "google" ? account.providerAccountId : token.sub || uuidv4()).toString();
+      if (account && user) {
+        token.id = user.id || (account.provider === "google" ? account.providerAccountId : token.sub || uuidv4()).toString();
         token.accessToken = account.access_token || randomBytes(32).toString("hex");
         token.expiresAt = Date.now() + 2 * 60 * 60 * 1000; // 2 hours
-        token.email = profile?.email || token.email || account.user?.email;
-        token.googleName = profile?.name || "";
+        token.email = profile?.email || token.email || account.user?.email || user.email;
+        token.googleName = profile?.name || user.googleName || "";
         token.csrfToken = token.csrfToken || randomBytes(32).toString("hex");
       }
       if (Date.now() > token.expiresAt) {
@@ -750,7 +747,7 @@ export const authOptions = {
         throw new Error("Invalid token: missing id");
       }
       session.user = session.user || {};
-      session.user.id = token.id.toString();  // FIXED: Đảm bảo string
+      session.user.id = token.id.toString();
       session.user.email = token.email;
       session.user.googleName = token.googleName;
       session.user.isPremium = token.isPremium || false;

@@ -970,6 +970,7 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
     : (email ? email.replace(/./g, '*') : '********');
   const fullInfo = displayInfo;
   // UPDATED: Mutation for verifying and saving wallet with signature, nonce, and timestamp checks
+
   const verifyAndUpdateWalletMutation = useMutation({
     mutationFn: async ({ signature }) => {
       if (!session?.user?.id || !address || !csrfToken || !verificationNonce) throw new Error('Missing required data');
@@ -1104,18 +1105,19 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
     },
   });
   // NEW: Mutation to record mint after on-chain success
+  // Replace the recordMintMutation definition in components\ProfileTab.jsx with this:
   const recordMintMutation = useMutation({
     mutationFn: async ({ txHash }) => {
       if (!session?.user?.id || !address) throw new Error('User or wallet not available');
       if (!csrfToken) throw new Error('CSRF token not available');
-      const token = await debouncedExecuteRecaptcha('record_mint');
+      // Removed: const token = await debouncedExecuteRecaptcha('record_mint');
       const response = await axios.post(
         '/api/record-mint',
         { txHash, uid: session.user.id, walletAddress: address },
         {
           headers: {
             'x-csrf-token': csrfToken,
-            'X-Recaptcha-Token': token,
+            // Removed: 'X-Recaptcha-Token': token,
             'Content-Type': 'application/json',
           },
           withCredentials: true,
@@ -1686,10 +1688,10 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
                       <div className="flex flex-col items-center gap-3">
                         <div
                           className={`flex items-center justify-center text-base font-bold border-4 transition-all duration-300 rounded-full ${isCompleted
-                              ? 'bg-white text-black border-white'
-                              : isActive
-                                ? 'border-white bg-[#FFFFFF20] text-white shadow-lg shadow-white/20'
-                                : 'border-[#FFFFFF40] bg-transparent text-[#AAAAAA]'
+                            ? 'bg-white text-black border-white'
+                            : isActive
+                              ? 'border-white bg-[#FFFFFF20] text-white shadow-lg shadow-white/20'
+                              : 'border-[#FFFFFF40] bg-transparent text-[#AAAAAA]'
                             } ${isMobile ? 'w-11 h-11' : 'w-12 h-12'}`}
                         >
                           {isCompleted ? <Check className={isMobile ? 'w-5 h-5' : 'w-6 h-6'} /> : index + 1}
@@ -1799,8 +1801,8 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
                         onClick={handleMint}
                         disabled={!isConnected}
                         className={`flex-1 px-6 py-3 rounded-xl font-medium transition text-sm ${!isConnected
-                            ? 'bg-gray-600 text-gray-400 cursor-not-allowed'
-                            : 'bg-white text-black hover:bg-gray-200'
+                          ? 'bg-gray-600 text-gray-400 cursor-not-allowed'
+                          : 'bg-white text-black hover:bg-gray-200'
                           }`}
                       >
                         Mint Now

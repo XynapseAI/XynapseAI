@@ -401,10 +401,9 @@ function DashboardInner() {
 
     const fetchCsrfToken = async () => {
       try {
-        const response = await fetch('/api/auth/csrf', {  // Fix: relative path standard NextAuth
+        const response = await fetch('/api/auth/csrf', {
           method: 'GET',
-          credentials: 'include',  // Fix: To read/set cookie automatically
-          // Remove Authorization: Bearer - NextAuth handles via cookie
+          credentials: 'include',
         });
         const result = await response.json();
         if (response.ok) {
@@ -415,9 +414,13 @@ function DashboardInner() {
         }
       } catch (err) {
         safeError('Error fetching CSRF token:', err);
-        // Fallback for dev: Generate local token temporarily
-        if (process.env.NODE_ENV === 'development') {
-          const fallbackToken = crypto.randomBytes(32).toString('hex');
+        // FIXED: Browser-safe fallback for dev (use window.crypto)
+        if (process.env.NODE_ENV === 'development' && typeof window !== 'undefined') {
+          const array = new Uint8Array(32);
+          window.crypto.getRandomValues(array);
+          const fallbackToken = Array.from(array)
+            .map(b => b.toString(16).padStart(2, '0'))
+            .join('');
           setCsrfToken(fallbackToken);
           await update({ csrfToken: fallbackToken });
           toast.warn('Using dev fallback CSRF token', { position: 'top-center' });
@@ -464,7 +467,7 @@ function DashboardInner() {
     const miniAppDetected = (isSDKLoaded && (context === 'miniapp' || !!miniAppUser)) || isWarpcastDetected || sdkAvailable || isBaseAppDetected; // Giữ để support Neynar nếu cần cho khác
     setIsMiniApp(miniAppDetected);
     if (isBaseAppDetected) {
-      setFallbackToManual(true); 
+      setFallbackToManual(true);
     }
     safeLog('Mini App Detection Debug:', { isSDKLoaded, context, miniAppUser, userAgent, sdkAvailable, miniAppDetected, isWarpcast: isWarpcastDetected, isBaseApp: isBaseAppDetected });
     if (miniAppDetected && miniAppUser) {
@@ -639,7 +642,7 @@ function DashboardInner() {
     }
 
     try {
-      const response = await sdk.actions.addMiniApp(); 
+      const response = await sdk.actions.addMiniApp();
 
       if (response?.notificationDetails) {
         safeLog('Notification details:', response.notificationDetails);
@@ -1107,7 +1110,7 @@ function DashboardInner() {
                       <button
                         onClick={handleMiniAppQuickAuth}  // UPDATED: Call SDK quickAuth → Deeplink to Warpcast like old auto
                         disabled={miniAppAuthLoading || worldAuthLoading}  // NEW: Disable during loading
-                        className="w-full px-4 py-2.5 border-2 border-white/15 bg-white/10 text-white rounded-2xl text-sm font-semibold transition-all duration-300 hover:border-white/30 hover:bg-white/20 flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed"
+                        className="w-full px-4 py-2.5 border-2 border-white/15 bg-white/10 text-white rounded-lg text-sm font-semibold transition-all duration-300 hover:border-white/30 hover:bg-white/20 flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed"
                       >
                         {miniAppAuthLoading ? (
                           <BlinkingDots />

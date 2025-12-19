@@ -295,6 +295,14 @@ export async function GET(request) {
       throw new Error('ENCRYPTION_KEY environment variable is missing');
     }
 
+    // NEW: Check if this Twitter handle is already connected to another user
+    const existing = await prisma.twitter_handles.findFirst({
+      where: { twitter_handle: twitterHandle }
+    });
+    if (existing && existing.user_id !== sanitizedUserId) {
+      throw new Error('This Twitter account is already connected to another user. Each Twitter account can only be connected to one account.');
+    }
+
     await withRetry(async () => {
       await prisma.twitter_handles.upsert({
         where: { user_id: sanitizedUserId },
@@ -321,10 +329,7 @@ export async function GET(request) {
     await withRetry(async () => {
       await prisma.users.update({
         where: { id: sanitizedUserId },
-        data: {
-          twitter_handle: twitterHandle,
-          profile_picture: twitterProfilePicture || '',
-        },
+        data: { twitter_handle: twitterHandle, profile_picture: twitterProfilePicture || '' },
       });
     });
 
