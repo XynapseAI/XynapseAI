@@ -213,9 +213,9 @@ async function dynamicRateLimit(ip, userId = null, pathname) {
     return;
   }
   const limits = {
-    newUser: { points: 100, duration: 15 * 60 },
-    regularUser: { points: 200, duration: 15 * 60 },
-    premiumUser: { points: 500, duration: 15 * 60 },
+    newUser: { points: 1000, duration: 15 * 60 },
+    regularUser: { points: 1500, duration: 15 * 60 },
+    premiumUser: { points: 2000, duration: 15 * 60 },
   };
   const accountAge = await getAccountAge(userId);
   const isPremium = false;
@@ -235,7 +235,7 @@ async function dynamicRateLimit(ip, userId = null, pathname) {
       logger.error('Redis connection refused in rate limit', { err: err.message });
       return;
     }
-    let msBeforeNext = err.msBeforeNext || 60000;
+    let msBeforeNext = err.msBeforeNext || 120000;
     if (typeof msBeforeNext !== 'number' || isNaN(msBeforeNext)) {
       msBeforeNext = 60000;
       logger.warn('msBeforeNext invalid, using fallback', { msBeforeNext: err.msBeforeNext });
