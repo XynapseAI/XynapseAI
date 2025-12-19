@@ -9,12 +9,11 @@
 /* OnchainKit styles */
 @import '@coinbase/onchainkit/styles.css';
 
-/* BASE OVERRIDES & ONCHAINKIT THEME - Giữ nhưng simplify nếu có thể */
+/* BASE OVERRIDES & ONCHAINKIT THEME */
 @layer base {
 
   :root,
   .dark {
-    /* Chỉ giữ biến cần thiết, xóa nếu OnchainKit default ok */
     --ock-font-family: 'Satoshi', sans-serif;
     --ock-border-radius: 0.75rem;
     --ock-border-radius-inner: 0.5rem;
@@ -63,7 +62,7 @@
   }
 }
 
-/* ==================== CUSTOM ANIMATIONS & EFFECTS (từ file cũ) ==================== */
+/* ==================== CUSTOM ANIMATIONS & EFFECTS ==================== */
 .animate-marquee-right-to-left {
   display: flex;
   animation: marquee-right-to-left 20s linear infinite;
@@ -102,7 +101,7 @@
   box-shadow: 0 0 15px rgba(0, 191, 255, 0.5);
 }
 
-/* Type effect - fallIn (rất quan trọng để giữ hiệu ứng chữ rơi) */
+/* Type effect - fallIn */
 .animate-text {
   display: inline-block;
   overflow: hidden;
@@ -127,12 +126,10 @@
   }
 }
 
-/* Hover brightness cho button (hiệu ứng cũ) */
 button:hover {
   filter: brightness(0.95) !important;
 }
 
-/* Text shadow toàn cục */
 html,
 body,
 h1,
@@ -271,7 +268,6 @@ div {
   animation: ticker 20s linear infinite;
 }
 
-/* Các hiệu ứng khác giữ nguyên */
 .shadow-cartoon {
   box-shadow: 4px 4px 0px #000000;
 }
@@ -313,7 +309,6 @@ div {
   display: none !important;
 }
 
-/* Các class khác nếu bạn đang dùng */
 @keyframes blink {
 
   0%,
@@ -368,3 +363,66 @@ div {
     font-size: 0.875rem;
   }
 }
+
+/* ==================== MATRIX HOVER EFFECT - CSS ==================== */
+
+@keyframes matrixFlip {
+  0% { transform: rotateX(0); }
+  10% { transform: rotateX(180deg); }
+  20% { transform: rotateX(360deg); }
+  30% { transform: rotateX(540deg); }
+  40% { transform: rotateX(720deg); }
+  50% { transform: rotateX(900deg); }
+  60% { transform: rotateX(1080deg); }
+  70% { transform: rotateX(1260deg); }
+  80% { transform: rotateX(1440deg); }
+  100% { transform: rotateX(0); }
+}
+
+@keyframes flicker {
+  0%, 100% { opacity: 1; color: #C71585; }
+  10% { opacity: 0.2; color: #00BFFF; }
+  20% { opacity: 0.8; color: #C71585; }
+  30% { opacity: 0.1; color: #00BFFF; }
+  40% { opacity: 1; color: #C71585; }
+  50% { opacity: 0.5; color: #00BFFF; }
+  60% { opacity: 1; color: #C71585; }
+  70% { opacity: 0.3; color: #00BFFF; }
+  80% { opacity: 0.9; color: #C71585; }
+  90% { opacity: 0.2; color: #00BFFF; }
+}
+
+@keyframes shufflePosition {
+  0% { transform: translateX(0); }
+  20% { transform: translateX(var(--shuffle-offset-1, 0)); }
+  40% { transform: translateX(var(--shuffle-offset-2, 0)); }
+  60% { transform: translateX(var(--shuffle-offset-3, 0)); }
+  80% { transform: translateX(var(--shuffle-offset-1, 0)); }
+  100% { transform: translateX(0); }
+}
+
+.animate-matrix-flip {
+  animation: matrixFlip 0.4s ease-in-out forwards;
+}
+
+.animate-flicker {
+  animation: flicker 0.3s linear 3 forwards;
+}
+
+.animate-shuffle-position {
+  animation: shufflePosition 0.4s ease-in-out forwards;
+}
+
+.animation-delay-1 { animation-delay: 0.01s; }
+.animation-delay-2 { animation-delay: 0.02s; }
+.animation-delay-3 { animation-delay: 0.03s; }
+.animation-delay-4 { animation-delay: 0.04s; }
+.animation-delay-5 { animation-delay: 0.05s; }
+.animation-delay-6 { animation-delay: 0.06s; }
+.animation-delay-7 { animation-delay: 0.07s; }
+.animation-delay-8 { animation-delay: 0.08s; }
+.animation-delay-9 { animation-delay: 0.09s; }
+.animation-delay-10 { animation-delay: 0.10s; }
+.animation-delay-11 { animation-delay: 0.11s; }
+.animation-delay-12 { animation-delay: 0.12s; }
+.animation-delay-13 { animation-delay: 0.13s; }

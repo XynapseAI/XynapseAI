@@ -7,7 +7,7 @@ import axios from 'axios';
 import { useSession, signOut } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
-import { Trophy, Award, Flame, User, Crown, Calendar, Info, Check, Coins, Shield, Users, Eye, EyeOff, RefreshCw, Copy, Wallet } from 'lucide-react'; // Added Wallet icon
+import { Trophy, Award, Flame, User, Crown, Calendar, Info, Check, Coins, Shield, Users, Eye, EyeOff, RefreshCw, Copy, Wallet, HelpCircle } from 'lucide-react'; // Added HelpCircle icon
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceDot } from 'recharts';
 import { ethers, parseEther } from 'ethers';
 import { ToastContainer, toast } from 'react-toastify';
@@ -113,6 +113,8 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
   const [needsVerification, setNeedsVerification] = useState(false);
   const [verificationMessage, setVerificationMessage] = useState('');
   const [verificationNonce, setVerificationNonce] = useState(''); // NEW: Nonce state
+  // NEW: Tooltip state for Genesis NFT
+  const [showNftTooltip, setShowNftTooltip] = useState(false);
   const recaptchaV2Ref = useRef(null);
   const { address, isConnected, connector } = useAccount();
   const { disconnect } = useDisconnect(); // For manual disconnect
@@ -178,11 +180,7 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
       if (process.env.NODE_ENV !== 'production') {
         logger.error('Error fetching CSRF token:', err);
       }
-      toast.error('Unable to initialize session security. Please refresh the page and try again.', {
-        position: 'top-center',
-        autoClose: 5000,
-        toastId: 'csrf-error',
-      });
+      // Removed toast to avoid duplicates
     },
   });
   const { data: userData, isLoading: userLoading, error: userError } = useQuery({
@@ -235,21 +233,7 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
       if (process.env.NODE_ENV !== 'production') {
         logger.error('Error fetching user data:', err.response?.data || err.message);
       }
-      let errorMessage = 'Unable to load your profile data. Please try refreshing the page.';
-      if (err.response?.status === 429) {
-        errorMessage = 'Request limit reached. Please wait a moment and refresh.';
-      } else if (err.response?.status === 403) {
-        errorMessage = 'Authentication issue detected. Please log in again.';
-        await signOut({ redirect: false });
-        window.location.href = '/auth/signin';
-      } else if (err.response?.status === 404) {
-        errorMessage = 'Profile not found. Please log in again to sync your data.';
-        await signOut({ redirect: false });
-        window.location.href = '/auth/signin';
-      } else {
-        errorMessage = err.response?.data?.detail || err.message || 'Profile load failed unexpectedly.';
-      }
-      toast.error(errorMessage, { position: 'top-center', autoClose: 6000, toastId: 'user-data-error' });
+      // Removed toast to avoid duplicates
     },
   });
   // UPDATED: Generate nonce and message only when verification is needed (on wallet connect/change)
@@ -331,11 +315,7 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
     retryDelay: 2000,
     onError: (err) => {
       logger.error('Leaderboard error:', err);
-      toast.error('Unable to load leaderboard at this time. Please check your connection and try again.', {
-        position: 'top-center',
-        autoClose: 5000,
-        toastId: 'leaderboard-error',
-      });
+      // Removed toast to avoid duplicates
     },
   });
   */
@@ -344,10 +324,7 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
     const followUrl = `https://x.com/intent/follow?screen_name=XynapseAI`;
     window.open(followUrl, '_blank');
     setFollowedTasks(prev => new Set([...prev, taskId]));
-    toast.info('Redirecting to X. Please follow @XynapseAI and return to verify your action.', {
-      position: 'top-center',
-      autoClose: 6000
-    });
+    // Removed toast to avoid duplicates
   };
   const verifyTaskMutation = useMutation({
     mutationFn: async ({ task, v2Token }) => {
@@ -368,11 +345,7 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
     },
     onSuccess: async (data, variables) => {
       const task = variables.task;
-      toast.success(`${task.description} verified successfully! You've earned ${data.pointsEarned} points.`, {
-        position: 'top-center',
-        autoClose: 5000,
-        toastId: 'task-verified',
-      });
+      // Removed toast to avoid duplicates
       const userCacheKey = `userData-${session.user.id}`;
       const progressCacheKey = `taskProgress-${session.user.id}`;
       await Promise.all([
@@ -393,7 +366,7 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
       if (err.response?.status === 403 && err.response.data.detail === 'low_score_fallback') {
         setPendingTask(task);
         setShowV2Modal(true);
-        toast.info('Please verify you are human to complete this action.', { position: 'top-center', autoClose: 4000, toastId: 'verify-human' });
+        // Removed toast to avoid duplicates
         return;
       }
       const detail = err.response?.data?.detail;
@@ -421,7 +394,7 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
       } else {
         errorMessage = detail || err.message || errorMessage;
       }
-      toast.error(errorMessage, { position: 'top-center', autoClose: 6000, toastId: 'task-error' });
+      // Removed toast to avoid duplicates
     },
   });
   const handleV2Change = useCallback((token) => {
@@ -472,11 +445,7 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
     },
     onError: (err) => {
       logger.error('Connect Twitter error:', err);
-      toast.error('Unable to initiate Twitter connection. Please try again or check your network.', {
-        position: 'top-center',
-        autoClose: 5000,
-        toastId: 'twitter-connect-error',
-      });
+      // Removed toast to avoid duplicates
     },
   });
   const getProfilePictureSrc = useCallback((profilePicture) => {
@@ -506,7 +475,7 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
     const isTodayChecked = last7Days[last7Days.length - 1];
     const handleCheckinClick = () => {
       if (!twitterConnected) {
-        toast.info('Please connect your X (Twitter) account first to unlock check-in.', { position: 'top-center', autoClose: 4000 });
+        // Removed toast to avoid duplicates
         return;
       }
       onCheckin();
@@ -967,18 +936,7 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
       await queryClient.invalidateQueries(['userData', session?.user?.id, csrfToken]);
     },
     onError: (err) => {
-      let errorMessage = 'Failed to record mint. Please contact support if already minted on-chain.';
-      if (err.response?.status === 400 && err.response.data.detail === 'Already minted') {
-        errorMessage = 'Already minted!.';
-        setNftMinted(true);
-        queryClient.invalidateQueries(['userData', session?.user?.id, csrfToken]);
-      } else if (err.response?.status === 400 && err.response.data.detail === 'Transaction not from your wallet') {
-        errorMessage = 'Transaction mismatch. Ensure you minted from connected wallet.';
-      } else if (err.response?.status === 403) {
-        errorMessage = 'Security verification failed. Please try again.';
-      } else if (err.response?.status === 429) {
-        errorMessage = 'Rate limit. Wait and retry.';
-      }
+      // Removed toast to avoid duplicates
     },
   });
   // NEW: Sync nftMinted with userData on load/update
@@ -1003,7 +961,7 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
   const handleCopyWallet = async () => {
     if (userData?.walletAddress || address) {
       await navigator.clipboard.writeText(userData?.walletAddress || address);
-      toast.success('Wallet address copied!', { position: 'top-center', autoClose: 2000, toastId: 'copy-wallet' });
+      // Removed toast to avoid duplicates
     }
   };
   const email = userData?.email || '';
@@ -1037,7 +995,7 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
       return response.data;
     },
     onSuccess: async () => {
-      toast.success('Wallet verified and saved successfully!', { position: 'top-center', autoClose: 5000, toastId: 'wallet-verified' });
+      // Removed toast to avoid duplicates
       setHasUpdatedWallet(true);
       setNeedsVerification(false);
       setIsSavingWallet(false);
@@ -1047,19 +1005,7 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
       await queryClient.refetchQueries(['userData', session?.user?.id, csrfToken]);
     },
     onError: (err) => {
-      let errorMsg = err.message || 'Unknown error';
-      if (err.response?.status === 429) {
-        errorMsg = 'Rate limit exceeded. Wait 15 minutes and retry.';
-      } else if (err.response?.status === 403) {
-        errorMsg = 'Security check failed. Refresh and retry.';
-      } else if (err.response?.status === 400 && err.response.data.detail?.includes('Invalid signature')) {
-        errorMsg = 'Signature verification failed. Please try signing again.';
-      } else if (err.response?.status === 400 && err.response.data.detail?.includes('expired')) {
-        errorMsg = 'Verification expired. Please try again.';
-      } else if (err.response?.status === 500) {
-        errorMsg = 'Server error during verification. Please try again or check logs.';
-      }
-      toast.error(`Verification failed: ${errorMsg}`, { position: 'top-center', autoClose: 6000, toastId: 'wallet-verify-error' });
+      // Removed toast to avoid duplicates
       setHasUpdatedWallet(false);
       setIsSavingWallet(false);
       setVerificationNonce(''); // Reset on error
@@ -1099,22 +1045,10 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
     onError: (err) => {
       if (err.response?.status === 403 && err.response.data.detail === 'low_score_fallback') {
         // For disconnect, you can add similar fallback logic if needed
-        toast.info('Please complete the security check to continue.', { position: 'top-center', autoClose: 4000, toastId: 'security-check' });
+        // Removed toast to avoid duplicates
         return;
       }
-      let errorMessage = err.response?.data?.detail || 'Unable to disconnect Twitter at this time.';
-      if (err.response?.status === 429) {
-        errorMessage = 'Request limit reached. Please wait a moment and try again.';
-      } else if (err.response?.status === 403) {
-        if (err.response?.data?.detail === 'Invalid CSRF check.') {
-          errorMessage = 'Session security issue detected. Please refresh the page.';
-        } else if (err.response?.data?.detail?.includes('reCAPTCHA')) {
-          errorMessage = 'Security verification failed. Please try the action again. If it persists , try another browser.';
-        } else {
-          errorMessage = 'Security verification failed. Please try the action again. If it persists, refresh the page.';
-        }
-      }
-      toast.error(errorMessage, { position: 'top-center', autoClose: 5000, toastId: 'twitter-disconnect-error' });
+      // Removed toast to avoid duplicates
     },
   });
   const updateWalletMutation = useMutation({
@@ -1136,22 +1070,16 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
       setIsSavingWallet(false);
     },
     onError: (err) => {
-      let errorMsg = err.message || 'Unknown error';
-      if (err.response?.status === 429) {
-        errorMsg = 'Rate limit exceeded. Wait 15 minutes and retry.';
-      } else if (err.response?.status === 403) {
-        errorMsg = 'Security check failed. Refresh and retry.';
-      }
-      toast.error(`Update failed: ${errorMsg}`, { position: 'top-center', autoClose: 6000, toastId: 'wallet-update-error' });
+      // Removed toast to avoid duplicates
       setHasUpdatedWallet(false); // Reset flag on error
     },
   });
   const disconnectWalletMutation = useMutation({
-    mutationFn: async ({ v2Token } = {}) => {
-      const token = v2Token || await debouncedExecuteRecaptcha('disconnect_wallet');
+    mutationFn: async () => {
+      // FIXED: Removed reCAPTCHA for disconnect to fix production error
       const response = await axios.patch(
         '/api/user',
-        { uid: session.user.id, walletAddress: null, recaptchaToken: token },
+        { uid: session.user.id, walletAddress: null },
         {
           headers: { 'x-csrf-token': csrfToken, 'Content-Type': 'application/json' },
           withCredentials: true,
@@ -1166,13 +1094,13 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
       hasTriggeredRef.current = false;
       setNeedsVerification(false);
       setVerificationNonce(''); // Reset nonce
-      toast.success('Wallet disconnected successfully.', { position: 'top-center', autoClose: 5000, toastId: 'wallet-disconnected' });
+      // Removed toast to avoid duplicates
       const cacheKey = `userData-${session.user.id}`;
       await clearCache(cacheKey);
       await queryClient.refetchQueries(['userData', session?.user?.id, csrfToken]);
     },
     onError: (err) => {
-      toast.error(`Unable to disconnect wallet: ${err.message}`, { position: 'top-center', autoClose: 5000, toastId: 'wallet-disconnect-error' });
+      // Removed toast to avoid duplicates
     },
   });
   // NEW: Mutation to record mint after on-chain success
@@ -1197,24 +1125,12 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
       return response.data;
     },
     onSuccess: async () => {
-      toast.success('NFT mint confirmed.', { position: 'top-center', autoClose: 5000, toastId: 'mint-confirmed' });
+      // Removed toast to avoid duplicates
       setNftMinted(true);
       await queryClient.invalidateQueries(['userData', session?.user?.id, csrfToken]);
     },
     onError: (err) => {
-      let errorMessage = 'Failed to record mint. Please contact support if already minted on-chain.';
-      if (err.response?.status === 400 && err.response.data.detail === 'Already minted') {
-        errorMessage = 'Already minted!';
-        setNftMinted(true);
-        queryClient.invalidateQueries(['userData', session?.user?.id, csrfToken]);
-      } else if (err.response?.status === 400 && err.response.data.detail === 'Transaction not from your wallet') {
-        errorMessage = 'Transaction mismatch. Ensure you minted from connected wallet.';
-      } else if (err.response?.status === 403) {
-        errorMessage = 'Security verification failed. Please try again.';
-      } else if (err.response?.status === 429) {
-        errorMessage = 'Rate limit. Wait and retry.';
-      }
-      toast.error(errorMessage, { position: 'top-center', autoClose: 6000, toastId: 'mint-error' });
+      // Removed toast to avoid duplicates
     },
   });
   const debouncedHandleSignOut = useCallback(
@@ -1251,10 +1167,13 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
         </div>
       );
     }
+    // FIXED: Updated logic for wallet status to persist based on saved walletAddress
     const currentAddress = address || userData?.walletAddress;
     const isCurrentlyConnected = !!address;
-    const isVerified = userData?.walletAddress === address && !!address;
-    const displayedAddress = isCurrentlyConnected ? currentAddress : userData?.walletAddress;
+    const isWalletSaved = !!userData?.walletAddress;
+    const isVerified = isWalletSaved && address === userData.walletAddress;
+    const statusText = isWalletSaved ? 'Connected' : 'Not Connected';
+    const displayedAddress = currentAddress || '';
     return (
       <div className="space-y-4">
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-2 gap-4">
@@ -1374,37 +1293,29 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
           </div>
           {/* Wallet card inline */}
           <div className="h-[30vh] rounded-xl p-3 bg-[#0A0A0A]/80 backdrop-blur-md border border-[#FFFFFF20] shadow-[0_4px_12px_rgba(0,0,0,0.3)] glow-[#FFFFFF15] relative flex flex-col col-span-1">
-            {/* Force full width with outer wrapper */}
-            <div className="w-full h-full flex flex-col">
-              <OnchainWalletWrapper>
-                {/* Header - full width */}
-                <div className="w-full flex justify-between items-start mb-3">
-                  <div className="flex items-center gap-2">
+            <div className="w-full flex-1 flex flex-col relative">
+              <OnchainWalletWrapper className="w-full flex-1 flex flex-col">
+                {/* Header with status positioned at top-right for sync with Twitter */}
+                <div className="flex justify-between items-center mb-3">
+                  <div className="flex items-center gap-2 flex-1 min-w-0">
                     <Wallet className="w-5 h-5 text-[#00FFFF]" />
                     <span className="text-[#FFF] font-semibold text-sm">Wallet</span>
                   </div>
-                  <span className={`px-2 py-1 rounded-full text-xs font-medium flex items-center gap-1 ${isCurrentlyConnected
-                    ? (isVerified ? 'text-emerald-400' : 'text-emerald-400')
-                    : 'text-[#D4D4D4]'
-                    }`}>
-                    {isCurrentlyConnected
-                      ? (isVerified ? <Check className="w-3 h-3 text-emerald-400" /> : null)
-                      : null}
-                    {isCurrentlyConnected
-                      ? (isVerified ? 'Verified' : 'Connected')
-                      : 'Not Connected'}
+                  <span className={`px-2 py-1 rounded-full text-xs font-medium flex items-center gap-1 ${isWalletSaved ? 'text-emerald-400' : 'text-[#D4D4D4]'}`}>
+                    {isWalletSaved && isVerified ? <Check className="w-3 h-3 text-emerald-400" /> : null}
+                    {statusText}
                   </span>
                 </div>
                 {/* Body - full width, take remaining space */}
-                <div className="w-full flex-1 flex flex-col justify-between">
+                <div className="flex-1 flex flex-col justify-between"> 
                   {/* Address + icons section - fixed height to prevent layout shift */}
-                  <div className="w-full min-h-[3rem] flex items-center justify-between relative">
-                    {(isCurrentlyConnected || userData?.walletAddress) && (
+                  <div className="w-full min-h-[3rem] flex items-center justify-between relative mb-4">
+                    {displayedAddress && (
                       <>
                         <p className={`text-xs text-[#D4D4D4] pr-2 flex-1 min-w-0 ${showWallet ? 'whitespace-pre-wrap break-words max-h-[3rem] overflow-y-auto' : 'truncate'}`}>
                           {showWallet
                             ? displayedAddress
-                            : `${displayedAddress?.slice(0, 6)}...${displayedAddress?.slice(-4)}`
+                            : `${displayedAddress.slice(0, 6)}...${displayedAddress.slice(-4)}`
                           }
                         </p>
                         <div className="flex items-center gap-2 flex-shrink-0 absolute right-0 top-1/2 -translate-y-1/2">
@@ -1427,8 +1338,7 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
                       </>
                     )}
                   </div>
-                  {/* Spacer to push buttons to bottom */}
-                  <div className="flex-1 min-h-0" />
+                  <div className="flex-1" />
                   {/* Verify & Save - full width, fixed position above spacer if needed, but keep in flow */}
                   {isCurrentlyConnected && !isVerified && !isSavingWallet && needsVerification && verificationNonce && (
                     <div className="w-full mb-2">
@@ -1440,7 +1350,7 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
                           verifyAndUpdateWalletMutation.mutate({ signature: sig });
                         }}
                         onError={(error) => {
-                          toast.error(`Signing failed: ${error.message || 'Please try again.'}`, { toastId: 'sign-error' });
+                          // Removed toast to avoid duplicates
                           setIsSavingWallet(false);
                         }}
                         className="w-full text-xs"
@@ -1457,31 +1367,30 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
                   )}
                 </div>
               </OnchainWalletWrapper>
-              {/* Disconnect / Connect button - absolute positioned at bottom right, like Twitter */}
-              {(isCurrentlyConnected || userData?.walletAddress) ? (
-                <motion.button
-                  onClick={() => disconnectWalletMutation.mutate({})}
-                  disabled={isSavingWallet || disconnectWalletMutation.isLoading}
-                  className={`absolute bottom-3 right-3 px-3 py-1.5 rounded-lg text-xs font-medium transition-all duration-300 flex items-center justify-center gap-1 shadow-lg text-red-300 hover:bg-red-400/30 border border-red-400/30 disabled:opacity-50`}
-                  whileTap={{ scale: (isSavingWallet || disconnectWalletMutation.isLoading) ? 1 : 0.98 }}
-                >
-                  {disconnectWalletMutation.isLoading ? <BlinkingDots /> : 'Disconnect'}
-                </motion.button>
-              ) : (
-                <ConnectWallet>
-                  {({ onClick, isLoading }) => (
-                    <motion.button
-                      onClick={onClick}
-                      disabled={isLoading}
-                      className="absolute bottom-3 right-3 px-3 py-1.5 rounded-lg text-xs font-medium transition-all duration-300 flex items-center justify-center gap-1 shadow-lg text-[#00FFFF] border border-[#00FFFF]/50 bg-[#00FFFF]/10 hover:bg-[#00FFFF]/20 disabled:opacity-50"
-                      whileTap={{ scale: isLoading ? 1 : 0.98 }}
-                    >
-                      {isLoading ? <BlinkingDots /> : 'Connect'}
-                    </motion.button>
-                  )}
-                </ConnectWallet>
-              )}
             </div>
+            {(isCurrentlyConnected || isWalletSaved) ? (
+              <motion.button
+                onClick={() => disconnectWalletMutation.mutate({})}
+                disabled={isSavingWallet || disconnectWalletMutation.isLoading}
+                className={`absolute bottom-3 right-3 px-3 py-1.5 rounded-lg text-xs font-medium transition-all duration-300 flex items-center justify-center gap-1 shadow-lg text-red-300 hover:bg-red-400/30 border border-red-400/30 disabled:opacity-50 z-10`}
+                whileTap={{ scale: (isSavingWallet || disconnectWalletMutation.isLoading) ? 1 : 0.98 }}
+              >
+                {disconnectWalletMutation.isLoading ? <BlinkingDots /> : 'Disconnect'}
+              </motion.button>
+            ) : (
+              <ConnectWallet>
+                {({ onClick, isLoading }) => (
+                  <motion.button
+                    onClick={onClick}
+                    disabled={isLoading}
+                    className="absolute bottom-3 right-3 px-3 py-1.5 rounded-lg text-xs font-medium transition-all duration-300 flex items-center justify-center gap-1 shadow-lg text-[#00FFFF] border border-[#00FFFF]/50 bg-[#00FFFF]/10 hover:bg-[#00FFFF]/20 disabled:opacity-50 z-10"
+                    whileTap={{ scale: isLoading ? 1 : 0.98 }}
+                  >
+                    {isLoading ? <BlinkingDots /> : 'Connect'}
+                  </motion.button>
+                )}
+              </ConnectWallet>
+            )}
           </div>
           {/* Points card - balanced with others */}
           <div className="h-[30vh] rounded-xl p-3 bg-[#0A0A0A]/80 backdrop-blur-md border border-[#FFFFFF20] shadow-[0_4px_12px_rgba(0,0,0,0.3)] glow-[#FFFFFF15] relative col-span-1">
@@ -1539,20 +1448,12 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
         })
         .then(() => {
           window.history.replaceState({}, document.title, window.location.pathname);
-          toast.success('X (Twitter) connected successfully! Your profile is now updated.', {
-            position: 'top-center',
-            autoClose: 5000,
-            toastId: 'twitter-connected',
-          });
+          // Removed toast to avoid duplicates
           setTwitterConnected(true);
         })
         .catch((err) => {
           logger.error('Error handling Twitter connection callback:', err);
-          toast.error('Data refresh failed after X (Twitter) connection. Please refresh the page.', {
-            position: 'top-center',
-            autoClose: 5000,
-            toastId: 'twitter-refresh-error',
-          });
+          // Removed toast to avoid duplicates
         });
     }
   }, [session, csrfToken, queryClient, status]);
@@ -1625,16 +1526,11 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
         }
       }
       setShowMintModal(false);
-      toast.success('OG Pass minted successfully!', { toastId: 'mint-success' });
+      // Removed toast to avoid duplicates
       setNftMinted(true);
     } catch (err) {
       console.error('Mint error:', err);
-      let errorMsg = 'Mint failed. Make sure you have enough gas fee.';
-      if (err.message.includes('Max supply')) errorMsg = 'Max supply (10,000) reached!'; // Updated to 10000
-      else if (err.message.includes('Incorrect mint price')) errorMsg = 'Wrong ETH amount sent.';
-      else if (err.shortMessage) errorMsg = err.shortMessage;
-      else if (err.message.includes('RPC')) errorMsg = 'RPC error. Try a different wallet RPC.';
-      toast.error(errorMsg, { toastId: 'mint-fail' });
+      // Removed toast to avoid duplicates
     }
   };
   // NEW: Handle modal steps progression - Skip if already completed/minted
@@ -1644,7 +1540,7 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
     } else if (mintStep === 'connectTwitter' && twitterConnected) {
       if (nftMinted) {
         setShowMintModal(false);
-        toast.info('Already minted!', { toastId: 'already-minted' });
+        // Removed toast to avoid duplicates
       } else {
         setMintStep('mintNFT');
       }
@@ -1661,6 +1557,7 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
     return (
       <div className="h-full p-4 overflow-y-auto hide-scrollbar">
         <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-5 xl:grid-cols-5 gap-6">
+          {/* NFT Card */}
           {/* NFT Card */}
           <div className="bg-[#0A0A0A]/80 backdrop-blur-md border border-[#FFFFFF20] rounded-2xl overflow-hidden shadow-2xl glow-[#FFFFFF15] flex flex-col">
             {/* Image - full width */}
@@ -1692,10 +1589,37 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
                 </div>
               )}
             </div>
-            <div className="p-5 flex flex-col flex-grow">
-              <h3 className="text-xs text-[#FFF] font-bold text-lg mb-4 text-center">
-                Xynapse Genesis NFT
-              </h3>
+            <div className="p-5 flex flex-col flex-grow relative"> {/* Thêm relative ở đây */}
+              {/* Title with ? icon for tooltip */}
+              <div className="flex items-center justify-center gap-2 mb-4">
+                <h3 className="text-xs text-[#FFF] font-bold text-lg">
+                  Xynapse Genesis NFT
+                </h3>
+                <motion.button
+                  onClick={() => setShowNftTooltip(!showNftTooltip)}
+                  className="text-[#D4D4D4] hover:text-[#FFF] transition-colors p-0.5 rounded-full"
+                  whileHover={{ scale: 1.1 }}
+                  whileTap={{ scale: 0.95 }}
+                  title="Learn more"
+                >
+                  <HelpCircle className="w-3 h-3 cursor-help" />
+                </motion.button>
+              </div>
+              {/* Tooltip with smooth animation - Đổi vị trí bottom-center để tránh clip */}
+              <AnimatePresence>
+                {showNftTooltip && (
+                  <motion.div
+                    className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 p-2 sm:p-3 bg-[#0A0A0A]/95 backdrop-blur-xl border border-[#FFFFFF20] rounded-xl text-[10px] sm:text-xs text-[#D4D4D4] z-20 w-full sm:w-64 max-w-xs shadow-2xl"
+                    initial={{ opacity: 0, scale: 0.95, y: 10 }}
+                    animate={{ opacity: 1, scale: 1, y: 0 }}
+                    exit={{ opacity: 0, scale: 0.95, y: 10 }}
+                    transition={{ duration: 0.2, ease: "easeOut" }}
+                  >
+                    <p className="font-medium text-[#FFF] mb-1 text-[11px] sm:text-sm">Genesis NFT Benefits</p>
+                    <p className="text-[9px] sm:text-xs leading-tight">This proprietary NFT is proof-of-concept for early adopters, granting early access to advanced tools, early feature launches within the XynapseAI ecosystem, and several other future benefits.</p>
+                  </motion.div>
+                )}
+              </AnimatePresence>
               <div className="mt-auto">
                 {nftMinted ? (
                   <div className="text-emerald-400 text-xs font-medium text-center">
@@ -1719,7 +1643,7 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
         </div>
       </div>
     );
-  }, [nftMinted, setShowMintModal, nftImageSrc]);
+  }, [nftMinted, setShowMintModal, nftImageSrc, showNftTooltip]);
   // UPDATED: Render Mint Modal - Professional 3-step with lines, checkmarks, green on complete; skip if minted
   const renderMintModal = () => (
     <AnimatePresence>
@@ -1888,6 +1812,7 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
       transition={{ duration: 0.6, ease: "easeOut" }}
       className="font-inter w-full max-w-9xl mx-auto p-2 sm:p-3 bg-[#0A0A0A]/80 backdrop-blur-md flex flex-col h-[calc(100vh-3rem)] overflow-y-auto hide-scrollbar"
     >
+      {/* FIXED: ToastContainer - Ensured single instance, but comments suggest removal if issues persist */}
       <ToastContainer
         position="top-center"
         autoClose={5000}
@@ -1898,6 +1823,7 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
           border: "1px solid rgba(255, 255, 255, 0.1)",
           borderRadius: "16px",
         }}
+        limit={1} // FIXED: Limit to 1 to prevent multiples
       />
       <div className="flex flex-col flex-1 gap-4 sm:gap-5">
         <motion.div

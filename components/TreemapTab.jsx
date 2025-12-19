@@ -326,7 +326,7 @@ const VirtuosoTable = memo(({ transactions, isMobile, selectedChain, tokenImages
             />
           ),
         }}
-        overscan={100} // Reduced further for faster rendering
+        overscan={50} // Giảm overscan để render nhẹ hơn
       />
     </div>
   );
@@ -615,7 +615,7 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
   const containerRef = useRef(null);
   const chainDropdownRef = useRef(null);
   const limitDropdownRef = useRef(null);
-  const [selectedLimit, setSelectedLimit] = useState(100); // Updated default to 100
+  const [selectedLimit, setSelectedLimit] = useState(200); 
   const [isLimitDropdownOpen, setIsLimitDropdownOpen] = useState(false);
   const [isPremium, setIsPremium] = useState(false);
   const [filterType, setFilterType] = useState('all');
@@ -899,7 +899,7 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
         limit: selectedLimit,
         page,
         fetchLayer3: true,
-        isToken: isToken 
+        isToken: isToken
       };
       const signature = generateHmacSignature(payload);
       const response = await fetch(`${apiBaseUrl}/api/get-transactions`, {
@@ -1225,11 +1225,12 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
         })
         .backgroundColor('rgba(0,0,0,0.3)')
         .nodeRelSize(6.0)
-        .nodeVal(node => { // Restore original sizing logic, but layer3 multiplier same as layer2
+        .nodeVal(node => {
           const tv = parseFloat(node.totalValue || 0);
           const baseVal = Math.sqrt(tv) + 1;
-          if (node.layer === 1) return baseVal * 7.0;
-          if (node.layer === 2 || node.layer === 3) return baseVal * 4.0;
+          if (node.layer === 1) return baseVal * 5.6;
+          if (node.layer === 2) return baseVal * 4.0;
+          if (node.layer === 3) return baseVal * 2.8;
           return baseVal * 2.0;
         })
         .nodeLabel(node => {
@@ -1289,13 +1290,13 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
         .linkCanvasObject((link, ctx, globalScale) => {
           const start = link.source;
           const end = link.target;
-          if (!start || !end || !start.x || !end.x) return;
+          // if (!start || !end || !start.x || !end.x) return;
           ctx.beginPath();
           ctx.moveTo(start.x, start.y);
           ctx.lineTo(end.x, end.y);
           const isLayer3 = link.layer === 3;
           ctx.strokeStyle = isLayer3 ? 'rgba(255, 255, 255, 0.3)' : 'rgba(255, 255, 255, 0.6)';
-          ctx.lineWidth = (isLayer3 ? 0.2 : 0.4) / globalScale; 
+          ctx.lineWidth = (isLayer3 ? 0.26 : 0.52) / globalScale; // Tăng độ dày 30% (0.2->0.26, 0.4->0.52)
           ctx.stroke();
         })
         .linkCanvasObjectMode(() => 'replace')
@@ -1323,10 +1324,10 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
           return 0; // No radial for small clusters
         }).strength(0.3)) // Increase strength slightly for tighter circular arrangement
         .d3Force('collide', d3.forceCollide().radius(node => node.val * 1.44).strength(0.7)) // Add collision to prevent overlaps
-        .d3AlphaDecay(0.01)
-        .d3VelocityDecay(0.6)
-        .warmupTicks(800) // Increase for smoother initial simulation
-        .cooldownTicks(2000)
+        .d3AlphaDecay(0.012) 
+        .d3VelocityDecay(0.7)
+        .warmupTicks(0)
+        .cooldownTicks(2500)
         .enablePointerInteraction(true)
         .enableNodeDrag(true)
         .enableZoomInteraction(true)
@@ -1681,11 +1682,11 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
                 </button>
                 {isLimitDropdownOpen && (
                   <div className="absolute z-20 bg-white/5 rounded-xl mt-1 w-28 max-h-60 overflow-y-auto hide-scrollbar border border-white/10 shadow-neon-sm">
-                    {[100, 200, 300, 500].map((limit) => ( // Updated array: 100, 200, 300, 500
+                    {[200, 300, 500, 1000].map((limit) => ( // Bỏ 100, thêm 1000
                       <button
                         key={limit}
                         onClick={() => {
-                          if (!isPremium && limit > 200) {
+                          if (!isPremium && limit > 200) { // Premium cho >200
                             toast.error('Premium account required to fetch more than 200 transactions.', {
                               position: 'top-center',
                               autoClose: 5000,

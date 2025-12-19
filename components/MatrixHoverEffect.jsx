@@ -62,7 +62,7 @@ export default function MatrixHoverEffect({ text, hoverColor = '#00BFFF' }) {
     return text.split('').map((char, index) => (
       <span
         key={index}
-        className={`inline-block transform-style-3d transition-transform-opacity duration-300 ease-in-out ${
+        className={`inline-block transform-style-3d transition-transform transition-opacity duration-300 ease-in-out ${
           char === ' ' ? '' : `animation-delay-${(index % 13) + 1}`
         }`}
       >

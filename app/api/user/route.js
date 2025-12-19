@@ -1,3 +1,4 @@
+// app\api\user\route.js
 import { NextResponse } from 'next/server';
 import { PrismaClient } from '@prisma/client';
 import { auth } from '@/lib/auth';
@@ -792,33 +793,8 @@ export async function PATCH(request) {
       return NextResponse.json({ detail: 'Invalid CSRF token. Please try again.' }, { status: 403, headers: securityHeaders(newCsrfToken) });
     }
 
+    // FIXED: Make reCAPTCHA optional for disconnect (walletAddress: null)
     const recaptchaToken = request.headers.get('x-recaptcha-token');
-    if (!recaptchaToken && process.env.NODE_ENV !== 'development') {
-      newCsrfToken = newCsrfToken || await setCSRFToken(ip, userId);
-      await trackViolation(ip, 'Missing reCAPTCHA token');
-      return NextResponse.json({ detail: 'Missing reCAPTCHA token' }, { status: 400, headers: securityHeaders(newCsrfToken) });
-    }
-    if (process.env.NODE_ENV !== 'development') {
-      try {
-        const recaptchaResponse = await verifyRecaptcha(recaptchaToken, 'update_user', ip);
-        if (!recaptchaResponse.success) {
-          newCsrfToken = newCsrfToken || await setCSRFToken(ip, userId);
-          if (recaptchaResponse.needsFallback) {
-            return NextResponse.json({ detail: 'low_score_fallback' }, { status: 403, headers: securityHeaders(newCsrfToken) });
-          }
-          await trackViolation(ip, `reCAPTCHA verification failed: ${recaptchaResponse.error}`);
-          return NextResponse.json({ detail: `reCAPTCHA verification failed: ${recaptchaResponse.error}` }, { status: 403, headers: securityHeaders(newCsrfToken) });
-        }
-        if (process.env.NODE_ENV !== 'production') {
-          logger.info('reCAPTCHA OK', { ip, score: recaptchaResponse.score });
-        }
-      } catch (error) {
-        newCsrfToken = newCsrfToken || await setCSRFToken(ip, userId);
-        await trackViolation(ip, `reCAPTCHA verification error: ${error.message}`);
-        return NextResponse.json({ detail: `reCAPTCHA verification failed: ${error.message}` }, { status: 403, headers: securityHeaders(newCsrfToken) });
-      }
-    }
-
     let body;
     try {
       body = await request.json();
@@ -847,6 +823,33 @@ export async function PATCH(request) {
       newCsrfToken = newCsrfToken || await setCSRFToken(ip, userId);
       await trackViolation(ip, 'Unauthorized user update');
       return NextResponse.json({ detail: 'Not authorized' }, { status: 401, headers: securityHeaders(newCsrfToken) });
+    }
+
+    // FIXED: Skip reCAPTCHA if disconnecting (walletAddress === null)
+    if (process.env.NODE_ENV !== 'development' && walletAddress !== null && !recaptchaToken) {
+      newCsrfToken = newCsrfToken || await setCSRFToken(ip, userId);
+      await trackViolation(ip, 'Missing reCAPTCHA token');
+      return NextResponse.json({ detail: 'Missing reCAPTCHA token' }, { status: 400, headers: securityHeaders(newCsrfToken) });
+    }
+    if (process.env.NODE_ENV !== 'development' && walletAddress !== null) {
+      try {
+        const recaptchaResponse = await verifyRecaptcha(recaptchaToken, 'update_user', ip);
+        if (!recaptchaResponse.success) {
+          newCsrfToken = newCsrfToken || await setCSRFToken(ip, userId);
+          if (recaptchaResponse.needsFallback) {
+            return NextResponse.json({ detail: 'low_score_fallback' }, { status: 403, headers: securityHeaders(newCsrfToken) });
+          }
+          await trackViolation(ip, `reCAPTCHA verification failed: ${recaptchaResponse.error}`);
+          return NextResponse.json({ detail: `reCAPTCHA verification failed: ${recaptchaResponse.error}` }, { status: 403, headers: securityHeaders(newCsrfToken) });
+        }
+        if (process.env.NODE_ENV !== 'production') {
+          logger.info('reCAPTCHA OK', { ip, score: recaptchaResponse.score });
+        }
+      } catch (error) {
+        newCsrfToken = newCsrfToken || await setCSRFToken(ip, userId);
+        await trackViolation(ip, `reCAPTCHA verification error: ${error.message}`);
+        return NextResponse.json({ detail: `reCAPTCHA verification failed: ${error.message}` }, { status: 403, headers: securityHeaders(newCsrfToken) });
+      }
     }
 
     try {

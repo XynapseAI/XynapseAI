@@ -544,14 +544,15 @@ export default function ExplorerTab({ initialQuery, initialChain, isStandalone =
             setLoading(false);
         }
     };
-    const handleSearch = () => {
-        if (!query.trim()) return;
+    const handleSearch = (searchQuery = query) => {
+        const q = searchQuery.trim();
+        if (!q) return;
         try {
-            const ch = selectedChain || detectChainForTx(query);
+            const ch = selectedChain || detectChainForTx(q);
             setSelectedChain(ch);
             setNametags({});
-            router.push(`/dashboard?tab=explorer&query=${encodeURIComponent(query)}&chain=${ch}`, { scroll: false });
-            fetchData(query, ch, 0);
+            router.push(`/dashboard?tab=explorer&query=${encodeURIComponent(q)}&chain=${ch}`, { scroll: false });
+            fetchData(q, ch, 0);
         } catch (err) {
             setError(err.message);
         }
@@ -565,7 +566,7 @@ export default function ExplorerTab({ initialQuery, initialChain, isStandalone =
                 setSelectedChain(ch);
                 fetchData(q, ch, 0);
             } else {
-                handleSearch();
+                handleSearch(q);
             }
         }
     }, [initialQuery, initialChain]);
@@ -583,28 +584,22 @@ export default function ExplorerTab({ initialQuery, initialChain, isStandalone =
         if (addr.includes(', ')) {
             return <span className="font-mono break-all text-[10px] sm:text-[12px]">Multiple ({addr.split(', ').length})</span>;
         }
-        if (tag && tag['Name Tag']) {
-            return (
-                <div className="flex items-center gap-1 relative group">
-                    {tag.image && <img src={tag.image} alt={tag['Name Tag']} className="w-3 h-3 mr-1 rounded-full" />}
-                    <span className="font-mono break-all text-[10px] sm:text-[12px]">{tag['Name Tag']}</span>
-                    <Copy
-                        className="absolute right-0 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity w-3 h-3 cursor-pointer text-gray-400 hover:text-emerald-400"
-                        onClick={(e) => { e.stopPropagation(); copyToClipboard(copyContent, 'Address'); }}
-                    />
-                </div>
-            );
-        } else {
-            return (
-                <div className="flex items-center gap-1 relative group">
-                    <span className="font-mono break-all text-[10px] sm:text-[12px]">{displayAddr}</span>
-                    <Copy
-                        className="absolute right-0 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity w-3 h-3 cursor-pointer text-gray-400 hover:text-emerald-400"
-                        onClick={(e) => { e.stopPropagation(); copyToClipboard(copyContent, 'Address'); }}
-                    />
-                </div>
-            );
-        }
+        return (
+            <div className="flex items-center gap-1 relative group">
+                {tag && tag['Name Tag'] ? (
+                    <>
+                        {tag.image && <img src={tag.image} alt={tag['Name Tag']} className="w-3 h-3 rounded-full" />}
+                        <span className="font-mono break-all text-[10px] sm:text-[12px] truncate pr-1">{tag['Name Tag']}</span>
+                    </>
+                ) : (
+                    <span className="font-mono break-all text-[10px] sm:text-[12px] truncate pr-1">{displayAddr}</span>
+                )}
+                <Copy
+                    className="shrink-0 opacity-0 group-hover:opacity-100 transition-opacity w-3 h-3 cursor-pointer text-gray-400 hover:text-emerald-400"
+                    onClick={(e) => { e.stopPropagation(); copyToClipboard(copyContent, 'Address'); }}
+                />
+            </div>
+        );
     };
     const formatUSD = (value) => {
         if (value == null || isNaN(value)) return '$0.00';
@@ -709,17 +704,17 @@ export default function ExplorerTab({ initialQuery, initialChain, isStandalone =
                     className="space-y-4 text-[10px] sm:text-[12px]"
                 >
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                        <div className="md:col-span-2 bg-[#FFFFFF]/5 backdrop-blur-md p-3 rounded-xl border border-[#FFFFFF20] shadow-[0_4px_12px_rgba(0,0,0,0.3)] glow-[#FFFFFF15] hover:shadow-[0_0_8px_rgba(255,255,255,0.15)] transition-all duration-200 flex items-center justify-between relative group">
-                            <div className="flex items-center">
-                                <HashIcon className="w-4 h-4 text-emerald-400 mr-2" />
-                                <span className="text-[#D4D4D4] mr-2">Hash:</span>
-                                <span className="font-mono break-all mr-2 text-[9px] sm:text-[10px]">{isMobile && tx.hash.length > 10 ? truncateText(tx.hash) : tx.hash}</span>
+                        <div className="md:col-span-2 bg-[#FFFFFF]/5 backdrop-blur-md p-3 rounded-xl border border-[#FFFFFF20] shadow-[0_4px_12px_rgba(0,0,0,0.3)] glow-[#FFFFFF15] hover:shadow-[0_0_8px_rgba(255,255,255,0.15)] transition-all duration-200 flex items-center justify-between">
+                            <div className="flex items-center relative group flex-1 min-w-0">
+                                <HashIcon className="w-4 h-4 text-emerald-400 mr-2 shrink-0" />
+                                <span className="text-[#D4D4D4] mr-2 shrink-0 whitespace-nowrap">Hash:</span>
+                                <span className="font-mono break-all mr-2 text-[9px] sm:text-[10px] truncate flex-1 min-w-0 pr-1">{isMobile && tx.hash.length > 10 ? truncateText(tx.hash) : tx.hash}</span>
+                                <Copy
+                                    className="shrink-0 opacity-0 group-hover:opacity-100 transition-opacity w-4 h-4 cursor-pointer text-gray-400 hover:text-emerald-400"
+                                    onClick={(e) => { e.stopPropagation(); copyToClipboard(tx.hash, 'Transaction Hash'); }}
+                                />
                             </div>
-                            <Copy
-                                className="opacity-0 group-hover:opacity-100 transition-opacity w-4 h-4 cursor-pointer text-gray-400 hover:text-emerald-400 absolute right-2 top-1/2 -translate-y-1/2"
-                                onClick={(e) => { e.stopPropagation(); copyToClipboard(tx.hash, 'Transaction Hash'); }}
-                            />
-                            <h2 className="text-[9px] font-semibold flex items-center gap-2">
+                            <h2 className="text-[9px] font-semibold flex items-center gap-2 ml-4 shrink-0">
                                 <img src={chainLogos[detectedChain]} alt={detectedChain} className="w-5 h-5 rounded-full" />
                                 <span className="text-[#D4D4D4]">{detectedChain.toUpperCase()}</span>
                             </h2>
@@ -757,23 +752,15 @@ export default function ExplorerTab({ initialQuery, initialChain, isStandalone =
                         <div className="bg-[#FFFFFF]/5 backdrop-blur-md p-3 rounded-xl border border-[#FFFFFF20] shadow-[0_4px_12px_rgba(0,0,0,0.3)] glow-[#FFFFFF15] hover:shadow-[0_0_8px_rgba(255,255,255,0.15)] transition-all duration-200 flex items-center">
                             <Wallet className="w-4 h-4 text-emerald-400 mr-2" />
                             <span className="text-[#D4D4D4] mr-2">From:</span>
-                            <div className="flex items-center ml-2 relative group">
+                            <div className="ml-2 flex-1 min-w-0 relative group">
                                 {renderAddress(tx.from, detectedChain)}
-                                <Copy
-                                    className="opacity-0 group-hover:opacity-100 transition-opacity ml-2 w-4 h-4 cursor-pointer text-gray-400 hover:text-emerald-400 absolute right-0 top-1/2 -translate-y-1/2"
-                                    onClick={(e) => { e.stopPropagation(); copyToClipboard(tx.from, 'From Address'); }}
-                                />
                             </div>
                         </div>
                         <div className="bg-[#FFFFFF]/5 backdrop-blur-md p-3 rounded-xl border border-[#FFFFFF20] shadow-[0_4px_12px_rgba(0,0,0,0.3)] glow-[#FFFFFF15] hover:shadow-[0_0_8px_rgba(255,255,255,0.15)] transition-all duration-200 flex items-center">
                             <Wallet className="w-4 h-4 text-emerald-400 mr-2" />
                             <span className="text-[#D4D4D4] mr-2">To:</span>
-                            <div className="flex items-center ml-2 relative group">
+                            <div className="ml-2 flex-1 min-w-0 relative group">
                                 {renderAddress(tx.to, detectedChain)}
-                                <Copy
-                                    className="opacity-0 group-hover:opacity-100 transition-opacity ml-2 w-4 h-4 cursor-pointer text-gray-400 hover:text-emerald-400 absolute right-0 top-1/2 -translate-y-1/2"
-                                    onClick={(e) => { e.stopPropagation(); copyToClipboard(tx.to, 'To Address'); }}
-                                />
                             </div>
                         </div>
                         <div className="md:col-span-2 bg-[#FFFFFF]/5 backdrop-blur-md p-3 rounded-xl border border-[#FFFFFF20] shadow-[0_4px_12px_rgba(0,0,0,0.3)] glow-[#FFFFFF15] hover:shadow-[0_0_8px_rgba(255,255,255,0.15)] transition-all duration-200 flex items-center">
@@ -875,17 +862,17 @@ export default function ExplorerTab({ initialQuery, initialChain, isStandalone =
             return (
                 <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="space-y-4 text-[10px] sm:text-[12px]">
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                        <div className="md:col-span-2 bg-[#FFFFFF]/5 backdrop-blur-md p-3 rounded-xl border border-[#FFFFFF20] shadow-[0_4px_12px_rgba(0,0,0,0.3)] glow-[#FFFFFF15] hover:shadow-[0_0_8px_rgba(255,255,255,0.15)] transition-all duration-200 flex items-center justify-between relative group">
-                            <div className="flex items-center">
-                                <HashIcon className="w-4 h-4 text-emerald-400 mr-2" />
-                                <span className="text-[#D4D4D4] mr-2">Hash:</span>
-                                <span className="font-mono break-all mr-2 text-[9px] sm:text-[10px]">{isMobile && tx.hash.length > 10 ? truncateText(tx.hash) : tx.hash}</span>
+                        <div className="md:col-span-2 bg-[#FFFFFF]/5 backdrop-blur-md p-3 rounded-xl border border-[#FFFFFF20] shadow-[0_4px_12px_rgba(0,0,0,0.3)] glow-[#FFFFFF15] hover:shadow-[0_0_8px_rgba(255,255,255,0.15)] transition-all duration-200 flex items-center justify-between">
+                            <div className="flex items-center relative group flex-1 min-w-0">
+                                <HashIcon className="w-4 h-4 text-emerald-400 mr-2 shrink-0" />
+                                <span className="text-[#D4D4D4] mr-2 shrink-0 whitespace-nowrap">Hash:</span>
+                                <span className="font-mono break-all mr-2 text-[9px] sm:text-[10px] truncate flex-1 min-w-0 pr-1">{isMobile && tx.hash.length > 10 ? truncateText(tx.hash) : tx.hash}</span>
+                                <Copy
+                                    className="shrink-0 opacity-0 group-hover:opacity-100 transition-opacity w-4 h-4 cursor-pointer text-gray-400 hover:text-emerald-400"
+                                    onClick={(e) => { e.stopPropagation(); copyToClipboard(tx.hash, 'Transaction Hash'); }}
+                                />
                             </div>
-                            <Copy
-                                className="opacity-0 group-hover:opacity-100 transition-opacity w-4 h-4 cursor-pointer text-gray-400 hover:text-emerald-400 absolute right-2 top-1/2 -translate-y-1/2"
-                                onClick={(e) => { e.stopPropagation(); copyToClipboard(tx.hash, 'Transaction Hash'); }}
-                            />
-                            <h2 className="text-[9px] font-semibold flex items-center gap-2">
+                            <h2 className="text-[9px] font-semibold flex items-center gap-2 ml-4 shrink-0">
                                 <img src={chainLogos[chain]} alt={chain} className="w-5 h-5 rounded-full" />
                                 <span className="text-[#D4D4D4]">{chain.toUpperCase()}</span>
                             </h2>
@@ -919,17 +906,15 @@ export default function ExplorerTab({ initialQuery, initialChain, isStandalone =
                         <div className="bg-[#FFFFFF]/5 backdrop-blur-md p-3 rounded-lg border border-[#FFFFFF20] shadow-[0_4px_12px_rgba(0,0,0,0.3)] glow-[#FFFFFF15] hover:shadow-[0_0_8px_rgba(255,255,255,0.15)] transition-shadow flex items-center">
                             <Wallet className="w-4 h-4 text-emerald-400 mr-2" />
                             <span className="text-[#D4D4D4] mr-2">From:</span>
-                            <div className="flex items-center ml-2">
+                            <div className="flex items-center ml-2 flex-1 min-w-0 relative group">
                                 {renderAddress(fromAddress, chain)}
-                                {fromAddress && fromAddress !== 'Multiple Inputs' && <Copy onClick={() => copyToClipboard(fromAddress)} className="ml-2 w-4 h-4 cursor-pointer hover:text-emerald-400" />}
                             </div>
                         </div>
                         <div className="bg-[#FFFFFF]/5 backdrop-blur-md p-3 rounded-lg border border-[#FFFFFF20] shadow-[0_4px_12px_rgba(0,0,0,0.3)] glow-[#FFFFFF15] hover:shadow-[0_0_8px_rgba(255,255,255,0.15)] transition-shadow flex items-center">
                             <Wallet className="w-4 h-4 text-emerald-400 mr-2" />
                             <span className="text-[#D4D4D4] mr-2">To:</span>
-                            <div className="flex items-center ml-2">
+                            <div className="flex items-center ml-2 flex-1 min-w-0 relative group">
                                 {renderAddress(toAddress, chain)}
-                                {toAddress && toAddress !== 'Multiple Outputs' && <Copy onClick={() => copyToClipboard(toAddress)} className="ml-2 w-4 h-4 cursor-pointer hover:text-emerald-400" />}
                             </div>
                         </div>
                         <div className="md:col-span-2 bg-[#FFFFFF]/5 backdrop-blur-md p-3 rounded-lg border border-[#FFFFFF20] shadow-[0_4px_12px_rgba(0,0,0,0.3)] glow-[#FFFFFF15] hover:shadow-[0_0_8px_rgba(255,255,255,0.15)] transition-shadow flex items-center">
@@ -948,7 +933,7 @@ export default function ExplorerTab({ initialQuery, initialChain, isStandalone =
                                 <tbody>
                                     {tx.vin.map((input, i) => (
                                         <tr key={i}>
-                                            <td className="p-2 border border-[#FFFFFF20] text-left">{renderAddress(input.prevout?.scriptpubkey_address || 'Coinbase', chain)}</td>
+                                            <td className="p-2 border border-[#FFFFFF20] text-left relative group"><div className="flex-1 min-w-0">{renderAddress(input.prevout?.scriptpubkey_address || 'Coinbase', chain)}</div></td>
                                             <td className="p-2 border border-[#FFFFFF20] text-left">
                                                 <div className="flex flex-col">
                                                     {renderValueWithUSD((input.prevout?.value || 0) / 1e8, input.prevout?.valueUSD || 0, 'BTC', nativeTokenLogos['BTC'])}
@@ -968,7 +953,7 @@ export default function ExplorerTab({ initialQuery, initialChain, isStandalone =
                                 <tbody>
                                     {tx.vout.map((output, i) => (
                                         <tr key={i}>
-                                            <td className="p-2 border border-[#FFFFFF20] text-left">{renderAddress(output.scriptpubkey_address || 'OP_RETURN', chain)}</td>
+                                            <td className="p-2 border border-[#FFFFFF20] text-left relative group"><div className="flex-1 min-w-0">{renderAddress(output.scriptpubkey_address || 'OP_RETURN', chain)}</div></td>
                                             <td className="p-2 border border-[#FFFFFF20] text-left">
                                                 <div className="flex flex-col">
                                                     {renderValueWithUSD((output.value || 0) / 1e8, output.valueUSD || 0, 'BTC', nativeTokenLogos['BTC'])}
@@ -998,13 +983,16 @@ export default function ExplorerTab({ initialQuery, initialChain, isStandalone =
                 <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-4 text-sm">
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div className="md:col-span-2 bg-[#FFFFFF]/5 backdrop-blur-md p-3 rounded-lg border border-[#FFFFFF20] shadow-[0_4px_12px_rgba(0,0,0,0.3)] glow-[#FFFFFF15] hover:shadow-[0_0_8px_rgba(255,255,255,0.15)] transition-shadow flex items-center justify-between">
-                            <div className="flex items-center">
-                                <HashIcon className="w-4 h-4 text-emerald-400 mr-2" />
-                                <span className="text-[#D4D4D4] mr-2">Hash:</span>
-                                <span className="font-mono break-all mr-2">{isMobile && tx.hash?.length > 10 ? truncateText(tx.hash) : tx.hash}</span>
-                                <Copy onClick={() => copyToClipboard(tx.hash)} className="w-4 h-4 cursor-pointer hover:text-emerald-400" />
+                            <div className="flex items-center relative group flex-1 min-w-0">
+                                <HashIcon className="w-4 h-4 text-emerald-400 mr-2 shrink-0" />
+                                <span className="text-[#D4D4D4] mr-2 shrink-0 whitespace-nowrap">Hash:</span>
+                                <span className="font-mono break-all mr-2 truncate flex-1 min-w-0 pr-1">{isMobile && tx.hash?.length > 10 ? truncateText(tx.hash) : tx.hash}</span>
+                                <Copy 
+                                    className="shrink-0 opacity-0 group-hover:opacity-100 transition-opacity w-4 h-4 cursor-pointer text-gray-400 hover:text-emerald-400" 
+                                    onClick={() => copyToClipboard(tx.hash)} 
+                                />
                             </div>
-                            <h2 className="text-xs font-semibold flex items-center gap-2">
+                            <h2 className="text-xs font-semibold flex items-center gap-2 ml-4 shrink-0">
                                 <img src={chainLogos[chain]} alt={chain} className="w-6 h-6 inline mx-1" />
                                 <span className="text-[#D4D4D4]">{chain.toUpperCase()}</span>
                             </h2>
@@ -1040,17 +1028,15 @@ export default function ExplorerTab({ initialQuery, initialChain, isStandalone =
                         <div className="bg-[#FFFFFF]/5 backdrop-blur-md p-3 rounded-lg border border-[#FFFFFF20] shadow-[0_4px_12px_rgba(0,0,0,0.3)] glow-[#FFFFFF15] hover:shadow-[0_0_8px_rgba(255,255,255,0.15)] transition-shadow flex items-center">
                             <Wallet className="w-4 h-4 text-emerald-400 mr-2" />
                             <span className="text-[#D4D4D4] mr-2">From:</span>
-                            <div className="flex items-center ml-2">
+                            <div className="flex items-center ml-2 flex-1 min-w-0 relative group">
                                 {renderAddress(tx.from, chain)}
-                                <Copy onClick={() => copyToClipboard(tx.from)} className="ml-2 w-4 h-4 cursor-pointer hover:text-emerald-400" />
                             </div>
                         </div>
                         <div className="bg-[#FFFFFF]/5 backdrop-blur-md p-3 rounded-lg border border-[#FFFFFF20] shadow-[0_4px_12px_rgba(0,0,0,0.3)] glow-[#FFFFFF15] hover:shadow-[0_0_8px_rgba(255,255,255,0.15)] transition-shadow flex items-center">
                             <Wallet className="w-4 h-4 text-emerald-400 mr-2" />
                             <span className="text-[#D4D4D4] mr-2">To:</span>
-                            <div className="flex items-center ml-2">
+                            <div className="flex items-center ml-2 flex-1 min-w-0 relative group">
                                 {renderAddress(tx.to, chain)}
-                                <Copy onClick={() => copyToClipboard(tx.to)} className="ml-2 w-4 h-4 cursor-pointer hover:text-emerald-400" />
                             </div>
                         </div>
                         <div className="md:col-span-2 bg-[#FFFFFF]/5 backdrop-blur-md p-3 rounded-lg border border-[#FFFFFF20] shadow-[0_4px_12px_rgba(0,0,0,0.3)] glow-[#FFFFFF15] hover:shadow-[0_0_8px_rgba(255,255,255,0.15)] transition-shadow flex items-center">
@@ -1086,8 +1072,8 @@ export default function ExplorerTab({ initialQuery, initialChain, isStandalone =
                                                 />
                                                 {t.symbol || t.name || t.mint?.slice(0, 4) + '...'}
                                             </td>
-                                            <td className="p-2 border border-[#FFFFFF20] text-left">{renderAddress(t.fromUserAccount || t.from, chain)}</td>
-                                            <td className="p-2 border border-[#FFFFFF20] text-left">{renderAddress(t.toUserAccount || t.to, chain)}</td>
+                                            <td className="p-2 border border-[#FFFFFF20] text-left relative group"><div className="flex-1 min-w-0">{renderAddress(t.fromUserAccount || t.from, chain)}</div></td>
+                                            <td className="p-2 border border-[#FFFFFF20] text-left relative group"><div className="flex-1 min-w-0">{renderAddress(t.toUserAccount || t.to, chain)}</div></td>
                                             <td className="p-2 border border-[#FFFFFF20] text-left">
                                                 {renderTokenAmount(t.amount || 0, t.symbol || '', t.logo)}
                                             </td>
@@ -1112,8 +1098,8 @@ export default function ExplorerTab({ initialQuery, initialChain, isStandalone =
                                 <tbody>
                                     {nativeTransfers.map((transfer, i) => (
                                         <tr key={i} className="hover:bg-[#FFFFFF]/10">
-                                            <td className="p-2 border border-[#FFFFFF20] text-left">{renderAddress(transfer.fromUserAccount, chain)}</td>
-                                            <td className="p-2 border border-[#FFFFFF20] text-left">{renderAddress(transfer.toUserAccount, chain)}</td>
+                                            <td className="p-2 border border-[#FFFFFF20] text-left relative group"><div className="flex-1 min-w-0">{renderAddress(transfer.fromUserAccount, chain)}</div></td>
+                                            <td className="p-2 border border-[#FFFFFF20] text-left relative group"><div className="flex-1 min-w-0">{renderAddress(transfer.toUserAccount, chain)}</div></td>
                                             <td className="p-2 border border-[#FFFFFF20] text-left">
                                                 {renderValueWithUSD((transfer.amount || 0) / 1e9, ((transfer.amount || 0) / 1e9) * solPrice, symbol, nativeTokenLogos['SOL'])}
                                             </td>
@@ -1200,13 +1186,13 @@ export default function ExplorerTab({ initialQuery, initialChain, isStandalone =
             </span>
             <span className="w-1/4">{new Date(block.timestamp * 1000).toLocaleTimeString()}</span>
             <span className="w-1/4">{block.transactions.length}</span>
-            <span className="w-1/4 font-mono relative group">
-                {renderAddress(block.miner, selectedChain)}
+            <div className="w-1/4 flex items-center relative group">
+                <span className="font-mono truncate flex-1 min-w-0 pr-1">{renderAddress(block.miner, selectedChain)}</span>
                 <Copy
-                    className="absolute right-0 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity w-3 h-3 cursor-pointer text-gray-400 hover:text-emerald-400"
+                    className="shrink-0 opacity-0 group-hover:opacity-100 transition-opacity w-3 h-3 cursor-pointer text-gray-400 hover:text-emerald-400"
                     onClick={(e) => { e.stopPropagation(); copyToClipboard(block.miner, 'Miner Address'); }}
                 />
-            </span>
+            </div>
         </motion.div>
     );
     const renderTxRow = (tx, index) => (
@@ -1216,31 +1202,31 @@ export default function ExplorerTab({ initialQuery, initialChain, isStandalone =
             animate={{ opacity: 1, y: 0 }}
             onClick={() => {
                 setQuery(tx.hash);
-                handleSearch();
+                handleSearch(tx.hash);
             }}
             className="flex hover:bg-[#FFFFFF]/10 transition-all duration-200 py-2 px-3 border-t border-[#FFFFFF20] text-[10px] relative group cursor-pointer"
         >
-            <span className="w-1/4 font-mono relative group">
-                {truncateText(tx.hash)}
+            <div className="w-1/4 flex items-center relative group">
+                <span className="font-mono truncate flex-1 min-w-0 pr-1">{truncateText(tx.hash)}</span>
                 <Copy
-                    className="absolute right-0 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity w-3 h-3 cursor-pointer text-gray-400 hover:text-emerald-400"
+                    className="shrink-0 opacity-0 group-hover:opacity-100 transition-opacity w-3 h-3 cursor-pointer text-gray-400 hover:text-emerald-400"
                     onClick={(e) => { e.stopPropagation(); copyToClipboard(tx.hash, 'Transaction Hash'); }}
                 />
-            </span>
-            <span className="w-1/4 font-mono relative group">
-                {renderAddress(tx.from, selectedChain)}
+            </div>
+            <div className="w-1/4 flex items-center relative group">
+                <span className="font-mono truncate flex-1 min-w-0 pr-1">{renderAddress(tx.from, selectedChain)}</span>
                 <Copy
-                    className="absolute right-0 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity w-3 h-3 cursor-pointer text-gray-400 hover:text-emerald-400"
+                    className="shrink-0 opacity-0 group-hover:opacity-100 transition-opacity w-3 h-3 cursor-pointer text-gray-400 hover:text-emerald-400"
                     onClick={(e) => { e.stopPropagation(); copyToClipboard(tx.from, 'From Address'); }}
                 />
-            </span>
-            <span className="w-1/4 font-mono relative group">
-                {renderAddress(tx.to, selectedChain)}
+            </div>
+            <div className="w-1/4 flex items-center relative group">
+                <span className="font-mono truncate flex-1 min-w-0 pr-1">{renderAddress(tx.to, selectedChain)}</span>
                 <Copy
-                    className="absolute right-0 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity w-3 h-3 cursor-pointer text-gray-400 hover:text-emerald-400"
+                    className="shrink-0 opacity-0 group-hover:opacity-100 transition-opacity w-3 h-3 cursor-pointer text-gray-400 hover:text-emerald-400"
                     onClick={(e) => { e.stopPropagation(); copyToClipboard(tx.to, 'To Address'); }}
                 />
-            </span>
+            </div>
             <span className="w-1/4">{formatToken((tx.value || 0), chainSymbols[selectedChain] || 'Native')}</span>
         </motion.div>
     );
@@ -1410,7 +1396,7 @@ export default function ExplorerTab({ initialQuery, initialChain, isStandalone =
                         document.body
                     )}
                     <motion.button
-                        onClick={handleSearch}
+                        onClick={() => handleSearch()}
                         whileHover={{ scale: 1.05 }}
                         whileTap={{ scale: 0.95 }}
                         className="h-[4.5vh] px-4 py-1 bg-[#FFFFFF]/5 backdrop-blur-md border border-[#FFFFFF20] text-[#FFF] rounded-xl hover:bg-[#FFFFFF]/10 transition-all duration-200 font-medium shadow-[0_4px_12px_rgba(0,0,0,0.3)] glow-[#FFFFFF15] flex items-center justify-center"

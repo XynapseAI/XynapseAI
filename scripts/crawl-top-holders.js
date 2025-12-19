@@ -5,10 +5,11 @@ import cron from "node-cron";
 import { PrismaClient } from "@prisma/client";
 import fs from "fs/promises";
 import path from "path";
+import { createClient } from 'redis';
 
-// --- Khởi tạo Prisma Client ---
+// --- Prisma Client ---
 const prisma = new PrismaClient({
-  log: ["error"], // Bật logging để debug
+  log: ["error"],
   errorFormat: "pretty",
 });
 
@@ -234,8 +235,6 @@ function getImageForNameTag(nameTag) {
 
 // Utility: Delay to avoid rate-limiting
 const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
-
-// Hàm thử lại với retry logic
 async function withRetry(fn, retries = 3, delayMs = 2000) {
   for (let attempt = 1; attempt <= retries; attempt++) {
     try {
@@ -250,7 +249,6 @@ async function withRetry(fn, retries = 3, delayMs = 2000) {
   }
 }
 
-// Hàm lưu dữ liệu vào JSON files
 async function saveHoldersToJson(holders, chainLabel) {
   const files = chainToFiles[chainLabel] || [];
   if (files.length === 0) {
@@ -355,8 +353,6 @@ async function crawlEtherscanTopHolders(url, chainName, chainLabel) {
       console.warn(`⚠️ [${chainName}] No data retrieved. Page structure may have changed or request was blocked.`);
       return;
     }
-
-    // Lưu vào database và JSON
     await saveHoldersToDatabase(holders, chainName, chainLabel);
     await saveHoldersToJson(holders, chainLabel);
     console.log(`[${new Date().toISOString()}] ✅ [${chainName}] Saved ${holders.length} addresses to database and JSON`);
@@ -452,7 +448,6 @@ async function crawlBitinfochartsTopHolders(urls, chainName, chainLabel) {
       await delay(3000);
     }
 
-    // Thêm dữ liệu cứng cho Bitcoin
     if (chainLabel === "bitcoin") {
       const specialAddress = "1a1zp1ep5qgefi2dmptftl5slmv7divfna";
       holders.push({
@@ -622,11 +617,9 @@ async function crawlBitboEtfFlows(url, chainName, chainLabel) {
   }
 }
 
-// Hàm lưu ETF Flows vào JSON (tương tự saveHoldersToJson) - FIX: Tạo dir tự động
 async function saveEtfFlowsToJson(flows) {
   const jsonPath = path.join(process.cwd(), 'public', 'data', 'etf-flows.json');
   try {
-    // FIX: Tạo thư mục nếu chưa tồn tại
     await fs.mkdir(path.dirname(jsonPath), { recursive: true });
 
     let existingData = [];
@@ -650,11 +643,9 @@ async function saveEtfFlowsToJson(flows) {
   }
 }
 
-// Hàm lưu vào DB mới (batch upsert)
 async function saveEtfFlowsToDatabase(flows, chainName) {
   const BATCH_SIZE = 50;
   try {
-    // FIX: Debug check nếu model tồn tại
     if (!prisma.etfFlows) {
       throw new Error('Prisma model "etf_flows" not found. Run "npx prisma generate" to update client.');
     }
@@ -693,11 +684,10 @@ async function saveEtfFlowsToDatabase(flows, chainName) {
     console.log(`[${chainName}] Successfully saved ${flows.length} flows to DB`);
   } catch (error) {
     console.error(`[${chainName}] DB save error:`, error.message);
-    throw error;  // Re-throw để log rõ
+    throw error;
   }
 }
 
-// Hàm lưu dữ liệu vào database với batch và retry
 async function saveHoldersToDatabase(holders, chainName, chainLabel) {
   const BATCH_SIZE = 50;
   try {
@@ -711,7 +701,6 @@ async function saveHoldersToDatabase(holders, chainName, chainLabel) {
               image: holder.image,
               updated_at: new Date(),
             };
-            // Chỉ cập nhật name_tag nếu nó không null từ nguồn
             if (holder.name_tag !== null) {
               updateData.name_tag = holder.name_tag;
             }
@@ -760,10 +749,31 @@ async function ensurePrismaConnected() {
   }
 }
 
+async function clearEtfRedisCache() {
+  try {
+    const redisClient = createClient({
+      url: process.env.REDIS_URL || 'redis://localhost:6379',
+    });
+    redisClient.on('error', (err) => console.error('Redis Client Error during clear cache:', err.message));
+    await redisClient.connect();
+    const cacheKey = 'etf-data:all';
+    const deleted = await redisClient.del(cacheKey);
+    if (deleted > 0) {
+      console.log(`[${new Date().toISOString()}] ✅ Cleared ETF Redis cache: ${cacheKey}`);
+    } else {
+      console.log(`[${new Date().toISOString()}] ℹ️ No ETF cache to clear (key not found): ${cacheKey}`);
+    }
+    await redisClient.disconnect();
+  } catch (error) {
+    console.warn(`⚠️ Failed to clear ETF Redis cache: ${error.message}. Continuing without cache clear.`);
+  }
+}
+
 // Main function to run all crawlers
 async function runAllCrawlers() {
   console.log(`[${new Date().toISOString()}] Starting crawl cycle...`);
-  await ensurePrismaConnected();  // FIX: Đảm bảo connect trước
+  await ensurePrismaConnected(); 
+  await clearEtfRedisCache();
   for (const target of TARGETS) {
     if (target.type === "etherscan") {
       await crawlEtherscanTopHolders(target.url, target.name, target.chainLabel);
@@ -774,7 +784,7 @@ async function runAllCrawlers() {
     } else if (target.type === "bitbo-flows") {
       await crawlBitboEtfFlows(target.url, target.name, target.chainLabel);
     }
-    await delay(2000);  // Delay giữa các target để tránh rate limit
+    await delay(2000);  
   }
   console.log(`[${new Date().toISOString()}] Crawl cycle completed.`);
 }
@@ -782,7 +792,6 @@ async function runAllCrawlers() {
 // Run immediately
 runAllCrawlers();
 
-// Schedule daily run at 0h UTC (7h AM Vietnam time)
 cron.schedule("0 7 * * *", () => {
   console.log(`[${new Date().toISOString()}] Starting scheduled crawl...`);
   runAllCrawlers();
