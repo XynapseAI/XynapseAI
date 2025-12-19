@@ -32,10 +32,8 @@ const BASE_URI_GATEWAY = 'https://ipfs.io/ipfs/QmNoskhe6ES3e7X6huo6PJRuKhpGU5Muu
 const CONTRACT_ADDRESS = "0x22EE9eE1a5986ff354d34ed19Eb28E65091C7648"; // Deployed contract address
 const BASE_CHAIN_ID = 8453; // Base Sepolia for testing; change to 8453 for mainnet if deployed there
 // NEW: Builder Code for Base attribution (replace with your actual code from base.dev)
-const builderCode = process.env.NEXT_PUBLIC_BUILDER_CODE || "bc_kne07rwd"; // e.g., "abcd1234"
-const dataSuffix = Attribution.toDataSuffix({
-  codes: [builderCode]
-});
+const builderCode = process.env.NEXT_PUBLIC_BUILDER_CODE || "bc_kne07rwd";
+const dataSuffix = Attribution.toDataSuffix({ codes: [builderCode] });
 // Enhanced Spinner component - Accepts className and color props for flexibility
 const Spinner = ({ className = "h-4 w-4", color = "text-blue-400" }) => (
   <svg className={`animate-spin ${className} ${color}`} xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
@@ -999,10 +997,12 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
       setHasUpdatedWallet(true);
       setNeedsVerification(false);
       setIsSavingWallet(false);
-      setVerificationNonce(''); // Reset nonce after success - moved before refetch to hide button immediately
+      setVerificationNonce(''); // Reset nonce after success
+
       const cacheKey = `userData-${session.user.id}`;
       await clearCache(cacheKey);
-      await queryClient.refetchQueries(['userData', session?.user?.id, csrfToken]);
+      await queryClient.invalidateQueries({ queryKey: ['userData', session?.user?.id, csrfToken] });
+      await queryClient.refetchQueries({ queryKey: ['userData', session?.user?.id, csrfToken] });
     },
     onError: (err) => {
       // Removed toast to avoid duplicates
@@ -1307,7 +1307,7 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
                   </span>
                 </div>
                 {/* Body - full width, take remaining space */}
-                <div className="flex-1 flex flex-col justify-between"> 
+                <div className="flex-1 flex flex-col justify-between">
                   {/* Address + icons section - fixed height to prevent layout shift */}
                   <div className="w-full min-h-[3rem] flex items-center justify-between relative mb-4">
                     {displayedAddress && (
@@ -1466,6 +1466,9 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
     }
   };
   const getBalanceWithRetry = async (address, retries = 3) => {
+    if (!address) {
+      throw new Error('Wallet not connected');
+    }
     for (let i = 0; i < retries; i++) {
       try {
         const provider = new ethers.BrowserProvider(window.ethereum);
@@ -1478,38 +1481,34 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
   };
   // Updated: Handle Mint NFT - Use BASE_CHAIN_ID, fix max supply msg to 10000, integrate useSendCalls for Builder Code attribution
   const handleMint = async () => {
-    try {
-      if (chainId !== BASE_CHAIN_ID) {
+    if (!isConnected || !address) {
+      toast.error('Please connect your wallet first.');
+      return;
+    }
+
+    if (chainId !== BASE_CHAIN_ID) {
+      try {
         await switchChain({ chainId: BASE_CHAIN_ID });
-        return;
+        toast.info('Please switch to Base network to mint.');
+      } catch (err) {
+        toast.error('Network switching failed. Please switch to Base manually.');
       }
-      if (nftMinted) {
-        return;
-      }
-      const provider = new ethers.BrowserProvider(window.ethereum);
-      const balance = await getBalanceWithRetry(address);
-      const mintValue = parseEther("0.0002");
-      if (balance < mintValue) {
-        throw new Error('Insufficient balance for mint.');
-      }
-      // Use sendCalls with dataSuffix for ERC-8021 Builder Code attribution
-      const result = await sendCalls({
-        calls: [
-          {
-            to: CONTRACT_ADDRESS,
-            data: encodeFunctionData({
-              abi: NFT_ABI,
-              functionName: 'mint',
-              args: [],
-            }),
-            value: mintValue,
-          },
-        ],
-        capabilities: {
-          dataSuffix: dataSuffix,
-        },
+      return;
+    }
+
+    if (nftMinted) {
+      toast.info('You have already minted!');
+      return;
+    }
+
+    try {
+      const hash = await writeContractAsync({
+        address: CONTRACT_ADDRESS,
+        abi: NFT_ABI,
+        functionName: 'mint',
+        value: parseEther('0.0002'),
+        dataSuffix,
       });
-      const hash = result.hash;
       let recorded = false;
       let attempts = 0;
       while (!recorded && attempts < 3) {
@@ -1525,12 +1524,20 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
           }
         }
       }
+
       setShowMintModal(false);
-      // Removed toast to avoid duplicates
+      toast.success('Genesis NFT minted successfully!');
       setNftMinted(true);
     } catch (err) {
-      console.error('Mint error:', err);
-      // Removed toast to avoid duplicates
+      let errorMsg = 'Mint failed. Please try again.';
+      if (err.message?.includes('insufficient funds')) {
+        errorMsg = 'Insufficient ETH , make sure you have more than 0.0002 ETH for gas fees';
+      } else if (err.message?.includes('Max supply')) {
+        errorMsg = 'Max supply (10,000) reached!';
+      } else if (err.shortMessage) {
+        errorMsg = err.shortMessage;
+      }
+      toast.error(errorMsg);
     }
   };
   // NEW: Handle modal steps progression - Skip if already completed/minted
@@ -1557,7 +1564,6 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
     return (
       <div className="h-full p-4 overflow-y-auto hide-scrollbar">
         <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-5 xl:grid-cols-5 gap-6">
-          {/* NFT Card */}
           {/* NFT Card */}
           <div className="bg-[#0A0A0A]/80 backdrop-blur-md border border-[#FFFFFF20] rounded-2xl overflow-hidden shadow-2xl glow-[#FFFFFF15] flex flex-col">
             {/* Image - full width */}
@@ -1589,7 +1595,7 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
                 </div>
               )}
             </div>
-            <div className="p-5 flex flex-col flex-grow relative"> {/* Thêm relative ở đây */}
+            <div className="p-5 flex flex-col flex-grow relative">
               {/* Title with ? icon for tooltip */}
               <div className="flex items-center justify-center gap-2 mb-4">
                 <h3 className="text-xs text-[#FFF] font-bold text-lg">
@@ -1605,7 +1611,6 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
                   <HelpCircle className="w-3 h-3 cursor-help" />
                 </motion.button>
               </div>
-              {/* Tooltip with smooth animation - Đổi vị trí bottom-center để tránh clip */}
               <AnimatePresence>
                 {showNftTooltip && (
                   <motion.div
@@ -1656,96 +1661,102 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
           onClick={() => setShowMintModal(false)}
         >
           <motion.div
-            className="bg-[#111111] backdrop-blur-xl border border-[#FFFFFF30] rounded-3xl p-8 max-w-lg w-full relative overflow-hidden shadow-2xl"
-            initial={{ scale: 0.9, opacity: 0, y: 20 }}
+            className="bg-[#111111] backdrop-blur-xl border border-[#FFFFFF30] rounded-3xl w-full max-w-md lg:max-w-lg relative overflow-hidden shadow-2xl"
+            initial={{ scale: isMobile ? 0.85 : 0.9, opacity: 0, y: 20 }}
             animate={{ scale: 1, opacity: 1, y: 0 }}
-            exit={{ scale: 0.9, opacity: 0, y: 20 }}
+            exit={{ scale: isMobile ? 0.85 : 0.9, opacity: 0, y: 20 }}
+            transition={{ duration: 0.3, ease: "easeOut" }}
             onClick={(e) => e.stopPropagation()}
           >
-            <h3 className="text-[#FFFFFF] font-bold text-xl mb-8 text-center">Mint Process</h3>
-            {/* Progress steps */}
-            <div className="flex items-center justify-between mb-10">
-              {['connectWallet', 'connectTwitter', 'mintNFT'].map((step, index) => {
-                const isCompleted =
-                  (step === 'connectWallet' && walletConnected) ||
-                  (step === 'connectTwitter' && twitterConnected) ||
-                  (step === 'mintNFT' && false);
-                const isActive = mintStep === step;
-                return (
-                  <Fragment key={step}>
-                    <div className="flex flex-col items-center gap-3">
-                      <div
-                        className={`w-12 h-12 rounded-full flex items-center justify-center text-base font-bold border-4 transition-all duration-300 ${isCompleted
-                          ? 'bg-white text-black border-white'
-                          : isActive
-                            ? 'border-white bg-[#FFFFFF20] text-white scale-110 shadow-lg shadow-white/20'
-                            : 'border-[#FFFFFF40] bg-transparent text-[#AAAAAA]'
-                          }`}
-                      >
-                        {isCompleted ? <Check className="w-6 h-6" /> : index + 1}
+            <div className={isMobile ? "p-6" : "p-8"}>
+              <h3 className="text-[#FFFFFF] font-bold text-center mb-8 text-xl lg:text-2xl">
+                Mint Process
+              </h3>
+
+              {/* Progress steps */}
+              <div className="flex items-center justify-between mb-10">
+                {['connectWallet', 'connectTwitter', 'mintNFT'].map((step, index) => {
+                  const isCompleted =
+                    (step === 'connectWallet' && walletConnected) ||
+                    (step === 'connectTwitter' && twitterConnected) ||
+                    (step === 'mintNFT' && false);
+                  const isActive = mintStep === step;
+                  return (
+                    <Fragment key={step}>
+                      <div className="flex flex-col items-center gap-3">
+                        <div
+                          className={`flex items-center justify-center text-base font-bold border-4 transition-all duration-300 rounded-full ${isCompleted
+                              ? 'bg-white text-black border-white'
+                              : isActive
+                                ? 'border-white bg-[#FFFFFF20] text-white shadow-lg shadow-white/20'
+                                : 'border-[#FFFFFF40] bg-transparent text-[#AAAAAA]'
+                            } ${isMobile ? 'w-11 h-11' : 'w-12 h-12'}`}
+                        >
+                          {isCompleted ? <Check className={isMobile ? 'w-5 h-5' : 'w-6 h-6'} /> : index + 1}
+                        </div>
+                        <span className={`text-[#CCCCCC] capitalize ${isMobile ? 'text-xs' : 'text-sm'}`}>
+                          {step === 'connectWallet' ? 'Wallet' : step === 'connectTwitter' ? 'Twitter' : 'Mint NFT'}
+                        </span>
                       </div>
-                      <span className="text-xs text-[#CCCCCC] capitalize">
-                        {step === 'connectWallet' ? 'Wallet' : step === 'connectTwitter' ? 'Twitter' : 'Mint NFT'}
-                      </span>
-                    </div>
-                    {index < 2 && (
-                      <div className="flex-1 h-0.5 bg-[#FFFFFF30] mx-4" />
+                      {index < 2 && (
+                        <div className={`flex-1 h-0.5 bg-[#FFFFFF30] ${isMobile ? 'mx-3' : 'mx-4'}`} />
+                      )}
+                    </Fragment>
+                  );
+                })}
+              </div>
+
+              {/* Step content */}
+              <div className="flex flex-col items-center justify-center space-y-6 lg:space-y-8">
+                {mintStep === 'connectWallet' && (
+                  <div className="text-center space-y-6">
+                    <p className={`text-[#CCCCCC] ${isMobile ? 'text-sm' : 'text-base'}`}>Connect your wallet to Base network</p>
+                    {walletConnected ? (
+                      <div className="flex gap-4 w-full max-w-xs">
+                        <button
+                          onClick={() => setShowMintModal(false)}
+                          className="flex-1 px-6 py-3 bg-[#FFFFFF10] text-white rounded-xl hover:bg-[#FFFFFF20] border border-[#FFFFFF30] transition text-sm"
+                        >
+                          Cancel
+                        </button>
+                        <button
+                          onClick={handleNextStep}
+                          className="flex-1 px-6 py-3 bg-white text-black rounded-xl font-medium hover:bg-gray-200 transition text-sm"
+                        >
+                          Next
+                        </button>
+                      </div>
+                    ) : (
+                      <OnchainWalletWrapper>
+                        <ConnectWallet
+                          onConnect={handleConnectWallet}
+                          theme="dark"
+                          className="px-8 py-3"
+                        />
+                      </OnchainWalletWrapper>
                     )}
-                  </Fragment>
-                );
-              })}
-            </div>
-            {/* Step content */}
-            <div className="min-h-[200px] flex flex-col items-center justify-center">
-              {mintStep === 'connectWallet' && (
-                <div className="text-center space-y-6">
-                  <p className="text-[#CCCCCC] text-sm">Connect your wallet to Base network</p>
-                  {walletConnected ? (
-                    <div className="flex gap-4 w-full">
-                      <button
-                        onClick={() => setShowMintModal(false)}
-                        className="flex-1 px-6 py-3 bg-[#FFFFFF10] text-white rounded-xl hover:bg-[#FFFFFF20] border border-[#FFFFFF30] transition"
-                      >
-                        Cancel
-                      </button>
-                      <button
-                        onClick={handleNextStep}
-                        className="flex-1 px-6 py-3 bg-white text-black rounded-xl font-medium hover:bg-gray-200 transition"
-                      >
-                        Next
-                      </button>
-                    </div>
-                  ) : (
-                    <OnchainWalletWrapper>
-                      <ConnectWallet
-                        onConnect={handleConnectWallet}
-                        theme="dark"
-                        className="px-8 py-3"
-                      />
-                    </OnchainWalletWrapper>
-                  )}
-                </div>
-              )}
-              {mintStep === 'connectTwitter' && (
-                <div className="text-center space-y-6 w-full">
-                  <p className="text-[#CCCCCC] text-sm">Connect your X account for verification</p>
-                  {twitterConnected ? (
-                    <div className="flex gap-4 w-full max-w-md mx-auto">
-                      <button
-                        onClick={() => setShowMintModal(false)}
-                        className="flex-1 px-6 py-3 bg-[#FFFFFF10] text-white rounded-xl hover:bg-[#FFFFFF20] border border-[#FFFFFF30] transition"
-                      >
-                        Cancel
-                      </button>
-                      <button
-                        onClick={handleNextStep}
-                        className="flex-1 px-6 py-3 bg-white text-black rounded-xl font-medium hover:bg-gray-200 transition"
-                      >
-                        Next
-                      </button>
-                    </div>
-                  ) : (
-                    <div className="flex justify-center">
+                  </div>
+                )}
+
+                {mintStep === 'connectTwitter' && (
+                  <div className="text-center space-y-6 w-full max-w-xs">
+                    <p className={`text-[#CCCCCC] ${isMobile ? 'text-sm' : 'text-base'}`}>Connect your X account for verification</p>
+                    {twitterConnected ? (
+                      <div className="flex gap-4 w-full">
+                        <button
+                          onClick={() => setShowMintModal(false)}
+                          className="flex-1 px-6 py-3 bg-[#FFFFFF10] text-white rounded-xl hover:bg-[#FFFFFF20] border border-[#FFFFFF30] transition text-sm"
+                        >
+                          Cancel
+                        </button>
+                        <button
+                          onClick={handleNextStep}
+                          className="flex-1 px-6 py-3 bg-white text-black rounded-xl font-medium hover:bg-gray-200 transition text-sm"
+                        >
+                          Next
+                        </button>
+                      </div>
+                    ) : (
                       <button
                         onClick={handleConnectTwitter}
                         className="px-8 py-3 border border-white bg-[#111111] text-white rounded-xl font-medium hover:bg-white/10 transition flex items-center justify-center gap-3 min-w-[200px]"
@@ -1753,46 +1764,51 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
                         <span>Connect</span>
                         <img src="/logos/x.webp" alt="X Logo" className="w-5 h-5" />
                       </button>
-                    </div>
-                  )}
-                </div>
-              )}
-              {mintStep === 'mintNFT' && (
-                <div className="text-center space-y-8">
-                  <p className="text-[#CCCCCC] text-sm">All done ! Mint your exclusive Genesis NFT</p>
-                  <div className="relative w-64 h-64 mx-auto rounded-2xl overflow-hidden shadow-2xl">
-                    {nftImageSrc ? (
-                      <Image
-                        src={nftImageSrc}
-                        alt="NFT Preview"
-                        fill
-                        className="object-cover"
-                        unoptimized={true}
-                        priority
-                        onError={(e) => (e.target.src = '/placeholder_nft.png')}
-                      />
-                    ) : (
-                      <div className="w-full h-full flex items-center justify-center bg-[#222222]">
-                        <Spinner className="h-12 w-12 text-white" />
-                      </div>
                     )}
                   </div>
-                  <div className="flex gap-4 w-full">
-                    <button
-                      onClick={() => setShowMintModal(false)}
-                      className="flex-1 px-6 py-3 bg-[#FFFFFF10] text-white rounded-xl hover:bg-[#FFFFFF20] border border-[#FFFFFF30] transition"
-                    >
-                      Cancel
-                    </button>
-                    <button
-                      onClick={handleMint}
-                      className="flex-1 px-6 py-3 bg-white text-black rounded-xl font-medium hover:bg-gray-200 transition"
-                    >
-                      Mint Now
-                    </button>
+                )}
+
+                {mintStep === 'mintNFT' && (
+                  <div className="text-center space-y-8">
+                    <p className={`text-[#CCCCCC] ${isMobile ? 'text-sm' : 'text-base'}`}>All done! Mint your exclusive Genesis NFT</p>
+                    <div className={`relative mx-auto rounded-2xl overflow-hidden shadow-2xl ${isMobile ? 'w-60 h-60' : 'w-64 h-64'}`}>
+                      {nftImageSrc ? (
+                        <Image
+                          src={nftImageSrc}
+                          alt="NFT Preview"
+                          fill
+                          className="object-cover"
+                          unoptimized={true}
+                          priority
+                          onError={(e) => (e.target.src = '/placeholder_nft.png')}
+                        />
+                      ) : (
+                        <div className="w-full h-full flex items-center justify-center bg-[#222222]">
+                          <Spinner className={isMobile ? 'h-10 w-10' : 'h-12 w-12 text-white'} />
+                        </div>
+                      )}
+                    </div>
+                    <div className="flex gap-4 w-full max-w-xs">
+                      <button
+                        onClick={() => setShowMintModal(false)}
+                        className="flex-1 px-6 py-3 bg-[#FFFFFF10] text-white rounded-xl hover:bg-[#FFFFFF20] border border-[#FFFFFF30] transition text-sm"
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        onClick={handleMint}
+                        disabled={!isConnected}
+                        className={`flex-1 px-6 py-3 rounded-xl font-medium transition text-sm ${!isConnected
+                            ? 'bg-gray-600 text-gray-400 cursor-not-allowed'
+                            : 'bg-white text-black hover:bg-gray-200'
+                          }`}
+                      >
+                        Mint Now
+                      </button>
+                    </div>
                   </div>
-                </div>
-              )}
+                )}
+              </div>
             </div>
           </motion.div>
         </motion.div>
