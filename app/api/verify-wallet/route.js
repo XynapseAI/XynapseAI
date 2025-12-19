@@ -11,16 +11,27 @@ const prisma = new PrismaClient();
 const rateLimitMap = new Map();
 
 function isRateLimited(ip) {
-  const now = Date.now();
-  const key = ip || 'anonymous';
-  const record = rateLimitMap.get(key) || { count: 0, resetTime: now + 15 * 60 * 1000 };
-
-  if (now > record.resetTime) {
-    record.count = 0;
-    record.resetTime = now + 15 * 60 * 1000;
+  // Bỏ qua rate limit hoàn toàn ở dev mode
+  if (process.env.NODE_ENV !== 'production') {
+    return false;
   }
 
-  if (record.count >= 5) return true;
+  const now = Date.now();
+  const key = `verify_wallet:${ip || 'anonymous'}`;
+  const windowMs = 60 * 60 * 1000; 
+  const maxAttempts = 60;     
+
+  let record = rateLimitMap.get(key);
+
+  if (!record || now > record.resetTime) {
+    record = { count: 1, resetTime: now + windowMs };
+    rateLimitMap.set(key, record);
+    return false;
+  }
+
+  if (record.count >= maxAttempts) {
+    return true;
+  }
 
   record.count++;
   rateLimitMap.set(key, record);

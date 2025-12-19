@@ -176,7 +176,7 @@ async function trackViolation(ip, pathname, reason = 'Unknown') {
     return;
   }
   const key = `violations:${ip}`;
-  const maxViolations = 5;
+  const maxViolations = 40;
   const windowMs = 15 * 60 * 1000;
   const violations = parseInt(await client.get(key)) || 0;
   if (violations >= maxViolations) {

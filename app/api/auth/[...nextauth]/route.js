@@ -61,9 +61,9 @@ async function dynamicRateLimit(ip, session, pathname) {
   const isPremium = session?.user?.isPremium || false;
   const accountAge = await getAccountAge(userId);
   const limits = {
-    newUser: { points: 50, duration: 15 * 60 },
-    regularUser: { points: 100, duration: 15 * 60 },
-    premiumUser: { points: 500, duration: 15 * 60 },
+    newUser: { points: 500, duration: 15 * 60 },
+    regularUser: { points: 1000, duration: 15 * 60 },
+    premiumUser: { points: 2000, duration: 15 * 60 },
   };
   const limitType = isPremium ? "premiumUser" : accountAge < 7 ? "newUser" : "regularUser";
   const rateLimiter = new RateLimiterRedis({
@@ -139,7 +139,7 @@ const allowedOrigins = [
   "https://www.xynapseai.net",
   "https://base.xynapseai.net",
   "https://xynapse-ai-xynapse-projects.vercel.app",
-  "https://id.worldcoin.org",  // NEW: Cho World App webviews
+  "https://id.worldcoin.org",  // NEW: World App webviews
   "https://world.org",
 ].filter((v, i, a) => a.indexOf(v) === i);
 
@@ -164,7 +164,7 @@ async function isAllowedOrigin(origin, referer, pathname) {
         referer.includes('farcaster.xyz') ||
         referer.includes('warpcast.com') ||
         referer.includes('base.org') ||
-        referer.includes('worldcoin.org') || referer.includes('world.org') // NEW: Cho World
+        referer.includes('worldcoin.org') || referer.includes('world.org') 
       ) {
         logger.info("Allowing null origin for trusted app/referer", { referer, refOrigin });
         return true;
@@ -273,7 +273,7 @@ const rateLimitedHandler = (handler) =>
       if (pathname.startsWith('/api/auth/')) {
         newHeaders.set('Access-Control-Allow-Credentials', 'true');
         // FIXED: Handle null origin explicitly
-        let allowOrigin = 'https://base.xynapseai.net';  // Default cho Mini App
+        let allowOrigin = 'https://base.xynapseai.net';  // Default Mini App
         if (origin && allowedOrigins.includes(origin)) {
           allowOrigin = origin;
         } else if (origin === 'null' && referer) {

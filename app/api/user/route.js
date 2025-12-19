@@ -76,7 +76,7 @@ async function withRetry(fn, retries = 3, delay = 2000) {
 
 async function checkRateLimit(ip, userId = null) {
   const client = await getRedisClient();
-  const windowSeconds = 15 * 60;
+  const windowSeconds = 10 * 60;
   const ipKey = `rate:ip:${ip}`;
   const userKey = userId ? `rate:user:${userId}` : null;
   const ipMax = process.env.NODE_ENV === 'development' ? 500 : 300;
@@ -98,7 +98,7 @@ async function checkRateLimit(ip, userId = null) {
 async function trackViolation(ip, reason) {
   const client = await getRedisClient();
   const key = `violations:${ip}`;
-  const maxViolations = 5;
+  const maxViolations = 50;
   const windowMs = 15 * 60 * 1000;
   const violations = parseInt(await client.get(key)) || 0;
   if (violations >= maxViolations) {
