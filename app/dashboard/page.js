@@ -1172,7 +1172,7 @@ function DashboardInner() {
                               value={email}
                               onChange={(e) => setEmail(e.target.value)}
                               placeholder="Enter your email"
-                              className="w-full px-4 py-2.5 bg-black/60 border border-white/15 rounded-lg text-white text-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-white/30 transition-all duration-300"
+                              className="w-full px-4 py-2.5 bg-black/60 border border-white/15 rounded-lg text-gray-500 text-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-white/30 transition-all duration-300"
                               required
                             />
                             <button

@@ -164,6 +164,7 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
       fetchMetadata();
     }
   }, [currentCounter]);
+
   const { data: csrfToken, isLoading: csrfLoading, error: csrfError } = useQuery({
     queryKey: ['csrfToken'],
     queryFn: async () => {
@@ -182,7 +183,7 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
     },
   });
   const { data: userData, isLoading: userLoading, error: userError } = useQuery({
-    queryKey: ['userData', session?.user?.id, csrfToken],
+    queryKey: ['userData', session?.user?.id],  // THAY ĐỔI: Xóa csrfToken khỏi query key để tránh phân mảnh cache
     queryFn: async () => {
       const cacheKey = `userData-${session.user.id}`;
       const cached = await getCachedData(cacheKey);
@@ -196,23 +197,25 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
       try {
         const response = await axios.get(`/api/user?uid=${encodeURIComponent(session.user.id)}`, {
           headers: {
-            'x-csrf-token': csrfToken,
+            'x-csrf-token': csrfToken,  // Vẫn dùng csrfToken trong headers, nhưng không trong key
           },
           withCredentials: true,
         });
         if (!response.data.success) throw new Error(response.data.detail || 'Unable to fetch user data');
+        // FIXED: Handle snake_case from API (wallet_address → walletAddress)
+        const apiUser = response.data.user;
         const user = {
-          ...response.data.user,
-          isPremium: response.data.user.isPremium || false,
-          tier: response.data.user.isPremium ? 'Premium' : response.data.user.tier || 'Basic',
-          twitterHandle: response.data.user.twitterHandle || null,
-          profilePicture: response.data.user.profilePicture || '',
-          googleName: response.data.user.googleName || '',
-          walletAddress: response.data.user.walletAddress || null, // Ensure wallet from API
-          daysActive: response.data.user.daysActive || 0,
-          streak: response.data.user.streak || 0,
-          last7Days: response.data.user.last7Days || [],
-          hasMintedNft: response.data.user.has_minted_nft || false, // NEW: Add minted status
+          ...apiUser,
+          isPremium: apiUser.isPremium || false,
+          tier: apiUser.isPremium ? 'Premium' : apiUser.tier || 'Basic',
+          twitterHandle: apiUser.twitterHandle || null,
+          profilePicture: apiUser.profilePicture || '',
+          googleName: apiUser.googleName || '',
+          walletAddress: apiUser.wallet_address || apiUser.walletAddress || null, // FIXED: Fallback snake → camel
+          daysActive: apiUser.daysActive || 0,
+          streak: apiUser.streak || 0,
+          last7Days: apiUser.last7Days || [],
+          hasMintedNft: apiUser.has_minted_nft || apiUser.hasMintedNft || false, // FIXED: Also for minted (snake fallback)
         };
         await cacheData(cacheKey, user, 24 * 60 * 1000);
         return user;
@@ -223,7 +226,7 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
         throw err;
       }
     },
-    enabled: status === 'authenticated' && !!session?.user?.id && !!csrfToken,
+    enabled: status === 'authenticated' && !!session?.user?.id && !!csrfToken,  // Giữ enabled depend csrfToken ready
     staleTime: 5 * 60 * 1000,
     retry: 3,
     retryDelay: (attempt) => Math.min(1000 * 2 ** attempt, 30000),
@@ -951,13 +954,11 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
       });
     }
   }, [userData, session, csrfToken, queryClient, status]);
-
   // Sync wallet and twitter connection states for modal
   useEffect(() => {
     setWalletConnected(!!address || !!userData?.walletAddress);
     setTwitterConnected(!!userData?.twitterHandle);
   }, [address, userData?.walletAddress, userData?.twitterHandle]);
-
   // Automatically switch to Base Mainnet if connected to wrong chain
   useEffect(() => {
     if (isConnected && chainId !== BASE_CHAIN_ID) {
@@ -970,7 +971,6 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
       );
     }
   }, [isConnected, chainId, switchChainMutation]);
-
   const handleCopyWallet = async () => {
     if (userData?.walletAddress || address) {
       await navigator.clipboard.writeText(userData?.walletAddress || address);
@@ -1013,11 +1013,14 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
       setNeedsVerification(false);
       setIsSavingWallet(false);
       setVerificationNonce(''); // Reset nonce after success
-
+      // NEW: Invalidate and refetch csrfToken to sync with new cookie
+      await queryClient.invalidateQueries(['csrfToken']);
+      await queryClient.refetchQueries(['csrfToken']);
       const cacheKey = `userData-${session.user.id}`;
       await clearCache(cacheKey);
-      await queryClient.invalidateQueries({ queryKey: ['userData', session?.user?.id, csrfToken] });
-      await queryClient.refetchQueries({ queryKey: ['userData', session?.user?.id, csrfToken] });
+      // THAY ĐỔI: Invalidate và refetch userData với key không depend csrf (force exact match)
+      await queryClient.invalidateQueries(['userData', session?.user?.id]);
+      await queryClient.refetchQueries({ queryKey: ['userData', session?.user?.id], exact: true });
     },
     onError: (err) => {
       // Removed toast to avoid duplicates
@@ -1500,7 +1503,6 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
       toast.error('Please connect your wallet first.');
       return;
     }
-
     if (chainId !== BASE_CHAIN_ID) {
       try {
         await switchChainMutation.mutateAsync({ chainId: BASE_CHAIN_ID });
@@ -1510,12 +1512,10 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
       }
       return;
     }
-
     if (nftMinted) {
       toast.info('You have already minted!');
       return;
     }
-
     try {
       const hash = await writeContractAsync({
         address: CONTRACT_ADDRESS,
@@ -1539,7 +1539,6 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
           }
         }
       }
-
       setShowMintModal(false);
       toast.success('Genesis NFT minted successfully!');
       setNftMinted(true);
@@ -1687,7 +1686,6 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
               <h3 className="text-[#FFFFFF] font-bold text-center mb-8 text-xl lg:text-2xl">
                 Mint Process
               </h3>
-
               {/* Progress steps */}
               <div className="flex items-center justify-between mb-10">
                 {['connectWallet', 'connectTwitter', 'mintNFT'].map((step, index) => {
@@ -1720,7 +1718,6 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
                   );
                 })}
               </div>
-
               {/* Step content */}
               <div className="flex flex-col items-center justify-center space-y-6 lg:space-y-8">
                 {mintStep === 'connectWallet' && (
@@ -1752,7 +1749,6 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
                     )}
                   </div>
                 )}
-
                 {mintStep === 'connectTwitter' && (
                   <div className="text-center space-y-6 w-full max-w-xs">
                     <p className={`text-[#CCCCCC] ${isMobile ? 'text-sm' : 'text-base'}`}>Connect your X account for verification</p>
@@ -1782,7 +1778,6 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
                     )}
                   </div>
                 )}
-
                 {mintStep === 'mintNFT' && (
                   <div className="text-center space-y-8">
                     <p className={`text-[#CCCCCC] ${isMobile ? 'text-sm' : 'text-base'}`}>
