@@ -76,11 +76,11 @@ async function withRetry(fn, retries = 3, delay = 2000) {
 
 async function checkRateLimit(ip, userId = null) {
   const client = await getRedisClient();
-  const windowSeconds = 10 * 60;
+  const windowSeconds = 15 * 60;
   const ipKey = `rate:ip:${ip}`;
   const userKey = userId ? `rate:user:${userId}` : null;
   const ipMax = process.env.NODE_ENV === 'development' ? 500 : 300;
-  const userMax = process.env.NODE_ENV === 'development' ? 300 : 100;
+  const userMax = process.env.NODE_ENV === 'development' ? 300 : 500;
   const ipCount = Number(await client.incr(ipKey));
   if (ipCount === 1) await client.expire(ipKey, windowSeconds);
   if (ipCount > ipMax) {
@@ -415,8 +415,12 @@ export async function GET(request) {
     try {
       await checkRateLimit(ip, userId);
     } catch (err) {
-      await trackViolation(ip, err.message);
-      return NextResponse.json({ detail: 'Too many requests' }, { status: 429, headers });
+      if (userId && err.message.includes('Too many requests')) {
+        logger.warn('GET /api/user rate limit soft-fail, serving cache if available', { userId });
+      } else {
+        await trackViolation(ip, err.message);
+        return NextResponse.json({ detail: 'Too many requests' }, { status: 429, headers });
+      }
     }
 
     let newCsrfToken;
@@ -462,9 +466,7 @@ export async function GET(request) {
       const client = await getRedisClient();
       const cached = await client.get(cacheKey);
       if (cached) {
-        const parsed = JSON.parse(cached);
-        newCsrfToken = newCsrfToken || await setCSRFToken(ip, userId);
-        return NextResponse.json(parsed, { headers: securityHeaders(newCsrfToken) });
+        return NextResponse.json(JSON.parse(cached), { headers: securityHeaders(await setCSRFToken(ip, userId)) });
       }
 
       // UPDATED: Removed has_minted_nft from select (on-chain only)
@@ -665,7 +667,7 @@ export async function POST(request) {
         profile_picture: profilePicture || '',
         google_name: googleName || '',
         email_verified: emailVerified || false,
-        wallet_address: walletAddress || null, 
+        wallet_address: walletAddress || null,
         connected: true,
         last_connected: new Date(),
         points: 0,
@@ -707,7 +709,7 @@ export async function POST(request) {
       try {
         const client = await getRedisClient();
         const cacheKey = `user:${id}`;
-        await client.del(cacheKey); 
+        await client.del(cacheKey);
       } catch (err) {
         if (process.env.NODE_ENV !== 'production') {
           logger.warn('Failed to clear cache for user', { id: mask(id), err: err?.message });
@@ -724,7 +726,7 @@ export async function POST(request) {
             email: updatedUser.email,
             profile_picture: updatedUser.profile_picture,
             google_name: updatedUser.google_name,
-            wallet_address: updatedUser.wallet_address, 
+            wallet_address: updatedUser.wallet_address,
             email_verified: updatedUser.email_verified,
           }),
         },
