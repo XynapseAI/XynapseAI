@@ -987,14 +987,17 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
   const displayedAddress = currentAddress || '';
   // UPDATED: Simplified mutation for saving wallet address (no verification/signature)
   const updateWalletMutation = useMutation({
-
     mutationFn: async ({ walletAddress, v2Token } = {}) => {
       const token = v2Token || await debouncedExecuteRecaptcha('update_wallet');
       const response = await axios.patch(
         '/api/user',
-        { uid: session.user.id, walletAddress, recaptchaToken: token },
+        { uid: session.user.id, walletAddress }, // REMOVED: recaptchaToken from body
         {
-          headers: { 'x-csrf-token': csrfToken, 'Content-Type': 'application/json' },
+          headers: {
+            'x-csrf-token': csrfToken,
+            'x-recaptcha-token': token, // ADDED: Send in header as expected by backend
+            'Content-Type': 'application/json'
+          },
           withCredentials: true,
         }
       );
@@ -1004,18 +1007,33 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
       setHasUpdatedWallet(true);
       setIsUpdatingWallet(false);
       const cacheKey = `userData-${session.user.id}`;
-      await clearAllCaches(session.user.id); // NEW: Clear IndexedDB and cache like Twitter
+      await clearAllCaches(session.user.id);
       await clearCache(cacheKey);
       await queryClient.invalidateQueries({ queryKey: ['userData', session?.user?.id, csrfToken] });
       await queryClient.refetchQueries({ queryKey: ['userData', session?.user?.id, csrfToken] });
-      window.location.reload(); // NEW: Reload to update state like Twitter connect
+      // REMOVED: window.location.reload(); to prevent infinite reload loop
     },
     onError: (err) => {
-      // Removed toast to avoid duplicates
       setHasUpdatedWallet(false);
       setIsUpdatingWallet(false);
+      // ADDED: On 403 (CSRF issue), refresh CSRF token
+      if (err.response?.status === 403 && err.response.data.detail.includes('CSRF')) {
+        queryClient.invalidateQueries({ queryKey: ['csrfToken'] });
+      }
     },
   });
+  const debouncedUpdateWallet = useCallback(
+    debounce((address) => {
+      setIsUpdatingWallet(true);
+      updateWalletMutation.mutate({ walletAddress: address });
+    }, 2000), // 2s debounce to avoid spamming on connect glitches
+    [updateWalletMutation]
+  );
+  useEffect(() => {
+    if (isConnected && !!address && userData && !userData.walletAddress && !isUpdatingWallet && !hasUpdatedWallet) {
+      debouncedUpdateWallet(address);
+    }
+  }, [isConnected, address, userData, isUpdatingWallet, hasUpdatedWallet, debouncedUpdateWallet]);
   const disconnectTwitterMutation = useMutation({
     mutationFn: async ({ v2Token } = {}) => {
       const token = v2Token || await debouncedExecuteRecaptcha('disconnect_twitter');
@@ -1093,19 +1111,19 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
   }, [userData]);
   // UPDATED: Auto-save wallet on connect (simplified, no verification) - FIXED: Only save if no wallet exists yet
   useEffect(() => {
-    if (isConnected && !!address && !userData?.walletAddress && !isUpdatingWallet && !hasUpdatedWallet) {
+    if (isConnected && !!address && userData && !userData.walletAddress && !isUpdatingWallet && !hasUpdatedWallet) {
       setIsUpdatingWallet(true);
       updateWalletMutation.mutate({ walletAddress: address });
     }
-  }, [isConnected, address, userData?.walletAddress, isUpdatingWallet, hasUpdatedWallet, updateWalletMutation]);
+  }, [isConnected, address, userData, isUpdatingWallet, hasUpdatedWallet, updateWalletMutation]);
   // NEW: Auto-connect/save for Base/Farcaster apps on login - FIXED: Only save if no wallet exists yet
   useEffect(() => {
     const isSpecialApp = isBaseAccount || !!userData?.farcaster_fid;
-    if (status === 'authenticated' && isSpecialApp && isConnected && !!address && !userData?.walletAddress && !isUpdatingWallet && !hasUpdatedWallet) {
+    if (status === 'authenticated' && isSpecialApp && isConnected && !!address && userData && !userData.walletAddress && !isUpdatingWallet && !hasUpdatedWallet) {
       setIsUpdatingWallet(true);
       updateWalletMutation.mutate({ walletAddress: address });
     }
-  }, [status, isBaseAccount, userData?.farcaster_fid, isConnected, address, userData?.walletAddress, isUpdatingWallet, hasUpdatedWallet, updateWalletMutation]);
+  }, [status, isBaseAccount, userData?.farcaster_fid, isConnected, address, userData, isUpdatingWallet, hasUpdatedWallet, updateWalletMutation]);
   // Handle Twitter redirect callback (existing)
   useEffect(() => {
     const urlParams = new URLSearchParams(window.location.search);
@@ -1158,7 +1176,7 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
         .then(() => {
           window.history.replaceState({}, document.title, window.location.pathname);
           setWalletConnected(true);
-          window.location.reload(); // Reload to ensure full update
+          // REMOVED: window.location.reload(); to prevent potential loops
         })
         .catch((err) => {
           logger.error('Error handling Wallet connection callback:', err);

@@ -75,6 +75,9 @@ async function withRetry(fn, retries = 3, delay = 2000) {
 }
 
 async function checkRateLimit(ip, userId = null) {
+  if (process.env.NODE_ENV === 'development') {
+    return; // Skip rate limiting in development to prevent local issues
+  }
   const client = await getRedisClient();
   const windowSeconds = 15 * 60;
   const ipKey = `rate:ip:${ip}`;
