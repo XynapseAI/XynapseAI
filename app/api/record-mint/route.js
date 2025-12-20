@@ -1,4 +1,4 @@
-// app/api/record-mint/route.js (Already provided, no changes needed as it matches requirements)
+// app/api/record-mint/route.js
 import { NextResponse } from 'next/server';
 import { PrismaClient } from '@prisma/client';
 import { auth } from '@/lib/auth';
@@ -98,7 +98,7 @@ async function checkRateLimit(ip, userId = null) {
   }
 }
 
-async function trackViolation(ip, reason) {
+async function trackViolation(ip, pathname, reason) {
   const client = await getRedisClient();
   const key = `violations:${ip}`;
   const maxViolations = 5;
@@ -111,59 +111,69 @@ async function trackViolation(ip, reason) {
   }
   await client.multi().incr(key).expire(key, Math.floor(windowMs / 1000)).exec();
   if (process.env.NODE_ENV !== 'production') {
-    logger.warn('Violation recorded', { ip, reason, violations: violations + 1 });
+    logger.warn('Violation recorded', { ip, pathname, reason, violations: violations + 1 });
   }
 }
 
+const allowedOrigins = [
+  process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000',
+  'https://xynapseai.net',
+  'https://www.xynapseai.net',
+  'https://xynapse-ai-xynapse-projects.vercel.app',
+  'https://xynapse-ai.vercel.app',
+  'https://base.xynapseai.net',
+  'https://id.worldcoin.org',
+  'https://world.org',
+].filter(Boolean);
+
 async function isAllowedOrigin(origin, referer, pathname, ip) {
-  const configured = [
-    process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000',
-    'https://xynapseai.net',
-    'https://www.xynapseai.net',
-    'https://xynapse-ai-xynapse-projects.vercel.app',
-    'https://xynapse-ai.vercel.app',
-    'https://base.xynapseai.net', // Add for Base mini app
-  ].filter(Boolean);
-
-  if (process.env.NODE_ENV !== 'production') {
-    return configured.includes(origin) || configured.includes(referer ? new URL(referer).origin : null);
-  }
-
+  logger.info("Checking origin", { origin, referer, pathname, allowedOrigins });
   try {
-    if (!origin && !referer) {
-      await trackViolation(ip, 'Missing origin and referer in production');
-      return false;
+    if (origin && allowedOrigins.includes(origin)) {
+      logger.info("Origin allowed", { origin });
+      return true;
     }
-
-    if (origin && origin !== 'null') {
-      if (!origin.startsWith('https://')) {
-        await trackViolation(ip, 'Non-HTTPS origin in production');
-        return false;
-      }
-      if (configured.includes(origin)) {
-        return true;
-      }
-      await trackViolation(ip, 'Invalid origin');
-      return false;
-    }
-
-    if (referer) {
+    // Handle Origin: "null" (string) from WebViews/apps
+    if (origin === 'null' && referer) {
       const refOrigin = new URL(referer).origin;
-      if (!refOrigin.startsWith('https://')) {
-        await trackViolation(ip, 'Non-HTTPS referer in production');
-        return false;
-      }
-      if (configured.includes(refOrigin)) {
+      // Allow if referer from trusted apps or own domains
+      if (
+        allowedOrigins.includes(refOrigin) ||
+        referer.includes('farcaster.xyz') ||
+        referer.includes('warpcast.com') ||
+        referer.includes('base.org') ||
+        referer.includes('worldcoin.org') || referer.includes('world.org') 
+      ) {
+        logger.info("Allowing null origin for trusted app/referer", { referer, refOrigin });
         return true;
       }
-      await trackViolation(ip, 'Invalid referer');
-      return false;
     }
-
-    await trackViolation(ip, 'Invalid origin or referer');
+    if (!origin && referer) {
+      const refOrigin = new URL(referer).origin;
+      if (allowedOrigins.includes(refOrigin)) {
+        logger.info("Referer origin allowed", { referer, refOrigin });
+        return true;
+      }
+      // Allow Farcaster/Warpcast/Base/World referer
+      if (referer.includes('farcaster.xyz') || referer.includes('warpcast.com') || referer.includes('base.org') || referer.includes('worldcoin.org') || referer.includes('world.org')) {
+        logger.info("Allowing Farcaster/Warpcast/Base/World referer", { referer });
+        return true;
+      }
+    }
+    if (!origin && !referer) {
+      logger.info("Allowing internal/SSR request");
+      return true;
+    }
+    if (!origin && process.env.NODE_ENV === "development") {
+      logger.warn("Origin is null, allowing in development mode");
+      return true;
+    }
+    logger.error("CORS blocked", { origin, referer, pathname });
+    await trackViolation(ip, pathname, "CORS blocked");
     return false;
-  } catch {
-    await trackViolation(ip, 'Error validating origin');
+  } catch (err) {
+    logger.error("Error in isAllowedOrigin", { error: err.message, origin, referer, pathname });
+    await trackViolation(ip, pathname, "CORS error");
     return false;
   }
 }
@@ -242,6 +252,8 @@ function mask(value, keep = 6) {
 
 function securityHeaders(csrfToken = null) {
   const nonce = crypto.randomBytes(16).toString('base64');
+  const isProd = process.env.NODE_ENV === 'production';
+  const cookieDomain = isProd ? '.xynapseai.net' : undefined;
   const csp = [
     "default-src 'self'",
     "script-src 'self' 'nonce-" + nonce + "'",
@@ -249,7 +261,7 @@ function securityHeaders(csrfToken = null) {
     "img-src 'self' data: https:",
     "connect-src 'self'",
     "object-src 'none'",
-    "frame-ancestors 'none'",
+    "frame-ancestors *",  // CHANGED: Allow * for app iframe compatibility
     "base-uri 'self'",
     "form-action 'self'"
   ].join('; ');
@@ -264,13 +276,14 @@ function securityHeaders(csrfToken = null) {
     'Strict-Transport-Security': 'max-age=63072000; includeSubDomains; preload',
   };
   if (csrfToken) {
-    const sameSite = process.env.NODE_ENV === 'production' ? 'none' : 'lax';
+    const sameSite = isProd ? 'none' : 'lax';
     headers['Set-Cookie'] = cookie.serialize('csrf_token', csrfToken, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
+      httpOnly: false,  // CHANGED: false for webview/app compatibility (allows JS read)
+      secure: isProd,
       sameSite: sameSite,
       maxAge: 15 * 60,
       path: '/',
+      ...(cookieDomain && { domain: cookieDomain }),
     });
   }
   return headers;
@@ -309,7 +322,7 @@ export async function POST(request) {
   }
 
   if (!(await isAllowedOrigin(origin, referer, pathname, ip))) {
-    await trackViolation(ip, 'CORS blocked');
+    await trackViolation(ip, pathname, 'CORS blocked');
     return NextResponse.json({ detail: 'Not allowed by CORS' }, { status: 403, headers: securityHeaders() });
   }
 
@@ -335,14 +348,14 @@ export async function POST(request) {
     const userId = session?.user?.id || null;
 
     if (!session || !userId) {
-      await trackViolation(ip, 'Unauthenticated request');
+      await trackViolation(ip, pathname, 'Unauthenticated request');
       return NextResponse.json({ detail: 'Not authenticated' }, { status: 401, headers });
     }
 
     try {
       await checkRateLimit(ip, userId);
     } catch (err) {
-      await trackViolation(ip, err.message);
+      await trackViolation(ip, pathname, err.message);
       return NextResponse.json({ detail: 'Too many requests' }, { status: 429, headers });
     }
 
@@ -350,14 +363,20 @@ export async function POST(request) {
     const csrfOk = await checkDoubleSubmitCSRF(request, ip, userId);
     if (!csrfOk) {
       newCsrfToken = await setCSRFToken(ip, userId);
-      return NextResponse.json({ detail: 'Invalid CSRF token. Please try again.' }, { status: 403, headers: securityHeaders(newCsrfToken) });
+      return NextResponse.json({ 
+        detail: 'Invalid CSRF token. Please try again.',
+        csrfToken: newCsrfToken  // ADDED: Return token for client to use in next request
+      }, { status: 403, headers: securityHeaders(newCsrfToken) });
     }
 
     const recaptchaToken = request.headers.get('x-recaptcha-token');
     if (!recaptchaToken && process.env.NODE_ENV !== 'development') {
       newCsrfToken = newCsrfToken || await setCSRFToken(ip, userId);
-      await trackViolation(ip, 'Missing reCAPTCHA token');
-      return NextResponse.json({ detail: 'Missing reCAPTCHA token' }, { status: 400, headers: securityHeaders(newCsrfToken) });
+      await trackViolation(ip, pathname, 'Missing reCAPTCHA token');
+      return NextResponse.json({ 
+        detail: 'Missing reCAPTCHA token',
+        ...(newCsrfToken && { csrfToken: newCsrfToken })  // ADDED: Return if set
+      }, { status: 400, headers: securityHeaders(newCsrfToken) });
     }
     if (process.env.NODE_ENV !== 'development') {
       try {
@@ -365,18 +384,27 @@ export async function POST(request) {
         if (!recaptchaResponse.success) {
           newCsrfToken = newCsrfToken || await setCSRFToken(ip, userId);
           if (recaptchaResponse.needsFallback) {
-            return NextResponse.json({ detail: 'low_score_fallback' }, { status: 403, headers: securityHeaders(newCsrfToken) });
+            return NextResponse.json({ 
+              detail: 'low_score_fallback',
+              ...(newCsrfToken && { csrfToken: newCsrfToken })
+            }, { status: 403, headers: securityHeaders(newCsrfToken) });
           }
-          await trackViolation(ip, `reCAPTCHA verification failed: ${recaptchaResponse.error}`);
-          return NextResponse.json({ detail: `reCAPTCHA verification failed: ${recaptchaResponse.error}` }, { status: 403, headers: securityHeaders(newCsrfToken) });
+          await trackViolation(ip, pathname, `reCAPTCHA verification failed: ${recaptchaResponse.error}`);
+          return NextResponse.json({ 
+            detail: `reCAPTCHA verification failed: ${recaptchaResponse.error}`,
+            ...(newCsrfToken && { csrfToken: newCsrfToken })
+          }, { status: 403, headers: securityHeaders(newCsrfToken) });
         }
         if (process.env.NODE_ENV !== 'production') {
           logger.info('reCAPTCHA OK', { ip, score: recaptchaResponse.score });
         }
       } catch (error) {
         newCsrfToken = newCsrfToken || await setCSRFToken(ip, userId);
-        await trackViolation(ip, `reCAPTCHA verification error: ${error.message}`);
-        return NextResponse.json({ detail: `reCAPTCHA verification failed: ${error.message}` }, { status: 403, headers: securityHeaders(newCsrfToken) });
+        await trackViolation(ip, pathname, `reCAPTCHA verification error: ${error.message}`);
+        return NextResponse.json({ 
+          detail: `reCAPTCHA verification failed: ${error.message}`,
+          ...(newCsrfToken && { csrfToken: newCsrfToken })
+        }, { status: 403, headers: securityHeaders(newCsrfToken) });
       }
     }
 
@@ -385,8 +413,11 @@ export async function POST(request) {
       body = await request.json();
     } catch {
       newCsrfToken = newCsrfToken || await setCSRFToken(ip, userId);
-      await trackViolation(ip, 'Invalid JSON body');
-      return NextResponse.json({ detail: 'Invalid JSON body' }, { status: 400, headers: securityHeaders(newCsrfToken) });
+      await trackViolation(ip, pathname, 'Invalid JSON body');
+      return NextResponse.json({ 
+        detail: 'Invalid JSON body',
+        ...(newCsrfToken && { csrfToken: newCsrfToken })
+      }, { status: 400, headers: securityHeaders(newCsrfToken) });
     }
 
     let parsedBody;
@@ -394,16 +425,22 @@ export async function POST(request) {
       parsedBody = postSchema.parse(body);
     } catch {
       newCsrfToken = newCsrfToken || await setCSRFToken(ip, userId);
-      await trackViolation(ip, 'Invalid input data');
-      return NextResponse.json({ detail: 'Invalid input data' }, { status: 400, headers: securityHeaders(newCsrfToken) });
+      await trackViolation(ip, pathname, 'Invalid input data');
+      return NextResponse.json({ 
+        detail: 'Invalid input data',
+        ...(newCsrfToken && { csrfToken: newCsrfToken })
+      }, { status: 400, headers: securityHeaders(newCsrfToken) });
     }
 
     const { txHash, uid, walletAddress } = parsedBody;
 
     if (session.user.id !== uid) {
       newCsrfToken = newCsrfToken || await setCSRFToken(ip, userId);
-      await trackViolation(ip, 'Unauthorized user update');
-      return NextResponse.json({ detail: 'Not authorized' }, { status: 401, headers: securityHeaders(newCsrfToken) });
+      await trackViolation(ip, pathname, 'Unauthorized user update');
+      return NextResponse.json({ 
+        detail: 'Not authorized',
+        ...(newCsrfToken && { csrfToken: newCsrfToken })
+      }, { status: 401, headers: securityHeaders(newCsrfToken) });
     }
 
     // Verify txHash is valid and a mint from walletAddress

@@ -117,7 +117,7 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
   const { address, isConnected, connector } = useAccount();
   const { disconnect } = useDisconnect(); // For manual disconnect
   const { writeContractAsync } = useWriteContract();
-  const { switchChain } = useSwitchChain();
+  const switchChainMutation = useSwitchChain();
   const { sendCalls } = useSendCalls();
   const [nftImageSrc, setNftImageSrc] = useState('');
   const chainId = useChainId();
@@ -951,11 +951,26 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
       });
     }
   }, [userData, session, csrfToken, queryClient, status]);
+
   // Sync wallet and twitter connection states for modal
   useEffect(() => {
     setWalletConnected(!!address || !!userData?.walletAddress);
     setTwitterConnected(!!userData?.twitterHandle);
   }, [address, userData?.walletAddress, userData?.twitterHandle]);
+
+  // Automatically switch to Base Mainnet if connected to wrong chain
+  useEffect(() => {
+    if (isConnected && chainId !== BASE_CHAIN_ID) {
+      switchChainMutation.mutate(
+        { chainId: BASE_CHAIN_ID },
+        {
+          onSuccess: () => toast.info('Switched to Base Mainnet'),
+          onError: (err) => toast.error(`Failed to switch network: ${err.message}`),
+        }
+      );
+    }
+  }, [isConnected, chainId, switchChainMutation]);
+
   const handleCopyWallet = async () => {
     if (userData?.walletAddress || address) {
       await navigator.clipboard.writeText(userData?.walletAddress || address);
@@ -1488,7 +1503,7 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
 
     if (chainId !== BASE_CHAIN_ID) {
       try {
-        await switchChain({ chainId: BASE_CHAIN_ID });
+        await switchChainMutation.mutateAsync({ chainId: BASE_CHAIN_ID });
         toast.info('Please switch to Base network to mint.');
       } catch (err) {
         toast.error('Network switching failed. Please switch to Base manually.');
@@ -1620,8 +1635,8 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
                     exit={{ opacity: 0, scale: 0.95, y: 10 }}
                     transition={{ duration: 0.2, ease: "easeOut" }}
                   >
-                    <p className="font-medium text-[#FFF] mb-1 text-[11px] sm:text-sm">Genesis NFT Benefits</p>
-                    <p className="text-[9px] sm:text-xs leading-tight">This proprietary NFT is proof-of-concept for early adopters, granting early access to advanced tools, early feature launches within the XynapseAI ecosystem, and several other future benefits.</p>
+                    <p className="font-medium text-[#FFF] mb-1 text-[10px] sm:text-sm">Genesis NFT Benefits</p>
+                    <p className="text-[8px] sm:text-xs leading-tight">This proprietary NFT is proof-of-concept for early adopters, granting early access to advanced tools, early feature launches within the XynapseAI ecosystem, and several other future benefits.</p>
                   </motion.div>
                 )}
               </AnimatePresence>
@@ -1686,10 +1701,10 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
                       <div className="flex flex-col items-center gap-3">
                         <div
                           className={`flex items-center justify-center text-base font-bold border-4 transition-all duration-300 rounded-full ${isCompleted
-                              ? 'bg-white text-black border-white'
-                              : isActive
-                                ? 'border-white bg-[#FFFFFF20] text-white shadow-lg shadow-white/20'
-                                : 'border-[#FFFFFF40] bg-transparent text-[#AAAAAA]'
+                            ? 'bg-white text-black border-white'
+                            : isActive
+                              ? 'border-white bg-[#FFFFFF20] text-white shadow-lg shadow-white/20'
+                              : 'border-[#FFFFFF40] bg-transparent text-[#AAAAAA]'
                             } ${isMobile ? 'w-11 h-11' : 'w-12 h-12'}`}
                         >
                           {isCompleted ? <Check className={isMobile ? 'w-5 h-5' : 'w-6 h-6'} /> : index + 1}
@@ -1770,7 +1785,10 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
 
                 {mintStep === 'mintNFT' && (
                   <div className="text-center space-y-8">
-                    <p className={`text-[#CCCCCC] ${isMobile ? 'text-sm' : 'text-base'}`}>All done! Mint your exclusive Genesis NFT</p>
+                    <p className={`text-[#CCCCCC] ${isMobile ? 'text-sm' : 'text-base'}`}>
+                      All done! Mint your exclusive Genesis NFT<br />
+                      Make sure you have switched to <span className="text-blue-500">Base Mainnet</span>.
+                    </p>
                     <div className={`relative mx-auto rounded-2xl overflow-hidden shadow-2xl ${isMobile ? 'w-60 h-60' : 'w-64 h-64'}`}>
                       {nftImageSrc ? (
                         <Image
@@ -1799,8 +1817,8 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
                         onClick={handleMint}
                         disabled={!isConnected}
                         className={`flex-1 px-6 py-3 rounded-xl font-medium transition text-sm ${!isConnected
-                            ? 'bg-gray-600 text-gray-400 cursor-not-allowed'
-                            : 'bg-white text-black hover:bg-gray-200'
+                          ? 'bg-gray-600 text-gray-400 cursor-not-allowed'
+                          : 'bg-white text-black hover:bg-gray-200'
                           }`}
                       >
                         Mint Now

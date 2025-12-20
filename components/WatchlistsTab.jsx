@@ -1326,7 +1326,7 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
           <>
             <div className="w-[25%] px-4 sm:px-6 text-[#D4D4D4] text-[12px] sm:text-[14px] flex flex-col items-center gap-1 overflow-hidden text-ellipsis">
               <span
-                className={`inline-flex px-1 sm:px-1.5 py-0.5 rounded-full text-[10px] sm:text-[12px] font-medium ${tx.type === 'receive'
+                className={`inline-flex px-1 sm:px-1.5 py-0.5 rounded-full text-[9px] sm:text-[12px] font-medium ${tx.type === 'receive'
                   ? 'bg-emerald-400/20 text-emerald-400'
                   : tx.type === 'send'
                     ? 'bg-[#00FFFF20]/20 text-[#FFF]/80'
@@ -1360,11 +1360,11 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
                 </a>
               </div>
             </div>
-            <div className="w-[25%] px-4 sm:px-6 text-[#D4D4D4] text-[12px] sm:text-[14px] flex items-center justify-center overflow-hidden text-ellipsis">
+            <div className="w-[25%] px-4 sm:px-6 text-[#D4D4D4] text-[11px] sm:text-[14px] flex items-center justify-center overflow-hidden text-ellipsis">
               <div className="flex flex-col items-center">
                 <span className="font-semibold">{displayValue}</span>
                 {tx.value_usd != null && (
-                  <span className="text-[10px] sm:text-[12px] text-gray-500">
+                  <span className="text-[9px] sm:text-[12px] text-gray-500">
                     ${Number(tx.value_usd).toLocaleString('en-US', { maximumFractionDigits: 2 })}
                   </span>
                 )}
@@ -1389,11 +1389,11 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
           </>
         ) : (
           <>
-            <div className="w-[25%] px-4 sm:px-6 text-[#D4D4D4] text-[12px] sm:text-[14px] flex items-center justify-center overflow-hidden text-ellipsis">
+            <div className="w-[25%] px-4 sm:px-6 text-[#D4D4D4] text-[11px] sm:text-[14px] flex items-center justify-center overflow-hidden text-ellipsis">
               <div className="flex flex-col items-center">
                 <span className="font-semibold">{displayValue}</span>
                 {tx.value_usd != null && (
-                  <span className="text-[10px] sm:text-[12px] text-[#D4D4D4]">
+                  <span className="text-[9px] sm:text-[11px] text-[#D4D4D4]">
                     ${Number(tx.value_usd).toLocaleString('en-US', { maximumFractionDigits: 2 })}
                   </span>
                 )}
