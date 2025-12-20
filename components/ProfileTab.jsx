@@ -1,4 +1,3 @@
-// components\ProfileTab.jsx
 'use client';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useState, useEffect, useCallback, useRef, Fragment } from 'react';
@@ -1034,14 +1033,16 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
       debouncedUpdateWallet(address);
     }
   }, [isConnected, address, userData, isUpdatingWallet, hasUpdatedWallet, debouncedUpdateWallet]);
+
   const disconnectTwitterMutation = useMutation({
-    mutationFn: async ({ v2Token } = {}) => {
-      const token = v2Token || await debouncedExecuteRecaptcha('disconnect_twitter');
+    mutationFn: async () => {
+      await queryClient.invalidateQueries({ queryKey: ['csrfToken'] });
+      const newCsrfToken = await queryClient.fetchQuery({ queryKey: ['csrfToken'] });
       const response = await axios.post(
         '/api/twitter/connect',
-        { action: 'disconnect', uid: session.user.id, recaptchaToken: token },
+        { action: 'disconnect', uid: session.user.id },
         {
-          headers: { 'x-csrf-token': csrfToken, 'Content-Type': 'application/json' },
+          headers: { 'x-csrf-token': newCsrfToken, 'Content-Type': 'application/json' },
           withCredentials: true,
         }
       ).catch(err => {
@@ -1066,11 +1067,6 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
       ]);
     },
     onError: (err) => {
-      if (err.response?.status === 403 && err.response.data.detail === 'low_score_fallback') {
-        // For disconnect, you can add similar fallback logic if needed
-        // Removed toast to avoid duplicates
-        return;
-      }
       // Removed toast to avoid duplicates
     },
   });
