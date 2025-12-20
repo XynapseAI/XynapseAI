@@ -43,7 +43,7 @@ async function checkRateLimit(ip, userId) {
   const windowSeconds = 15 * 60; // 15 minutes
   const ipKey = `rate:ip:${ip}:generate-api-key`;
   const userKey = userId ? `rate:user:${userId}:generate-api-key` : null;
-  const ipMax = process.env.NODE_ENV === 'development' ? 10 : 5; // Hạn chế số lần tạo API key
+  const ipMax = process.env.NODE_ENV === 'development' ? 10 : 5; 
   const userMax = process.env.NODE_ENV === 'development' ? 5 : 3;
 
   const ipCount = Number(await redisClient.incr(ipKey));

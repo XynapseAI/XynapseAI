@@ -35,6 +35,7 @@ import { MiniKit } from '@worldcoin/minikit-js';  // FIXED: Import MiniKit from 
 import { MiniKitProvider as WorldMiniKitProvider } from '@worldcoin/minikit-js/minikit-provider';  // FIXED: Import correct path
 import { preconnect } from 'react-dom'; // NEW: For preconnect to Quick Auth server
 import { SafeArea } from '@coinbase/onchainkit/minikit';
+import { clearAllCaches } from '../../utils/indexedDB';
 
 gsap.registerPlugin(MotionPathPlugin);
 
@@ -464,7 +465,7 @@ function DashboardInner() {
     const miniAppDetected = (isSDKLoaded && (context === 'miniapp' || !!miniAppUser)) || isWarpcastDetected || sdkAvailable || isBaseAppDetected; // Giữ để support Neynar nếu cần cho khác
     setIsMiniApp(miniAppDetected);
     if (isBaseAppDetected) {
-      setFallbackToManual(true); 
+      setFallbackToManual(true);
     }
     safeLog('Mini App Detection Debug:', { isSDKLoaded, context, miniAppUser, userAgent, sdkAvailable, miniAppDetected, isWarpcast: isWarpcastDetected, isBaseApp: isBaseAppDetected });
     if (miniAppDetected && miniAppUser) {
@@ -639,7 +640,7 @@ function DashboardInner() {
     }
 
     try {
-      const response = await sdk.actions.addMiniApp(); 
+      const response = await sdk.actions.addMiniApp();
 
       if (response?.notificationDetails) {
         safeLog('Notification details:', response.notificationDetails);
@@ -729,94 +730,43 @@ function DashboardInner() {
     }
 
     try {
-      let currentCsrfToken = csrfToken;
-      if (!currentCsrfToken) {
-        try {
-          const response = await fetch(`${API_BASE_URL}/api/auth/csrf`, {
-            method: 'GET',
-            headers: {
-              'Content-Type': 'application/json',
-              Authorization: `Bearer ${session?.accessToken || ''}`,
-            },
-            credentials: 'include',
-          });
-          const result = await response.json();
-          if (!response.ok) throw new Error(result.detail || 'Failed to fetch CSRF token');
-          currentCsrfToken = result.csrfToken;
-          setCsrfToken(result.csrfToken);
-          await update({ csrfToken: result.csrfToken });
-        } catch (csrfError) {
-          safeError('Failed to fetch CSRF token:', csrfError);
-          throw new Error('Cannot sign out: Missing CSRF token');
-        }
+      if (typeof window !== 'undefined') {
+        // Clear IndexedDB
+        await clearAllCaches(session.user.id); 
       }
-
+      await signOut({ redirect: false });
       try {
-        await signOut({ redirect: false });
-        await update();
-      } catch (signOutError) {
-        safeError('signOut fetch error:', signOutError);
-        if (signOutError.message.includes('ClientFetchError')) {
-          const response = await fetch('/api/auth/signout', {
+        const currentCsrfToken = csrfToken || session.csrfToken;
+        if (currentCsrfToken) {
+          await fetch(`${API_BASE_URL}/api/clear-cache`, {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
               'x-csrf-token': currentCsrfToken,
             },
+            body: JSON.stringify({ cacheKeys: [`user:${session.user.id}`] }),
             credentials: 'include',
-            body: JSON.stringify({}),
           });
-          if (!response.ok) {
-            const errorData = await response.json();
-            throw new Error(errorData.detail || 'Manual signout failed');
-          }
-          await update();
-        } else {
-          throw signOutError;
-        }
-      }
-
-      try {
-        const token = await recaptchaRef.current?.executeAsync();
-        const response = await fetch(`${API_BASE_URL}/api/clear-cache`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'x-csrf-token': currentCsrfToken,
-            'X-Recaptcha-Token': token,
-          },
-          body: JSON.stringify({ cacheKeys: [`user:${session.user.id}`] }),
-          credentials: 'include',
-        });
-        if (!response.ok) {
-          safeWarn('Failed to clear server-side cache:', response.statusText);
         }
       } catch (cacheErr) {
-        safeWarn('Failed to clear server-side cache:', cacheErr.message);
+        console.warn('Failed to clear server cache (non-critical):', cacheErr);
       }
 
       localStorage.removeItem('csrfToken');
       setCsrfToken(null);
-      setAuthSuccess(false); // NEW: Reset auth success on signout
-      attemptedAuthRef.current = false; // Reset for next session
-      setFallbackToManual(false); // NEW: Reset fallback
-      setBaseAuthFailed(false); // NEW: Reset Base failed
-      if (walletConnected) {
-        disconnect();
-      }
+      setAuthSuccess(false);
+      attemptedAuthRef.current = false;
+      setFallbackToManual(false);
+      setBaseAuthFailed(false);
+      if (walletConnected) disconnect();
 
-      // REMOVED: toast.success('Signed out successfully!', { position: 'top-center' }); // Silent logout
       router.refresh();
       router.push('/dashboard');
     } catch (error) {
-      safeError('Error during sign out process:', error);
+      console.error('Error during sign out:', error);
       toast.error(`Failed to sign out: ${error.message}`, { position: 'top-center' });
       router.refresh();
       router.push('/dashboard');
-    } finally {
-      if (recaptchaRef.current) {
-        recaptchaRef.current.reset();
-      }
     }
   };
 

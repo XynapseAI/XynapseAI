@@ -235,7 +235,7 @@ async function verifyRecaptchaWithRetry(token, action, ip, retries = 2) {
       return response;
     }
     if (response.needsFallback) {
-      return response; // Không retry cho fallback, trả về để frontend xử lý v2
+      return response;
     }
     // Fail khác, retry
     logger.warn(`reCAPTCHA attempt ${i + 1} failed: ${response.error}`, { action, ip });
@@ -262,7 +262,7 @@ async function withRetry(fn, retries = 2, delay = 1000) {
 async function computeStreak(userId) {
   const thirtyDaysAgo = new Date();
   thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-  thirtyDaysAgo.setUTCHours(0, 0, 0, 0); // Bắt đầu ngày
+  thirtyDaysAgo.setUTCHours(0, 0, 0, 0);
 
   const completions = await prisma.task_completions.findMany({
     where: {

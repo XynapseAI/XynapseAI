@@ -467,7 +467,7 @@ export async function GET(request) {
         return NextResponse.json(parsed, { headers: securityHeaders(newCsrfToken) });
       }
 
-      // MODIFIED: Add has_minted_nft to select
+      // UPDATED: Removed has_minted_nft from select (on-chain only)
       const user = await withRetry(() =>
         prisma.users.findUnique({
           where: { id: uid },
@@ -490,7 +490,6 @@ export async function GET(request) {
             last_connected: true,
             twitter_handle: true,
             days_active: true,
-            has_minted_nft: true, // NEW: Select minted status
             farcaster_fid: true,
             twitter_handles: {
               select: {
@@ -509,7 +508,7 @@ export async function GET(request) {
       const streak = await computeStreak(uid);
       const last7Days = await getLast7Days(uid);
 
-      // MODIFIED: Add has_minted_nft to response
+      // UPDATED: Removed has_minted_nft from response
       const data = {
         success: true,
         user: {
@@ -531,9 +530,9 @@ export async function GET(request) {
           lastConnected: user.last_connected ? new Date(user.last_connected).toISOString() : null,
           twitterHandle: user.twitter_handle || null,
           daysActive: Number(user.days_active || 0),
-          has_minted_nft: user.has_minted_nft || false, // NEW: Include in response
           streak,
           last7Days,
+          farcaster_fid: user.farcaster_fid || null, // NEW: For auto-connect check
         },
       };
 
