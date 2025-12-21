@@ -77,7 +77,6 @@ const CHAIN_MAPPING = {
 const IMPORTANT_TOKENS = [
   { chain: "ethereum", address: "native" },
   { chain: "bsc", address: "native" },
-  { chain: "bitcoin", address: "native" },
   { chain: "ethereum", address: "0xdac17f958d2ee523a2206206994597c13d831ec7" }, // USDT on Ethereum
   { chain: "bsc", address: "0x55d398326f99059ff775485246999027b3197955" }, // USDT on BSC
 ];
@@ -160,33 +159,47 @@ class TokenHoldersCron {
   }
 
   async loadNameTags() {
-    logger.info("Loading name tags and images from nametags table...");
+    logger.info("Loading name tags and images from public/nametags directory...");
     this.nameTagData = new Map();
+    const chainMapping = {
+      "binance-smart-chain": "bsc",
+      ethereum: "ethereum",
+    };
 
     try {
-      const result = await pool.query(`
-        SELECT LOWER(address) as address_lower, nametag, image
-        FROM nametags
-        WHERE nametag IS NOT NULL AND nametag != ''
-      `);
+      const nametagsDir = join(__dirname, "..", "public", "nametags");
+      const files = await fs.readdir(nametagsDir);
+      const jsonFiles = files.filter((file) => file.endsWith(".json"));
 
-      for (const row of result.rows) {
-        let key = row.address_lower;
-        if (!key || key === 'null') {
-          // Handle non-address cases like "Strategy", "Blackrock" – use nametag as key
-          key = row.nametag.toLowerCase();
-        }
-        if (key) {
-          this.nameTagData.set(key, {
-            nameTag: row.nametag,
-            image: row.image || null
-          });
+      for (const file of jsonFiles) {
+        try {
+          const filePath = join(nametagsDir, file);
+          const data = await fs.readFile(filePath, "utf-8");
+          const jsonData = JSON.parse(data);
+
+          for (const [address, info] of Object.entries(jsonData)) {
+            const labels = info.Labels || {};
+            const chainKeys = Object.keys(labels);
+            for (const chainKey of chainKeys) {
+              const mappedChain = chainMapping[chainKey] || chainKey;
+              const nameTag = labels[chainKey]?.["Name Tag"] || null;
+              const image = labels[chainKey]?.["image"] || null;
+              if (nameTag) {
+                const key = address.toLowerCase();
+                const existing = this.nameTagData.get(key) || [];
+                existing.push({ chain: mappedChain, nameTag, image });
+                this.nameTagData.set(key, existing);
+              }
+            }
+          }
+          logger.info(`Loaded name tags from ${file}`, { addressCount: Object.keys(jsonData).length });
+        } catch (error) {
+          logger.error(`Error loading name tags from ${file}`, { message: error.message });
         }
       }
-
-      logger.info("Total addresses with name tags loaded from DB", { count: this.nameTagData.size });
+      logger.info("Total addresses with name tags loaded", { count: this.nameTagData.size });
     } catch (error) {
-      logger.error("Error loading name tags from nametags table", { message: error.message });
+      logger.error("Error reading nametags directory", { message: error.message });
     }
   }
 
@@ -271,6 +284,138 @@ class TokenHoldersCron {
       });
       throw error;
     }
+  }
+
+  async fetchTokensFromCoinGecko() {
+    logger.info("Fetching exactly 500 tokens from CoinGecko...");
+    const tokens = [];
+    const totalTokens = 1000;
+    const perPageOptions = [250, 250, 250, 250];
+    const pages = perPageOptions.length;
+
+    try {
+      for (let page = 1; page <= pages; page++) {
+        const perPage = perPageOptions[page - 1];
+        logger.info(`Fetching page ${page} of ${pages} with ${perPage} tokens...`);
+        const response = await coingeckoLimiter.schedule(() =>
+          axios.get("https://api.coingecko.com/api/v3/coins/markets", {
+            params: {
+              vs_currency: "usd",
+              order: "market_cap_desc",
+              per_page: perPage,
+              page: page,
+              sparkline: false,
+              price_change_percentage: "24h",
+            },
+            headers: {
+              "x-cg-demo-api-key": process.env.COINGECKO_API_KEY || "",
+            },
+            timeout: 30000,
+          })
+        );
+
+        const pageTokens = response.data;
+        if (!Array.isArray(pageTokens) || pageTokens.length === 0) {
+          logger.warn(`Page ${page} returned invalid or empty data`);
+          continue;
+        }
+
+        // Thêm trường image vào dữ liệu token
+        tokens.push(...pageTokens.map(token => ({
+          ...token,
+          image: token.image || null // Lấy trường image từ API response
+        })));
+        logger.info(`Fetched ${pageTokens.length} tokens from page ${page}`);
+
+        if (tokens.length >= totalTokens) {
+          tokens.length = totalTokens;
+          break;
+        }
+      }
+
+      if (tokens.length === 0) {
+        logger.error("CoinGecko returned no valid token data");
+        throw new Error("No valid token data from CoinGecko");
+      }
+
+      logger.info("Fetched tokens from CoinGecko", { total: tokens.length });
+      await this.storeTokens(tokens);
+      return tokens;
+    } catch (error) {
+      logger.error("Error fetching tokens from CoinGecko", {
+        message: error.message,
+        status: error.response?.status,
+      });
+      throw error;
+    }
+  }
+
+  // Cập nhật hàm storeTokens để lưu trường image
+  async storeTokens(tokens) {
+    logger.info("Storing tokens in database", { count: tokens.length });
+    let storedCount = 0;
+
+    for (const token of tokens) {
+      try {
+        const detailResponse = await coingeckoLimiter.schedule(() =>
+          axios.get(`https://api.coingecko.com/api/v3/coins/${token.id}`, {
+            headers: {
+              "x-cg-demo-api-key": process.env.COINGECKO_API_KEY || "",
+            },
+            timeout: 15000,
+          })
+        );
+
+        const detailData = detailResponse.data;
+        if (!detailData?.id) {
+          logger.warn(`Skipping token ${token.id}: Invalid detail data`);
+          continue;
+        }
+
+        const decimals = detailData.contract_address
+          ? detailData.detail_platforms?.ethereum?.decimal_place || 18
+          : NON_EVM_DECIMALS[token.id] || 18;
+
+        const result = await pool.query(
+          `
+        INSERT INTO tokens (coingecko_id, symbol, name, market_cap_rank, platforms, detail_platforms, decimals, image, updated_at)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, CURRENT_TIMESTAMP)
+        ON CONFLICT (coingecko_id) 
+        DO UPDATE SET 
+          symbol = EXCLUDED.symbol,
+          name = EXCLUDED.name,
+          market_cap_rank = EXCLUDED.market_cap_rank,
+          platforms = EXCLUDED.platforms,
+          detail_platforms = EXCLUDED.detail_platforms,
+          decimals = EXCLUDED.decimals,
+          image = EXCLUDED.image,
+          updated_at = CURRENT_TIMESTAMP
+        RETURNING id
+        `,
+          [
+            token.id,
+            token.symbol,
+            token.name,
+            token.market_cap_rank,
+            JSON.stringify(detailData.platforms || {}),
+            JSON.stringify(detailData.detail_platforms || {}),
+            decimals,
+            token.image || null, // Lưu trường image
+          ]
+        );
+
+        storedCount++;
+        logger.info(`Stored token ${token.id} (${token.symbol})`, { db_id: result.rows[0]?.id });
+      } catch (error) {
+        logger.error(`Error storing token ${token.id}`, {
+          message: error.message,
+          code: error.code,
+        });
+        continue;
+      }
+    }
+
+    logger.info("Stored tokens successfully", { storedCount, total: tokens.length });
   }
 
   async processTokenHolders() {
@@ -394,18 +539,16 @@ class TokenHoldersCron {
         const decimals = NON_EVM_DECIMALS[token.coingecko_id] || 8;
         const holders = response.data.companies
           .map((company, index) => {
-            let tagData = {};
-            const lowerKey = (company.address || company.name || '').toLowerCase();
-            if (lowerKey) {
-              tagData = this.nameTagData.get(lowerKey) || {};
-            }
+            const tagData = company.address
+              ? this.nameTagData.get(company.address.toLowerCase())?.[0] || {}
+              : {};
             const nameTag = tagData.nameTag || company.name || null;
             const image = tagData.image || null;
             if (!nameTag) return null;
 
             const name = this.mapNameTagToName(nameTag);
             const rawBalance = Number.parseFloat(company.total_holdings) || 0;
-            const balance = rawBalance; // Không điều chỉnh decimal cho non-EVM
+            const balance = decimals > 6 ? rawBalance / Math.pow(10, decimals - 6) : rawBalance;
 
             logger.info(`Treasury balance details for ${company.address || company.name}`, {
               nameTag,
@@ -430,18 +573,6 @@ class TokenHoldersCron {
         if (holders.length === 0) {
           logger.info(`No holders with name tags for ${token.coingecko_id}`);
           return;
-        }
-
-        // Set holdersWithNameTags cho non-EVM treasury
-        for (const holder of holders) {
-          const holderKey = `${token.coingecko_id}:${holder.holder_address.toLowerCase()}`;
-          this.holdersWithNameTags.set(holderKey, {
-            holder_address: holder.holder_address,
-            exchange_name: holder.name,
-            chain: token.coingecko_id,
-            name_tag: holder.name_tag,
-            image: holder.image,
-          });
         }
 
         await this.storeHolders(token, token.coingecko_id, null, holders);
@@ -484,6 +615,8 @@ class TokenHoldersCron {
           select: {
             address: true,
             balance: true,
+            name_tag: true,
+            image: true,
           },
         });
 
@@ -491,6 +624,8 @@ class TokenHoldersCron {
           wallet_address: holder.address,
           balance: Number(holder.balance) || 0,
           source: "database",
+          name_tag: holder.name_tag,
+          image: holder.image,
         }));
         holders.push(...topHoldersMapped);
         logger.info(`Loaded ${topHoldersMapped.length} holders from top_holders for ${token.symbol} on ${chain}`);
@@ -507,13 +642,30 @@ class TokenHoldersCron {
 
       const processedHolders = holders
         .map((holder, index) => {
-          const lowerKey = holder.wallet_address.toLowerCase();
-          const tagData = this.nameTagData.get(lowerKey) || {};
-          let nameTag = tagData.nameTag || null;
-          let image = tagData.image || null;
+          const tagDataArray = this.nameTagData.get(holder.wallet_address.toLowerCase()) || [];
+          let nameTag = holder.name_tag || null;
+          let image = holder.image || null;
+          let nameTagSource = holder.source === "database" ? "database" : null;
+
+          if (!nameTag) {
+            for (const tagData of tagDataArray) {
+              if (tagData.nameTag) {
+                if (tagData.chain === chain) {
+                  nameTag = tagData.nameTag;
+                  image = tagData.image || null;
+                  nameTagSource = tagData.chain;
+                  break;
+                } else if (!nameTag) {
+                  nameTag = tagData.nameTag;
+                  image = tagData.image || null;
+                  nameTagSource = tagData.chain;
+                }
+              }
+            }
+          }
 
           logger.info(`NameTag lookup for ${holder.wallet_address} on ${chain}`, {
-            nameTagSource: "nametags_table",
+            nameTagSource,
             nameTag,
           });
 
@@ -537,18 +689,6 @@ class TokenHoldersCron {
           };
         })
         .filter((holder) => holder !== null && holder.name_tag !== null);
-
-      // Set holdersWithNameTags cho non-EVM và EVM JSON/DB
-      for (const holder of processedHolders) {
-        const holderKey = `${chain}:${holder.holder_address.toLowerCase()}`;
-        this.holdersWithNameTags.set(holderKey, {
-          holder_address: holder.holder_address,
-          exchange_name: holder.name,
-          chain,
-          name_tag: holder.name_tag,
-          image: holder.image,
-        });
-      }
 
       logger.info(`Fetched ${processedHolders.length} holders with name tags for ${token.symbol} on ${chain}`);
       return processedHolders;
@@ -612,6 +752,8 @@ class TokenHoldersCron {
           select: {
             address: true,
             balance: true,
+            name_tag: true,
+            image: true,
           },
         });
 
@@ -619,6 +761,8 @@ class TokenHoldersCron {
           wallet_address: holder.address,
           balance: Number(holder.balance) || 0,
           source: "database",
+          name_tag: holder.name_tag,
+          image: holder.image,
         }));
         holders.push(...topHoldersMapped);
         logger.info(`Loaded ${topHoldersMapped.length} holders from top_holders for ${token.symbol} on ${normalizedChain}`);
@@ -740,13 +884,30 @@ class TokenHoldersCron {
 
       const processedHolders = holders
         .map((holder, index) => {
-          const lowerKey = holder.wallet_address.toLowerCase();
-          const tagData = this.nameTagData.get(lowerKey) || {};
-          let nameTag = tagData.nameTag || null;
-          let image = tagData.image || null;
+          const tagDataArray = this.nameTagData.get(holder.wallet_address.toLowerCase()) || [];
+          let nameTag = holder.name_tag || null;
+          let image = holder.image || null;
+          let nameTagSource = holder.source === "database" ? "database" : null;
+
+          if (!nameTag) {
+            for (const tagData of tagDataArray) {
+              if (tagData.nameTag) {
+                if (tagData.chain === chain) {
+                  nameTag = tagData.nameTag;
+                  image = tagData.image || null;
+                  nameTagSource = tagData.chain;
+                  break;
+                } else if (!nameTag) {
+                  nameTag = tagData.nameTag;
+                  image = tagData.image || null;
+                  nameTagSource = tagData.chain;
+                }
+              }
+            }
+          }
 
           logger.info(`NameTag lookup for ${holder.wallet_address} on ${chain}`, {
-            nameTagSource: "nametags_table",
+            nameTagSource,
             nameTag,
           });
 
@@ -831,182 +992,118 @@ class TokenHoldersCron {
         let attempts = 0;
         const maxAttempts = 5;
 
-        if (chain === "bitcoin") {
-          // Prioritize Mempool API for Bitcoin
-          let balance_btc = 0;
-          let apiSuccess = false;
-
+        do {
           try {
-            const response = await axios.get(`https://mempool.space/api/address/${holder_address}`, {
-              timeout: 15000,
-            });
-            const data = response.data;
-            const balance_sat = data.chain_stats.funded_txo_sum - data.chain_stats.spent_txo_sum;
-            balance_btc = balance_sat / 100000000;
-            apiSuccess = true;
-            logger.info(`Mempool API balance for ${holder_address}: ${balance_btc} BTC`);
-          } catch (error) {
-            logger.warn(`Mempool API failed for ${holder_address}: ${error.message}`);
-          }
-
-          if (!apiSuccess) {
-            // Fallback to local JSON
-            try {
-              const filePath = join(__dirname, "..", "public", "nametags", "bitcoin-top-holders.json");
-              const data = await fs.readFile(filePath, "utf-8");
-              const jsonData = JSON.parse(data);
-              const info = jsonData[holder_address];
-              if (info && info.Balance) {
-                balance_btc = Number(info.Balance);
-                apiSuccess = true;
-                logger.info(`Fallback JSON balance for ${holder_address}: ${balance_btc} BTC`);
-              }
-            } catch (error) {
-              logger.warn(`Fallback JSON failed for ${holder_address}: ${error.message}`);
-            }
-          }
-
-          if (!apiSuccess || balance_btc === 0) {
-            logger.warn(`No balance data for Bitcoin address ${holder_address}`);
-            continue;
-          }
-
-          // Fetch BTC price
-          const priceResponse = await coingeckoLimiter.schedule(() =>
-            axios.get(`https://api.coingecko.com/api/v3/simple/price?ids=bitcoin&vs_currencies=usd`, {
-              timeout: 15000,
-            })
-          );
-          const btcPrice = priceResponse.data.bitcoin.usd || 0;
-          const value_usd = balance_btc * btcPrice;
-
-          allTokens = [{
-            chain: "bitcoin",
-            address: "native",
-            symbol: "BTC",
-            decimals: 8,
-            amount: balance_btc,
-            price_usd: btcPrice,
-            value_usd: value_usd,
-            logo: null,
-            low_liquidity: false,
-            name: "Bitcoin",
-          }];
-        } else {
-          // Original SIM API for non-Bitcoin chains
-          do {
-            try {
-              const response = await simLimiter.schedule(() =>
-                axios.post(
-                  `${process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:3000"}/api/sim`,
-                  {
-                    action: "wallet-balances",
-                    address: holder_address,
-                    chain,
-                    limit: 2000,
-                    minValueUsd: 100,
+            const response = await simLimiter.schedule(() =>
+              axios.post(
+                `${process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:3000"}/api/sim`,
+                {
+                  action: "wallet-balances",
+                  address: holder_address,
+                  chain,
+                  limit: 2000,
+                  minValueUsd: 100,
+                },
+                {
+                  headers: {
+                    "Content-Type": "application/json",
+                    Authorization: process.env.SIM_API_KEY ? `Bearer ${process.env.SIM_API_KEY}` : undefined,
                   },
-                  {
-                    headers: {
-                      "Content-Type": "application/json",
-                      Authorization: process.env.SIM_API_KEY ? `Bearer ${process.env.SIM_API_KEY}` : undefined,
-                    },
-                    timeout: 45000,
-                    responseType: "stream",
-                  }
-                )
-              );
+                  timeout: 45000,
+                  responseType: "stream",
+                }
+              )
+            );
 
-              let buffer = "";
-              let isFirstChunk = true;
+            let buffer = "";
+            let isFirstChunk = true;
 
-              logger.info(`Starting to read SIM API stream for wallet balances of ${holder_address} on ${chain}`);
+            logger.info(`Starting to read SIM API stream for wallet balances of ${holder_address} on ${chain}`);
 
-              for await (const chunk of response.data) {
-                const chunkString = chunk.toString();
-                buffer += chunkString;
+            for await (const chunk of response.data) {
+              const chunkString = chunk.toString();
+              buffer += chunkString;
 
-                try {
-                  if (isFirstChunk && buffer.startsWith("[")) {
-                    buffer = buffer.slice(1);
-                    isFirstChunk = false;
-                  }
+              try {
+                if (isFirstChunk && buffer.startsWith("[")) {
+                  buffer = buffer.slice(1);
+                  isFirstChunk = false;
+                }
 
-                  let lastIndex = 0;
-                  for (let i = 0; i < buffer.length; i++) {
-                    if (buffer[i] === "}" && (buffer[i + 1] === "," || buffer[i + 1] === "]")) {
-                      const jsonStr = buffer.slice(lastIndex, i + 1);
-                      try {
-                        const token = JSON.parse(jsonStr);
-                        if (token.address && token.chain && typeof token.amount !== "undefined") {
-                          allTokens.push({
-                            chain: token.chain,
-                            address: token.address,
-                            symbol: token.symbol || "Unknown",
-                            decimals: token.decimals || 18,
-                            amount: Number(token.amount) || 0,
-                            price_usd: Number(token.price_usd) || 0,
-                            value_usd: Number(token.value_usd) || 0,
-                            logo: token.logo || null,
-                            low_liquidity: token.low_liquidity || false,
-                            name: token.name || "Unknown",
-                          });
-                        }
-                      } catch (parseError) {
-                        logger.warn(`Failed to parse JSON chunk for ${holder_address}`, { message: parseError.message });
+                let lastIndex = 0;
+                for (let i = 0; i < buffer.length; i++) {
+                  if (buffer[i] === "}" && (buffer[i + 1] === "," || buffer[i + 1] === "]")) {
+                    const jsonStr = buffer.slice(lastIndex, i + 1);
+                    try {
+                      const token = JSON.parse(jsonStr);
+                      if (token.address && token.chain && typeof token.amount !== "undefined") {
+                        allTokens.push({
+                          chain: token.chain,
+                          address: token.address,
+                          symbol: token.symbol || "Unknown",
+                          decimals: token.decimals || 18,
+                          amount: Number(token.amount) || 0,
+                          price_usd: Number(token.price_usd) || 0,
+                          value_usd: Number(token.value_usd) || 0,
+                          logo: token.logo || null,
+                          low_liquidity: token.low_liquidity || false,
+                          name: token.name || "Unknown",
+                        });
                       }
-                      lastIndex = i + 2;
+                    } catch (parseError) {
+                      logger.warn(`Failed to parse JSON chunk for ${holder_address}`, { message: parseError.message });
                     }
+                    lastIndex = i + 2;
                   }
-                  buffer = buffer.slice(lastIndex);
-                } catch (error) {
-                  logger.warn(`Error processing stream chunk for ${holder_address}`, { message: error.message });
                 }
+                buffer = buffer.slice(lastIndex);
+              } catch (error) {
+                logger.warn(`Error processing stream chunk for ${holder_address}`, { message: error.message });
               }
-
-              if (buffer.trim().endsWith("]") && buffer.trim().length > 1) {
-                try {
-                  const lastJsonStr = buffer.trim().slice(0, -1);
-                  if (lastJsonStr) {
-                    const token = JSON.parse(lastJsonStr);
-                    if (token.address && token.chain && typeof token.amount !== "undefined") {
-                      allTokens.push({
-                        chain: token.chain,
-                        address: token.address,
-                        symbol: token.symbol || "Unknown",
-                        decimals: token.decimals || 18,
-                        amount: Number(token.amount) || 0,
-                        price_usd: Number(token.price_usd) || 0,
-                        value_usd: Number(token.value_usd) || 0,
-                        logo: token.logo || null,
-                        low_liquidity: token.low_liquidity || false,
-                        name: token.name || "Unknown",
-                      });
-                    }
-                  }
-                } catch (parseError) {
-                  logger.warn(`Failed to parse final JSON chunk for ${holder_address}`, { message: parseError.message });
-                }
-              }
-
-              logger.info(`SIM API stream completed for ${holder_address} on ${chain}`, { dataLength: allTokens.length });
-              break;
-            } catch (error) {
-              if (error.response?.status === 429 && attempts < maxAttempts - 1) {
-                const waitTime = (attempts + 1) * 10000;
-                logger.warn(`Rate limit (429) for wallet ${holder_address} on ${chain}, retrying in ${waitTime}ms...`);
-                await new Promise((resolve) => setTimeout(resolve, waitTime));
-                attempts++;
-                continue;
-              }
-              logger.error(`Error fetching wallet balances for ${holder_address} on ${chain}`, {
-                message: error.message,
-                status: error.response?.status,
-              });
-              break;
             }
-          } while (true);
-        }
+
+            if (buffer.trim().endsWith("]") && buffer.trim().length > 1) {
+              try {
+                const lastJsonStr = buffer.trim().slice(0, -1);
+                if (lastJsonStr) {
+                  const token = JSON.parse(lastJsonStr);
+                  if (token.address && token.chain && typeof token.amount !== "undefined") {
+                    allTokens.push({
+                      chain: token.chain,
+                      address: token.address,
+                      symbol: token.symbol || "Unknown",
+                      decimals: token.decimals || 18,
+                      amount: Number(token.amount) || 0,
+                      price_usd: Number(token.price_usd) || 0,
+                      value_usd: Number(token.value_usd) || 0,
+                      logo: token.logo || null,
+                      low_liquidity: token.low_liquidity || false,
+                      name: token.name || "Unknown",
+                    });
+                  }
+                }
+              } catch (parseError) {
+                logger.warn(`Failed to parse final JSON chunk for ${holder_address}`, { message: parseError.message });
+              }
+            }
+
+            logger.info(`SIM API stream completed for ${holder_address} on ${chain}`, { dataLength: allTokens.length });
+            break;
+          } catch (error) {
+            if (error.response?.status === 429 && attempts < maxAttempts - 1) {
+              const waitTime = (attempts + 1) * 10000;
+              logger.warn(`Rate limit (429) for wallet ${holder_address} on ${chain}, retrying in ${waitTime}ms...`);
+              await new Promise((resolve) => setTimeout(resolve, waitTime));
+              attempts++;
+              continue;
+            }
+            logger.error(`Error fetching wallet balances for ${holder_address} on ${chain}`, {
+              message: error.message,
+              status: error.response?.status,
+            });
+            break;
+          }
+        } while (true);
 
         if (allTokens.length === 0) {
           logger.warn(`No tokens retrieved for ${holder_address} on ${chain}`);
@@ -1273,7 +1370,8 @@ class TokenHoldersCron {
     try {
       logger.info(`Starting full token holders sync`, { startTime: startTime.toISOString() });
 
-      logger.info("Using existing tokens from database (skipping CoinGecko fetch)");
+      await this.fetchTokensFromCoinGecko();
+      logger.info("Completed fetchTokensFromCoinGecko");
 
       await this.processTokenHolders();
       logger.info("Completed processTokenHolders");

@@ -272,7 +272,7 @@ const primaryChainNameMap = {
 };
 
 // Supported Etherscan chains (exclude new/unsupported like monad, hyperevm)
-const supportedEtherscanChainIds = ['1', '56', '10', '42161', '137', '8453', '43114', '42220', '100', '59144', '130', '324'];
+const supportedEtherscanChainIds = ['1', '10', '42161', '137', '8453', '43114', '42220', '100', '59144', '130', '324'];
 
 // Alchemy RPC map (same as frontend)
 const rpcMap = {

@@ -38,6 +38,8 @@ export default function ExplorerTab({ initialQuery, initialChain, isStandalone =
     const itemsPerPage = 20;
     const apiKey = process.env.NEXT_PUBLIC_ALCHEMY_API_KEY || 'demo';
     const isDemoKey = !apiKey || apiKey === 'demo';
+    const [chainNametags, setChainNametags] = useState({});
+    const [txCache, setTxCache] = useState({});
 
     const chainConfig = {
         bitcoin: { id: null, apiBase: '/api/mempool' },
@@ -168,11 +170,11 @@ export default function ExplorerTab({ initialQuery, initialChain, isStandalone =
         }
     };
     const collectDashboardAddresses = () => {
-        const miners = latestBlocks.map(b => b.miner?.toLowerCase() ?? '');
-        const froms = latestTxs.map(tx => tx.from?.toLowerCase() ?? '');
-        const tos = latestTxs.map(tx => tx.to?.toLowerCase() ?? '');
-        const all = [...miners, ...froms, ...tos].filter(a => a);
-        return [...new Set(all)].slice(0, 200);
+        const froms = latestTxs.map(tx => tx.from?.toLowerCase()).filter(Boolean);
+        const tos = latestTxs.map(tx => tx.to?.toLowerCase()).filter(Boolean);
+        const miners = latestBlocks.map(b => b.miner?.toLowerCase()).filter(Boolean).slice(0, 20);  // Ít miners
+        const all = [...froms, ...tos, ...miners].filter(a => a);
+        return [...new Set(all)].slice(0, 100);
     };
     const fetchDashboardData = async () => {
         try {
@@ -212,7 +214,7 @@ export default function ExplorerTab({ initialQuery, initialChain, isStandalone =
             setDashboardLoading(false);
             const addresses = collectDashboardAddresses();
             if (addresses.length > 0) {
-                await fetchNametags(addresses, selectedChain);
+                setTimeout(() => fetchNametags(addresses, selectedChain), 500);  // Delay để UI render trước
             }
         } catch (error) {
             console.error("Polling error:", error);
@@ -229,6 +231,10 @@ export default function ExplorerTab({ initialQuery, initialChain, isStandalone =
         return () => clearInterval(priceIntervalId);
     }, [selectedChain]);
     useEffect(() => {
+        // Clear tx data to force dashboard on chain switch
+        setResults(null);
+        setQuery('');  // Optional: clear input if no query in URL
+        setError(null);
 
         setDashboardLoading(true);
         setLatestBlocks([]);
@@ -239,7 +245,6 @@ export default function ExplorerTab({ initialQuery, initialChain, isStandalone =
         const dataIntervalId = setInterval(() => {
             fetchDashboardData();
         }, 300000);
-        // 4. Cleanup
         return () => clearInterval(dataIntervalId);
     }, [selectedChain]);
     useEffect(() => {
@@ -462,22 +467,31 @@ export default function ExplorerTab({ initialQuery, initialChain, isStandalone =
     };
     const fetchNametags = async (addresses, chain) => {
         if (addresses.length === 0) return;
+        const cachedTags = chainNametags[chain] || {};
+        const newAddresses = addresses.filter(addr => !cachedTags[addr]);  // Chỉ fetch mới
+        if (newAddresses.length === 0) return;  // Skip nếu full cache
+
         setNametagsLoading(true);
         try {
             const res = await fetch('/api/nametags', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ chain, addresses }),
+                body: JSON.stringify({ chain, addresses: newAddresses }),  // Chỉ send mới
             });
             if (!res.ok) throw new Error(`Nametags API error: ${res.status}`);
             const { data } = await res.json();
-            const newNametags = {};
+            const newTags = {};
             Object.entries(data).forEach(([addr, info]) => {
                 if (info.Labels.deposit['Name Tag'] !== 'Unknown') {
-                    newNametags[addr] = info.Labels.deposit;
+                    newTags[addr] = info.Labels.deposit;
                 }
             });
-            setNametags(prev => ({ ...prev, ...newNametags }));
+            // Merge vào cache per chain
+            setChainNametags(prev => ({
+                ...prev,
+                [chain]: { ...cachedTags, ...newTags }
+            }));
+            setNametags(prev => ({ ...prev, ...newTags }));
         } catch (err) {
             console.error('Nametags fetch error:', err);
         } finally {
@@ -485,6 +499,12 @@ export default function ExplorerTab({ initialQuery, initialChain, isStandalone =
         }
     };
     const fetchData = async (q, ch, fallbackIndex = 0) => {
+        const cacheKey = `${ch}:${q}`;
+        if (txCache[cacheKey]) {
+            setResults(txCache[cacheKey]);
+            setLoading(false);
+            return;
+        }
         setLoading(true);
         setError(null);
         try {
@@ -519,6 +539,7 @@ export default function ExplorerTab({ initialQuery, initialChain, isStandalone =
             }
             const detectedChain = data.detectedChain || ch;
             setResults({ data, chain: detectedChain });
+            setTxCache(prev => ({ ...prev, [cacheKey]: { data, chain: detectedChain } }));
             setSelectedChain(detectedChain);
             const addresses = extractAddresses(data, detectedChain);
             if (addresses.length > 0) {
@@ -547,6 +568,7 @@ export default function ExplorerTab({ initialQuery, initialChain, isStandalone =
     const handleSearch = (searchQuery = query) => {
         const q = searchQuery.trim();
         if (!q) return;
+        setError(null);  // Clear old error
         try {
             const ch = selectedChain || detectChainForTx(q);
             setSelectedChain(ch);
@@ -562,14 +584,20 @@ export default function ExplorerTab({ initialQuery, initialChain, isStandalone =
         const ch = initialChain || searchParams.get('chain');
         if (q) {
             setQuery(q);
-            if (ch) {
+            const cacheKey = `${ch || 'auto'}:${q}`;
+            if (txCache[cacheKey]) {
+                setResults(txCache[cacheKey]);  // Restore from cache
+                setSelectedChain(txCache[cacheKey].chain);
+            } else if (ch) {
                 setSelectedChain(ch);
                 fetchData(q, ch, 0);
             } else {
                 handleSearch(q);
             }
+        } else if (ch) {
+            setSelectedChain(ch);
         }
-    }, [initialQuery, initialChain]);
+    }, [initialQuery, initialChain, searchParams, txCache]);
     const renderAddress = (addr, chain) => {
         if (!addr || addr === 'Coinbase' || addr === 'Multiple Inputs' || addr === 'Multiple Outputs') {
             return <span className="font-mono break-all text-[10px] sm:text-[12px]">{addr}</span>;
@@ -691,10 +719,10 @@ export default function ExplorerTab({ initialQuery, initialChain, isStandalone =
             const fee = (gasUsed * effectiveGasPrice) / 1e18;
             const nativeValue = Number(parseInt(transaction.value || '0x0', 16)) / 1e18;
             const symbol = nativeSymbols[detectedChain] || 'ETH';
-            const nativePrice = chainStats.nativePrice || 0; 
+            const nativePrice = chainStats.nativePrice || 0;
             const nativeValueUSD = nativeValue * nativePrice;
             const feeUSD = fee * nativePrice;
-            txData.nativeValueUSD = nativeValueUSD; 
+            txData.nativeValueUSD = nativeValueUSD;
             txData.feeUSD = feeUSD;
             tx = { ...transaction, receipt, internalTxs, tokenTransfers };
             return (
@@ -987,9 +1015,9 @@ export default function ExplorerTab({ initialQuery, initialChain, isStandalone =
                                 <HashIcon className="w-4 h-4 text-emerald-400 mr-2 shrink-0" />
                                 <span className="text-[#D4D4D4] mr-2 shrink-0 whitespace-nowrap">Hash:</span>
                                 <span className="font-mono break-all mr-2 truncate flex-1 min-w-0 pr-1">{isMobile && tx.hash?.length > 10 ? truncateText(tx.hash) : tx.hash}</span>
-                                <Copy 
-                                    className="shrink-0 opacity-0 group-hover:opacity-100 transition-opacity w-4 h-4 cursor-pointer text-gray-400 hover:text-emerald-400" 
-                                    onClick={() => copyToClipboard(tx.hash)} 
+                                <Copy
+                                    className="shrink-0 opacity-0 group-hover:opacity-100 transition-opacity w-4 h-4 cursor-pointer text-gray-400 hover:text-emerald-400"
+                                    onClick={() => copyToClipboard(tx.hash)}
                                 />
                             </div>
                             <h2 className="text-xs font-semibold flex items-center gap-2 ml-4 shrink-0">
@@ -1279,7 +1307,7 @@ export default function ExplorerTab({ initialQuery, initialChain, isStandalone =
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
                 <div className="bg-[#FFFFFF]/5 backdrop-blur-md p-4 rounded-xl border border-[#FFFFFF20] shadow-[0_4px_12px_rgba(0,0,0,0.3)] glow-[#FFFFFF15]">
                     <h2 className="text-[12px] font-bold mb-3 flex items-center uppercase"><HashIcon className="w-4 h-4 mr-2 text-emerald-400" />Latest Blocks</h2>
-                    <div className="border border-[#FFFFFF20] rounded-xl overflow-hidden max-h-[24rem] overflow-y-auto">
+                    <div className="border border-[#FFFFFF20] rounded-xl overflow-hidden max-h-[24rem] overflow-y-auto custom-scrollbar">
                         <div className="bg-[#0A0A0A]/80 flex px-3 py-2 text-[9px] font-semibold text-[#FFF] sticky top-0">
                             <span className="w-1/4 text-left">Block</span>
                             <span className="w-1/4 text-left">Age</span>
@@ -1298,7 +1326,7 @@ export default function ExplorerTab({ initialQuery, initialChain, isStandalone =
                 </div>
                 <div className="bg-[#FFFFFF]/5 backdrop-blur-md p-4 rounded-xl border border-[#FFFFFF20] shadow-[0_4px_12px_rgba(0,0,0,0.3)] glow-[#FFFFFF15]">
                     <h2 className="text-[12px] font-bold mb-3 flex items-center uppercase"><Activity className="w-4 h-4 mr-2 text-emerald-400" />Latest Transactions</h2>
-                    <div className="border border-[#FFFFFF20] rounded-xl overflow-hidden max-h-[24rem] overflow-y-auto">
+                    <div className="border border-[#FFFFFF20] rounded-xl overflow-hidden max-h-[24rem] overflow-y-auto custom-scrollbar">
                         <div className="bg-[#0A0A0A]/80 flex px-3 py-2 text-[9px] font-semibold text-[#FFF] sticky top-0">
                             <span className="w-1/4 text-left">Hash</span>
                             <span className="w-1/4 text-left">From</span>
@@ -1376,7 +1404,12 @@ export default function ExplorerTab({ initialQuery, initialChain, isStandalone =
                                 <ul>
                                     <li
                                         className="px-3 py-2 hover:bg-[#FFFFFF]/10 cursor-pointer flex items-center text-[#D4D4D4]"
-                                        onClick={() => { setSelectedChain(''); setIsChainMenuOpen(false); }}
+                                        onClick={() => {
+                                            setSelectedChain('');
+                                            setResults(null); setQuery('');
+                                            setError(null);
+                                            router.push(basePath, { scroll: false });
+                                        }}
                                     >
                                         Auto Detect
                                     </li>
@@ -1384,7 +1417,15 @@ export default function ExplorerTab({ initialQuery, initialChain, isStandalone =
                                         <li
                                             key={ch}
                                             className="px-3 py-2 hover:bg-[#FFFFFF]/10 cursor-pointer flex items-center text-[#D4D4D4]"
-                                            onClick={() => { setSelectedChain(ch); setIsChainMenuOpen(false); }}
+                                            onClick={() => {
+                                                setSelectedChain(ch);
+                                                setResults(null);  // Clear tx details
+                                                setQuery('');      // Clear input query
+                                                setError(null);    // Clear any old error
+                                                setIsChainMenuOpen(false);
+                                                // Update URL to new chain without query (force dashboard)
+                                                router.push(`${basePath}?chain=${ch}`, { scroll: false });
+                                            }}
                                         >
                                             <img src={chainLogos[ch]} alt={ch} className="w-5 h-5 mr-2 rounded-full" />
                                             {ch.toUpperCase()}
@@ -1473,29 +1514,50 @@ export default function ExplorerTab({ initialQuery, initialChain, isStandalone =
                 )}
             </AnimatePresence>
             <style jsx>{`
-                .break-all { word-break: break-all; }
-                .custom-scrollbar::-webkit-scrollbar {
-                  width: 6px;
-                }
-                .custom-scrollbar::-webkit-scrollbar-thumb {
-                  background: rgba(255, 255, 255, 0.2);
-                  border-radius: 3px;
-                }
-                .custom-scrollbar::-webkit-scrollbar-thumb:hover {
-                  background: rgba(255, 255, 255, 0.3);
-                }
-                .log-container {
-                  -webkit-mask-image: linear-gradient(to bottom, transparent 0%, white 20%, white 80%, transparent 100%);
-                  mask-image: linear-gradient(to bottom, transparent 0%, white 20%, white 80%, transparent 100%);
-                }
-                @keyframes scan {
-                  0% { transform: translateX(-100%); }
-                  100% { transform: translateX(100%); }
-                }
-                .animate-scan {
-                  animation: scan 2s linear infinite;
-                }
-            `}</style>
+  .break-all { word-break: break-all; }
+  .custom-scrollbar::-webkit-scrollbar {
+    width: 4px;
+    height: 4px;
+  }
+  .custom-scrollbar::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  .custom-scrollbar::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.2);
+    border-radius: 2px;
+  }
+  .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+    background: rgba(255, 255, 255, 0.4);
+  }
+  .custom-scrollbar {
+    -ms-overflow-style: auto;
+    scrollbar-width: thin;
+    scrollbar-color: rgba(255, 255, 255, 0.2) transparent;
+  }
+  .hide-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+  .hide-scrollbar {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+  .log-container {
+    -webkit-mask-image: linear-gradient(to bottom, transparent 0%, white 20%, white 80%, transparent 100%);
+    mask-image: linear-gradient(to bottom, transparent 0%, white 20%, white 80%, transparent 100%);
+  }
+  @keyframes scan {
+    0% { transform: translateX(-100%); }
+    100% { transform: translateX(100%); }
+  }
+  .animate-scan {
+    animation: scan 2s linear infinite;
+  }
+  @media (max-width: 640px) {
+    .custom-scrollbar {
+      font-size: 8px;
+    }
+  }
+`}</style>
         </div>
     );
 }

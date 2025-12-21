@@ -1868,6 +1868,17 @@
         "image": "/icons/upbit.webp"
       }
     }
+  },
+  "0x6cd66DbdFe289ab83d7311B668ADA83A12447e21": {
+    "Address": "0x6cd66DbdFe289ab83d7311B668ADA83A12447e21",
+    "Labels": {
+      "uniswap": {
+        "Name Tag": "Arthur Hayes",
+        "Description": "Upbit is a protocol for automated token exchange on Ethereum.",
+        "Subcategory": "Others",
+        "image": "/icons/default.webp"
+      }
+    }
   }
 }
 
