@@ -35,7 +35,7 @@ export default function Header({ activeTab, setActiveTab, handleSignOut, selecte
 
   const tabs = [
     { id: 'market', label: 'Market', icon: BarChart3 },
-    { id: 'etf', label: 'ETFs', icon: BadgeDollarSign },
+    { id: 'etf', label: 'ETFs', icon: BadgeDollarSign }, // Updated label to 'ETF Tracker' and added href for external page
     // { id: 'ai', label: 'AI', icon: Zap },
     { id: 'cluster', label: 'Cluster', icon: Network },
     { id: 'graph', label: 'Graph', icon: Activity },
@@ -89,22 +89,30 @@ export default function Header({ activeTab, setActiveTab, handleSignOut, selecte
   };
 
   const handleTabClick = (tabId) => {
-    setActiveTab(tabId);
-    const clusterId = new URLSearchParams(window.location.search).get('clusterId');
-    let queryStr = `tab=${tabId}`;
-    if (tabId === 'explorer') {
-      // Preserve query/chain params for explorer
-      const currentQuery = searchParams.get('query') || '';
-      const currentChain = searchParams.get('chain') || '';
-      if (currentQuery) queryStr += `&query=${encodeURIComponent(currentQuery)}`;
-      if (currentChain) queryStr += `&chain=${currentChain}`;
-    } else if (tabId === 'watchlists' && selectedAddress) {
-      queryStr += `&address=${encodeURIComponent(selectedAddress)}`;
-    } else if (tabId === 'cluster' && clusterId) {
-      queryStr += `&clusterId=${encodeURIComponent(clusterId)}`;
+    // Check if this tab has an external href (e.g., ETF)
+    const tab = tabs.find(t => t.id === tabId);
+    if (tab && tab.href) {
+      // Navigate to external page (e.g., /etf)
+      router.push(tab.href);
+    } else {
+      // Internal dashboard tabs
+      setActiveTab(tabId);
+      const clusterId = new URLSearchParams(window.location.search).get('clusterId');
+      let queryStr = `tab=${tabId}`;
+      if (tabId === 'explorer') {
+        // Preserve query/chain params for explorer
+        const currentQuery = searchParams.get('query') || '';
+        const currentChain = searchParams.get('chain') || '';
+        if (currentQuery) queryStr += `&query=${encodeURIComponent(currentQuery)}`;
+        if (currentChain) queryStr += `&chain=${currentChain}`;
+      } else if (tabId === 'watchlists' && selectedAddress) {
+        queryStr += `&address=${encodeURIComponent(selectedAddress)}`;
+      } else if (tabId === 'cluster' && clusterId) {
+        queryStr += `&clusterId=${encodeURIComponent(clusterId)}`;
+      }
+      const path = `/dashboard?${queryStr}`;
+      router.push(path, { scroll: false });
     }
-    const path = `/dashboard?${queryStr}`;
-    router.push(path, { scroll: false });
     setIsMenuOpen(false);
   };
 

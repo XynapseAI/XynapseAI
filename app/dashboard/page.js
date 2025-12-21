@@ -679,6 +679,12 @@ function DashboardInner() {
     }
   }, [status, isBaseApp, isWarpcastMobile]);
 
+  // useEffect(() => {
+  //   if (activeTab === 'etf' && router) {
+  //     router.replace('/etf');
+  //   }
+  // }, [activeTab, router]);
+
   // REMOVED: Auto-login for Base App via Farcaster deeplink - Now only manual via button click (per request: show DeeplinkButton first, click to trigger)
   // Keep handleBaseManualAuth for manual trigger if needed (but currently use direct SignInButton onSuccess/onError)
 
@@ -732,7 +738,7 @@ function DashboardInner() {
     try {
       if (typeof window !== 'undefined') {
         // Clear IndexedDB
-        await clearAllCaches(session.user.id); 
+        await clearAllCaches(session.user.id);
       }
       await signOut({ redirect: false });
       try {

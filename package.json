@@ -111,6 +111,7 @@
     "next": "^15.5.7",
     "next-auth": "^5.0.0-beta.29",
     "next-intl": "^4.3.9",
+    "next-sitemap": "^4.2.3",
     "nft.storage": "^7.2.0",
     "node-cache": "^5.1.2",
     "node-cron": "^4.2.1",
