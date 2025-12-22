@@ -4,7 +4,7 @@ import { useState, useEffect, useRef, memo, useCallback, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useSession } from 'next-auth/react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { isAddress } from 'ethers';
+import { isAddress , getAddress } from 'ethers';
 import throttle from 'lodash.throttle';
 import crypto from 'crypto-js';
 import { ToastContainer, toast } from 'react-toastify';
@@ -615,7 +615,7 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
   const containerRef = useRef(null);
   const chainDropdownRef = useRef(null);
   const limitDropdownRef = useRef(null);
-  const [selectedLimit, setSelectedLimit] = useState(200); 
+  const [selectedLimit, setSelectedLimit] = useState(200);
   const [isLimitDropdownOpen, setIsLimitDropdownOpen] = useState(false);
   const [isPremium, setIsPremium] = useState(false);
   const [filterType, setFilterType] = useState('all');
@@ -1108,6 +1108,7 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
       setClusters(fallbackClusters);
     }
   };
+
   const initializeForceGraph = useCallback(async () => {
     if (!containerRef.current || !nodes.length || !walletInfo.address) {
       logger.warn('Cannot initialize ForceGraph: missing container, nodes, or walletInfo.address');
@@ -1212,6 +1213,12 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
           }
         });
       }
+      // Prepare links with unique IDs for multiple edges
+      const linksWithIds = edges.map((e, index) => ({
+        ...e.data,
+        id: `${e.data.source}-${e.data.target}-${index}`, // Unique ID for each edge
+        width: e.data.layer === 3 ? 0.15 : 0.4
+      }));
       graphRef.current = ForceGraph()(containerRef.current)
         .graphData({
           nodes: positionedNodesData.map(n => ({
@@ -1221,7 +1228,7 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
             group: n.layer,
             color: n.layer === 1 ? '#4F46E5' : n.layer === 2 ? '#10B981' : n.layer === 3 ? '#F59E0B' : '#666'
           })),
-          links: edges.map(e => ({ ...e.data, width: e.data.layer === 3 ? 0.15 : 0.4 }))
+          links: linksWithIds
         })
         .backgroundColor('rgba(0,0,0,0.3)')
         .nodeRelSize(4.8) // Reduced from 6.0 for smaller nodes overall, helps with perf
@@ -1240,14 +1247,14 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
           const autoLabel = node.autoLabel || cluster?.autoLabel || '';
           const nametag = node.isRoot ? '' : node.label !== 'Unknown' ? node.label : truncateAddress(node.id);
           return `
-      <div style="background: rgba(0,0,0,0.8); border: 1px solid rgba(255,255,255,0.1); color: rgba(255,255,255,0.8); padding: 4px 8px; border-radius: 4px; font-size: 12px;">
-        ${node.isRoot ? `<div>Cluster: ${clusterLabel}</div>` : `<div>${nametag}${node.layer === 3 ? ' (L3)' : ''}</div>`}
-        ${autoLabel ? `<div>Auto: ${autoLabel}</div>` : ''}
-        ${cluster ? `<div>Cluster: ${cluster.nametag}</div>` : ''}
-        <div>Tx: ${node.txCount} | Value: ${formatLargeNumber(Number(node.totalValue), 1)}$</div>
-        <div>Risk: ${(risk * 100).toFixed(0)}%</div>
-      </div>
-    `;
+    <div style="background: rgba(0,0,0,0.8); border: 1px solid rgba(255,255,255,0.4); color: rgba(255,255,255,0.6); padding: 4px 8px; border-radius: 4px; font-size: 12px;">
+      ${node.isRoot ? `<div>Cluster: ${clusterLabel}</div>` : `<div>${nametag}${node.layer === 3 ? ' (L3)' : ''}</div>`}
+      ${autoLabel ? `<div>Auto: ${autoLabel}</div>` : ''}
+      ${cluster ? `<div>Cluster: ${cluster.nametag}</div>` : ''}
+      <div>Tx: ${node.txCount} | Value: ${formatLargeNumber(Number(node.totalValue), 1)}$</div>
+      <div>Risk: ${(risk * 100).toFixed(0)}%</div>
+    </div>
+  `;
         })
         .nodeCanvasObject((node, ctx, globalScale) => {
           const size = node.val / globalScale;
@@ -1286,15 +1293,57 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
         .linkCanvasObject((link, ctx, globalScale) => {
           const start = link.source;
           const end = link.target;
-          // if (!start || !end || !start.x || !end.x) return;
+          if (!start || !end || !start.x || !end.x || !start.y || !end.y) return;
+          // Group multiple edges by source-target pair (undirected for simplicity)
+          const edgeKey = `${Math.min(start.id, end.id)}-${Math.max(start.id, end.id)}`;
+          const allLinks = graphRef.current?.graphData()?.links || [];
+          const parallelEdges = allLinks.filter(l => {
+            const lKey = `${Math.min(l.source.id, l.target.id)}-${Math.max(l.source.id, l.target.id)}`;
+            return lKey === edgeKey;
+          });
+          const numEdges = parallelEdges.length;
+          if (numEdges === 0) return;
+          // Find index of current link in parallels (0 to numEdges-1, centered)
+          const edgeIndex = parallelEdges.findIndex(l => l.id === link.id);
+          // Dynamic offset: Scale with numEdges and globalScale for better spacing (avoid crowding)
+          const spacing = Math.max(4, 12 / numEdges) / globalScale; // Min 4px, max ~12px total spread
+          const offset = (edgeIndex - (numEdges - 1) / 2) * spacing;
+          // Direction vector
+          const dx = end.x - start.x;
+          const dy = end.y - start.y;
+          const len = Math.sqrt(dx * dx + dy * dy);
+          if (len === 0) return; // Avoid div0
+          const ux = dx / len;
+          const uy = dy / len;
+          // Perpendicular unit vector (rotate 90 deg CCW)
+          const px = -uy;
+          const py = ux;
+          // Cubic Bezier for smoother, fuller curve (better than quadratic for long offsets)
+          // Control points: Offset the two mids perpendicularly
+          const mid1X = start.x + ux * (len * 0.25);
+          const mid1Y = start.y + uy * (len * 0.25);
+          const mid2X = start.x + ux * (len * 0.75);
+          const mid2Y = start.y + uy * (len * 0.75);
+          // Apply offset to both controls
+          const offsetMid1X = mid1X + px * offset;
+          const offsetMid1Y = mid1Y + py * offset;
+          const offsetMid2X = mid2X + px * offset;
+          const offsetMid2Y = mid2Y + py * offset;
           ctx.beginPath();
-          const midX = (start.x + end.x) / 2;
-          const midY = (start.y + end.y) / 2 + Math.abs(start.x - end.x) * 0.1; // Slight curve for smoother appearance
           ctx.moveTo(start.x, start.y);
-          ctx.quadraticCurveTo(midX, midY, end.x, end.y);
+          // Cubic bezier: start -> ctrl1 -> ctrl2 -> end
+          ctx.bezierCurveTo(offsetMid1X, offsetMid1Y, offsetMid2X, offsetMid2Y, end.x, end.y);
           const isLayer3 = link.layer === 3;
-          ctx.strokeStyle = isLayer3 ? 'rgba(255, 255, 255, 0.8)' : 'rgba(255, 255, 255, 0.8)';
-          ctx.lineWidth = (isLayer3 ? 0.35 : 0.7) / globalScale; // Tăng độ dày 30% (0.2->0.26, 0.4->0.52)
+          // Dynamic opacity: Fade outer edges slightly for less clutter
+          const opacity = Math.max(0.4, 1 - (Math.abs(edgeIndex - (numEdges - 1) / 2) / numEdges) * 0.6);
+          ctx.strokeStyle = isLayer3
+            ? `rgba(255, 255, 255, ${0.8 * opacity})`
+            : `rgba(255, 255, 255, ${0.8 * opacity})`;
+          // Scale width slightly by value and index (thinner for multiples)
+          const baseWidth = isLayer3 ? 0.35 : 0.7;
+          const valueScale = Math.min(2, Math.log(Number(link.value || 1) + 1) / Math.LN10);
+          ctx.lineWidth = (baseWidth * valueScale * (1 - 0.1 * Math.abs(edgeIndex - (numEdges - 1) / 2))) / globalScale;
+          ctx.lineCap = 'round'; // Smoother ends
           ctx.stroke();
         })
         .linkCanvasObjectMode(() => 'replace')
@@ -1368,6 +1417,7 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
       toast.error('Graph visualization failed. Please refresh.', { position: 'top-right', theme: 'dark' });
     }
   }, [nodes, edges, walletInfo, filterType, walletAddress, fullIncomingData, fullOutgoingData, fullLayer3Data, clusters, filterTransactions]);
+
   useEffect(() => {
     initializeForceGraph().catch(console.error);
     return () => {
@@ -1470,30 +1520,41 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
   const handleSearch = useCallback(() => {
     validateAndFetch(walletAddress, isTokenSearch);
   }, [walletAddress, isTokenSearch, validateAndFetch]);
+
   const handleSearchSelect = useCallback((result) => {
     if (!result.isValid || !result.address) {
       toast.error('Invalid address selected.', { theme: 'dark' });
       return;
     }
+    // Normalize address to checksum lower
+    let normalizedAddress;
+    try {
+      normalizedAddress = getAddress(result.address).toLowerCase();
+    } catch (err) {
+      toast.error('Invalid address format.', { theme: 'dark' });
+      return;
+    }
+    console.log('Selected result:', { type: result.type, originalAddr: result.address, normalized: normalizedAddress }); // Debug log
     setIsTokenSearch(result.type === 'token');
-    setWalletAddress(result.address);
+    setWalletAddress(normalizedAddress);
     if (result.type === 'nametag') {
       setWalletInfo({
-        address: result.address,
+        address: normalizedAddress,
         nametag: result.name,
         image: result.image,
         chainLogo: '/icons/default.webp',
       });
     } else if (result.type === 'token') {
       setWalletInfo({
-        address: result.address,
+        address: normalizedAddress,
         nametag: `${result.symbol || ''} (${result.name})`,
         image: result.image,
         chainLogo: '/icons/default.webp',
       });
     }
-    validateAndFetch(result.address, result.type === 'token');
+    validateAndFetch(normalizedAddress, result.type === 'token');
   }, [validateAndFetch]);
+
   const handleFilterChange = useCallback(() => {
     setFilterType((prev) => {
       if (prev === 'all') {

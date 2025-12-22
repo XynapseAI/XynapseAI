@@ -209,6 +209,9 @@ export default function UniversalSearch({
           subcategory: nametag.subcategory,
         })),
       );
+      if (isValidAddress(debouncedQuery)) {
+        newGrouped.nametags = newGrouped.nametags.filter(nt => nt.address.toLowerCase() === debouncedQuery.toLowerCase());
+      }
     }
 
     // 4. Add exchange results
