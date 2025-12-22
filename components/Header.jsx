@@ -1,9 +1,9 @@
 // components/Header.jsx
 'use client';
 import { motion, AnimatePresence } from 'framer-motion';
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation'; // Added useSearchParams for preserving query/chain in explorer
-import { Power, Search as SearchIcon, BarChart3, Network, Activity, List, User, BadgeDollarSign, Zap } from 'lucide-react'; // Added Zap for AI (or reuse Activity)
+import { Power, Search as SearchIcon, BarChart3, Network, Activity, List, User, BadgeDollarSign } from 'lucide-react'; // Removed unused Zap
 import Link from 'next/link';
 import Image from 'next/image';
 import { useCurrency } from './CurrencyContext';
@@ -19,6 +19,8 @@ export default function Header({ activeTab, setActiveTab, handleSignOut, selecte
   const searchRef = useRef(null);
   const router = useRouter();
   const searchParams = useSearchParams(); // Added to preserve params for explorer
+
+  // Currency context fallback
   let currency = 'usd';
   let setCurrency = () => console.warn('setCurrency not available');
   let availableCurrencies = ['usd', 'eur', 'btc'];
@@ -35,14 +37,36 @@ export default function Header({ activeTab, setActiveTab, handleSignOut, selecte
 
   const tabs = [
     { id: 'market', label: 'Market', icon: BarChart3 },
-    { id: 'etf', label: 'ETFs', icon: BadgeDollarSign }, // Updated label to 'ETF Tracker' and added href for external page
-    // { id: 'ai', label: 'AI', icon: Zap },
+    { id: 'etf', label: 'ETFs', icon: BadgeDollarSign }, // Internal for now; add href: '/etf' if external
     { id: 'cluster', label: 'Cluster', icon: Network },
     { id: 'graph', label: 'Graph', icon: Activity },
     { id: 'watchlists', label: 'Watchlists', icon: List },
     { id: 'explorer', label: 'Explorer', icon: SearchIcon }, // Added Explorer tab with Search icon
     { id: 'profile', label: 'Profile', icon: User },
   ];
+
+  // Memoized dynamic href builder for better performance
+  const getTabHref = useMemo(() => {
+    return (tabId) => {
+      const tab = tabs.find(t => t.id === tabId);
+      if (tab?.href) return tab.href; // External if defined
+
+      let queryStr = `tab=${tabId}`;
+      // Preserve params based on tab
+      if (tabId === 'explorer') {
+        const currentQuery = searchParams.get('query') || '';
+        const currentChain = searchParams.get('chain') || '';
+        if (currentQuery) queryStr += `&query=${encodeURIComponent(currentQuery)}`;
+        if (currentChain) queryStr += `&chain=${currentChain}`;
+      } else if (tabId === 'watchlists' && selectedAddress) {
+        queryStr += `&address=${encodeURIComponent(selectedAddress)}`;
+      } else if (tabId === 'cluster') {
+        const clusterId = new URLSearchParams(window.location.search).get('clusterId') || searchParams.get('clusterId');
+        if (clusterId) queryStr += `&clusterId=${encodeURIComponent(clusterId)}`;
+      }
+      return `/dashboard?${queryStr}`;
+    };
+  }, [tabs, searchParams, selectedAddress]);
 
   useEffect(() => {
     const handleClickOutside = (event) => {
@@ -88,32 +112,10 @@ export default function Header({ activeTab, setActiveTab, handleSignOut, selecte
     setActiveTab('cluster');
   };
 
-  const handleTabClick = (tabId) => {
-    // Check if this tab has an external href (e.g., ETF)
-    const tab = tabs.find(t => t.id === tabId);
-    if (tab && tab.href) {
-      // Navigate to external page (e.g., /etf)
-      router.push(tab.href);
-    } else {
-      // Internal dashboard tabs
-      setActiveTab(tabId);
-      const clusterId = new URLSearchParams(window.location.search).get('clusterId');
-      let queryStr = `tab=${tabId}`;
-      if (tabId === 'explorer') {
-        // Preserve query/chain params for explorer
-        const currentQuery = searchParams.get('query') || '';
-        const currentChain = searchParams.get('chain') || '';
-        if (currentQuery) queryStr += `&query=${encodeURIComponent(currentQuery)}`;
-        if (currentChain) queryStr += `&chain=${currentChain}`;
-      } else if (tabId === 'watchlists' && selectedAddress) {
-        queryStr += `&address=${encodeURIComponent(selectedAddress)}`;
-      } else if (tabId === 'cluster' && clusterId) {
-        queryStr += `&clusterId=${encodeURIComponent(clusterId)}`;
-      }
-      const path = `/dashboard?${queryStr}`;
-      router.push(path, { scroll: false });
-    }
-    setIsMenuOpen(false);
+  // Shared handler for tab navigation (now used in onClick of Link)
+  const handleTabNavigation = (tabId) => {
+    setActiveTab(tabId);
+    setIsMenuOpen(false); // Close mobile menu
   };
 
   const handleMouseEnter = (e, tabLabel) => {
@@ -263,28 +265,35 @@ export default function Header({ activeTab, setActiveTab, handleSignOut, selecte
               {tabs.map((tab) => {
                 const Icon = tab.icon;
                 const isActive = activeTab === tab.id;
+                const href = getTabHref(tab.id);
                 return (
-                  <motion.button
+                  <Link
                     key={tab.id}
-                    onClick={() => handleTabClick(tab.id)}
-                    onMouseEnter={(e) => handleMouseEnter(e, tab.label)}
-                    className={`group relative flex items-center gap-1 px-3 py-2 text-[10px] font-semibold uppercase rounded-lg transition-all duration-300 ease-out border border-transparent ${isActive
-                      ? 'text-neon-blue'
-                      : 'text-white/70 hover:text-white'
-                      }`}
+                    href={href}
+                    className="group relative flex items-center gap-1 px-3 py-2 text-[11px] font-semibold uppercase rounded-lg transition-all duration-300 ease-out border border-transparent no-underline focus:outline-none"
+                    onClick={() => handleTabNavigation(tab.id)}
                   >
-                    <Icon className={`w-3 h-3 flex-shrink-0 ${isActive ? 'text-white/80' : 'text-white/70 group-hover:text-white'}`} />
-                    <span className={`matrix-text relative overflow-hidden ${isActive ? 'text-white/80' : ''}`}>
-                      {renderMatrixText(tab.label)}
-                    </span>
-                    {isActive && (
-                      <motion.div
-                        className="absolute bottom-0 left-0 right-0 h-0.5 bg-gradient-to-r from-white to-emerald-400 rounded-full"
-                        layoutId="activeTabIndicator"
-                        transition={{ duration: 0.3, ease: 'easeOut' }}
-                      />
-                    )}
-                  </motion.button>
+                    <motion.button
+                      type="button" // Prevent default form submit if any
+                      onMouseEnter={(e) => handleMouseEnter(e, tab.label)}
+                      className={`w-full h-full flex items-center gap-1 ${isActive
+                        ? 'text-neon-blue'
+                        : 'text-white/70 hover:text-white'
+                        }`}
+                      >
+                      <Icon className={`w-3 h-3 flex-shrink-0 ${isActive ? 'text-white/80' : 'text-white/70 group-hover:text-white'}`} />
+                      <span className={`matrix-text relative overflow-hidden ${isActive ? 'text-white/80' : ''}`}>
+                        {renderMatrixText(tab.label)}
+                      </span>
+                      {isActive && (
+                        <motion.div
+                          className="absolute bottom-0 left-0 right-0 h-0.5 bg-gradient-to-r from-white to-emerald-400 rounded-full"
+                          layoutId="activeTabIndicator"
+                          transition={{ duration: 0.3, ease: 'easeOut' }}
+                        />
+                      )}
+                    </motion.button>
+                  </Link>
                 );
               })}
             </motion.nav>
@@ -331,6 +340,7 @@ export default function Header({ activeTab, setActiveTab, handleSignOut, selecte
                   className="p-1 rounded-lg bg-white/10 hover:bg-white/20 transition-colors"
                   whileHover={{ scale: 1.1 }}
                   whileTap={{ scale: 0.9 }}
+                  aria-label="Close menu"
                 >
                   <Power className="w-4 h-4 text-white/70" />
                 </motion.button>
@@ -339,26 +349,33 @@ export default function Header({ activeTab, setActiveTab, handleSignOut, selecte
                 {tabs.map((tab) => {
                   const Icon = tab.icon;
                   const isActive = activeTab === tab.id;
+                  const href = getTabHref(tab.id);
                   return (
-                    <motion.button
+                    <Link
                       key={tab.id}
-                      onClick={() => handleTabClick(tab.id)}
-                      onMouseEnter={(e) => handleMouseEnter(e, tab.label)}
-                      className={`relative w-full flex items-center gap-2 px-3 py-3 text-sm font-semibold transition-all duration-300 rounded-lg border border-transparent ${isActive
+                      href={href}
+                      className={`relative w-full flex items-center gap-2 px-3 py-3 text-sm font-semibold transition-all duration-300 rounded-lg border border-transparent no-underline focus:outline-none ${isActive
                         ? 'text-neon-blue'
                         : 'text-white/70 hover:text-white hover:bg-white/5 hover:border-white/5'
                         }`}
+                      onClick={() => handleTabNavigation(tab.id)}
                     >
-                      <Icon className={`w-4 h-4 flex-shrink-0 ${isActive ? 'text-white/70' : 'text-white/70'}`} />
-                      <span className={`matrix-text flex-1 ${isActive ? 'text-white/70' : ''}`}>{renderMatrixText(tab.label)}</span>
-                      {isActive && (
-                        <motion.div
-                          className="absolute bottom-0 left-0 right-0 h-0.5 bg-gradient-to-r from-white to-emerald-400 rounded-full"
-                          layoutId="activeTabIndicator"
-                          transition={{ duration: 0.3, ease: 'easeOut' }}
-                        />
-                      )}
-                    </motion.button>
+                      <motion.button
+                        type="button"
+                        onMouseEnter={(e) => handleMouseEnter(e, tab.label)}
+                        className="w-full h-full flex items-center gap-2"
+                      >
+                        <Icon className={`w-4 h-4 flex-shrink-0 ${isActive ? 'text-white/70' : 'text-white/70'}`} />
+                        <span className={`matrix-text flex-1 ${isActive ? 'text-white/70' : ''}`}>{renderMatrixText(tab.label)}</span>
+                        {isActive && (
+                          <motion.div
+                            className="absolute bottom-0 left-0 right-0 h-0.5 bg-gradient-to-r from-white to-emerald-400 rounded-full"
+                            layoutId="activeTabIndicator"
+                            transition={{ duration: 0.3, ease: 'easeOut' }}
+                          />
+                        )}
+                      </motion.button>
+                    </Link>
                   );
                 })}
               </nav>

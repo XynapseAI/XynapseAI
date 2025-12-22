@@ -18,7 +18,7 @@ export async function generateMetadata({ searchParams }) {
         title = `${userName ? userName + ' - ' : ''}Bitcoin ETF Tracker: Inflows, Outflows & Holdings | Xynapse`;
         description = `Real-time Bitcoin ETF analysis on Xynapse: Track daily inflows/outflows, top holdings (IBIT, FBTC, GBTC), onchain metrics, and nametags for crypto investors.`;
         keywords = 'bitcoin etf, etf inflows outflows, crypto etf tracker, IBIT FBTC GBTC, etf holdings, blockchain analysis, onchain metrics, nametag etf, xynapse etf';
-        ogImage = 'https://xynapseai.net/etf-og.png';
+        ogImage = 'https://xynapseai.net/og.png';
         break;
 
       case 'market':
@@ -49,6 +49,13 @@ export async function generateMetadata({ searchParams }) {
         title = `${userName ? userName + ' - ' : ''}Address Clusters & Exchange Analysis | Xynapse`;
         description = `Analyze address clusters, exchange wallets, and onchain behavior with Xynapse Cluster tool.`;
         keywords = 'address clusters, exchange wallet analysis, onchain clusters, blockchain intelligence, xynapse cluster';
+        break;
+
+      case 'ai':
+        title = `${userName ? userName + ' - ' : ''}AI Insights & Analytics | Xynapse`;
+        description = `Leverage AI-powered insights for blockchain data, transaction predictions, and crypto trends on Xynapse.`;
+        keywords = 'ai blockchain, crypto ai analytics, onchain ai, transaction predictions, xynapse ai';
+        ogImage = 'https://xynapseai.net/og.png';
         break;
 
       default:
@@ -127,14 +134,12 @@ export async function generateMetadata({ searchParams }) {
   }
 }
 
-export function generateViewport() {
-  return {
-    width: 'device-width',
-    initialScale: 1,
-    maximumScale: 1,
-    userScalable: false,
-  };
-}
+export const viewport = {
+  width: 'device-width',
+  initialScale: 1,
+  maximumScale: 1,
+  userScalable: false,
+};
 
 export default function DashboardLayout({ children }) {
   return <div>{children}</div>;

@@ -11,6 +11,10 @@ export const metadata = {
   },
   description: 'Xynapse: Search and analyze transactions on Bitcoin, Ethereum, BSC, and Solana. Real-time blockchain data, nametags, token transfers, and insights for crypto enthusiasts.',
   keywords: 'blockchain explorer, transaction search, Bitcoin tx, Ethereum tx, BSC tx, Solana tx, crypto analytics, Xynapse',
+  robots: 'index, follow', 
+  alternates: {
+    canonical: 'https://xynapseai.net',
+  },
   openGraph: {
     title: 'Xynapse',
     description: 'Explore blockchain transactions with Xynapse. Fast, secure, and insightful crypto explorer.',
@@ -18,7 +22,7 @@ export const metadata = {
       'https://xynapseai.net/og.png',
       'https://xynapseai.net/base-wallet-og.png',  // Added for wallet connect OG
     ],
-    url: 'https://xynapseai.net/dashboard?tab=explorer',
+    url: 'https://xynapseai.net', 
     siteName: 'Xynapse',
     type: 'website',
   },
@@ -68,7 +72,7 @@ export default function RootLayout({ children }) {
   return (
     <html lang="en">
       <head>
-        <link rel="canonical" href="https://xynapseai.net/dashboard?tab=explorer" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
       </head>
       <body className={`bg-black text-white`}>
         <ClientProviders>{children}</ClientProviders>

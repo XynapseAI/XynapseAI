@@ -1,5 +1,5 @@
 'use client';
-import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
+import { useState, useEffect, useRef, useCallback, useMemo, lazy } from 'react'; // REMOVED: Suspense for direct render to avoid delay
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useAccount, useDisconnect, useSignMessage } from 'wagmi';
 import { signIn, signOut, useSession, getProviders } from 'next-auth/react';
@@ -29,18 +29,15 @@ import { TermsOfServiceContent } from '../../components/TermsOfService';
 import { PrivacyPolicyContent } from '../../components/PrivacyPolicy';
 import "@farcaster/auth-kit/styles.css";
 import { AuthKitProvider, SignInButton, useSignIn } from "@farcaster/auth-kit"; // ADDED: useSignIn for manual deeplink trigger
-import { sdk } from '@farcaster/miniapp-sdk';  // Keep for miniapp
+import { sdk } from '@farcaster/miniapp-sdk'; // Keep for miniapp
 import { useMiniApp, MiniAppProvider } from '@neynar/react';
-import { MiniKit } from '@worldcoin/minikit-js';  // FIXED: Import MiniKit from root, MiniKitProvider from sub-module
-import { MiniKitProvider as WorldMiniKitProvider } from '@worldcoin/minikit-js/minikit-provider';  // FIXED: Import correct path
+import { MiniKit } from '@worldcoin/minikit-js'; // FIXED: Import MiniKit from root, MiniKitProvider from sub-module
+import { MiniKitProvider as WorldMiniKitProvider } from '@worldcoin/minikit-js/minikit-provider'; // FIXED: Import correct path
 import { preconnect } from 'react-dom'; // NEW: For preconnect to Quick Auth server
 import { SafeArea } from '@coinbase/onchainkit/minikit';
 import { clearAllCaches } from '../../utils/indexedDB';
-
 gsap.registerPlugin(MotionPathPlugin);
-
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:3000/api';
-
 const isDev = process.env.NODE_ENV === 'development';
 const safeConsole = {
   log: (...args) => isDev && console.log(...args),
@@ -50,7 +47,6 @@ const safeConsole = {
 const safeLog = (...args) => safeConsole.log(...args);
 const safeWarn = (...args) => safeConsole.warn(...args);
 const safeError = (...args) => safeConsole.error(...args);
-
 const BlinkingDots = () => (
   <div className="flex items-center gap-0.5">
     <span className="w-1 h-1 bg-white rounded-full animate-bounce"></span>
@@ -58,7 +54,6 @@ const BlinkingDots = () => (
     <span className="w-1 h-1 bg-white rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></span>
   </div>
 );
-
 // Polyfill HMAC for browser (use Web Crypto API, as old uses createHmac - server only)
 async function hmacSha256(key, data) {
   if (typeof window !== 'undefined' && !crypto.subtle) {
@@ -79,13 +74,11 @@ async function hmacSha256(key, data) {
     .map(b => b.toString(16).padStart(2, '0'))
     .join('');
 }
-
-const useUserData = (session, csrfToken, setIsAnalyzing, isWorldMiniApp) => {  // ADDED: isWorldMiniApp param
+const useUserData = (session, csrfToken, setIsAnalyzing, isWorldMiniApp) => { // ADDED: isWorldMiniApp param
   const [userData, setUserData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const recaptchaRef = useRef(null);
-
   const fetchUserData = useCallback(async () => {
     // Enhanced check to prevent fetch when unauthenticated
     if (!session || !session?.user?.id || !csrfToken) {
@@ -94,14 +87,13 @@ const useUserData = (session, csrfToken, setIsAnalyzing, isWorldMiniApp) => {  /
       setError(null);
       return;
     }
-
     setLoading(true);
     try {
       let recaptchaToken = null;
-      if (!isWorldMiniApp && !recaptchaRef.current) {  // MODIFIED: Skip reCAPTCHA for World Mini App
+      if (!isWorldMiniApp && !recaptchaRef.current) { // MODIFIED: Skip reCAPTCHA for World Mini App
         throw new Error('reCAPTCHA component is not initialized');
       }
-      if (!isWorldMiniApp) {  // MODIFIED: Only execute if not World Mini App
+      if (!isWorldMiniApp) { // MODIFIED: Only execute if not World Mini App
         recaptchaToken = await recaptchaRef.current.executeAsync();
         if (!recaptchaToken) {
           throw new Error('Failed to obtain reCAPTCHA token');
@@ -112,7 +104,7 @@ const useUserData = (session, csrfToken, setIsAnalyzing, isWorldMiniApp) => {  /
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',
-          ...(recaptchaToken && { 'X-Recaptcha-Token': recaptchaToken }),  // MODIFIED: Conditional header
+          ...(recaptchaToken && { 'X-Recaptcha-Token': recaptchaToken }), // MODIFIED: Conditional header
           'X-CSRF-Token': csrfToken,
           Authorization: `Bearer ${jwtToken}`,
         },
@@ -141,12 +133,11 @@ const useUserData = (session, csrfToken, setIsAnalyzing, isWorldMiniApp) => {  /
       toast.error(`Error: ${err.message}`, { position: 'top-center' });
     } finally {
       setLoading(false);
-      if (recaptchaRef.current && !isWorldMiniApp) {  // MODIFIED: Reset only if used
+      if (recaptchaRef.current && !isWorldMiniApp) { // MODIFIED: Reset only if used
         recaptchaRef.current.reset();
       }
     }
-  }, [session, csrfToken, isWorldMiniApp]);  // ADDED: isWorldMiniApp to deps
-
+  }, [session, csrfToken, isWorldMiniApp]); // ADDED: isWorldMiniApp to deps
   const handleAnalyzeTweets = useCallback(async () => {
     setIsAnalyzing(true);
     try {
@@ -187,17 +178,13 @@ const useUserData = (session, csrfToken, setIsAnalyzing, isWorldMiniApp) => {  /
       if (recaptchaRef.current) recaptchaRef.current.reset();
     }
   }, [session, csrfToken, setIsAnalyzing]);
-
   useEffect(() => {
     fetchUserData();
   }, [fetchUserData]);
-
   return { userData, loading, error, handleAnalyzeTweets, recaptchaRef };
 };
-
 function UniverseBackground() {
   const groupRef = useRef(null);
-
   useFrame((state) => {
     if (groupRef.current) {
       const time = state.clock.getElapsedTime();
@@ -205,14 +192,12 @@ function UniverseBackground() {
       groupRef.current.rotation.y = time * 0.001;
     }
   });
-
   // Simplified Galaxy with fewer points
   const Galaxy = () => {
     const pointsRef = useRef();
     const count = 2000; // Reduced count for performance
     const positions = useMemo(() => new Float32Array(count * 3), []);
     const colors = useMemo(() => new Float32Array(count * 3), []);
-
     useEffect(() => {
       for (let i = 0; i < count; i++) {
         const i3 = i * 3;
@@ -221,15 +206,12 @@ function UniverseBackground() {
         const spin = radius * 0.15;
         const branchAngle = ((i % arms) / arms) * Math.PI * 2;
         const theta = branchAngle + spin + Math.random() * 0.3;
-
         const randomX = (Math.pow(Math.random(), 3) * (Math.random() < 0.5 ? 1 : -1)) * 1.5;
         const randomY = (Math.pow(Math.random(), 3) * (Math.random() < 0.5 ? 1 : -1)) * 0.3; // Flatter
         const randomZ = (Math.pow(Math.random(), 3) * (Math.random() < 0.5 ? 1 : -1)) * 1.5;
-
         positions[i3] = (Math.cos(theta) * radius) + randomX;
         positions[i3 + 1] = randomY;
         positions[i3 + 2] = (Math.sin(theta) * radius) + randomZ;
-
         const r = Math.random() * 0.3 + 0.7;
         const g = Math.random() * 0.3 + 0.7;
         const b = Math.random() * 0.5 + 0.5; // Subtle blue
@@ -237,11 +219,9 @@ function UniverseBackground() {
         colors[i3 + 1] = g;
         colors[i3 + 2] = b;
       }
-
       pointsRef.current.geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
       pointsRef.current.geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
     }, [positions, colors]); // Fixed: Add positions and colors to deps (they are memoized, so no infinite loop)
-
     return (
       <points ref={pointsRef} position={[0, 0, -20]} rotation={[Math.PI / 6, 0, 0]}>
         <bufferGeometry />
@@ -257,11 +237,9 @@ function UniverseBackground() {
       </points>
     );
   };
-
   return (
     <group ref={groupRef}>
       <Stars radius={150} depth={60} count={1000} factor={4} saturation={0} fade speed={0.1} /> {/* Reduced count and speed */}
-
       {/* Minimal moving stars */}
       <group>
         {Array.from({ length: 3 }).map((_, i) => (
@@ -272,9 +250,7 @@ function UniverseBackground() {
           </Float>
         ))}
       </group>
-
       <Galaxy />
-
       {/* Subtle nebulae */}
       {Array.from({ length: 2 }).map((_, i) => (
         <Float key={`nebula-${i}`} speed={0.1} rotationIntensity={0.02}>
@@ -290,7 +266,6 @@ function UniverseBackground() {
           </Sphere>
         </Float>
       ))}
-
       <Environment preset="night" />
       <ambientLight intensity={0.15} color="#000022" />
       <pointLight position={[0, 0, 8]} intensity={0.3} color="#FFFFFF" />
@@ -298,7 +273,6 @@ function UniverseBackground() {
     </group>
   );
 }
-
 // NEW: Inner component wrapped by MiniAppProvider, containing useMiniApp hook
 function DashboardInner() {
   // FIXED: Move useEffect suppress unhandledrejection into this component
@@ -312,7 +286,6 @@ function DashboardInner() {
     window.addEventListener('unhandledrejection', handleUnhandledRejection);
     return () => window.removeEventListener('unhandledrejection', handleUnhandledRejection);
   }, []);
-
   const { data: session, status, update } = useSession();
   const { isConnected: walletConnected, address: walletAddress } = useAccount();
   const { disconnect } = useDisconnect();
@@ -335,11 +308,11 @@ function DashboardInner() {
   const [miniAppAuthLoading, setMiniAppAuthLoading] = useState(false); // NEW: Loading for quickauth
   const [miniAppAuthFailed, setMiniAppAuthFailed] = useState(false); // NEW: Track if auto-auth failed for Mini App
   const [fallbackToManual, setFallbackToManual] = useState(false); // NEW: Fallback to manual if SDK unavailable (e.g., Base App)
-  const [isWorldMiniApp, setIsWorldMiniApp] = useState(false);  // NEW
+  const [isWorldMiniApp, setIsWorldMiniApp] = useState(false); // NEW
   const [worldAppVersionOk, setWorldAppVersionOk] = useState(true); // NEW: Track if version supports walletAuth
-  const { userData, loading, error } = useUserData(session, csrfToken, setIsAnalyzing, isWorldMiniApp);  // MODIFIED: Pass isWorldMiniApp
-  const [worldAuthLoading, setWorldAuthLoading] = useState(false);  // NEW
-  const [worldAuthFailed, setWorldAuthFailed] = useState(false);  // NEW  
+  const { userData, loading, error } = useUserData(session, csrfToken, setIsAnalyzing, isWorldMiniApp); // MODIFIED: Pass isWorldMiniApp
+  const [worldAuthLoading, setWorldAuthLoading] = useState(false); // NEW
+  const [worldAuthFailed, setWorldAuthFailed] = useState(false); // NEW
   // NEW: Ref to prevent multi-attempt loop
   const attemptedAuthRef = useRef(false);
   const [isBaseApp, setIsBaseApp] = useState(false); // NEW: State for Base App detection (from ref)
@@ -350,24 +323,19 @@ function DashboardInner() {
   // NEW: Separate state for Warpcast detection (for relaxed guard)
   const [isWarpcastMobile, setIsWarpcastMobile] = useState(false);
   const [isMobile, setIsMobile] = useState(false); // NEW: State to detect mobile device (for hiding Farcaster button on PC)
-
   // FIXED: App domain from env (fix origin mismatch in preview)
   const appDomain = process.env.NEXT_PUBLIC_APP_DOMAIN || window.location.hostname;
-
   preconnect("https://auth.farcaster.xyz"); // NEW: Preconnect to Quick Auth server for faster token retrieval (as per docs)
-
   const openModal = (content) => {
     setModalContent(content);
     setIsModalOpen(true);
     document.body.style.overflow = 'hidden';
   };
-
   const closeModal = () => {
     setIsModalOpen(false);
     setModalContent(null);
     document.body.style.overflow = 'auto';
   };
-
   const fetchProvidersWithRetry = useCallback(async (retries = 3, delay = 1000) => {
     for (let i = 0; i < retries; i++) {
       try {
@@ -388,23 +356,20 @@ function DashboardInner() {
       }
     }
   }, []);
-
   useEffect(() => {
     setIsMounted(true);
     const tab = searchParams.get('tab');
-    if (tab && ['market', 'etf', 'ai', 'profile', 'graph', 'watchlists', 'cluster', 'explorer'].includes(tab)) {  // Added 'explorer' to valid tabs
+    if (tab && ['market', 'etf', 'ai', 'profile', 'graph', 'watchlists', 'cluster', 'explorer'].includes(tab)) { // Added 'explorer' to valid tabs
       setActiveTab(tab);
     }
   }, [searchParams, router]);
-
   useEffect(() => {
     if (status !== 'authenticated' || session?.csrfToken || csrfToken) return;
-
     const fetchCsrfToken = async () => {
       try {
-        const response = await fetch('/api/auth/csrf', {  // Fix: relative path standard NextAuth
+        const response = await fetch('/api/auth/csrf', { // Fix: relative path standard NextAuth
           method: 'GET',
-          credentials: 'include',  // Fix: To read/set cookie automatically
+          credentials: 'include', // Fix: To read/set cookie automatically
           // Remove Authorization: Bearer - NextAuth handles via cookie
         });
         const result = await response.json();
@@ -429,13 +394,11 @@ function DashboardInner() {
     };
     fetchCsrfToken();
   }, [status, session, csrfToken, update]);
-
   useEffect(() => {
     if (isMounted && !providers) {
       fetchProvidersWithRetry();
     }
   }, [isMounted, providers, fetchProvidersWithRetry]);
-
   // FIXED: Improved Base App detection - Add ethereum.isCoinbaseWallet check + log UA for debug + FORCE via ?base=true for dev test
   // FIX FOR PC: Only apply isCoinbaseWallet if isMobile (prevent false positive on desktop with extension)
   useEffect(() => {
@@ -475,7 +438,6 @@ function DashboardInner() {
       if (typeof sdk !== 'undefined') sdk.actions.ready(); // FIXED: Only call if SDK exists
     }
   }, [isSDKLoaded, context, miniAppUser, session, searchParams]); // ADD: searchParams to deps for force check
-
   // UPDATED: Adjust handleMiniAppQuickAuth - Remove skip for isBaseApp (allow manual trigger in Base), add fallback toast
   const handleMiniAppQuickAuth = useCallback(async () => {
     if (status !== 'unauthenticated') return; // Keep guard for status
@@ -487,31 +449,27 @@ function DashboardInner() {
       if (typeof sdk === 'undefined' || !sdk.quickAuth || typeof sdk.quickAuth.getToken !== 'function') {
         throw new Error('SDK getToken not available - Ensure running in Farcaster client (Warpcast/Base)');
       }
-
       // Wrap getToken with explicit catch to suppress uncaught
       const getTokenPromise = sdk.quickAuth.getToken();
       const tokenResponse = await getTokenPromise.catch((err) => {
         safeError('SDK getToken internal rejection:', err);
         throw new Error(`QuickAuth SDK failed: ${err.message || 'Unknown error'}`);
       });
-
       if (!tokenResponse || !tokenResponse.token) {
         throw new Error('No token in response');
       }
-
       const { token } = tokenResponse;
       safeLog('Mini App quickauth token preview:', token.substring(0, 50) + '...');
-
       const result = await signIn('farcaster', {
         redirect: false,
-        token,  // Pass token for Credentials (need to update options.js to handle token)
+        token, // Pass token for Credentials (need to update options.js to handle token)
         callbackUrl: '/dashboard'
       });
       if (result?.error) {
         throw new Error(result.error || 'Auth failed');
       }
       setAuthSuccess(true); // NEW: Fix loop
-      await update();  // FIXED: Only update session, no push (let re-render handle)
+      await update(); // FIXED: Only update session, no push (let re-render handle)
       if (typeof sdk !== 'undefined') sdk.actions.ready(); // FIXED: Hide splash if available
       toast.success('Login successful via Farcaster!', { position: 'top-center' }); // NEW: Success toast for manual
     } catch (err) {
@@ -522,7 +480,7 @@ function DashboardInner() {
         toast.error('Warpcast app is required for verification. Please install and try again.', { position: 'top-center' });
         setFallbackToManual(true);
         setMiniAppAuthFailed(false);
-        if (isBaseApp) {  // FIXED: Only set for Base App, not PC (prevent hiding form)
+        if (isBaseApp) { // FIXED: Only set for Base App, not PC (prevent hiding form)
           setBaseAuthFailed(true); // NEW: Trigger retry UI only for Base
         }
       } else {
@@ -533,8 +491,7 @@ function DashboardInner() {
     } finally {
       setMiniAppAuthLoading(false);
     }
-  }, [status, signIn, update, isBaseApp]);  // ADD: isBaseApp to deps
-
+  }, [status, signIn, update, isBaseApp]); // ADD: isBaseApp to deps
   // FIXED: Relax guard for Warpcast: If isWarpcastMobile, skip Neynar context/user check to enable auto quickAuth
   useEffect(() => {
     if (!isMiniApp || status !== 'unauthenticated' || session || miniAppAuthLoading || attemptedAuthRef.current || (!isWarpcastMobile && context !== 'miniapp' && !miniAppUser)) {
@@ -542,8 +499,7 @@ function DashboardInner() {
     }
     attemptedAuthRef.current = true; // One-time
     handleMiniAppQuickAuth();
-  }, [isMiniApp, status, session, miniAppAuthLoading, handleMiniAppQuickAuth, context, miniAppUser, isWarpcastMobile]);  // ADD: isWarpcastMobile to deps
-
+  }, [isMiniApp, status, session, miniAppAuthLoading, handleMiniAppQuickAuth, context, miniAppUser, isWarpcastMobile]); // ADD: isWarpcastMobile to deps
   // NEW: Detect World Mini App
   useEffect(() => {
     let worldDetected = false;
@@ -555,7 +511,6 @@ function DashboardInner() {
     setIsWorldMiniApp(worldDetected);
     safeLog('World Mini App Detection:', { worldDetected });
   }, []);
-
   // FIXED: Wrap handleWorldQuickAuth with useCallback and add to deps
   const handleWorldQuickAuth = useCallback(async () => {
     if (status !== 'unauthenticated') return;
@@ -568,25 +523,21 @@ function DashboardInner() {
         throw new Error('World App not detected. Please open in World App.');
       }
       // NEW: Manual install if error suggests (docs 2025: Optional but fix unavailable)
-      // await MiniKit.install();  // Comment out if causing error, as per docs it may be auto
+      // await MiniKit.install(); // Comment out if causing error, as per docs it may be auto
       // Assume init is handled by provider
-
       const res = await fetch('/api/nonce');
       if (!res.ok) throw new Error('Failed to get nonce');
       const { nonce } = await res.json();
       if (!nonce) throw new Error('No nonce from server');
-
       // FIXED: Add full params per docs (expirationTime, statement for standard SIWE)
       const { commandPayload, finalPayload } = await MiniKit.commandsAsync.walletAuth({
         nonce,
-        requestId: '0x' + Math.random().toString(16).substr(2, 8),  // Random requestId
-        expirationTime: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),  // 7 days
-        notBefore: new Date(Date.now() - 24 * 60 * 60 * 1000),  // Allow 1 day back
-        statement: 'Sign in to XynapseAI with your World wallet.',  // Custom statement
+        requestId: '0x' + Math.random().toString(16).substr(2, 8), // Random requestId
+        expirationTime: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 7 days
+        notBefore: new Date(Date.now() - 24 * 60 * 60 * 1000), // Allow 1 day back
+        statement: 'Sign in to XynapseAI with your World wallet.', // Custom statement
       });
-
       safeLog('WalletAuth response:', { commandPayload, finalPayload }); // NEW: Debug log
-
       // FIXED: Handle error status (unavailable → specific message)
       if (finalPayload.status === 'error') {
         // Check for version-related errors (docs imply 'unavailable' for old versions)
@@ -596,9 +547,7 @@ function DashboardInner() {
         }
         throw new Error(finalPayload.error || 'Wallet auth failed');
       }
-
       const { message, signature } = finalPayload;
-
       // NEW: Call complete-siwe to verify server-side before NextAuth
       const verifyRes = await fetch('/api/complete-siwe', {
         method: 'POST',
@@ -609,7 +558,6 @@ function DashboardInner() {
       if (!verifyRes.ok || !verifyData.isValid) {
         throw new Error(verifyData.message || 'SIWE verification failed');
       }
-
       // If verify OK, proceed NextAuth
       const result = await signIn('world', {
         redirect: false,
@@ -617,13 +565,11 @@ function DashboardInner() {
         signature,
         callbackUrl: '/dashboard'
       });
-
       if (result?.error) {
         throw new Error(result.error || 'Auth failed');
       }
-
       setAuthSuccess(true);
-      await update();  // FIXED: Only update, no push
+      await update(); // FIXED: Only update, no push
     } catch (err) {
       safeError('World quickauth fail:', err);
       toast.error(`World Auth error: ${err.message}`);
@@ -631,17 +577,14 @@ function DashboardInner() {
     } finally {
       setWorldAuthLoading(false);
     }
-  }, [status, signIn, update]);  // deps: status (used inside), signIn/update (stable from hooks)
-
+  }, [status, signIn, update]); // deps: status (used inside), signIn/update (stable from hooks)
   const handleAddMiniApp = async () => {
     if (typeof sdk === 'undefined' || !sdk.actions || !sdk.actions.addMiniApp) {
       toast.error('Function not available in this environment. Please ensure you are in Base App or Warpcast.');
       return;
     }
-
     try {
       const response = await sdk.actions.addMiniApp();
-
       if (response?.notificationDetails) {
         safeLog('Notification details:', response.notificationDetails);
       }
@@ -650,14 +593,12 @@ function DashboardInner() {
       toast.error('Error adding Mini App: ' + (error?.message || 'Please check your webhook setup in manifest.'));
     }
   };
-
   // FIXED: Similarly, add status guard for World auto-auth. Add handleWorldQuickAuth to deps.
   useEffect(() => {
     if (isWorldMiniApp && status === 'unauthenticated' && !session && !worldAuthLoading) {
       handleWorldQuickAuth();
     }
-  }, [isWorldMiniApp, status, session, worldAuthLoading, handleWorldQuickAuth]);  // ADD: handleWorldQuickAuth
-
+  }, [isWorldMiniApp, status, session, worldAuthLoading, handleWorldQuickAuth]); // ADD: handleWorldQuickAuth
   // NEW: Optional check for MiniKit ready (docs don't require, but safe for mobile)
   useEffect(() => {
     if (isWorldMiniApp) {
@@ -671,33 +612,27 @@ function DashboardInner() {
       return () => clearInterval(checkReady);
     }
   }, [isWorldMiniApp]);
-
   // NEW: Prompt to add Mini App on first login in Mini App/Base/Warpcast
   useEffect(() => {
     if (status === 'authenticated' && (isBaseApp || isWarpcastMobile) && typeof sdk !== 'undefined' && sdk.actions?.addMiniApp) {
       handleAddMiniApp();
     }
   }, [status, isBaseApp, isWarpcastMobile]);
-
   // useEffect(() => {
-  //   if (activeTab === 'etf' && router) {
-  //     router.replace('/etf');
-  //   }
+  // if (activeTab === 'etf' && router) {
+  // router.replace('/etf');
+  // }
   // }, [activeTab, router]);
-
   // REMOVED: Auto-login for Base App via Farcaster deeplink - Now only manual via button click (per request: show DeeplinkButton first, click to trigger)
   // Keep handleBaseManualAuth for manual trigger if needed (but currently use direct SignInButton onSuccess/onError)
-
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const handleBaseManualAuth = useCallback(() => {
     // No longer needed as SignInButton handles direct
   }, []);
-
   const handleConnectWallet = async () => {
     try {
       if (!session?.user || !recaptchaRef.current) throw new Error('Prerequisites not met');
       if (!walletConnected || !walletAddress) throw new Error('Wallet not connected');
-
       const recaptchaToken = await recaptchaRef.current.executeAsync();
       const message = `Verify wallet for UID: ${session.user.id} - Address: ${walletAddress}`;
       const signature = await signMessageAsync({ message });
@@ -727,14 +662,12 @@ function DashboardInner() {
       if (recaptchaRef.current) recaptchaRef.current.reset();
     }
   };
-
   const handleSignOut = async () => {
     if (!session || !session.user?.id) {
       toast.error('Session expired. Please sign in again.', { position: 'top-center' });
       router.push('/dashboard');
       return;
     }
-
     try {
       if (typeof window !== 'undefined') {
         // Clear IndexedDB
@@ -757,7 +690,6 @@ function DashboardInner() {
       } catch (cacheErr) {
         console.warn('Failed to clear server cache (non-critical):', cacheErr);
       }
-
       localStorage.removeItem('csrfToken');
       setCsrfToken(null);
       setAuthSuccess(false);
@@ -765,7 +697,6 @@ function DashboardInner() {
       setFallbackToManual(false);
       setBaseAuthFailed(false);
       if (walletConnected) disconnect();
-
       router.refresh();
       router.push('/dashboard');
     } catch (error) {
@@ -775,12 +706,10 @@ function DashboardInner() {
       router.push('/dashboard');
     }
   };
-
   // FIXED: Merge old handleFarcasterSuccess with new (add authSuccess + shallow push). REMOVED: csrfToken (let NextAuth add automatically to avoid duplicate/mismatch)
   const handleFarcasterSuccess = async (result) => {
     try {
       // REMOVED: const csrf = await getCsrfToken(); // Not needed, NextAuth handles CSRF in signIn POST
-
       const res = await signIn('farcaster', {
         message: result.message,
         signature: result.signature,
@@ -793,14 +722,13 @@ function DashboardInner() {
         toast.error(`Farcaster login failed: ${res.error}`);
       } else {
         setAuthSuccess(true); // NEW: Fix loop - hide form immediately
-        await update();  // FIXED: Only update, no push/refresh (let session handle re-render)
+        await update(); // FIXED: Only update, no push/refresh (let session handle re-render)
       }
     } catch (err) {
       safeError('Farcaster sign-in error:', err);
       toast.error(`Sign-in error: ${err.message}`);
     }
   };
-
   const handleNavigateToToken = useCallback((slug) => {
     if (!slug) {
       toast.error('Invalid token ID.', { position: 'top-center' });
@@ -809,7 +737,6 @@ function DashboardInner() {
     router.push(`/dashboard?tab=market&token=${slug}`, { scroll: false });
     setActiveTab('market');
   }, [router]);
-
   const handleEmailSignIn = async (e) => {
     e.preventDefault();
     try {
@@ -820,7 +747,6 @@ function DashboardInner() {
       toast.error('Failed to sign in with email.', { position: 'top-center' });
     }
   };
-
   const handleGoogleSignIn = async () => {
     try {
       const result = await signIn('google', { callbackUrl: '/dashboard', redirect: false });
@@ -848,7 +774,6 @@ function DashboardInner() {
       toast.error(`Failed to sign in with Google: ${err.message}`, { position: 'top-center' });
     }
   };
-
   // FIXED: Loading state: Add authSuccess to hide form immediately after signIn. REMOVED: baseAuthLoading since no auto
   // UPDATED: Force show Base UI even if !requiresAuth (to always show DeeplinkButton when opening in Base App)
   if (!isMounted || !providers || status === 'loading' || (miniAppAuthLoading && !fallbackToManual) || worldAuthLoading) {
@@ -862,12 +787,10 @@ function DashboardInner() {
       </div>
     );
   }
-
   // FIXED: Revert requiresAuth from old file (only show form for specific tabs on non-Base)
   const requiresAuth = ['profile', 'ai', 'watchlists'].includes(activeTab);
   // FIXED: Integrate requiresAuth into showLoginForm (like old), but OR for Base App force
   const showLoginForm = (status === 'unauthenticated' && requiresAuth && !authSuccess && !miniAppAuthFailed && !worldAuthFailed && !baseAuthFailed && !(isMiniApp && miniAppAuthFailed && !fallbackToManual)) || (isBaseApp && status === 'unauthenticated' && !authSuccess);
-
   return (
     <CurrencyProvider>
       {isBaseApp && <SafeArea />}
@@ -892,8 +815,22 @@ function DashboardInner() {
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               transition={{ duration: 0.5 }}
-              className="w-full h-full bg-gradient-to-br from-black/80 to-gray-900/80 flex items-center justify-center"
+              className="w-full h-full bg-black flex items-center justify-center" // FIXED: Solid black bg to prevent white flash
             >
+              {/* FIXED: Add bg-black to fixed div + motion wrapper around Canvas for smooth fade-in, remove Suspense */}
+              {showLoginForm && (
+                <div className="fixed inset-0 z-0 bg-black"> {/* FIXED: Solid black to cover any initial render gap */}
+                  <motion.div
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    transition={{ duration: 0.5, ease: "easeInOut" }} // FIXED: Smooth fade-in for Canvas
+                  >
+                    <Canvas camera={{ position: [0, 0, 5], fov: 75 }} dpr={[1, 1.5]} style={{ background: 'transparent' }} performance={{ min: 0.3 }}>
+                      <UniverseBackground />
+                    </Canvas>
+                  </motion.div>
+                </div>
+              )}
               {isMiniApp && miniAppAuthFailed && !fallbackToManual ? (
                 <motion.div
                   initial={{ opacity: 0, y: 20 }}
@@ -901,11 +838,6 @@ function DashboardInner() {
                   transition={{ duration: 0.8, ease: 'easeOut' }}
                   className="w-full h-full p-4 md:p-0 flex items-center justify-center text-white font-saira relative"
                 >
-                  <div className="fixed inset-0 z-0">
-                    <Canvas camera={{ position: [0, 0, 5], fov: 75 }} dpr={[1, 1.5]} performance={{ min: 0.3 }}>
-                      <UniverseBackground />
-                    </Canvas>
-                  </div>
                   <motion.div
                     initial={{ opacity: 0, y: 20 }}
                     animate={{ opacity: 1, y: 0 }}
@@ -943,11 +875,6 @@ function DashboardInner() {
                   transition={{ duration: 0.8, ease: 'easeOut' }}
                   className="w-full h-full p-4 md:p-0 flex items-center justify-center text-white font-saira relative"
                 >
-                  <div className="fixed inset-0 z-0">
-                    <Canvas camera={{ position: [0, 0, 5], fov: 75 }} dpr={[1, 1.5]} performance={{ min: 0.3 }}>
-                      <UniverseBackground />
-                    </Canvas>
-                  </div>
                   <motion.div
                     initial={{ opacity: 0, y: 20 }}
                     animate={{ opacity: 1, y: 0 }}
@@ -986,11 +913,6 @@ function DashboardInner() {
                   transition={{ duration: 0.8, ease: 'easeOut' }}
                   className="w-full h-full p-4 md:p-0 flex items-center justify-center text-white font-saira relative"
                 >
-                  <div className="fixed inset-0 z-0">
-                    <Canvas camera={{ position: [0, 0, 5], fov: 75 }} dpr={[1, 1.5]} performance={{ min: 0.3 }}>
-                      <UniverseBackground />
-                    </Canvas>
-                  </div>
                   <motion.div
                     initial={{ opacity: 0, y: 20 }}
                     animate={{ opacity: 1, y: 0 }}
@@ -1014,7 +936,7 @@ function DashboardInner() {
                       Base App Farcaster deeplink failed. Please try again.
                     </motion.p>
                     <button
-                      onClick={handleMiniAppQuickAuth}  // UPDATED: Same handler for retry
+                      onClick={handleMiniAppQuickAuth} // UPDATED: Same handler for retry
                       className="w-full px-4 py-2.5 border-2 border-white/15 bg-white/10 text-white rounded-2xl text-sm font-semibold transition-all duration-300 hover:border-white/30 hover:bg-white/20 flex items-center justify-center"
                     >
                       <MatrixHoverEffect text="Retry Login" hoverColor="#FFFFFF" />
@@ -1028,13 +950,6 @@ function DashboardInner() {
                   transition={{ duration: 0.8, ease: 'easeOut' }}
                   className="w-full h-full p-4 md:p-0 flex items-center justify-center text-white font-saira relative"
                 >
-                  <div className="fixed inset-0 z-0">
-                    {!isMiniApp && !isWorldMiniApp && (  // UPDATED: Render 3D if not Mini App/World (include Base App for lightweight support)
-                      <Canvas camera={{ position: [0, 0, 5], fov: 75 }} dpr={[1, 1.5]} performance={{ min: 0.3 }}>
-                        <UniverseBackground />
-                      </Canvas>
-                    )}
-                  </div>
                   {isBaseApp ? (
                     // UPDATED: Special frame for Base App - Custom button calls handleMiniAppQuickAuth (trigger deeplink like old auto, but manual)
                     // Force show this UI when unauthenticated in Base App
@@ -1061,8 +976,8 @@ function DashboardInner() {
                         Click the button below to start a secure login via Farcaster deeplink in the Base App.
                       </motion.p>
                       <button
-                        onClick={handleMiniAppQuickAuth}  // UPDATED: Call SDK quickAuth → Deeplink to Warpcast like old auto
-                        disabled={miniAppAuthLoading || worldAuthLoading}  // NEW: Disable during loading
+                        onClick={handleMiniAppQuickAuth} // UPDATED: Call SDK quickAuth → Deeplink to Warpcast like old auto
+                        disabled={miniAppAuthLoading || worldAuthLoading} // NEW: Disable during loading
                         className="w-full px-4 py-2.5 border-2 border-white/15 bg-white/10 text-white rounded-2xl text-sm font-semibold transition-all duration-300 hover:border-white/30 hover:bg-white/20 flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed"
                       >
                         {miniAppAuthLoading ? (
@@ -1120,7 +1035,7 @@ function DashboardInner() {
                       >
                         Access your dashboard with secure authentication.
                       </motion.p>
-                      {!isWorldMiniApp && (  // FIXED: Show Email if not World (support Base/PC)
+                      {!isWorldMiniApp && ( // FIXED: Show Email if not World (support Base/PC)
                         <>
                           <form onSubmit={handleEmailSignIn} className="w-full space-y-4">
                             <input
@@ -1144,7 +1059,7 @@ function DashboardInner() {
                           </div>
                         </>
                       )}
-                      {providers?.google && !isWorldMiniApp && (  // FIXED: Show Google if not World
+                      {providers?.google && !isWorldMiniApp && ( // FIXED: Show Google if not World
                         <button
                           onClick={handleGoogleSignIn}
                           className="m-4 w-full px-4 py-2.5 bg-black/20 border border-white/25 rounded-lg text-white text-sm font-semibold flex items-center justify-center gap-3 transition-all duration-300 hover:bg-gray-800/30 hover:border-white/40"
@@ -1224,41 +1139,56 @@ function DashboardInner() {
                 </motion.div>
               ) : (
                 <>
-                  {activeTab === 'market' && (
-                    <MarketTab
-                      recaptchaRef={recaptchaRef}
-                      toast={toast}
-                      onTokenSelect={handleNavigateToToken}
-                      initialTokenSlug={searchParams.get('token') || undefined}
-                    />
+                  {/* FIX: Thêm teaser content cho tabs cần auth để Google crawl partial content (SEO) */}
+                  {requiresAuth && status === 'unauthenticated' ? (
+                    <motion.div
+                      initial={{ opacity: 0, y: 20 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      className="p-8 text-center text-gray-400 max-w-md"
+                    >
+                      <h2 className="text-xl font-bold mb-4">Login Required</h2>
+                      <p>Sign in to access {activeTab} features. Xynapse offers advanced blockchain analytics for crypto enthusiasts.</p>
+                      {/* Có thể thêm CTA button login nếu cần */}
+                    </motion.div>
+                  ) : (
+                    <>
+                      {activeTab === 'market' && (
+                        <MarketTab
+                          recaptchaRef={recaptchaRef}
+                          toast={toast}
+                          onTokenSelect={handleNavigateToToken}
+                          initialTokenSlug={searchParams.get('token') || undefined}
+                        />
+                      )}
+                      {activeTab === 'etf' && <EtfTab />}
+                      {activeTab === 'cluster' && (
+                        <ClusterTab
+                          recaptchaRef={recaptchaRef}
+                          initialClusterId={searchParams.get('clusterId') || 'binance'} // Fixed from initialExchangeId
+                        />
+                      )}
+                      {activeTab === 'graph' && <TreemapTab onTokenSelect={handleNavigateToToken} />}
+                      {activeTab === 'ai' && <AITab recaptchaRef={recaptchaRef} />}
+                      {activeTab === 'explorer' && (
+                        <ExplorerTab
+                          initialQuery={searchParams.get('query')}
+                          initialChain={searchParams.get('chain')}
+                        />
+                      )}
+                      {activeTab === 'profile' && (
+                        <ProfileTab
+                          userData={userData}
+                          loading={loading}
+                          error={error}
+                          isConnected={walletConnected}
+                          handleConnectWallet={handleConnectWallet}
+                          recaptchaRef={recaptchaRef}
+                          handleSignOut={handleSignOut}
+                        />
+                      )}
+                      {activeTab === 'watchlists' && <WatchlistsTab toast={toast} initialAddress={searchParams.get('address') || undefined} />}
+                    </>
                   )}
-                  {activeTab === 'etf' && <EtfTab />}
-                  {activeTab === 'cluster' && (
-                    <ClusterTab
-                      recaptchaRef={recaptchaRef}
-                      initialClusterId={searchParams.get('clusterId') || 'binance'}  // Fixed from initialExchangeId
-                    />
-                  )}
-                  {activeTab === 'graph' && <TreemapTab onTokenSelect={handleNavigateToToken} />}
-                  {activeTab === 'ai' && <AITab recaptchaRef={recaptchaRef} />}
-                  {activeTab === 'explorer' && (
-                    <ExplorerTab
-                      initialQuery={searchParams.get('query')}
-                      initialChain={searchParams.get('chain')}
-                    />
-                  )}
-                  {activeTab === 'profile' && (
-                    <ProfileTab
-                      userData={userData}
-                      loading={loading}
-                      error={error}
-                      isConnected={walletConnected}
-                      handleConnectWallet={handleConnectWallet}
-                      recaptchaRef={recaptchaRef}
-                      handleSignOut={handleSignOut}
-                    />
-                  )}
-                  {activeTab === 'watchlists' && <WatchlistsTab toast={toast} initialAddress={searchParams.get('address') || undefined} />}
                 </>
               )}
             </motion.div>
@@ -1329,7 +1259,6 @@ function DashboardInner() {
     </CurrencyProvider>
   );
 }
-
 export default function Dashboard() {
   return (
     <MiniAppProvider>
