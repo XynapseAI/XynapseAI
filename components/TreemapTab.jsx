@@ -1217,20 +1217,20 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
           nodes: positionedNodesData.map(n => ({
             id: n.id,
             ...n,
-            val: n.layer === 1 ? 40.32 : n.layer === 2 ? 20.16 : 20.16, // Layer3 same as layer2
+            val: n.layer === 1 ? 32.256 : n.layer === 2 ? 20.16 : 16.128, // Reduced layer 1 and 3 by 20% (40.32->32.256, 20.16->16.128)
             group: n.layer,
             color: n.layer === 1 ? '#4F46E5' : n.layer === 2 ? '#10B981' : n.layer === 3 ? '#F59E0B' : '#666'
           })),
           links: edges.map(e => ({ ...e.data, width: e.data.layer === 3 ? 0.15 : 0.4 }))
         })
         .backgroundColor('rgba(0,0,0,0.3)')
-        .nodeRelSize(6.0)
+        .nodeRelSize(4.8) // Reduced from 6.0 for smaller nodes overall, helps with perf
         .nodeVal(node => {
           const tv = parseFloat(node.totalValue || 0);
           const baseVal = Math.sqrt(tv) + 1;
-          if (node.layer === 1) return baseVal * 5.6;
+          if (node.layer === 1) return baseVal * 4.48; // Reduced 20% from 5.6
           if (node.layer === 2) return baseVal * 4.0;
-          if (node.layer === 3) return baseVal * 2.0;
+          if (node.layer === 3) return baseVal * 1.6; // Reduced 20% from 2.0
           return baseVal * 2.0;
         })
         .nodeLabel(node => {
@@ -1256,12 +1256,8 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
           const riskColor = risk > 0.7 ? '#FF0000' : risk > 0.3 ? '#FFA500' : '#00FF00';
           ctx.beginPath();
           ctx.arc(node.x, node.y, size, 0, 2 * Math.PI, false);
-          // Reduced shadow for perf
-          // ctx.shadowColor = riskColor;
-          // ctx.shadowBlur = 5 / globalScale;
           ctx.fillStyle = node.color || riskColor;
           ctx.fill();
-          ctx.shadowColor = 'transparent';
           ctx.strokeStyle = '#fff';
           ctx.lineWidth = 1 / globalScale;
           ctx.stroke();
@@ -1283,20 +1279,22 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
           ctx.arc(node.x, node.y, size, 0, 2 * Math.PI, false);
           ctx.fill();
         })
-        .linkDirectionalParticles(1) // Reduced from 3 for perf
-        .linkDirectionalParticleSpeed(0.005)
-        .linkDirectionalParticleWidth(1.5)
+        .linkDirectionalParticles(1) // Disabled particles for performance
+        .linkDirectionalParticleSpeed(0.003)
+        .linkDirectionalParticleWidth(1)
         .linkDirectionalParticleColor(link => link.type === 'incoming' ? '#00BFFF' : '#FFD700')
         .linkCanvasObject((link, ctx, globalScale) => {
           const start = link.source;
           const end = link.target;
           // if (!start || !end || !start.x || !end.x) return;
           ctx.beginPath();
+          const midX = (start.x + end.x) / 2;
+          const midY = (start.y + end.y) / 2 + Math.abs(start.x - end.x) * 0.1; // Slight curve for smoother appearance
           ctx.moveTo(start.x, start.y);
-          ctx.lineTo(end.x, end.y);
+          ctx.quadraticCurveTo(midX, midY, end.x, end.y);
           const isLayer3 = link.layer === 3;
-          ctx.strokeStyle = isLayer3 ? 'rgba(255, 255, 255, 0.3)' : 'rgba(255, 255, 255, 0.6)';
-          ctx.lineWidth = (isLayer3 ? 0.26 : 0.52) / globalScale; // Tăng độ dày 30% (0.2->0.26, 0.4->0.52)
+          ctx.strokeStyle = isLayer3 ? 'rgba(255, 255, 255, 0.8)' : 'rgba(255, 255, 255, 0.8)';
+          ctx.lineWidth = (isLayer3 ? 0.35 : 0.7) / globalScale; // Tăng độ dày 30% (0.2->0.26, 0.4->0.52)
           ctx.stroke();
         })
         .linkCanvasObjectMode(() => 'replace')
@@ -1304,9 +1302,9 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
         .linkHoverPrecision(10)
         .d3Force('charge', d3.forceManyBody().strength(node => {
           if (node.layer === 2 || node.layer === 3) {
-            return -2000; // Further increase repulsion for layers 2/3 to prevent overlap when zoomed out
+            return -1600; // Reduced repulsion by ~20% from -2000 for less strong push
           }
-          return isTokenQuery ? -3200 : -1400; // Increase overall repulsion for better spacing
+          return isTokenQuery ? -2560 : -1120; // Reduced by ~20% from -3200 and -1400
         }))
         .d3Force('link', d3.forceLink().id(d => d.id).distance(link => {
           if (link.source.id === rootId || link.target.id === rootId) {
@@ -1324,10 +1322,10 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
           return 0; // No radial for small clusters
         }).strength(0.3)) // Increase strength slightly for tighter circular arrangement
         .d3Force('collide', d3.forceCollide().radius(node => node.val * 1.44).strength(0.7)) // Add collision to prevent overlaps
-        .d3AlphaDecay(0.012) 
-        .d3VelocityDecay(0.7)
+        .d3AlphaDecay(0.02) // Increased from 0.012 for faster simulation settling
+        .d3VelocityDecay(0.6) // Reduced from 0.7 for smoother drag (less friction)
         .warmupTicks(0)
-        .cooldownTicks(2500)
+        .cooldownTicks(1000) // Reduced from 2500 for faster cooldown
         .enablePointerInteraction(true)
         .enableNodeDrag(true)
         .enableZoomInteraction(true)

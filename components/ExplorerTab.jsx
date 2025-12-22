@@ -674,8 +674,8 @@ export default function ExplorerTab({ initialQuery, initialChain, isStandalone =
             <span className="flex items-center text-[10px] sm:text-[12px]">
                 {logoElement}
                 {formatToken(tokenValue, symbol)}
-                <span className="ml-1 text-[9px] text-green-400">({formattedUSD})</span>
-                {isToken && <span className="ml-1 text-[9px] text-gray-400">(Tokens)</span>}
+                <span className="ml-1 text-[10px] text-green-400">({formattedUSD})</span>
+                {isToken && <span className="ml-1 text-[10px] text-gray-400">(Tokens)</span>}
             </span>
         );
     };
@@ -736,13 +736,13 @@ export default function ExplorerTab({ initialQuery, initialChain, isStandalone =
                             <div className="flex items-center relative group flex-1 min-w-0">
                                 <HashIcon className="w-4 h-4 text-emerald-400 mr-2 shrink-0" />
                                 <span className="text-[#D4D4D4] mr-2 shrink-0 whitespace-nowrap">Hash:</span>
-                                <span className="font-mono break-all mr-2 text-[9px] sm:text-[10px] truncate flex-1 min-w-0 pr-1">{isMobile && tx.hash.length > 10 ? truncateText(tx.hash) : tx.hash}</span>
+                                <span className="font-mono break-all mr-2 text-[10px] sm:text-[10px] truncate flex-1 min-w-0 pr-1">{isMobile && tx.hash.length > 10 ? truncateText(tx.hash) : tx.hash}</span>
                                 <Copy
                                     className="shrink-0 opacity-0 group-hover:opacity-100 transition-opacity w-4 h-4 cursor-pointer text-gray-400 hover:text-emerald-400"
                                     onClick={(e) => { e.stopPropagation(); copyToClipboard(tx.hash, 'Transaction Hash'); }}
                                 />
                             </div>
-                            <h2 className="text-[9px] font-semibold flex items-center gap-2 ml-4 shrink-0">
+                            <h2 className="text-[10px] font-semibold flex items-center gap-2 ml-4 shrink-0">
                                 <img src={chainLogos[detectedChain]} alt={detectedChain} className="w-5 h-5 rounded-full" />
                                 <span className="text-[#D4D4D4]">{detectedChain.toUpperCase()}</span>
                             </h2>
@@ -803,7 +803,7 @@ export default function ExplorerTab({ initialQuery, initialChain, isStandalone =
                         <div className="mt-4">
                             <h3 className="text-[12px] font-semibold flex items-center uppercase"><Coins className="w-4 h-4 mr-2 text-emerald-400" />Token Transfers</h3>
                             <div className="w-full border border-[#FFFFFF20] mt-2 rounded-xl overflow-hidden">
-                                <div className="bg-[#0A0A0A]/80 grid grid-cols-5 px-3 py-2 text-[9px] font-semibold text-[#FFF]">
+                                <div className="bg-[#0A0A0A]/80 grid grid-cols-5 px-3 py-2 text-[10px] font-semibold text-[#FFF]">
                                     <span className="text-left">Token</span>
                                     <span className="text-left">From</span>
                                     <span className="text-left">To</span>
@@ -830,7 +830,7 @@ export default function ExplorerTab({ initialQuery, initialChain, isStandalone =
                                             </div>
                                             <div>
                                                 {t.valueUSD !== null && t.valueUSD !== undefined ? (
-                                                    <span className="text-[9px] text-green-400">
+                                                    <span className="text-[10px] text-green-400">
                                                         {formatUSD(t.valueUSD)}
                                                     </span>
                                                 ) : 'N/A'}
@@ -844,19 +844,19 @@ export default function ExplorerTab({ initialQuery, initialChain, isStandalone =
                     {tx.input && (
                         <div>
                             <h4 className="flex items-center text-[12px] font-semibold"><Activity className="w-4 h-4 mr-1" />Input Data</h4>
-                            <pre className="text-[9px] bg-[#0A0A0A]/80 p-2 rounded-xl overflow-auto max-h-40 custom-scrollbar">{tx.input}</pre>
+                            <pre className="text-[10px] bg-[#0A0A0A]/80 p-2 rounded-xl overflow-auto max-h-40 custom-scrollbar">{tx.input}</pre>
                         </div>
                     )}
                     {receipt?.logs && (
                         <div>
                             <h4 className="flex items-center text-[12px] font-semibold"><Activity className="w-4 h-4 mr-1" />Logs</h4>
-                            <pre className="text-[9px] bg-[#0A0A0A]/80 p-2 rounded-xl overflow-auto max-h-40 custom-scrollbar">{JSON.stringify(receipt.logs, null, 2)}</pre>
+                            <pre className="text-[10px] bg-[#0A0A0A]/80 p-2 rounded-xl overflow-auto max-h-40 custom-scrollbar">{JSON.stringify(receipt.logs, null, 2)}</pre>
                         </div>
                     )}
                     {internalTxs.length > 0 && (
                         <div>
                             <h4 className="flex items-center text-[12px] font-semibold"><Activity className="w-4 h-4 mr-1" />Internal Transactions</h4>
-                            <pre className="text-[9px] bg-[#0A0A0A]/80 p-2 rounded-xl overflow-auto max-h-40 custom-scrollbar">
+                            <pre className="text-[10px] bg-[#0A0A0A]/80 p-2 rounded-xl overflow-auto max-h-40 custom-scrollbar">
                                 {internalTxs.map((itx, idx) => (
                                     <div key={idx}>
                                         From: {renderAddress(itx.from, detectedChain)} | To: {renderAddress(itx.to, detectedChain)} | Value: {renderValueWithUSD(Number(itx.value || 0) / 1e18, itx.valueUSD || 0, symbol, null)}
@@ -900,7 +900,7 @@ export default function ExplorerTab({ initialQuery, initialChain, isStandalone =
                                     onClick={(e) => { e.stopPropagation(); copyToClipboard(tx.hash, 'Transaction Hash'); }}
                                 />
                             </div>
-                            <h2 className="text-[9px] font-semibold flex items-center gap-2 ml-4 shrink-0">
+                            <h2 className="text-[10px] font-semibold flex items-center gap-2 ml-4 shrink-0">
                                 <img src={chainLogos[chain]} alt={chain} className="w-5 h-5 rounded-full" />
                                 <span className="text-[#D4D4D4]">{chain.toUpperCase()}</span>
                             </h2>
@@ -1308,7 +1308,7 @@ export default function ExplorerTab({ initialQuery, initialChain, isStandalone =
                 <div className="bg-[#FFFFFF]/5 backdrop-blur-md p-4 rounded-xl border border-[#FFFFFF20] shadow-[0_4px_12px_rgba(0,0,0,0.3)] glow-[#FFFFFF15]">
                     <h2 className="text-[12px] font-bold mb-3 flex items-center uppercase"><HashIcon className="w-4 h-4 mr-2 text-emerald-400" />Latest Blocks</h2>
                     <div className="border border-[#FFFFFF20] rounded-xl overflow-hidden max-h-[24rem] overflow-y-auto custom-scrollbar">
-                        <div className="bg-[#0A0A0A]/80 flex px-3 py-2 text-[9px] font-semibold text-[#FFF] sticky top-0">
+                        <div className="bg-[#0A0A0A]/80 flex px-3 py-2 text-[10px] font-semibold text-[#FFF] sticky top-0">
                             <span className="w-1/4 text-left">Block</span>
                             <span className="w-1/4 text-left">Age</span>
                             <span className="w-1/4 text-left">Tx Count</span>
@@ -1327,7 +1327,7 @@ export default function ExplorerTab({ initialQuery, initialChain, isStandalone =
                 <div className="bg-[#FFFFFF]/5 backdrop-blur-md p-4 rounded-xl border border-[#FFFFFF20] shadow-[0_4px_12px_rgba(0,0,0,0.3)] glow-[#FFFFFF15]">
                     <h2 className="text-[12px] font-bold mb-3 flex items-center uppercase"><Activity className="w-4 h-4 mr-2 text-emerald-400" />Latest Transactions</h2>
                     <div className="border border-[#FFFFFF20] rounded-xl overflow-hidden max-h-[24rem] overflow-y-auto custom-scrollbar">
-                        <div className="bg-[#0A0A0A]/80 flex px-3 py-2 text-[9px] font-semibold text-[#FFF] sticky top-0">
+                        <div className="bg-[#0A0A0A]/80 flex px-3 py-2 text-10px] font-semibold text-[#FFF] sticky top-0">
                             <span className="w-1/4 text-left">Hash</span>
                             <span className="w-1/4 text-left">From</span>
                             <span className="w-1/4 text-left">To</span>

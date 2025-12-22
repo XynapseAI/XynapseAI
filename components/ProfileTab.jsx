@@ -128,6 +128,7 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
   const [walletAddressForQuery, setWalletAddressForQuery] = useState(null);
   const email = session?.user?.email || '';
   const isBaseAccount = email.includes('@base.xynapseai.net');
+  const [followXCompleted, setFollowXCompleted] = useState(false);
   // Updated: Use wagmi to read current counter for preview ID
   const { data: currentCounter } = useReadContract({
     address: CONTRACT_ADDRESS,
@@ -1247,9 +1248,10 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
     if (mintStep === 'connectWallet' && walletConnected) {
       setMintStep('connectTwitter');
     } else if (mintStep === 'connectTwitter' && twitterConnected) {
+      setMintStep('followX');
+    } else if (mintStep === 'followX' && followXCompleted) {
       if (nftMinted) {
         setShowMintModal(false);
-        // Removed toast to avoid duplicates
       } else {
         setMintStep('mintNFT');
       }
@@ -1335,7 +1337,7 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
                 ) : (
                   <motion.button
                     onClick={() => setShowMintModal(true)}
-                    className="w-full py-3 bg-white text-black rounded-xl text-sm font-semibold hover:bg-[#00FFFF]/30 transition-all duration-300 border border-[#00FFFF]/50 shadow-lg"
+                    className="w-full py-2 bg-white text-black rounded-xl text-xs sm:text-sm font-semibold hover:bg-[#00FFFF]/30 transition-all duration-300 border border-[#00FFFF]/50 shadow-lg"
                     whileTap={{ scale: 0.98 }}
                   >
                     Mint (Free)
@@ -1371,17 +1373,20 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
             onClick={(e) => e.stopPropagation()}
           >
             <div className={isMobile ? "p-6" : "p-8"}>
-              <h3 className="text-[#FFFFFF] font-bold text-center mb-8 text-xl lg:text-2xl">
+              <h3 className="text-[#FFFFFF] font-bold text-center mb-8 text-lg lg:text-xl uppercase">
                 Mint Process
               </h3>
-              {/* Progress steps */}
+
+              {/* Progress steps Follow X */}
               <div className="flex items-center justify-between mb-10">
-                {['connectWallet', 'connectTwitter', 'mintNFT'].map((step, index) => {
+                {['connectWallet', 'connectTwitter', 'followX', 'mintNFT'].map((step, index) => {
                   const isCompleted =
                     (step === 'connectWallet' && walletConnected) ||
                     (step === 'connectTwitter' && twitterConnected) ||
+                    (step === 'followX' && followXCompleted) ||
                     (step === 'mintNFT' && false);
                   const isActive = mintStep === step;
+
                   return (
                     <Fragment key={step}>
                       <div className="flex flex-col items-center gap-3">
@@ -1391,84 +1396,141 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
                             : isActive
                               ? 'border-white bg-[#FFFFFF20] text-white shadow-lg shadow-white/20'
                               : 'border-[#FFFFFF40] bg-transparent text-[#AAAAAA]'
-                            } ${isMobile ? 'w-11 h-11' : 'w-12 h-12'}`}
+                            } ${isMobile ? 'w-9 h-9' : 'w-10 h-10'}`}
                         >
-                          {isCompleted ? <Check className={isMobile ? 'w-5 h-5' : 'w-6 h-6'} /> : index + 1}
+                          {isCompleted ? <Check className={isMobile ? 'w-4 h-4' : 'w-5 h-5'} /> : index + 1}
                         </div>
                         <span className={`text-[#CCCCCC] capitalize ${isMobile ? 'text-xs' : 'text-sm'}`}>
-                          {step === 'connectWallet' ? 'Wallet' : step === 'connectTwitter' ? 'Twitter' : 'Mint NFT'}
+                          {step === 'connectWallet' ? 'Wallet' :
+                            step === 'connectTwitter' ? 'Twitter' :
+                              step === 'followX' ? 'Follow X' :
+                                'Mint NFT'}
                         </span>
                       </div>
-                      {index < 2 && (
-                        <div className={`flex-1 h-0.5 bg-[#FFFFFF30] ${isMobile ? 'mx-3' : 'mx-4'}`} />
+                      {index < 3 && (
+                        <div className={`flex-1 h-0.5 bg-[#FFFFFF30] ${isMobile ? 'mx-2' : 'mx-3'}`} />
                       )}
                     </Fragment>
                   );
                 })}
               </div>
+
               {/* Step content */}
-              <div className="flex flex-col items-center justify-center space-y-6 lg:space-y-8">
+              <div className="w-full max-w-md mx-auto flex flex-col items-center justify-center space-y-8 px-4">
+
+                {/* Step: Connect Wallet */}
                 {mintStep === 'connectWallet' && (
-                  <div className="text-center space-y-6">
-                    <p className={`text-[#CCCCCC] ${isMobile ? 'text-sm' : 'text-base'}`}>Connect your wallet to Base network</p>
-                    {walletConnected ? (
-                      <div className="flex gap-4 w-full max-w-xs">
-                        <button
-                          onClick={() => setShowMintModal(false)}
-                          className="flex-1 px-6 py-3 bg-[#FFFFFF10] text-white rounded-xl hover:bg-[#FFFFFF20] border border-[#FFFFFF30] transition text-sm"
-                        >
-                          Cancel
-                        </button>
-                        <button
-                          onClick={handleNextStep}
-                          className="flex-1 px-6 py-3 bg-white text-black rounded-xl font-medium hover:bg-gray-200 transition text-sm"
-                        >
-                          Next
-                        </button>
-                      </div>
-                    ) : (
-                      <OnchainWalletWrapper>
-                        <ConnectWallet
-                          onConnect={handleConnectWallet}
-                          theme="dark"
-                          className="px-8 py-3"
-                        />
-                      </OnchainWalletWrapper>
-                    )}
-                  </div>
-                )}
-                {mintStep === 'connectTwitter' && (
-                  <div className="text-center space-y-6 w-full max-w-xs">
-                    <p className={`text-[#CCCCCC] ${isMobile ? 'text-sm' : 'text-base'}`}>Connect your X account for verification</p>
-                    {twitterConnected ? (
-                      <div className="flex gap-4 w-full">
-                        <button
-                          onClick={() => setShowMintModal(false)}
-                          className="flex-1 px-6 py-3 bg-[#FFFFFF10] text-white rounded-xl hover:bg-[#FFFFFF20] border border-[#FFFFFF30] transition text-sm"
-                        >
-                          Cancel
-                        </button>
-                        <button
-                          onClick={handleNextStep}
-                          className="flex-1 px-6 py-3 bg-white text-black rounded-xl font-medium hover:bg-gray-200 transition text-sm"
-                        >
-                          Next
-                        </button>
-                      </div>
-                    ) : (
-                      <button
-                        onClick={handleConnectTwitter}
-                        className="px-8 py-3 border border-white bg-[#111111] text-white rounded-xl font-medium hover:bg-white/10 transition flex items-center justify-center gap-3 min-w-[200px]"
-                      >
-                        <span>Connect</span>
-                        <img src="/logos/x.webp" alt="X Logo" className="w-5 h-5" />
-                      </button>
-                    )}
-                  </div>
-                )}
-                {mintStep === 'mintNFT' && (
-                  <div className="text-center space-y-8">
+                  <div className="w-full text-center space-y-6">
                     <p className={`text-[#CCCCCC] ${isMobile ? 'text-sm' : 'text-base'}`}>
+                      Connect your wallet to Base network
+                    </p>
+                    {walletConnected ? (
+                      <div className="flex gap-4 justify-center">
+                        <button
+                          onClick={() => setShowMintModal(false)}
+                          className="px-5 py-2 bg-[#FFFFFF10] text-white rounded-xl hover:bg-[#FFFFFF20] border border-[#FFFFFF30] transition text-sm min-w-[120px]"
+                        >
+                          Cancel
+                        </button>
+                        <button
+                          onClick={handleNextStep}
+                          className="px-5 py-2 bg-white text-black rounded-xl font-medium hover:bg-gray-200 transition text-sm min-w-[120px]"
+                        >
+                          Next
+                        </button>
+                      </div>
+                    ) : (
+                      <div className="flex justify-center">
+                        <OnchainWalletWrapper>
+                          <ConnectWallet
+                            onConnect={handleConnectWallet}
+                            theme="dark"
+                            className="px-8 py-3"
+                          />
+                        </OnchainWalletWrapper>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* Step: Connect Twitter */}
+                {mintStep === 'connectTwitter' && (
+                  <div className="w-full text-center space-y-6">
+                    <p className={`text-[#CCCCCC] ${isMobile ? 'text-sm' : 'text-base'}`}>
+                      Connect your X account for verification
+                    </p>
+                    {twitterConnected ? (
+                      <div className="flex gap-4 justify-center">
+                        <button
+                          onClick={() => setShowMintModal(false)}
+                          className="px-5 py-2 bg-[#FFFFFF10] text-white rounded-xl hover:bg-[#FFFFFF20] border border-[#FFFFFF30] transition text-sm min-w-[120px]"
+                        >
+                          Cancel
+                        </button>
+                        <button
+                          onClick={handleNextStep}
+                          className="px-5 py-2 bg-white text-black rounded-xl font-medium hover:bg-gray-200 transition text-sm min-w-[120px]"
+                        >
+                          Next
+                        </button>
+                      </div>
+                    ) : (
+                      <div className="flex justify-center">
+                        <button
+                          onClick={handleConnectTwitter}
+                          className="px-5 py-2 border border-white bg-[#111111] text-white rounded-xl font-medium hover:bg-white/10 transition flex items-center justify-center gap-3 min-w-[260px]"
+                        >
+                          <span>Connect</span>
+                          <img src="/logos/x.webp" alt="X Logo" className="w-5 h-5" />
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* Step: Follow X Account */}
+                {mintStep === 'followX' && (
+                  <div className="w-full text-center space-y-6">
+                    <p className={`text-[#CCCCCC] ${isMobile ? 'text-sm' : 'text-base'}`}>
+                      Follow our official X account to continue
+                    </p>
+                    <div className="flex justify-center">
+                      <button
+                        onClick={() => {
+                          setFollowXCompleted(true);
+                          handleNextStep();
+                        }}
+                        disabled={followXCompleted}
+                        className="px-3 py-2 text-white border border-white rounded-xl font-medium hover:bg-white/10 transition flex items-center justify-center gap-3 min-w-[280px] disabled:opacity-70 disabled:cursor-not-allowed"
+                      >
+                        <img src="/logos/x.webp" alt="X Logo" className="w-6 h-6" />
+                        <span>Follow</span>
+                      </button>
+                    </div>
+
+                    {followXCompleted && (
+                      <div className="flex gap-4 justify-center">
+                        <button
+                          onClick={() => setShowMintModal(false)}
+                          className="px-5 py-2 bg-[#FFFFFF10] text-white rounded-xl hover:bg-[#FFFFFF20] border border-[#FFFFFF30] transition text-sm min-w-[120px]"
+                        >
+                          Cancel
+                        </button>
+                        <button
+                          onClick={handleNextStep}
+                          className="px-5 py-2 bg-white text-black rounded-xl font-medium hover:bg-gray-200 transition text-sm min-w-[120px]"
+                        >
+                          Next
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* Step: Mint NFT */}
+                {mintStep === 'mintNFT' && (
+                  <div className="w-full text-center space-y-8">
+                    <p className={`text-[#CCCCCC] ${isMobile ? 'text-xs' : 'text-sm'}`}>
                       All done! Mint your exclusive Genesis NFT<br />
                       Make sure you have switched to <span className="text-blue-500">Base Mainnet</span>.
                     </p>
@@ -1489,19 +1551,19 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
                         </div>
                       )}
                     </div>
-                    <div className="flex gap-4 w-full max-w-xs">
+                    <div className="flex gap-4 justify-center">
                       <button
                         onClick={() => setShowMintModal(false)}
-                        className="flex-1 px-6 py-3 bg-[#FFFFFF10] text-white rounded-xl hover:bg-[#FFFFFF20] border border-[#FFFFFF30] transition text-sm"
+                        className="px-5 py-2 bg-[#FFFFFF10] text-white rounded-xl hover:bg-[#FFFFFF20] border border-[#FFFFFF30] transition text-sm min-w-[120px]"
                       >
                         Cancel
                       </button>
                       <button
                         onClick={handleMint}
                         disabled={!isConnected}
-                        className={`flex-1 px-6 py-3 rounded-xl font-medium transition text-sm ${!isConnected
-                          ? 'bg-gray-600 text-gray-400 cursor-not-allowed'
-                          : 'bg-white text-black hover:bg-gray-200'
+                        className={`px-5 py-2 rounded-xl font-medium transition text-sm min-w-[120px] ${!isConnected
+                            ? 'bg-gray-600 text-gray-400 cursor-not-allowed'
+                            : 'bg-white text-black hover:bg-gray-200'
                           }`}
                       >
                         Mint Now
