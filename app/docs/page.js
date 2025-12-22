@@ -1,3 +1,4 @@
+// app\docs\page.js
 "use client"
 
 import { useEffect, useState } from "react"
@@ -21,7 +22,7 @@ export default function Docs() {
     useEffect(() => {
         if (typeof window === 'undefined') return; // Skip on server-side
 
-        const path = router.asPath || ''
+        const path = window.location.pathname + window.location.hash; // Fix: Use window.location instead of router.asPath (not available in next/navigation)
         if (path.includes('privacy-policy')) {
             setModalContent('privacy')
             setIsModalOpen(true)
@@ -36,22 +37,20 @@ export default function Docs() {
                 setActiveSection(hash)
             }
         }
-    }, [router.asPath])
+    }, []) // Fix: Run once on mount; listen to hash changes if needed (add event listener if dynamic)
 
     const openModal = (content) => {
         setModalContent(content)
         setIsModalOpen(true)
         document.body.style.overflow = 'hidden'
-        router.push(content === 'privacy' ? '/docs#privacy-policy' : '/docs#terms-of-service', undefined, {
-            shallow: true,
-        })
+        router.push(content === 'privacy' ? '/docs#privacy-policy' : '/docs#terms-of-service', { shallow: true })
     }
 
     const closeModal = () => {
         setIsModalOpen(false)
         setModalContent(null)
         document.body.style.overflow = 'auto'
-        router.push('/docs', undefined, { shallow: true })
+        router.push('/docs', { shallow: true })
     }
 
     // Updated menu items with new sections
@@ -75,12 +74,12 @@ export default function Docs() {
                 transition={{ duration: 0.5 }}
                 className="space-y-8"
             >
-                <h1 className="text-3xl sm:text-4xl font-bold text-white mb-4">About Xynapse Analytics</h1>
+                <h1 className="text-3xl sm:text-4xl font-bold text-white mb-4">About Xynapse</h1>
                 <p className="text-sm sm:text-base text-gray-500 leading-relaxed">
                     Xynapse Analytics is a cutting-edge blockchain intelligence platform designed to empower users with deep insights into on-chain activities. Launched in 2025, our mission is to bridge the gap between complex blockchain data and actionable decision-making for traders, analysts, institutions, and crypto enthusiasts.
                 </p>
                 <p className="text-sm sm:text-base text-gray-500 leading-relaxed">
-                    Powered by advanced AI and machine learning, Xynapse tracks over 1 million wallet addresses across 65+ blockchains, offering real-time data on token movements, wallet balances, and capital flows. Our proprietary name-tagging system labels wallets of major entities like Binance, Tether Treasury, and DeFi protocols, providing unparalleled transparency into the crypto ecosystem.
+                    Powered by advanced AI and ML, Xynapse tracks over 1 million wallet addresses across 65+ blockchains, offering real-time data on token movements, wallet balances, and capital flows. Our proprietary name-tagging system labels wallets of major entities like Binance, Tether Treasury, and DeFi protocols, providing unparalleled transparency into the crypto ecosystem.
                 </p>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
                     <div className="bg-gray-900/50 border border-white/20 rounded-lg p-6">
@@ -280,7 +279,7 @@ export default function Docs() {
                     </div>
                     <div>
                         <h3 className="text-lg font-semibold text-white mb-2">Key Endpoints</h3>
-                        <ul className="text-sm text-gray-500 list-disc list-inside">
+                        <ul className="text-sm text-gray-500 list-disc list-inside space-y-2">
                             <li><strong>Wallet Data:</strong> Retrieve real-time balances and token holdings for any address.</li>
                             <li><strong>Transaction History:</strong> Access detailed transaction records with timestamps and counterparties.</li>
                             <li><strong>Name Tags:</strong> Query our database of over 1 million labeled addresses.</li>
@@ -292,7 +291,7 @@ export default function Docs() {
                         <p className="text-sm text-gray-500">
                             Join our developer community on Discord for API support, code samples, and integration tips.
                         </p>
-                        <Link href="https://discord.gg/xynapse" target="_blank" className="text-neon-blue text-sm hover:underline">
+                        <Link href="https://discord.gg/wrCznU5b2y" target="_blank" className="text-neon-blue text-sm hover:underline">
                             Join Discord Community
                         </Link>
                     </div>
@@ -335,10 +334,10 @@ export default function Docs() {
                             Connect with our global community of blockchain analysts and traders on X and Discord to share insights and get help.
                         </p>
                         <div className="flex gap-4">
-                            <Link href="https://x.com/xynapse" target="_blank" className="text-neon-blue text-sm hover:underline">
+                            <Link href="https://x.com/xynapseai_" target="_blank" className="text-neon-blue text-sm hover:underline">
                                 Join X Community
                             </Link>
-                            <Link href="https://discord.gg/xynapse" target="_blank" className="text-neon-blue text-sm hover:underline">
+                            <Link href="https://discord.gg/wrCznU5b2y" target="_blank" className="text-neon-blue text-sm hover:underline">
                                 Join Discord
                             </Link>
                         </div>
@@ -363,7 +362,7 @@ export default function Docs() {
                         <p className="text-sm text-gray-500">
                             Follow us on X for real-time updates, on-chain analysis, and exclusive content from our team and community.
                         </p>
-                        <Link href="https://x.com/xynapse" target="_blank" className="text-neon-blue text-sm hover:underline">
+                        <Link href="https://x.com/xynapseai_" target="_blank" className="text-neon-blue text-sm hover:underline">
                             Join X Community
                         </Link>
                     </div>
@@ -372,17 +371,8 @@ export default function Docs() {
                         <p className="text-sm text-gray-500">
                             Engage with our vibrant Discord community to collaborate on analytics, share trading strategies, and get support.
                         </p>
-                        <Link href="https://discord.gg/xynapse" target="_blank" className="text-neon-blue text-sm hover:underline">
+                        <Link href="https://discord.gg/wrCznU5b2y" target="_blank" className="text-neon-blue text-sm hover:underline">
                             Join Discord
-                        </Link>
-                    </div>
-                    <div>
-                        <h3 className="text-lg font-semibold text-white mb-2">Community Blog</h3>
-                        <p className="text-sm text-gray-500">
-                            Read user-generated content, case studies, and expert analyses contributed by our community members.
-                        </p>
-                        <Link href="/docs/community/blog" target="_blank" className="text-neon-blue text-sm hover:underline">
-                            Explore Community Blog
                         </Link>
                     </div>
                 </div>
@@ -439,15 +429,6 @@ export default function Docs() {
                             Download Brand Assets (Coming Soon)
                         </a>
                     </div>
-                    <div>
-                        <h3 className="text-lg font-semibold text-white mb-2">Media Inquiries</h3>
-                        <p className="text-sm text-gray-500">
-                            For press and media use, contact our team for approved assets and brand usage permissions.
-                        </p>
-                        <a href="mailto:media@xynapseai.net" className="text-neon-blue text-sm hover:underline">
-                            Email: media@xynapseai.net
-                        </a>
-                    </div>
                 </div>
             </motion.div>
         ),
@@ -473,24 +454,15 @@ export default function Docs() {
                         </a>
                     </div>
                     <div>
-                        <h3 className="text-lg font-semibold text-white mb-2">Business & Partnerships</h3>
-                        <p className="text-sm text-gray-500">
-                            Interested in enterprise solutions, API integrations, or strategic partnerships? Reach out to our business team.
-                        </p>
-                        <a href="mailto:business@xynapseai.net" className="text-neon-blue text-sm hover:underline">
-                            Email: business@xynapseai.net
-                        </a>
-                    </div>
-                    <div>
                         <h3 className="text-lg font-semibold text-white mb-2">Join Our Community</h3>
                         <p className="text-sm text-gray-500">
                             Connect with the Xynapse community on X and Discord to share insights and stay updated.
                         </p>
                         <div className="flex gap-4">
-                            <Link href="https://x.com/xynapse" target="_blank" className="text-neon-blue text-sm hover:underline">
+                            <Link href="https://x.com/xynapseai_" target="_blank" className="text-neon-blue text-sm hover:underline">
                                 X Community
                             </Link>
-                            <Link href="https://discord.gg/xynapse" target="_blank" className="text-neon-blue text-sm hover:underline">
+                            <Link href="https://discord.gg/wrCznU5b2y" target="_blank" className="text-neon-blue text-sm hover:underline">
                                 Discord Community
                             </Link>
                         </div>
@@ -502,8 +474,8 @@ export default function Docs() {
 
     return (
         <div className="min-h-screen flex flex-col bg-black text-white font-saira">
-            {/* Header */}
-            <header className="w-full py-1.5 px-6 flex justify-between items-center z-50 sticky top-0 bg-black/50 backdrop-blur-lg">
+            {/* Header - Fix: Set fixed height for consistent offset */}
+            <header className="w-full h-20 py-2 px-6 flex justify-between items-center z-50 sticky top-0 bg-black/50 backdrop-blur-lg">
                 <div className="flex items-center">
                     <Link href="/">
                         <Image
@@ -511,13 +483,13 @@ export default function Docs() {
                             alt="Xynapse Analytics Logo"
                             width={120}
                             height={56}
-                            className="h-14 sm:h-20 w-auto"
+                            className="h-16 w-auto"
                             priority
                         />
                     </Link>
                 </div>
                 <div className="flex items-center gap-4">
-                    <div className="md:hidden">
+                    <div>
                         <button
                             onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
                             className="text-white text-[9px] font-medium transition-all duration-300 relative w-6 h-6"
@@ -534,7 +506,7 @@ export default function Docs() {
             {/* Mobile Menu */}
             {isMobileMenuOpen && (
                 <div
-                    className="fixed inset-0 bg-black/50 rounded-l-xl z-50 md:hidden"
+                    className="fixed inset-0 bg-black/50 rounded-l-xl z-50"
                     onClick={() => setIsMobileMenuOpen(false)}
                 >
                     <motion.div
@@ -542,7 +514,7 @@ export default function Docs() {
                         animate={{ x: 0 }}
                         exit={{ x: "100%" }}
                         transition={{ duration: 0.3, ease: "easeInOut" }}
-                        className="fixed right-0 top-0 w-3/5 h-full bg-black/80 backdrop-blur-sm border-l border-white/10 rounded-l-xl p-6"
+                        className="fixed right-0 top-0 w-80 max-w-sm h-full bg-black/80 backdrop-blur-sm border-l border-white/10 rounded-l-xl p-6"
                         onClick={(e) => e.stopPropagation()}
                     >
                         <button
@@ -575,7 +547,7 @@ export default function Docs() {
                                 </button>
                             ))}
                             <div className="flex gap-6 pt-4">
-                                <Link href="https://x.com/xynapse" target="_blank" className="text-gray-500 hover:text-white transition-colors">
+                                <Link href="https://x.com/xynapseai_" target="_blank" className="text-gray-500 hover:text-white transition-colors">
                                     <Image
                                         src="/logos/x.webp"
                                         alt="X Logo"
@@ -584,7 +556,7 @@ export default function Docs() {
                                         className="h-5 w-auto"
                                     />
                                 </Link>
-                                <Link href="https://discord.gg/xynapse" target="_blank" className="text-gray-500 hover:text-white transition-colors">
+                                <Link href="https://discord.gg/wrCznU5b2y" target="_blank" className="text-gray-500 hover:text-white transition-colors">
                                     <Image
                                         src="/logos/discord.webp"
                                         alt="Discord Logo"
@@ -599,39 +571,9 @@ export default function Docs() {
                 </div>
             )}
 
-            {/* Main Content */}
-            <div className="flex flex-col md:flex-row min-h-screen">
-                {/* Sidebar */}
-                <aside className="hidden md:block md:w-64 bg-black/10 backdrop-blur-sm border-r border-white/15 rounded-r-xl p-6 md:sticky top-0 h-screen z-40">
-                    <div className="mb-8 hidden md:block">
-                    </div>
-                    <nav className="space-y-2">
-                        {menuItems.map((item) => (
-                            <button
-                                key={item.name}
-                                onClick={() => {
-                                    if (!item.disabled) {
-                                        setActiveSection(item.id)
-                                        router.push(item.href, undefined, { shallow: true })
-                                    }
-                                }}
-                                className={`w-full text-left px-4 py-2 text-sm font-medium rounded-lg transition-all duration-300 ${item.disabled
-                                    ? "text-gray-500 cursor-not-allowed"
-                                    : activeSection === item.id
-                                        ? "bg-white/10 text-white"
-                                        : "text-gray-500 hover:bg-white/5 hover:text-white"
-                                    }`}
-                                disabled={item.disabled}
-                                aria-label={item.name}
-                            >
-                                {item.name}
-                            </button>
-                        ))}
-                    </nav>
-                </aside>
-
-                {/* Content Area */}
-                <main className="flex-1 p-6 overflow-y-auto">
+            {/* Main Content - Fix: Remove flex-row, add pl-[20%] on md for shift, keep w-full */}
+            <div className="min-h-screen">
+                <main className="w-full p-6 overflow-y-auto">
                     <div className="max-w-4xl mx-auto">
                         {sectionContent[activeSection]}
                     </div>
@@ -703,7 +645,7 @@ export default function Docs() {
                     </div>
                     <div className="flex flex-col md:flex-row justify-between items-center pt-8 border-t border-white/20">
                         <div className="flex gap-6 mb-4 md:mb-0">
-                            <Link href="https://x.com/xynapse" target="_blank" className="text-gray-500 hover:text-white transition-colors">
+                            <Link href="https://x.com/xynapseai_" target="_blank" className="text-gray-500 hover:text-white transition-colors">
                                 <Image
                                     src="/logos/x.webp"
                                     alt="X Logo"
@@ -712,7 +654,7 @@ export default function Docs() {
                                     className="h-5 sm:h-6 w-auto"
                                 />
                             </Link>
-                            <Link href="https://discord.gg/xynapse" target="_blank" className="text-gray-500 hover:text-white transition-colors">
+                            <Link href="https://discord.gg/wrCznU5b2y" target="_blank" className="text-gray-500 hover:text-white transition-colors">
                                 <Image
                                     src="/logos/discord.webp"
                                     alt="Discord Logo"

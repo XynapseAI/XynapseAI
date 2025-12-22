@@ -11,6 +11,7 @@ export default {
   ],
   safelist: ['dark'],
   theme: {
+    screens: defaultTheme.screens,
     extend: {
       colors: {
         white: '#FFFFFF',
@@ -134,9 +135,9 @@ export default {
     },
     require("tailwindcss-animate")
   ],
-  variants: {
-    extend: {
-      display: ['group-hover'],
-    },
-  },
+  // variants: {
+  //   extend: {
+  //     display: ['group-hover'],
+  //   },
+  // },
 };

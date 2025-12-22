@@ -743,7 +743,7 @@ export default function Home() {
     "/logos/coingecko.webp",
     "/logos/dune.webp",
     "/logos/infura.webp",
-    "/logos/logo4.webp",
+    "/logos/alchemy.webp",
   ]
 
   const simulatedTopHolders = [
@@ -795,7 +795,7 @@ export default function Home() {
           />
         </div>
         <div className="flex items-center gap-4">
-          <div className="hidden md:flex items-center gap-10 m-2">
+          <div className="flex items-center gap-10 m-2">
             <div className="relative group">
               <button
                 className="text-white text-sm font-medium transition-all duration-300"
@@ -998,7 +998,7 @@ export default function Home() {
         </div>
       </section>
 
-      <section className="py-16 bg-gray-900/20 border-y border-white/5 relative z-10">
+      {/* <section className="py-16 bg-gray-900/20 border-y border-white/5 relative z-10">
         <div className="max-w-6xl mx-auto px-6 flex flex-col lg:flex-row items-center gap-12">
           <div className="lg:w-1/2 text-center lg:text-left">
             <h3 className="text-2xl sm:text-3xl font-bold text-white mb-4 tracking-tight">
@@ -1012,7 +1012,7 @@ export default function Home() {
             <ChainLogosHover />
           </div>
         </div>
-      </section>
+      </section> */}
 
       <section className="py-20 flex flex-col items-center relative z-10">
         <motion.div
@@ -1118,7 +1118,7 @@ export default function Home() {
           </div>
         </div>
       </section>
-      <section className="py-20 bg-gradient-to-b from-black/20 to-gray-900/20 backdrop-blur-xs relative overflow-hidden z-10">
+      {/* <section className="py-20 bg-gradient-to-b from-black/20 to-gray-900/20 backdrop-blur-xs relative overflow-hidden z-10">
         <div className="max-w-6xl mx-auto px-6">
           <motion.div
             initial={{ opacity: 0, y: 20 }}
@@ -1228,7 +1228,7 @@ export default function Home() {
             </motion.div>
           </div>
         </div>
-      </section>
+      </section> */}
       <section className="py-20 bg-black/30 backdrop-blur-sm relative z-10">
         <div className="max-w-6xl mx-auto px-6">
           <motion.div
@@ -1364,7 +1364,7 @@ export default function Home() {
           </div>
         </div>
       </section>
-      <section className="py-20 bg-gradient-to-b from-gray-900/30 to-black/30 backdrop-blur-sm relative z-10">
+      {/* <section className="py-20 bg-gradient-to-b from-gray-900/30 to-black/30 backdrop-blur-sm relative z-10">
         <div className="max-w-6xl mx-auto px-6">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
             <motion.div
@@ -1405,7 +1405,7 @@ export default function Home() {
             </motion.div>
           </div>
         </div>
-      </section>
+      </section> */}
       <section className="py-20 bg-black/10 backdrop-blur-xs m-10 sm:m-52 relative z-10">
         <div className="text-center mb-20">
           <p className="text-xl sm:text-1xl font-bold text-gray-400 tracking-wider">

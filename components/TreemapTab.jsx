@@ -1618,7 +1618,7 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
           theme="dark"
         />
         <div
-          className="bg-black/80 backdrop-blur-md border border-white/20 rounded-2xl p-6 sm:p-8 text-center max-w-md w-full"
+          className="p-6 sm:p-8 text-center max-w-md w-full"
         >
           <div className="mb-4">
             <svg
