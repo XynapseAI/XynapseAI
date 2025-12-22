@@ -4,7 +4,7 @@ import { useState, useEffect, useRef, memo, useCallback, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useSession } from 'next-auth/react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { isAddress , getAddress } from 'ethers';
+import { isAddress, getAddress } from 'ethers';
 import throttle from 'lodash.throttle';
 import crypto from 'crypto-js';
 import { ToastContainer, toast } from 'react-toastify';
@@ -1219,6 +1219,25 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
         id: `${e.data.source}-${e.data.target}-${index}`, // Unique ID for each edge
         width: e.data.layer === 3 ? 0.15 : 0.4
       }));
+
+      // NEW: Precompute parallel indices to avoid O(n^2) filtering in linkCanvasObject
+      const undirectedGroups = new Map();
+      linksWithIds.forEach(link => {
+        const sourceId = link.source.id || link.source;
+        const targetId = link.target.id || link.target;
+        const key = `${Math.min(sourceId, targetId)}-${Math.max(sourceId, targetId)}`;
+        if (!undirectedGroups.has(key)) undirectedGroups.set(key, []);
+        undirectedGroups.get(key).push(link);
+      });
+      linksWithIds.forEach(link => {
+        const sourceId = link.source.id || link.source;
+        const targetId = link.target.id || link.target;
+        const key = `${Math.min(sourceId, targetId)}-${Math.max(sourceId, targetId)}`;
+        const group = undirectedGroups.get(key);
+        link.numParallel = group.length;
+        link.parallelIndex = group.findIndex(l => l.id === link.id);
+      });
+
       graphRef.current = ForceGraph()(containerRef.current)
         .graphData({
           nodes: positionedNodesData.map(n => ({
@@ -1247,14 +1266,14 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
           const autoLabel = node.autoLabel || cluster?.autoLabel || '';
           const nametag = node.isRoot ? '' : node.label !== 'Unknown' ? node.label : truncateAddress(node.id);
           return `
-    <div style="background: rgba(0,0,0,0.8); border: 1px solid rgba(255,255,255,0.4); color: rgba(255,255,255,0.6); padding: 4px 8px; border-radius: 4px; font-size: 12px;">
-      ${node.isRoot ? `<div>Cluster: ${clusterLabel}</div>` : `<div>${nametag}${node.layer === 3 ? ' (L3)' : ''}</div>`}
-      ${autoLabel ? `<div>Auto: ${autoLabel}</div>` : ''}
-      ${cluster ? `<div>Cluster: ${cluster.nametag}</div>` : ''}
-      <div>Tx: ${node.txCount} | Value: ${formatLargeNumber(Number(node.totalValue), 1)}$</div>
-      <div>Risk: ${(risk * 100).toFixed(0)}%</div>
-    </div>
-  `;
+<div style="background: rgba(0,0,0,0.8); border: 1px solid rgba(255,255,255,0.4); color: rgba(255,255,255,0.6); padding: 4px 8px; border-radius: 4px; font-size: 12px;">
+  ${node.isRoot ? `<div>Cluster: ${clusterLabel}</div>` : `<div>${nametag}${node.layer === 3 ? ' (L3)' : ''}</div>`}
+  ${autoLabel ? `<div>Auto: ${autoLabel}</div>` : ''}
+  ${cluster ? `<div>Cluster: ${cluster.nametag}</div>` : ''}
+  <div>Tx: ${node.txCount} | Value: ${formatLargeNumber(Number(node.totalValue), 1)}$</div>
+  <div>Risk: ${(risk * 100).toFixed(0)}%</div>
+</div>
+`;
         })
         .nodeCanvasObject((node, ctx, globalScale) => {
           const size = node.val / globalScale;
@@ -1286,7 +1305,7 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
           ctx.arc(node.x, node.y, size, 0, 2 * Math.PI, false);
           ctx.fill();
         })
-        .linkDirectionalParticles(1) // Disabled particles for performance
+        .linkDirectionalParticles(0) // Fully disabled for performance
         .linkDirectionalParticleSpeed(0.003)
         .linkDirectionalParticleWidth(1)
         .linkDirectionalParticleColor(link => link.type === 'incoming' ? '#00BFFF' : '#FFD700')
@@ -1294,17 +1313,10 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
           const start = link.source;
           const end = link.target;
           if (!start || !end || !start.x || !end.x || !start.y || !end.y) return;
-          // Group multiple edges by source-target pair (undirected for simplicity)
-          const edgeKey = `${Math.min(start.id, end.id)}-${Math.max(start.id, end.id)}`;
-          const allLinks = graphRef.current?.graphData()?.links || [];
-          const parallelEdges = allLinks.filter(l => {
-            const lKey = `${Math.min(l.source.id, l.target.id)}-${Math.max(l.source.id, l.target.id)}`;
-            return lKey === edgeKey;
-          });
-          const numEdges = parallelEdges.length;
+          // Use precomputed values instead of filtering allLinks
+          const numEdges = link.numParallel || 1;
+          const edgeIndex = link.parallelIndex || 0;
           if (numEdges === 0) return;
-          // Find index of current link in parallels (0 to numEdges-1, centered)
-          const edgeIndex = parallelEdges.findIndex(l => l.id === link.id);
           // Dynamic offset: Scale with numEdges and globalScale for better spacing (avoid crowding)
           const spacing = Math.max(4, 12 / numEdges) / globalScale; // Min 4px, max ~12px total spread
           const offset = (edgeIndex - (numEdges - 1) / 2) * spacing;
@@ -1348,7 +1360,7 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
         })
         .linkCanvasObjectMode(() => 'replace')
         .linkLabel(link => `${link.tokenSymbol || 'Unknown'} - ${formatLargeNumber(Number(link.value), 1)}`)
-        .linkHoverPrecision(10)
+        .linkHoverPrecision(4) // Reduced from 10 for less hit-test overhead
         .d3Force('charge', d3.forceManyBody().strength(node => {
           if (node.layer === 2 || node.layer === 3) {
             return -1600; // Reduced repulsion by ~20% from -2000 for less strong push

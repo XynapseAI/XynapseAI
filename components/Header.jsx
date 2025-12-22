@@ -312,7 +312,7 @@ export default function Header({ activeTab, setActiveTab, handleSignOut, selecte
               priority
             />
           </Link>
-          <Link href="https://x.com/xynapseai_" target="_blank" className="opacity-80 hover:opacity-100 transition-opacity">
+          <Link href="https://x.com/xynapseai_" target="_blank" rel="me noopener noreferrer" className="opacity-80 hover:opacity-100 transition-opacity">
             <Image
               src="/logos/x.webp"
               alt="X Logo"

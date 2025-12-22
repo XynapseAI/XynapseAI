@@ -11,7 +11,7 @@ export const metadata = {
   },
   description: 'Xynapse: Search and analyze transactions on Bitcoin, Ethereum, BSC, and Solana. Real-time blockchain data, nametags, token transfers, and insights for crypto enthusiasts.',
   keywords: 'blockchain explorer, transaction search, Bitcoin tx, Ethereum tx, BSC tx, Solana tx, crypto analytics, Xynapse',
-  robots: 'index, follow', 
+  robots: 'index, follow',
   alternates: {
     canonical: 'https://xynapseai.net',
   },
@@ -22,15 +22,26 @@ export const metadata = {
       'https://xynapseai.net/og.png',
       'https://xynapseai.net/base-wallet-og.png',  // Added for wallet connect OG
     ],
-    url: 'https://xynapseai.net', 
+    url: 'https://xynapseai.net',
     siteName: 'Xynapse',
     type: 'website',
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'Xynapse',
-    description: 'Search transactions on major blockchains with Xynapse.',
+    site: '@xynapseai_',
+    creator: '@xynapseai_',
+    title: 'Xynapse - Blockchain Explorer',
+    description: 'Search and analyze transactions on Bitcoin, Ethereum, BSC, Solana. Real-time insights for crypto , ETF.',
     images: ['https://xynapseai.net/og.png'],
+  },
+  icons: {
+    icon: '/favicon.ico',
+    shortcut: '/favicon.ico',
+    apple: '/apple-touch-icon.png',
+    other: {
+      rel: 'apple-touch-icon-precomposed',
+      url: '/apple-touch-icon.png',
+    },
   },
   other: {
     'fc:miniapp': JSON.stringify({
@@ -73,6 +84,23 @@ export default function RootLayout({ children }) {
     <html lang="en">
       <head>
         <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <script type="application/ld+json">
+    {JSON.stringify({
+      "@context": "https://schema.org",
+      "@type": "WebSite",
+      "name": "Xynapse",
+      "url": "https://xynapseai.net",
+      "sameAs": [
+        "https://x.com/xynapseai_"
+      ],
+      "description": "Blockchain transaction search , label , and analytics on Bitcoin, Ethereum, BSC, Solana and ETFs.",
+      "potentialAction": {
+        "@type": "SearchAction",
+        "target": "https://xynapseai.net/search?q={search_term_string}",
+        "query-input": "required name=search_term_string"
+      }
+    })}
+  </script>
       </head>
       <body className={`bg-black text-white`}>
         <ClientProviders>{children}</ClientProviders>
