@@ -148,7 +148,7 @@ const keywordToImage = {
   vaneck: 'vaneck.webp',
   bitmex: 'bitmex.webp',
   purpose: 'purpose.webp',
-  mt: 'mtgox.webp',
+  mtgox: 'mtgox.webp',
   microstrategy: 'microstrategy.webp',
   mara: 'mara.webp',
   twenty: 'twentyone.webp',
@@ -213,7 +213,7 @@ const keywordToImage = {
   coinlist: 'coinlist.webp',
   bitpie: 'bitpie.webp',
   bancor: 'bancor.webp',
-  wisdomtree: 'wisdom.webp',
+  'wisdomtree-btcw': 'wisdom.webp',
 };
 
 // Utility: Normalize whitespace
