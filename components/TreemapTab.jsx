@@ -655,6 +655,17 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
           walletInfo.nametag || 'Unknown',
           walletInfo.image || '/icons/default.webp'
         );
+
+        const updatedNodes = newNodes.map(node => {
+          if (node.data.id.toLowerCase() === walletAddress.toLowerCase()) {
+            return {
+              ...node,
+              image: walletInfo.image || node.image || '/icons/default.webp',
+            };
+          }
+          return node;
+        });
+
         // Enforce max nodes for scalability
         const limitedNodes = newNodes.slice(0, MAX_NODES);
         const limitedEdges = newEdges.filter(e =>
@@ -1280,6 +1291,7 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
           const cluster = detectedClusters.find(c => c.clusterId === node.clusterId);
           const risk = cluster?.riskScore || 0;
           const riskColor = risk > 0.7 ? '#FF0000' : risk > 0.3 ? '#FFA500' : '#00FF00';
+
           ctx.beginPath();
           ctx.arc(node.x, node.y, size, 0, 2 * Math.PI, false);
           ctx.fillStyle = node.color || riskColor;
@@ -1287,8 +1299,12 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
           ctx.strokeStyle = '#fff';
           ctx.lineWidth = 1 / globalScale;
           ctx.stroke();
-          if (isValidNametagImage(node.image) && imageCache[node.image]) {
-            const img = imageCache[node.image];
+
+          const isRoot = node.id.toLowerCase() === walletInfo.address.toLowerCase();
+          const rootImage = isRoot ? walletInfo.image : node.image;
+
+          if (isValidNametagImage(rootImage) && imageCache[rootImage]) {
+            const img = imageCache[rootImage];
             ctx.save();
             ctx.beginPath();
             ctx.arc(node.x, node.y, size, 0, 2 * Math.PI);

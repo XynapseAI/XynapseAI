@@ -246,7 +246,6 @@ function isValidBitcoinAddress(addr) {
     return Buffer.from(receivedChecksum).equals(calculatedChecksum);
   }
 
-  // Bech32 / Bech32m: bc1q... hoặc bc1p...
   if (/^bc1[a-z0-9]{38,59}$/i.test(addr)) {
     try {
       const decoded = bech32.decode(addr.toLowerCase());
@@ -635,20 +634,17 @@ async function fetchLayer3Transactions(layer2Addresses, chain, limit, page) {
   const transactions = [];
   const chainConfig = SUPPORTED_CHAINS[chain];
 
-  // Chỉ xử lý Layer 3 nếu chain hỗ trợ (EVM chains dùng Alchemy, Bitcoin dùng Mempool)
   if (!chainConfig.apiUrl && !alchemyNetworks[chain]) return transactions;
 
-  // An toàn: lọc và chuẩn hóa địa chỉ
   const safeAddresses = (layer2Addresses || [])
     .filter(addr => typeof addr === 'string' && addr.trim().length > 0)
     .map(addr => addr.toLowerCase().trim())
-    .slice(0, 10); // Giới hạn 10 địa chỉ để tránh quá tải
+    .slice(0, 10);
 
   if (safeAddresses.length === 0) return transactions;
 
   const layer2Nametags = await getNametagsBatch(safeAddresses);
 
-  // Chỉ lấy các địa chỉ có nametag (không phải Unknown) để tránh spam
   const validLayer2Addresses = safeAddresses.filter(
     addr => layer2Nametags[addr]?.name && layer2Nametags[addr].name !== 'Unknown'
   );
@@ -709,10 +705,9 @@ async function fetchLayer3Transactions(layer2Addresses, chain, limit, page) {
         allRawTxs.push(...txData);
         continue;
       } else {
-        continue; // Các chain khác tạm bỏ qua
+        continue;
       }
 
-      // Bitcoin: dùng Mempool API
       const cacheKey = `layer3_tx_${chain}_${address}_${page}_${layer3Limit}`;
       const redisClient = await getRedisClient();
       const cached = await redisClient.get(cacheKey);
@@ -727,7 +722,6 @@ async function fetchLayer3Transactions(layer2Addresses, chain, limit, page) {
         await redisClient.setEx(cacheKey, 3600, JSON.stringify(txData));
       }
 
-      // Đánh dấu để biết đây là Layer 3 từ address nào
       txData = txData.map(tx => ({ ...tx, layer2Address: address }));
       allRawTxs.push(...txData);
 
@@ -736,7 +730,6 @@ async function fetchLayer3Transactions(layer2Addresses, chain, limit, page) {
     }
   }
 
-  // Xử lý transactions Bitcoin từ Layer 3
   const bitcoinLayer3Promises = allRawTxs.map(async (tx) => {
     if (chain !== 'bitcoin') return null;
 
@@ -1109,6 +1102,7 @@ export async function POST(request) {
             try {
               const iface = new ethers.Interface(["function symbol() view returns (string)"]);
               tokenSymbol = iface.decodeFunctionResult("symbol", result)[0].trim() || 'UNKNOWN';
+              tokenImage = await getTokenImage(address, chain);
             } catch { }
             tokenImage = await getTokenImage(address, chain);
             logger.info(`Auto detected token contract: ${address} (${tokenSymbol})`);
@@ -1132,6 +1126,11 @@ export async function POST(request) {
     if (isTokenQuery) {
       const network = alchemyNetworks[chain];
       const baseUrl = `https://${network}.g.alchemy.com/v2/${ALCHEMY_API_KEY}`;
+      const symbols = await getTokenSymbolsBatch(baseUrl, [address]);
+      tokenSymbol = symbols[address.toLowerCase()] || 'UNKNOWN';
+      tokenImage = await getTokenImage(address, chain);
+
+      logger.info(`Token query: ${address} - Symbol: ${tokenSymbol}, Image: ${tokenImage}`);
       const resToken = await axios.post(baseUrl, {
         jsonrpc: "2.0",
         id: 0,
@@ -1432,7 +1431,7 @@ export async function POST(request) {
               try {
                 const response = await fetchWithRateLimit(apiUrl, {
                   timeout: 15000,
-                  headers: { 'User-Agent': 'xynapse-bot/1.0' }  // Giống file mempool/route.js
+                  headers: { 'User-Agent': 'xynapse-bot/1.0' }
                 });
                 if (!Array.isArray(response.data)) {
                   logger.warn(`Invalid Bitcoin response for ${address}:`, response.data);
@@ -1464,13 +1463,11 @@ export async function POST(request) {
             let tokenImage = '/icons/default.webp';
             let nativePriceUsed = nativePrice || 0;
 
-            // Xử lý incoming (nhận BTC từ vout)
             if (tx.vout && Array.isArray(tx.vout)) {
               for (const vout of tx.vout) {
                 if (vout.scriptpubkey_address && vout.scriptpubkey_address.toLowerCase() === address && vout.value > 546) {
                   const value = (vout.value / 1e8).toString();
                   const usdValue = Number(value) * nativePriceUsed;
-                  // Tìm source từ vin đầu tiên (nếu có)
                   const sourceAddr = tx.vin && tx.vin[0] && tx.vin[0].prevout?.scriptpubkey_address
                     ? tx.vin[0].prevout.scriptpubkey_address
                     : 'coinbase_or_unknown';
@@ -1492,13 +1489,11 @@ export async function POST(request) {
               }
             }
 
-            // Xử lý outgoing (gửi BTC từ vin)
             if (tx.vin && Array.isArray(tx.vin)) {
               for (const vin of tx.vin) {
                 if (vin.prevout && vin.prevout.scriptpubkey_address && vin.prevout.scriptpubkey_address.toLowerCase() === address) {
                   const value = (vin.prevout.value / 1e8).toString();
                   const usdValue = Number(value) * nativePriceUsed;
-                  // Tìm target từ vout đầu tiên (hoặc fallback)
                   let targetAddr = 'unknown';
                   if (tx.vout && tx.vout.length > 0) {
                     const firstVout = tx.vout.find(v => v.scriptpubkey_address) || tx.vout[0];
