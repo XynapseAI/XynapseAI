@@ -1250,14 +1250,14 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
           links: linksWithIds
         })
         .backgroundColor('rgba(0,0,0,0.3)')
-        .nodeRelSize(4.8) // Reduced from 6.0 for smaller nodes overall, helps with perf
+        .nodeRelSize(4.2) // Reduced from 6.0 for smaller nodes overall, helps with perf
         .nodeVal(node => {
           const tv = parseFloat(node.totalValue || 0);
           const baseVal = Math.sqrt(tv) + 1;
-          if (node.layer === 1) return baseVal * 4.48; // Reduced 20% from 5.6
-          if (node.layer === 2) return baseVal * 4.0;
-          if (node.layer === 3) return baseVal * 1.6; // Reduced 20% from 2.0
-          return baseVal * 2.0;
+          if (node.layer === 1) return baseVal * 4.0; // Reduced 20% from 5.6
+          if (node.layer === 2) return baseVal * 3.6;
+          if (node.layer === 3) return baseVal * 1.4; // Reduced 20% from 2.0
+          return baseVal * 1.8;
         })
         .nodeLabel(node => {
           const cluster = detectedClusters.find(c => c.clusterId === node.clusterId);
@@ -1349,13 +1349,13 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
           // Dynamic opacity: Fade outer edges slightly for less clutter
           const opacity = Math.max(0.4, 1 - (Math.abs(edgeIndex - (numEdges - 1) / 2) / numEdges) * 0.6);
           ctx.strokeStyle = isLayer3
-            ? `rgba(255, 255, 255, ${0.8 * opacity})`
-            : `rgba(255, 255, 255, ${0.8 * opacity})`;
-          // Scale width slightly by value and index (thinner for multiples)
-          const baseWidth = isLayer3 ? 0.35 : 0.7;
-          const valueScale = Math.min(2, Math.log(Number(link.value || 1) + 1) / Math.LN10);
-          ctx.lineWidth = (baseWidth * valueScale * (1 - 0.1 * Math.abs(edgeIndex - (numEdges - 1) / 2))) / globalScale;
-          ctx.lineCap = 'round'; // Smoother ends
+            ? `rgba(200, 200, 255, ${0.6 * opacity})`
+            : `rgba(255, 255, 255, ${0.6 * opacity})`;
+
+          const baseWidth = isLayer3 ? 0.22 : 0.5;
+          const valueScale = Math.min(1.5, Math.log(Number(link.value || 1) + 1) / Math.LN10);
+          ctx.lineWidth = (baseWidth * valueScale * (1 - 0.15 * Math.abs(edgeIndex - (numEdges - 1) / 2))) / globalScale;
+          ctx.lineCap = 'round';
           ctx.stroke();
         })
         .linkCanvasObjectMode(() => 'replace')
@@ -1534,21 +1534,25 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
   }, [walletAddress, isTokenSearch, validateAndFetch]);
 
   const handleSearchSelect = useCallback((result) => {
-    if (!result.isValid || !result.address) {
-      toast.error('Invalid address selected.', { theme: 'dark' });
+    if (!result.address) {
+      toast.error('No address provided.', { theme: 'dark' });
       return;
     }
-    // Normalize address to checksum lower
-    let normalizedAddress;
-    try {
-      normalizedAddress = getAddress(result.address).toLowerCase();
-    } catch (err) {
-      toast.error('Invalid address format.', { theme: 'dark' });
-      return;
+
+    // Normalize address
+    let normalizedAddress = result.address.toLowerCase();
+    if (result.address.startsWith('0x')) {
+      try {
+        normalizedAddress = getAddress(result.address).toLowerCase();
+      } catch (err) {
+      }
     }
-    console.log('Selected result:', { type: result.type, originalAddr: result.address, normalized: normalizedAddress }); // Debug log
+
+    console.log('Selected result:', { type: result.type, originalAddr: result.address, normalized: normalizedAddress });
+
     setIsTokenSearch(result.type === 'token');
     setWalletAddress(normalizedAddress);
+
     if (result.type === 'nametag') {
       setWalletInfo({
         address: normalizedAddress,
@@ -1559,11 +1563,12 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
     } else if (result.type === 'token') {
       setWalletInfo({
         address: normalizedAddress,
-        nametag: `${result.symbol || ''} (${result.name})`,
+        nametag: `${result.symbol || ''} (${result.name || ''})`.trim(),
         image: result.image,
         chainLogo: '/icons/default.webp',
       });
     }
+
     validateAndFetch(normalizedAddress, result.type === 'token');
   }, [validateAndFetch]);
 
@@ -1753,11 +1758,11 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
                 </button>
                 {isLimitDropdownOpen && (
                   <div className="absolute z-20 bg-white/5 rounded-xl mt-1 w-28 max-h-60 overflow-y-auto hide-scrollbar border border-white/10 shadow-neon-sm">
-                    {[200, 300, 500, 1000].map((limit) => ( // Bỏ 100, thêm 1000
+                    {[200, 300, 500, 1000].map((limit) => (
                       <button
                         key={limit}
                         onClick={() => {
-                          if (!isPremium && limit > 200) { // Premium cho >200
+                          if (!isPremium && limit > 200) { // Premium >200
                             toast.error('Premium account required to fetch more than 200 transactions.', {
                               position: 'top-center',
                               autoClose: 5000,

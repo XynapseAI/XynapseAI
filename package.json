@@ -55,6 +55,7 @@
     "axios-rate-limit": "^1.4.0",
     "axios-retry": "^4.5.0",
     "bcrypt": "^6.0.0",
+    "bech32": "^2.0.0",
     "bignumber.js": "^9.3.1",
     "body-parser": "^2.2.0",
     "bottleneck": "^2.19.5",

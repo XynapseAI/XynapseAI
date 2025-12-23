@@ -632,7 +632,23 @@ export default function Home() {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false) // Added mobile menu state
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [modalContent, setModalContent] = useState(null);
-  const [currentLogoIndex, setCurrentLogoIndex] = useState(0)
+  const [currentLogoIndex, setCurrentLogoIndex] = useState(0);
+  const [isDesktop, setIsDesktop] = useState(true);
+
+  useEffect(() => {
+    const handleResize = () => {
+      setIsDesktop(window.innerWidth >= 768);
+    };
+
+    // Kiểm tra kích thước ban đầu (tránh flash hoặc sai trên SSR/hydrate)
+    handleResize();
+
+    window.addEventListener("resize", handleResize);
+
+    return () => {
+      window.removeEventListener("resize", handleResize);
+    };
+  }, []);
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
@@ -795,7 +811,8 @@ export default function Home() {
           />
         </div>
         <div className="flex items-center gap-4">
-          <div className="flex items-center gap-10 m-2">
+          {/* Desktop menu: dùng JS để control hiển thị (bypass vấn đề Tailwind responsive nếu có) */}
+          <div className={`items-center gap-10 m-2 ${isDesktop ? "flex" : "hidden"}`}>
             <div className="relative group">
               <button
                 className="text-white text-sm font-medium transition-all duration-300"
@@ -804,6 +821,7 @@ export default function Home() {
               >
                 <MatrixHoverEffect text="PRODUCT" hoverColor="#00BFFF" />
               </button>
+              {/* Dropdown PRODUCT giữ nguyên như cũ */}
               <motion.div
                 initial={{ opacity: 0, y: -10 }}
                 animate={isProductOpen ? { opacity: 1, y: 0 } : { opacity: 0, y: -10 }}
@@ -837,6 +855,7 @@ export default function Home() {
               >
                 <MatrixHoverEffect text="RESOURCES" hoverColor="#00BFFF" />
               </button>
+              {/* Dropdown RESOURCES giữ nguyên như cũ */}
               <motion.div
                 initial={{ opacity: 0, y: -10 }}
                 animate={isResourcesOpen ? { opacity: 1, y: 0 } : { opacity: 0, y: -10 }}
@@ -862,15 +881,13 @@ export default function Home() {
               </motion.div>
             </div>
           </div>
-          {/* Mobile Menu Button */}
-          <div className="md:hidden">
+          {/* Mobile menu button: chỉ hiện khi KHÔNG phải desktop */}
+          <div className={isDesktop ? "hidden" : "block"}>
             <button
               onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
               className="text-white text-[9px] font-medium transition-all duration-300 relative w-3 h-3"
             >
-              <span
-                className={`hamburger-icon ${isMobileMenuOpen ? 'open' : ''}`}
-              ></span>
+              <span className={`hamburger-icon ${isMobileMenuOpen ? "open" : ""}`}></span>
             </button>
           </div>
         </div>

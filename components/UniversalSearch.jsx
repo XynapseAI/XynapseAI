@@ -128,7 +128,21 @@ export default function UniversalSearch({
   }, []);
 
   const isValidAddress = (address) => {
-    return /^0x[a-fA-F0-9]{40}$/.test(address);
+    if (typeof address !== 'string') return false;
+
+    // EVM address
+    if (/^0x[a-fA-F0-9]{40}$/i.test(address)) return true;
+
+    // Bitcoin address (Legacy P2PKH, P2SH, Bech32)
+    if (/^[13][a-km-zA-HJ-NP-Z1-9]{25,34}$|^bc1[a-z0-9]{39,59}$/i.test(address)) return true;
+
+    // Solana address
+    if (/^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(address)) return true;
+
+    // Tron address
+    if (/^T[1-9A-HJ-NP-Za-km-z]{33}$/i.test(address)) return true;
+
+    return false;
   };
 
   // Predefined major organizations

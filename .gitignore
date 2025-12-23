@@ -1,50 +1,92 @@
 # See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
 
-# dependencies
-/node_modules
-/.pnp
-.pnp.*
+# Dependencies (Node.js/Next.js)
+node_modules/
+.pnp
+.pnp.js
 .yarn/*
 !.yarn/patches
 !.yarn/plugins
 !.yarn/releases
 !.yarn/versions
+.npm/
+
+# Python dependencies and environments
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.Python
+venv/
+.venv/
+env/
+ENV/
+env.bak/
+venv.bak/
+pip-log.txt
+pip-delete-this-directory.txt
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Next.js/Production
 .next/
 out/
-logs/
+build/
 
-# testing
-/coverage
+# Testing
+coverage/
+.tox/
+.nox/
+.coverage
+.coverage.*
+.cache
 
-# next.js
-/.next/
-/out/
-
-# production
-/build
-
-# misc
+# Misc/OS-specific
 .DS_Store
+Thumbs.db
 *.pem
+*.swp
+*~
 
-# debug
+# Debug/Logs
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 .pnpm-debug.log*
+logs/
+*.log
 
-# env files (can opt-in for committing if needed)
-.env*
+# Env files (secrets)
+.env
+.env.*
 .env.local
+.env.development.local
+.env.test.local
+.env.production.local
 
-# vercel
+# Vercel
 .vercel
 
-# typescript
+# TypeScript
 *.tsbuildinfo
 next-env.d.ts
 
+# Prisma generated files
+prisma/migrations/
+prisma/dev.db
 /lib/generated/prisma
-firebase/*.json
 
-/lib/generated/prisma
+# Firebase configs/secrets
+firebase/*.json
+serviceAccountKey.json
+
+# IDE/Editor
+.idea/
+.vscode/
+*.sublime-project
+*.sublime-workspace
+
+# Other
+tmp/
+temp/

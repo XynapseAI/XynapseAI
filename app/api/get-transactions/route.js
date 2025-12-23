@@ -1,4 +1,5 @@
-// app\api\get-transactions\route.js
+// app/api/get-transactions/route.js
+
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
 import { logger } from '../../../utils/serverLogger';
@@ -12,6 +13,7 @@ import Bottleneck from 'bottleneck';
 import crypto from 'crypto';
 import { BLOCKED_TOKEN_ADDRESSES } from '../../../utils/constants';
 import { autoLabelWallets } from '../../../utils/serverClustering';
+import { bech32 } from 'bech32';
 
 let redisClient;
 async function getRedisClient() {
@@ -174,9 +176,9 @@ const alchemyNetworks = {
   '56': 'bnb-mainnet',
   '130': 'unichain-mainnet',
   '143': 'monad-mainnet',
-  '42161': 'arb-mainnet', // Added Arbitrum
-  '5000': 'mantle-mainnet', // Added Mantle (if supported by Alchemy)
-  '534352': 'scroll-mainnet', // Added Scroll (if supported)
+  '42161': 'arb-mainnet',
+  '5000': 'mantle-mainnet',
+  '534352': 'scroll-mainnet',
 };
 
 const ALCHEMY_API_KEY = process.env.ALCHEMY_API_KEY;
@@ -191,6 +193,7 @@ const bodySchema = z.object({
   limit: z.number().int().min(200).max(1000, 'Limit must be between 200 and 1000'),
   page: z.number().int().min(1).default(1),
   fetchLayer3: z.boolean().optional().default(false),
+  isToken: z.boolean().optional().default(false),
 });
 
 function isValidTokenSymbol(symbol) {
@@ -203,6 +206,67 @@ function isValidTokenSymbol(symbol) {
   if (urlPattern.test(cleanedSymbol)) return false;
   const suspiciousKeywords = ['claim', 'free', 'airdrop', 'promo', 'reward', 'bonus'];
   return !suspiciousKeywords.some(keyword => cleanedSymbol.includes(keyword));
+}
+
+function isValidBitcoinAddress(addr) {
+  if (typeof addr !== 'string') return false;
+  addr = addr.trim();
+
+  // Legacy: P2PKH (1...), P2SH (3...)
+  if (/^[13][a-km-zA-HJ-NP-Z1-9]{25,34}$/.test(addr)) {
+    const alphabet = '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz';
+    let n = BigInt(0);
+    for (let c of addr) {
+      const idx = alphabet.indexOf(c);
+      if (idx === -1) return false;
+      n = n * BigInt(58) + BigInt(idx);
+    }
+
+    let bytes = [];
+    let temp = n;
+    while (temp > 0n) {
+      bytes.unshift(Number(temp % 256n));
+      temp = temp / 256n;
+    }
+
+    const leadingOnes = addr.match(/^1+/)?.[0]?.length || 0;
+    while (bytes.length < 25 + leadingOnes) {
+      bytes.unshift(0);
+    }
+
+    if (bytes.length < 25) return false;
+
+    const payload = bytes.slice(0, -4);
+    const receivedChecksum = bytes.slice(-4);
+
+    const hash1 = crypto.createHash('sha256').update(Buffer.from(payload)).digest();
+    const hash2 = crypto.createHash('sha256').update(hash1).digest();
+    const calculatedChecksum = hash2.slice(0, 4);
+
+    return Buffer.from(receivedChecksum).equals(calculatedChecksum);
+  }
+
+  // Bech32 / Bech32m: bc1q... hoặc bc1p...
+  if (/^bc1[a-z0-9]{38,59}$/i.test(addr)) {
+    try {
+      const decoded = bech32.decode(addr.toLowerCase());
+      if (decoded.prefix !== 'bc') return false;
+
+      const data = bech32.fromWords(decoded.words.slice(1));
+      if (data.length !== 20 && data.length !== 32) return false;
+
+      const reencoded = bech32.encode('bc', [decoded.words[0], ...bech32.toWords(data)]);
+      if (reencoded !== addr.toLowerCase()) return false;
+
+      if (decoded.words[0] > 16) return false;
+
+      return true;
+    } catch (e) {
+      return false;
+    }
+  }
+
+  return false;
 }
 
 function safeFormatUnits(value, unit) {
@@ -269,7 +333,7 @@ async function getTokenCurrentPriceBatch(platform, contractAddresses) {
   }
   if (circuitOpen) {
     logger.warn(`Circuit open, skipping price batch for ${platform}`);
-    return {}; // Fallback empty, usdValue sẽ =0
+    return {};
   }
   try {
     const response = await fetchWithRateLimit(
@@ -281,7 +345,7 @@ async function getTokenCurrentPriceBatch(platform, contractAddresses) {
     return prices;
   } catch (e) {
     logger.error(`Error fetching batch token prices for ${platform}:`, e);
-    return {}; // Fallback empty thay vì throw, tránh propagate error
+    return {};
   }
 }
 
@@ -344,7 +408,6 @@ async function getNametagsBatch(addresses) {
     ];
     const ENS_PROVIDER = new ethers.JsonRpcProvider(process.env.ETHEREUM_RPC_URL || 'https://eth.llamarpc.com');
     try {
-      // Batch cache for ENS
       const ensBatchKey = `ens_batch_${crypto.createHash('md5').update(addressesWithoutNametag.join(',')).digest('hex')}`;
       const cachedEns = await redisClient.get(ensBatchKey);
       if (cachedEns) {
@@ -356,7 +419,7 @@ async function getNametagsBatch(addresses) {
         const registryInterface = new ethers.Interface(REGISTRY_ABI);
         const resolverInterface = new ethers.Interface(RESOLVER_ABI);
         const multicallContract = new ethers.Contract(ENS_MULTICALL_ADDRESS, MULTICALL_ABI, ENS_PROVIDER);
-        const BATCH_SIZE = 10; // Smaller batches for speed
+        const BATCH_SIZE = 10;
         const resolvers = [];
         for (let batchStart = 0; batchStart < reverseNodes.length; batchStart += BATCH_SIZE) {
           const batchNodes = reverseNodes.slice(batchStart, batchStart + BATCH_SIZE);
@@ -364,9 +427,8 @@ async function getNametagsBatch(addresses) {
             target: ENS_REGISTRY,
             callData: registryInterface.encodeFunctionData('resolver', [node]),
           }));
-          // Timeout for multicall
           const controller = new AbortController();
-          const timeoutId = setTimeout(() => controller.abort(), 5000); // 5s per batch
+          const timeoutId = setTimeout(() => controller.abort(), 5000);
           try {
             const { returnData: resolverReturnData } = await multicallContract.aggregate.staticCall(resolverCalls, { signal: controller.signal });
             const batchResolvers = resolverReturnData.map((data) => {
@@ -425,7 +487,7 @@ async function getNametagsBatch(addresses) {
                   `https://api.coingecko.com/api/v3/search?query=${encodeURIComponent(shortName)}`,
                   {
                     headers: { 'x-cg-demo-api-key': process.env.COINGECKO_API_KEY },
-                    timeout: 3000, // Faster timeout
+                    timeout: 3000,
                   }
                 );
                 const coin = cgResponse.data.coins?.[0];
@@ -447,7 +509,6 @@ async function getNametagsBatch(addresses) {
               logger.info(`Saved ENS ${name} for address ${address} to database`);
             }
           }
-          // Cache batch ENS
           await redisClient.setEx(ensBatchKey, 30 * 24 * 60 * 60, JSON.stringify(ensResults));
           Object.assign(cachedNametags, ensResults);
         }
@@ -523,12 +584,11 @@ async function getTokenSymbolsBatch(baseUrl, contractAddresses) {
     }
   }
   if (uncachedContracts.length === 0) return symbols;
-  // Batch eth_call using Alchemy batch JSON-RPC
   const batchPayloads = uncachedContracts.map((contract, index) => ({
     jsonrpc: "2.0",
     id: index,
     method: "eth_call",
-    params: [{ to: contract, data: "0x95d89b41" }, "latest"], // symbol() selector
+    params: [{ to: contract, data: "0x95d89b41" }, "latest"],
   }));
   try {
     const abi = ["function symbol() view returns (string)"];
@@ -544,7 +604,6 @@ async function getTokenSymbolsBatch(baseUrl, contractAddresses) {
     }
   } catch (error) {
     logger.error(`Failed to batch fetch symbols:`, error.message);
-    // Fallback to individual fetches if batch fails
     const symbolPromises = uncachedContracts.map(async (contract) => {
       try {
         const abi = ["function symbol() view returns (string)"];
@@ -575,219 +634,364 @@ async function fetchLayer3Transactions(layer2Addresses, chain, limit, page) {
   const start = Date.now();
   const transactions = [];
   const chainConfig = SUPPORTED_CHAINS[chain];
+
+  // Chỉ xử lý Layer 3 nếu chain hỗ trợ (EVM chains dùng Alchemy, Bitcoin dùng Mempool)
   if (!chainConfig.apiUrl && !alchemyNetworks[chain]) return transactions;
-  const layer2Nametags = await getNametagsBatch(layer2Addresses);
-  const validLayer2Addresses = layer2Addresses.filter(
-    (addr) => layer2Nametags[addr.toLowerCase()]?.name !== 'Unknown'
-  ).slice(0, 10);
-  logger.info(`Fetching Layer 3 transactions for ${validLayer2Addresses.length} valid Layer 2 addresses (limited)`);
+
+  // An toàn: lọc và chuẩn hóa địa chỉ
+  const safeAddresses = (layer2Addresses || [])
+    .filter(addr => typeof addr === 'string' && addr.trim().length > 0)
+    .map(addr => addr.toLowerCase().trim())
+    .slice(0, 10); // Giới hạn 10 địa chỉ để tránh quá tải
+
+  if (safeAddresses.length === 0) return transactions;
+
+  const layer2Nametags = await getNametagsBatch(safeAddresses);
+
+  // Chỉ lấy các địa chỉ có nametag (không phải Unknown) để tránh spam
+  const validLayer2Addresses = safeAddresses.filter(
+    addr => layer2Nametags[addr]?.name && layer2Nametags[addr].name !== 'Unknown'
+  );
+
+  logger.info(`Fetching Layer 3 transactions for ${validLayer2Addresses.length} valid Layer 2 addresses`);
+
+  if (validLayer2Addresses.length === 0) return transactions;
+
   const layer3Limit = 20;
-  const batchSize = 5;
-  const batches = [];
-  for (let i = 0; i < validLayer2Addresses.length; i += batchSize) {
-    batches.push(validLayer2Addresses.slice(i, i + batchSize));
-  }
-  let nativePrice = await getCurrentPrice(chainConfig.coingeckoId);
+  let nativePrice = await getCurrentPrice(chainConfig.coingeckoId || 'bitcoin');
+
   const allRawTxs = [];
-  const batchPromises = batches.map(async (batch) => {
-    const fetchPromises = batch.map(async (address) => {
-      try {
-        let txData = [];
-        if (alchemyNetworks[chain]) {
-          const network = alchemyNetworks[chain];
-          const baseUrl = `https://${network}.g.alchemy.com/v2/${ALCHEMY_API_KEY}`;
-          // Parallel outgoing and incoming
-          const [resOut, resIn] = await Promise.all([
-            axios.post(baseUrl, {
-              jsonrpc: "2.0",
-              id: 0,
-              method: "alchemy_getAssetTransfers",
-              params: [{
-                fromBlock: "0x0",
-                toBlock: "latest",
-                fromAddress: address,
-                excludeZeroValue: true,
-                maxCount: `0x${layer3Limit.toString(16)}`,
-                category: ["external", "internal", "erc20"],
-                withMetadata: true,
-                order: "desc",
-              }]
-            }),
-            axios.post(baseUrl, {
-              jsonrpc: "2.0",
-              id: 1,
-              method: "alchemy_getAssetTransfers",
-              params: [{
-                fromBlock: "0x0",
-                toBlock: "latest",
-                toAddress: address,
-                excludeZeroValue: true,
-                maxCount: `0x${layer3Limit.toString(16)}`,
-                category: ["external", "internal", "erc20"],
-                withMetadata: true,
-                order: "desc",
-              }]
-            })
-          ]);
-          txData.push(...(resOut.data.result.transfers || []).map(t => ({ ...t, type: 'outgoing', fromAddress: address })));
-          txData.push(...(resIn.data.result.transfers || []).map(t => ({ ...t, type: 'incoming', fromAddress: address })));
-        } else {
-          let apiUrl;
-          if (chain === 'solana') {
-            apiUrl = `${chainConfig.apiUrl}/account/transactions?account=${address}&limit=${layer3Limit}&offset=${(page - 1) * layer3Limit}`;
-          } else if (chain === 'tron') {
-            apiUrl = `${chainConfig.apiUrl}/transaction?address=${address}&limit=${layer3Limit}&start=${(page - 1) * layer3Limit}`;
-          } else if (chain === 'bitcoin') {
-            apiUrl = `${chainConfig.apiUrl}/address/${address}/txs?limit=${layer3Limit}`;
-          } else {
-            apiUrl = `${chainConfig.apiUrl}?module=account&action=txlist&address=${address}&startblock=0&endblock=99999999&page=${page}&offset=${layer3Limit}&sort=desc&chainid=${chain}&apikey=${chainConfig.apiKey}`;
-          }
-          const cacheKey = `layer3_tx_${chain}_${address}_${page}_${layer3Limit}`;
-          const redisClient = await getRedisClient();
-          const cached = await redisClient.get(cacheKey);
-          if (cached) {
-            logger.info(`Layer3 cache hit for ${cacheKey}`);
-            txData = JSON.parse(cached).map(tx => ({ ...tx, fromAddress: address }));
-          } else {
-            const response = await fetchWithRateLimit(apiUrl, { timeout: 10000 });
-            txData = response.data.result || response.data.transactions || response.data || [];
-            await redisClient.setEx(cacheKey, 3600, JSON.stringify(txData));
-            txData = txData.map(tx => ({ ...tx, fromAddress: address }));
-          }
-        }
-        return txData;
-      } catch (error) {
-        logger.error(`Failed to fetch Layer 3 transactions for ${address}:`, error.message);
-        return [];
-      }
-    });
-    const results = await Promise.allSettled(fetchPromises);
-    return results.flatMap((result) =>
-      result.status === 'fulfilled' ? result.value.flat() : []
-    );
-  });
-  const allBatchResults = await Promise.all(batchPromises);
-  allRawTxs.push(...allBatchResults.flat());
 
-  const uniqueContracts = [...new Set(allRawTxs
-    .filter(tx => tx.rawContract?.address && isAddress(tx.rawContract.address))
-    .map(tx => tx.rawContract.address.toLowerCase())
-  )];
-  let tokenPrices = {};
-  if (uniqueContracts.length > 0 && alchemyNetworks[chain]) {
-    tokenPrices = await getTokenCurrentPriceBatch(chainIdToName[chain], uniqueContracts);
+  for (const address of validLayer2Addresses) {
+    try {
+      let apiUrl;
+      if (chain === 'bitcoin') {
+        apiUrl = `${chainConfig.apiUrl}/address/${address}/txs?limit=${layer3Limit}`;
+      } else if (alchemyNetworks[chain]) {
+        const network = alchemyNetworks[chain];
+        const baseUrl = `https://${network}.g.alchemy.com/v2/${ALCHEMY_API_KEY}`;
+        const [resOut, resIn] = await Promise.all([
+          axios.post(baseUrl, {
+            jsonrpc: "2.0",
+            id: 0,
+            method: "alchemy_getAssetTransfers",
+            params: [{
+              fromBlock: "0x0",
+              toBlock: "latest",
+              fromAddress: address,
+              excludeZeroValue: true,
+              maxCount: `0x${layer3Limit.toString(16)}`,
+              category: ["external", "internal", "erc20"],
+              withMetadata: true,
+              order: "desc",
+            }]
+          }).catch(() => ({ data: { result: { transfers: [] } } })),
+          axios.post(baseUrl, {
+            jsonrpc: "2.0",
+            id: 1,
+            method: "alchemy_getAssetTransfers",
+            params: [{
+              fromBlock: "0x0",
+              toBlock: "latest",
+              toAddress: address,
+              excludeZeroValue: true,
+              maxCount: `0x${layer3Limit.toString(16)}`,
+              category: ["external", "internal", "erc20"],
+              withMetadata: true,
+              order: "desc",
+            }]
+          }).catch(() => ({ data: { result: { transfers: [] } } }))
+        ]);
+
+        const txData = [];
+        txData.push(...(resOut.data.result.transfers || []).map(t => ({ ...t, type: 'outgoing', fromAddress: address })));
+        txData.push(...(resIn.data.result.transfers || []).map(t => ({ ...t, type: 'incoming', fromAddress: address })));
+        allRawTxs.push(...txData);
+        continue;
+      } else {
+        continue; // Các chain khác tạm bỏ qua
+      }
+
+      // Bitcoin: dùng Mempool API
+      const cacheKey = `layer3_tx_${chain}_${address}_${page}_${layer3Limit}`;
+      const redisClient = await getRedisClient();
+      const cached = await redisClient.get(cacheKey);
+
+      let txData = [];
+      if (cached) {
+        logger.info(`Layer3 cache hit for ${cacheKey}`);
+        txData = JSON.parse(cached);
+      } else {
+        const response = await fetchWithRateLimit(apiUrl, { timeout: 10000 });
+        txData = response.data || [];
+        await redisClient.setEx(cacheKey, 3600, JSON.stringify(txData));
+      }
+
+      // Đánh dấu để biết đây là Layer 3 từ address nào
+      txData = txData.map(tx => ({ ...tx, layer2Address: address }));
+      allRawTxs.push(...txData);
+
+    } catch (error) {
+      logger.error(`Failed to fetch Layer 3 for ${address}:`, error.message);
+    }
   }
 
-  const txPromises = allRawTxs.map(async (tx) => {
+  // Xử lý transactions Bitcoin từ Layer 3
+  const bitcoinLayer3Promises = allRawTxs.map(async (tx) => {
+    if (chain !== 'bitcoin') return null;
+
+    if (!tx.status?.confirmed) return null;
+    const blockTime = tx.status.block_time ? new Date(tx.status.block_time * 1000).toISOString() : null;
+    if (!blockTime) return null;
+
     let value = '0';
-    let tokenSymbol = chainConfig.name === 'ethereum' ? 'ETH' : chainConfig.name.toUpperCase();
-    let contractAddress = null;
-    let tokenImage = '/icons/default.webp';
-    let blockTime;
     let usdValue = 0;
-    let decimals = 18;
-    let isTokenTransfer = false;
-    if (alchemyNetworks[chain]) {
-      if (tx.category === 'erc20' || tx.category === 'erc721' || tx.category === 'erc1155') {
-        isTokenTransfer = true;
-        decimals = tx.rawContract?.decimal ? parseInt(tx.rawContract.decimal, 16) : 18;
-        value = safeFormatUnits(tx.rawContract?.value, decimals);
-        tokenSymbol = tx.asset || (tx.rawContract?.address ? 'ERC20' : tokenSymbol);
-        contractAddress = tx.rawContract?.address || null;
-      } else {
-        value = safeFormatEther(tx.value);
-      }
-      blockTime = tx.metadata.blockTimestamp;
-      if (contractAddress) {
-        tokenImage = await getTokenImage(contractAddress, chain);
-        const price = tokenPrices[contractAddress.toLowerCase()]?.usd || 0; // Fallback 0 nếu miss
-        usdValue = parseFloat(value) * price;
-      } else {
-        usdValue = parseFloat(value) * nativePrice;
-      }
-      if (isTokenTransfer && parseFloat(value) === 0) return null;
-      const address = tx.type === 'outgoing' ? tx.to : tx.from;
-      return {
-        address,
-        hash: tx.hash,
-        value,
-        usdValue: usdValue.toFixed(6),
-        tokenSymbol,
-        contractAddress,
-        tokenImage,
-        block_time: blockTime,
-        type: tx.type,
-        layer2Address: tx.fromAddress,
-      };
-    } else {
-      if (chain === 'solana') {
-        value = (tx.lamports / 1e9).toString();
-        tokenSymbol = 'SOL';
-        blockTime = tx.blockTime ? new Date(tx.blockTime * 1000).toISOString() : null;
-      } else if (chain === 'tron') {
-        value = (tx.amount / 1e6).toString();
-        tokenSymbol = 'TRX';
-        blockTime = tx.timestamp ? new Date(tx.timestamp).toISOString() : null;
-      } else if (chain === 'bitcoin') {
-        if (!tx.status || !tx.status.confirmed) return null;
-        blockTime = tx.status.block_time ? new Date(tx.status.block_time * 1000).toISOString() : null;
-        if (!blockTime) return null;
-        value = (tx.value / 1e8).toString();
-        tokenSymbol = 'BTC';
+
+    // Incoming to layer2Address
+    const receivedVouts = tx.vout?.filter(v => v.scriptpubkey_address?.toLowerCase() === tx.layer2Address) || [];
+    for (const vout of receivedVouts) {
+      if (vout.value > 546) {
+        value = (vout.value / 1e8).toString();
         usdValue = Number(value) * nativePrice;
-        const address = tx.type === 'incoming' ? tx.vin[0].prevout.scriptpubkey_address : tx.vout[0].scriptpubkey_address;
+        const source = tx.vin?.[0]?.prevout?.scriptpubkey_address || 'unknown';
         return {
-          address,
+          address: source,
           hash: tx.txid,
           value,
           usdValue: usdValue.toFixed(6),
-          tokenSymbol,
-          contractAddress,
-          tokenImage,
+          tokenSymbol: 'BTC',
+          contractAddress: null,
+          tokenImage: '/logos/bitcoin.webp',
           block_time: blockTime,
-          type: tx.type,
-          layer2Address: tx.fromAddress,
+          type: 'incoming',
+          layer2Address: tx.layer2Address,
         };
-      } else {
-        value = safeFormatEther(parseInt(tx.value));
-        if (parseFloat(value) === 0) return null;
-        blockTime = tx.timeStamp ? new Date(parseInt(tx.timeStamp) * 1000).toISOString() : null;
       }
-      if (!blockTime) return null;
+    }
+
+    // Outgoing from layer2Address
+    const spentVins = tx.vin?.filter(v => v.prevout?.scriptpubkey_address?.toLowerCase() === tx.layer2Address) || [];
+    for (const vin of spentVins) {
+      value = (vin.prevout.value / 1e8).toString();
       usdValue = Number(value) * nativePrice;
-      const address = tx.from === tx.fromAddress ? tx.to : tx.from;
-      const type = tx.from === tx.fromAddress ? 'outgoing' : 'incoming';
+      const target = tx.vout?.[0]?.scriptpubkey_address || 'unknown';
       return {
-        address,
-        hash: tx.hash || tx.transactionHash,
+        address: target,
+        hash: tx.txid,
         value,
         usdValue: usdValue.toFixed(6),
-        tokenSymbol,
-        contractAddress,
-        tokenImage,
+        tokenSymbol: 'BTC',
+        contractAddress: null,
+        tokenImage: '/logos/bitcoin.webp',
         block_time: blockTime,
-        type,
-        layer2Address: tx.fromAddress,
+        type: 'outgoing',
+        layer2Address: tx.layer2Address,
       };
     }
+
+    return null;
   });
-  const txResults = await Promise.allSettled(txPromises);
-  transactions.push(...txResults
-    .filter((result) => result.status === 'fulfilled' && result.value)
-    .map((result) => result.value)
+
+  const bitcoinResults = await Promise.allSettled(bitcoinLayer3Promises);
+  transactions.push(...bitcoinResults
+    .filter(r => r.status === 'fulfilled' && r.value)
+    .map(r => r.value)
   );
-  const layer3Addresses = [...new Set(transactions.map((tx) => tx.address.toLowerCase()))];
-  const layer3Nametags = await getNametagsBatch(layer3Addresses);
-  const processed = transactions
-    .filter((tx) => layer3Nametags[tx.address.toLowerCase()]?.name !== 'Unknown')
-    .map((tx) => ({
-      ...tx,
-      nametag: layer3Nametags[tx.address.toLowerCase()]?.name || 'Unknown',
-      image: layer3Nametags[tx.address.toLowerCase()]?.image || '/icons/default.webp',
-      chainLogo: chainConfig.logo || '/icons/default.webp',
-    }));
+
+  // Nametags cho Layer 3
+  const layer3Addrs = [...new Set(transactions.map(tx => tx.address?.toLowerCase()).filter(Boolean))];
+  if (layer3Addrs.length > 0) {
+    const l3Nametags = await getNametagsBatch(layer3Addrs);
+    transactions.forEach(tx => {
+      const ntag = l3Nametags[tx.address?.toLowerCase()];
+      if (ntag && ntag.name !== 'Unknown') {
+        tx.nametag = ntag.name;
+        tx.image = ntag.image;
+      }
+    });
+  }
+
   logger.info(`fetchLayer3Transactions took ${(Date.now() - start) / 1000}s`);
-  return processed;
+  return transactions;
+}
+
+async function fetchFromEtherscanFallback(address, chain, limit, page) {
+  if (chain !== '1') return { incoming: [], outgoing: [] };
+  const chainConfig = SUPPORTED_CHAINS[chain];
+  if (!chainConfig.apiKey) return { incoming: [], outgoing: [] };
+
+  const offset = limit;
+  const startblock = 0;
+  const endblock = 99999999;
+  const sort = 'desc';
+
+  const endpoints = [
+    { action: 'txlist', type: 'native' },
+    { action: 'tokentx', type: 'token' },
+    { action: 'txlistinternal', type: 'internal' }
+  ];
+
+  let nativeTxs = [];
+  let tokenTxs = [];
+  let internalTxs = [];
+
+  const redisClient = await getRedisClient();
+
+  for (const { action, type } of endpoints) {
+    const url = `${chainConfig.apiUrl}?module=account&action=${action}&address=${address}&startblock=${startblock}&endblock=${endblock}&page=${page}&offset=${offset}&sort=${sort}&apikey=${chainConfig.apiKey}`;
+    const cacheKey = `etherscan_fallback_${action}_${address}_${page}_${offset}`;
+    const cached = await redisClient.get(cacheKey);
+    let data = [];
+    if (cached) {
+      logger.info(`Etherscan fallback cache hit: ${cacheKey}`);
+      data = JSON.parse(cached);
+    } else {
+      try {
+        const response = await fetchWithRateLimit(url, { timeout: 15000 });
+        if (response.data.status !== '1') {
+          logger.warn(`Etherscan fallback ${action} status not 1: ${response.data.message}`);
+          continue;
+        }
+        data = response.data.result || [];
+        await redisClient.setEx(cacheKey, 3600, JSON.stringify(data));
+        logger.info(`Etherscan fallback fetched ${data.length} ${type} txs`);
+      } catch (err) {
+        logger.error(`Etherscan fallback ${action} error: ${err.message}`);
+        continue;
+      }
+    }
+    if (type === 'native') nativeTxs = data;
+    if (type === 'token') tokenTxs = data;
+    if (type === 'internal') internalTxs = data;
+  }
+
+  let incoming = [];
+  let outgoing = [];
+  let nativePrice = await getCurrentPrice(chainConfig.coingeckoId);
+  const addresses = new Set();
+
+  // Process native txs
+  const nativeTxPromises = nativeTxs.map(async (tx) => {
+    const value = safeFormatEther(tx.value);
+    if (parseFloat(value) === 0) return null;
+    const blockTime = tx.timeStamp ? new Date(parseInt(tx.timeStamp) * 1000).toISOString() : null;
+    if (!blockTime) return null;
+    const usdValue = Number(value) * nativePrice;
+    const type = tx.from.toLowerCase() === address ? 'outgoing' : 'incoming';
+    const counterpart = type === 'outgoing' ? tx.to.toLowerCase() : tx.from.toLowerCase();
+    return {
+      address: counterpart,
+      hash: tx.hash,
+      value,
+      usdValue: usdValue.toFixed(6),
+      tokenSymbol: chain === '1' ? 'ETH' : chainConfig.name.toUpperCase(),
+      contractAddress: null,
+      tokenImage: '/icons/default.webp',
+      block_time: blockTime,
+      type,
+    };
+  });
+  const nativeTxResults = await Promise.allSettled(nativeTxPromises);
+  nativeTxResults.forEach((result) => {
+    if (result.status === 'fulfilled' && result.value) {
+      const tx = result.value;
+      if (tx.type === 'outgoing') {
+        outgoing.push(tx);
+      } else {
+        incoming.push(tx);
+      }
+      addresses.add(tx.address);
+    }
+  });
+
+  // Process token txs
+  const uniqueContracts = [...new Set(tokenTxs
+    .map(tx => tx.contractAddress)
+    .filter(isAddress)
+  )];
+  if (uniqueContracts.length > 0) {
+    tokenPrices = await getTokenCurrentPriceBatch(chainIdToName[chain], uniqueContracts);
+  }
+  const imagePromises = uniqueContracts.map(async (contract) => ({
+    contract: contract.toLowerCase(),
+    image: await getTokenImage(contract, chain)
+  }));
+  const tokenImages = Object.fromEntries((await Promise.all(imagePromises)).map(o => [o.contract, o.image]));
+
+  const tokenTxPromises = tokenTxs.map(async (tx) => {
+    if (!isAddress(tx.contractAddress) || BLOCKED_TOKEN_ADDRESSES.includes(tx.contractAddress.toLowerCase()) || !isValidTokenSymbol(tx.tokenSymbol)) return null;
+    const decimals = parseInt(tx.tokenDecimal || 18);
+    const value = (parseInt(tx.value) / Math.pow(10, decimals)).toString();
+    if (parseFloat(value) === 0) return null;
+    const blockTime = tx.timeStamp ? new Date(parseInt(tx.timeStamp) * 1000).toISOString() : null;
+    if (!blockTime) return null;
+    const price = tokenPrices[tx.contractAddress.toLowerCase()]?.usd || await getTokenCurrentPrice(chainIdToName[chain], tx.contractAddress);
+    const usdValue = Number(value) * price;
+    const type = tx.from.toLowerCase() === address ? 'outgoing' : 'incoming';
+    const counterpart = type === 'outgoing' ? tx.to.toLowerCase() : tx.from.toLowerCase();
+    const tokenImage = tokenImages[tx.contractAddress.toLowerCase()] || '/icons/default.webp';
+    return {
+      address: counterpart,
+      hash: tx.hash,
+      value,
+      usdValue: usdValue.toFixed(6),
+      tokenSymbol: tx.tokenSymbol || 'Unknown',
+      contractAddress: tx.contractAddress,
+      tokenImage,
+      block_time: blockTime,
+      type,
+    };
+  });
+  const tokenTxResults = await Promise.allSettled(tokenTxPromises);
+  tokenTxResults.forEach((result) => {
+    if (result.status === 'fulfilled' && result.value) {
+      const tx = result.value;
+      if (tx.type === 'outgoing') {
+        outgoing.push(tx);
+      } else {
+        incoming.push(tx);
+      }
+      addresses.add(tx.address);
+    }
+  });
+
+  // Process internal txs
+  const internalTxPromises = internalTxs.map(async (itx) => {
+    if (itx.type !== 'call' || BigInt(itx.value) === 0n) return null;
+    const value = safeFormatEther(itx.value);
+    const blockTime = itx.timeStamp ? new Date(parseInt(itx.timeStamp) * 1000).toISOString() : null;
+    if (!blockTime) return null;
+    const usdValue = Number(value) * nativePrice;
+    const from = itx.from.toLowerCase();
+    const to = itx.to.toLowerCase();
+    const type = from === address ? 'outgoing' : 'incoming';
+    const counterpart = type === 'outgoing' ? to : from;
+    return {
+      address: counterpart,
+      hash: itx.hash,
+      value,
+      usdValue: usdValue.toFixed(6),
+      tokenSymbol: chain === '1' ? 'ETH' : chainConfig.name.toUpperCase(),
+      contractAddress: null,
+      tokenImage: '/icons/default.webp',
+      block_time: blockTime,
+      type,
+    };
+  });
+  const internalTxResults = await Promise.allSettled(internalTxPromises);
+  internalTxResults.forEach((result) => {
+    if (result.status === 'fulfilled' && result.value) {
+      const tx = result.value;
+      if (tx.type === 'outgoing') {
+        outgoing.push(tx);
+      } else {
+        incoming.push(tx);
+      }
+      addresses.add(tx.address);
+    }
+  });
+
+  return { incoming, outgoing };
 }
 
 async function hasConfidenceColumn() {
@@ -856,7 +1060,7 @@ export async function POST(request) {
       await trackViolation(ip, 'Invalid request body');
       return NextResponse.json({ error: parsed.error.errors[0].message }, { status: 400, headers: securityHeaders });
     }
-    const { wallet_address, chain, limit, page, fetchLayer3: inputFetchLayer3 } = parsed.data;
+    const { wallet_address, chain, limit, page, fetchLayer3: inputFetchLayer3, isToken = false } = parsed.data;
     const address = wallet_address.toLowerCase();
     const isPremium = request.headers.get('x-premium-user') === 'true';
     if (!isPremium && limit > 200) {
@@ -864,13 +1068,8 @@ export async function POST(request) {
       return NextResponse.json({ error: 'Premium account required to fetch more than 200 transactions.' }, { status: 403, headers: securityHeaders });
     }
     const isBitcoin = chain === 'bitcoin';
-    const bitcoinRegex = /^[13][a-km-zA-HJ-NP-Z1-9]{25,34}$|^bc1[a-z0-9]{39,59}$/i;
-    if (!isBitcoin && chain !== 'solana' && chain !== 'tron' && !isAddress(wallet_address)) {
-      await trackViolation(ip, 'Invalid wallet address');
-      return NextResponse.json({ error: 'Invalid wallet address.' }, { status: 400, headers: securityHeaders });
-    }
-    if (isBitcoin && !bitcoinRegex.test(wallet_address)) {
-      await trackViolation(ip, 'Invalid Bitcoin address');
+    if (isBitcoin && !isValidBitcoinAddress(wallet_address)) {
+      await trackViolation(ip, 'Invalid Bitcoin address (format or checksum)');
       return NextResponse.json({ error: 'Invalid Bitcoin address.' }, { status: 400, headers: securityHeaders });
     }
     const chainConfig = SUPPORTED_CHAINS[chain];
@@ -881,35 +1080,58 @@ export async function POST(request) {
       logger.info(`Cache hit for ${cacheKey}`);
       return NextResponse.json(JSON.parse(cached), { headers: securityHeaders });
     }
-    let isTokenQuery = false;
+    let isTokenQuery = isToken;
+    let fetchLayer3 = inputFetchLayer3;
     let tokenSymbol = 'UNKNOWN';
     let tokenImage = '/icons/default.webp';
-    let fetchLayer3 = inputFetchLayer3;
-    if (alchemyNetworks[chain]) {
+    if (alchemyNetworks[chain] && !isTokenQuery) {
       const network = alchemyNetworks[chain];
       const baseUrl = `https://${network}.g.alchemy.com/v2/${ALCHEMY_API_KEY}`;
-      const codePayload = {
-        jsonrpc: "2.0",
-        id: 0,
-        method: "eth_getCode",
-        params: [address, "latest"]
-      };
-      const codeRes = await axios.post(baseUrl, codePayload);
-      const code = codeRes.data.result;
-      if (code && code !== '0x') {
-        isTokenQuery = true;
-        fetchLayer3 = true; // ALWAYS fetch layer3 for token queries (most activity is L2/L3)
-        // Get token symbol
-        const symbols = await getTokenSymbolsBatch(baseUrl, [address]);
-        tokenSymbol = symbols[address] || 'ERC20';
-        tokenImage = await getTokenImage(address, chain);
+      try {
+        const codeRes = await axios.post(baseUrl, {
+          jsonrpc: "2.0",
+          id: 0,
+          method: "eth_getCode",
+          params: [address, "latest"]
+        }, { timeout: 8000 });
+        const code = codeRes.data.result || '0x';
+        if (code !== '0x') {
+          const symbolRes = await axios.post(baseUrl, {
+            jsonrpc: "2.0",
+            id: 1,
+            method: "eth_call",
+            params: [{ to: address, data: "0x95d89b41" }, "latest"]
+          }, { timeout: 8000 });
+          const result = symbolRes.data.result || '0x';
+          if (result !== '0x' && result.length > 10) {
+            isTokenQuery = true;
+            fetchLayer3 = true;
+            try {
+              const iface = new ethers.Interface(["function symbol() view returns (string)"]);
+              tokenSymbol = iface.decodeFunctionResult("symbol", result)[0].trim() || 'UNKNOWN';
+            } catch { }
+            tokenImage = await getTokenImage(address, chain);
+            logger.info(`Auto detected token contract: ${address} (${tokenSymbol})`);
+          } else {
+            logger.info(`Contract but not ERC20 token: ${address}`);
+          }
+        }
+      } catch (err) {
+        logger.warn(`Auto detect failed for ${address}: ${err.message}`);
       }
     }
+    let incoming = [];
+    let outgoing = [];
+    let nativePrice = await getCurrentPrice(chainConfig.coingeckoId);
+    let tokenPrices = {};
+    const addresses = new Set();
+    let layer3Transactions = [];
+    let walletNametag;
+    let chainLogo = await getChainLogo(chainConfig.coingeckoId);
+    const walletLimit = Math.min(1000, limit);
     if (isTokenQuery) {
       const network = alchemyNetworks[chain];
       const baseUrl = `https://${network}.g.alchemy.com/v2/${ALCHEMY_API_KEY}`;
-      const chainLogo = await getChainLogo(chainConfig.coingeckoId);
-      const addresses = new Set();
       const resToken = await axios.post(baseUrl, {
         jsonrpc: "2.0",
         id: 0,
@@ -926,7 +1148,7 @@ export async function POST(request) {
         }]
       });
       if (resToken.data.error) throw new Error(resToken.data.error.message);
-      const transfers = resToken.data.result.transfers || [];
+      let transfers = resToken.data.result.transfers || [];
       const newPageKey = resToken.data.result.pageKey;
       if (newPageKey && page === 1) {
         await redisClient.setEx(`pagekey_token_latest_${chain}_${address}`, 3600, newPageKey);
@@ -935,7 +1157,6 @@ export async function POST(request) {
       if (page > 1) {
         continuationPageKey = await redisClient.get(`pagekey_token_latest_${chain}_${address}`);
         if (continuationPageKey) {
-          // Gọi lại lần nữa với pageKey để lấy trang cũ hơn
           const resContinue = await axios.post(baseUrl, {
             jsonrpc: "2.0",
             id: 0,
@@ -952,13 +1173,11 @@ export async function POST(request) {
               pageKey: continuationPageKey,
             }]
           });
-          transfers.length = 0; // xóa dữ liệu cũ
-          transfers.push(...(resContinue.data.result.transfers || []));
-          // Cập nhật pageKey mới nhất cho lần tiếp theo
+          transfers = resContinue.data.result.transfers || [];
           if (resContinue.data.result.pageKey) {
             await redisClient.setEx(`pagekey_token_latest_${chain}_${address}`, 3600, resContinue.data.result.pageKey);
           } else {
-            await redisClient.del(`pagekey_token_latest_${chain}_${address}`); // hết dữ liệu
+            await redisClient.del(`pagekey_token_latest_${chain}_${address}`);
           }
         }
       }
@@ -984,7 +1203,6 @@ export async function POST(request) {
           method: 'Transfer',
           type: 'outgoing',
           layer2Address: transfer.from.toLowerCase(),
-          // thêm source/target để graph worker vẽ đúng
           source: transfer.from.toLowerCase(),
           target: transfer.to.toLowerCase(),
         };
@@ -992,21 +1210,16 @@ export async function POST(request) {
         addresses.add(transfer.from.toLowerCase());
         addresses.add(transfer.to.toLowerCase());
       }
-      // Thêm chính token address vào (làm root node)
       addresses.add(address);
-      // Lấy nametag cho tất cả address (không lọc Unknown)
       const nametags = await getNametagsBatch([...addresses]);
-      // eslint-disable-next-line @typescript-eslint/no-unused-vars
-      const uniqueWallets = [...new Set(tokenTransfers.flatMap(tx => [tx.from, tx.to]))];
-      const dummyLayer2 = []; // Không sử dụng dummy để tránh kết nối root, tập trung vào layer2 và layer3
+      const dummyLayer2 = [];
       const processedDummyLayer2 = dummyLayer2.map((tx) => ({
         ...tx,
         nametag: nametags[tx.to.toLowerCase()]?.name || 'Unknown',
         image: nametags[tx.to.toLowerCase()]?.image || '/icons/default.webp',
         chainLogo,
       }));
-      // Các token transfers thực tế sẽ là layer3 (giao dịch giữa các layer2 wallets)
-      const layer3Transactions = tokenTransfers.map((tx) => ({
+      layer3Transactions = tokenTransfers.map((tx) => ({
         ...tx,
         nametag: nametags[tx.to.toLowerCase()]?.name || 'Unknown',
         image: nametags[tx.to.toLowerCase()]?.image || '/icons/default.webp',
@@ -1014,8 +1227,7 @@ export async function POST(request) {
         imageLayer2: nametags[tx.from.toLowerCase()]?.image || '/icons/default.webp',
         chainLogo,
       }));
-      // Thông tin root (token contract)
-      const walletNametag = {
+      walletNametag = {
         name: `${tokenSymbol} Token`,
         image: tokenImage,
         description: 'ERC20 Token Contract',
@@ -1023,8 +1235,8 @@ export async function POST(request) {
       };
       const result = {
         incoming: [],
-        outgoing: processedDummyLayer2, // Dummy connections as layer2
-        layer3: layer3Transactions, // Actual token transfers as layer3 between wallets
+        outgoing: processedDummyLayer2,
+        layer3: layer3Transactions,
         wallet: {
           address,
           nametag: walletNametag.name,
@@ -1034,8 +1246,7 @@ export async function POST(request) {
       };
       await redisClient.setEx(cacheKey, 3600, JSON.stringify(result));
       return NextResponse.json(result, { headers: securityHeaders });
-    }
-    else {
+    } else {
       let incoming = [];
       let outgoing = [];
       let nativePrice = await getCurrentPrice(chainConfig.coingeckoId);
@@ -1044,13 +1255,11 @@ export async function POST(request) {
       let layer3Transactions = [];
       let walletNametag;
       let chainLogo = await getChainLogo(chainConfig.coingeckoId);
-      // Reduced limit for wallet query
-      const walletLimit = Math.min(50, limit);
-      // Original wallet logic
+      const walletLimit = Math.min(1000, limit);
+      let alchemySuccess = false;
       if (alchemyNetworks[chain]) {
         const network = alchemyNetworks[chain];
         const baseUrl = `https://${network}.g.alchemy.com/v2/${ALCHEMY_API_KEY}`;
-        // Parallel outgoing and incoming fetches
         let outPageKey = null;
         if (page > 1) {
           outPageKey = await redisClient.get(`pagekey_out_${chain}_${address}_${page - 1}`);
@@ -1101,14 +1310,12 @@ export async function POST(request) {
         const transfersIn = resIn.data.result.transfers || [];
         const newPageKeyIn = resIn.data.result.pageKey;
         if (newPageKeyIn) await redisClient.setEx(`pagekey_in_${chain}_${address}_${page}`, 3600, newPageKeyIn);
-        // Collect unique contracts for batch processing
         const allTransfers = [...transfersOut, ...transfersIn];
         const uniqueContracts = [...new Set(allTransfers
           .filter(t => t.rawContract?.address)
           .map(t => t.rawContract.address)
           .filter(isAddress)
         )];
-        // eslint-disable-next-line @typescript-eslint/no-unused-vars
         const symbolsNeedingFetch = uniqueContracts.filter(c => !allTransfers.some(t => t.asset));
         let tokenSymbols = {};
         if (symbolsNeedingFetch.length > 0) {
@@ -1209,121 +1416,115 @@ export async function POST(request) {
           apiUrl = `${chainConfig.apiUrl}/transaction?address=${address}&limit=${walletLimitNonAlchemy}&start=${(page - 1) * walletLimitNonAlchemy}`;
           fetchPromises.push(fetchWithRateLimit(apiUrl, { timeout: 10000 }).then((res) => ({ type: 'native', data: res.data.transactions || [] })));
         } else if (chain === 'bitcoin') {
-          apiUrl = `${chainConfig.apiUrl}/address/${address}/txs?limit=${walletLimitNonAlchemy}`;
-          fetchPromises.push(fetchWithRateLimit(apiUrl, { timeout: 10000 }).then((res) => ({ type: 'native', data: res.data || [] })));
-        } else {
-          const endpoints = [
-            { action: 'txlist', type: 'native' },
-            { action: 'tokentx', type: 'token' },
-            { action: 'txlistinternal', type: 'internal' }
-          ];
-          endpoints.forEach(({ action, type }) => {
-            fetchPromises.push(
-              (async () => {
-                const cacheKey = `api_${chain}_${address}_${action}_${page}_${walletLimitNonAlchemy}`;
-                const cached = await redisClient.get(cacheKey);
-                if (cached) {
-                  logger.info(`API cache hit for ${cacheKey}`);
-                  return { type, data: JSON.parse(cached) };
-                }
-                const url = `${chainConfig.apiUrl}?module=account&action=${action}&address=${address}&startblock=0&endblock=99999999&page=${page}&offset=${walletLimitNonAlchemy}&sort=desc&chainid=${chain}&apikey=${chainConfig.apiKey}`;
-                const response = await fetchWithRateLimit(url, { timeout: 10000 });
-                const data = response.data.result || [];
-                await redisClient.setEx(cacheKey, 3600, JSON.stringify(data));
-                return { type, data };
-              })()
-            );
-          });
-        }
-        const responses = await Promise.allSettled(fetchPromises);
-        let transactions = [];
-        let tokenTransactions = [];
-        responses.forEach((result) => {
-          if (result.status === 'fulfilled') {
-            if (result.value.type === 'native') transactions = result.value.data;
-            if (result.value.type === 'token') tokenTransactions = result.value.data;
-            if (result.value.type === 'internal') internalData = result.value.data;
-          }
-        });
-        if (!Array.isArray(transactions)) transactions = [];
-        if (!Array.isArray(tokenTransactions)) tokenTransactions = [];
-        if (!Array.isArray(internalData)) internalData = [];
-        if (chain !== 'solana' && chain !== 'tron' && chain !== 'bitcoin') {
-          const uniqueContracts = [...new Set(tokenTransactions
-            .map(tx => tx.contractAddress)
-            .filter(isAddress)
-          )];
-          if (uniqueContracts.length > 0) {
-            const platform = chainIdToName[chain];
-            const contractList = uniqueContracts.join(',');
-            const cacheKey = `token_prices_${platform}_${contractList}_${page}_${walletLimitNonAlchemy}`;
-            const cached = await redisClient.get(cacheKey);
-            if (cached) {
-              tokenPrices = JSON.parse(cached);
-              logger.info(`Token prices cache hit for ${cacheKey}`);
+          let allTxs = [];
+          let afterTxid = null;
+          const targetLimit = Math.min(200, limit);
+          do {
+            let apiUrl = `${chainConfig.apiUrl}/address/${address}/txs`;
+            if (afterTxid) apiUrl += `?after_txid=${afterTxid}`;
+            const cacheKeyPage = `bitcoin_txs_${address}_${afterTxid || 'initial'}`;
+            const cachedPage = await redisClient.get(cacheKeyPage);
+            let pageTxs = [];
+            if (cachedPage) {
+              logger.info(`Bitcoin page cache hit: ${cacheKeyPage}`);
+              pageTxs = JSON.parse(cachedPage);
             } else {
               try {
-                const response = await fetchWithRateLimit(
-                  `https://api.coingecko.com/api/v3/simple/token_price/${platform}?contract_addresses=${contractList}&vs_currencies=usd`,
-                  { headers: { 'x-cg-demo-api-key': process.env.COINGECKO_API_KEY } }
-                );
-                tokenPrices = response.data || {};
-                await redisClient.setEx(cacheKey, 300, JSON.stringify(tokenPrices));
-                logger.info(`Batch fetched and cached prices for ${uniqueContracts.length} tokens`);
-              } catch (e) {
-                logger.error('Batch token price fetch failed:', e.message);
+                const response = await fetchWithRateLimit(apiUrl, {
+                  timeout: 15000,
+                  headers: { 'User-Agent': 'xynapse-bot/1.0' }  // Giống file mempool/route.js
+                });
+                if (!Array.isArray(response.data)) {
+                  logger.warn(`Invalid Bitcoin response for ${address}:`, response.data);
+                  break;
+                }
+                pageTxs = response.data;
+                await redisClient.setEx(cacheKeyPage, 3600, JSON.stringify(pageTxs));
+                logger.info(`Fetched ${pageTxs.length} Bitcoin txs (after_txid: ${afterTxid || 'none'})`);
+              } catch (err) {
+                logger.error(`Bitcoin fetch error for url ${apiUrl}: ${err.message}`);
+                if (err.response?.status === 400) {
+                }
+                break;
               }
             }
-          }
-        }
-        if (chain === 'bitcoin') {
-          const bitcoinTxPromises = transactions.map(async (tx) => {
-            if (!tx.status || !tx.status.confirmed) return null;
+            if (pageTxs.length === 0) break;
+            allTxs.push(...pageTxs);
+            afterTxid = pageTxs[pageTxs.length - 1]?.txid;
+          } while (allTxs.length < targetLimit && afterTxid);
+
+          logger.info(`Total Bitcoin transactions fetched: ${allTxs.length}`);
+
+          const bitcoinTxPromises = allTxs.map(async (tx) => {
+            if (!tx.status?.confirmed) return null;
             const blockTime = tx.status.block_time ? new Date(tx.status.block_time * 1000).toISOString() : null;
             if (!blockTime) return null;
-            let value = '0';
+
             let tokenSymbol = 'BTC';
-            let contractAddress = null;
             let tokenImage = '/icons/default.webp';
-            let usdValue = 0;
-            const receivedVouts = tx.vout ? tx.vout.filter(v => v.scriptpubkey_address?.toLowerCase() === address) : [];
-            for (const vout of receivedVouts) {
-              if (vout.value > 546) {
-                value = (vout.value / 1e8).toString();
-                usdValue = Number(value) * nativePrice;
-                const source = tx.vin && tx.vin[0] ? tx.vin[0].prevout.scriptpubkey_address : 'unknown';
-                return {
-                  address: source,
-                  hash: tx.txid,
-                  value,
-                  usdValue: usdValue.toFixed(6),
-                  tokenSymbol,
-                  contractAddress,
-                  tokenImage,
-                  block_time: blockTime,
-                  type: 'incoming',
-                };
+            let nativePriceUsed = nativePrice || 0;
+
+            // Xử lý incoming (nhận BTC từ vout)
+            if (tx.vout && Array.isArray(tx.vout)) {
+              for (const vout of tx.vout) {
+                if (vout.scriptpubkey_address && vout.scriptpubkey_address.toLowerCase() === address && vout.value > 546) {
+                  const value = (vout.value / 1e8).toString();
+                  const usdValue = Number(value) * nativePriceUsed;
+                  // Tìm source từ vin đầu tiên (nếu có)
+                  const sourceAddr = tx.vin && tx.vin[0] && tx.vin[0].prevout?.scriptpubkey_address
+                    ? tx.vin[0].prevout.scriptpubkey_address
+                    : 'coinbase_or_unknown';
+
+                  addresses.add(sourceAddr.toLowerCase());
+
+                  return {
+                    address: sourceAddr,
+                    hash: tx.txid,
+                    value,
+                    usdValue: usdValue.toFixed(6),
+                    tokenSymbol,
+                    contractAddress: null,
+                    tokenImage,
+                    block_time: blockTime,
+                    type: 'incoming',
+                  };
+                }
               }
             }
-            const spentVins = tx.vin ? tx.vin.filter(v => v.prevout && v.prevout.scriptpubkey_address?.toLowerCase() === address) : [];
-            for (const vin of spentVins) {
-              value = (vin.prevout.value / 1e8).toString();
-              usdValue = Number(value) * nativePrice;
-              const target = tx.vout && tx.vout[0] ? tx.vout[0].scriptpubkey_address : 'unknown';
-              return {
-                address: target,
-                hash: tx.txid,
-                value,
-                usdValue: usdValue.toFixed(6),
-                tokenSymbol,
-                contractAddress,
-                tokenImage,
-                block_time: blockTime,
-                type: 'outgoing',
-              };
+
+            // Xử lý outgoing (gửi BTC từ vin)
+            if (tx.vin && Array.isArray(tx.vin)) {
+              for (const vin of tx.vin) {
+                if (vin.prevout && vin.prevout.scriptpubkey_address && vin.prevout.scriptpubkey_address.toLowerCase() === address) {
+                  const value = (vin.prevout.value / 1e8).toString();
+                  const usdValue = Number(value) * nativePriceUsed;
+                  // Tìm target từ vout đầu tiên (hoặc fallback)
+                  let targetAddr = 'unknown';
+                  if (tx.vout && tx.vout.length > 0) {
+                    const firstVout = tx.vout.find(v => v.scriptpubkey_address) || tx.vout[0];
+                    targetAddr = firstVout?.scriptpubkey_address || 'unknown';
+                  }
+
+                  addresses.add(targetAddr.toLowerCase());
+
+                  return {
+                    address: targetAddr,
+                    hash: tx.txid,
+                    value,
+                    usdValue: usdValue.toFixed(6),
+                    tokenSymbol,
+                    contractAddress: null,
+                    tokenImage,
+                    block_time: blockTime,
+                    type: 'outgoing',
+                  };
+                }
+              }
             }
+
             return null;
           });
+
           const bitcoinTxResults = await Promise.allSettled(bitcoinTxPromises);
           bitcoinTxResults.forEach((result) => {
             if (result.status === 'fulfilled' && result.value) {
@@ -1338,6 +1539,82 @@ export async function POST(request) {
             }
           });
         } else {
+          // Other non-Alchemy chains (solana, tron, etherscan-based)
+          const fetchPromises = [];
+          let apiUrl;
+          let internalData = [];
+          const walletLimitNonAlchemy = Math.min(50, limit);
+          if (chain === 'solana') {
+            apiUrl = `${chainConfig.apiUrl}/account/transactions?account=${address}&limit=${walletLimitNonAlchemy}&offset=${(page - 1) * walletLimitNonAlchemy}`;
+            fetchPromises.push(fetchWithRateLimit(apiUrl, { timeout: 10000 }).then((res) => ({ type: 'native', data: res.data.transactions || [] })));
+          } else if (chain === 'tron') {
+            apiUrl = `${chainConfig.apiUrl}/transaction?address=${address}&limit=${walletLimitNonAlchemy}&start=${(page - 1) * walletLimitNonAlchemy}`;
+            fetchPromises.push(fetchWithRateLimit(apiUrl, { timeout: 10000 }).then((res) => ({ type: 'native', data: res.data.transactions || [] })));
+          } else {
+            const endpoints = [
+              { action: 'txlist', type: 'native' },
+              { action: 'tokentx', type: 'token' },
+              { action: 'txlistinternal', type: 'internal' }
+            ];
+            endpoints.forEach(({ action, type }) => {
+              fetchPromises.push(
+                (async () => {
+                  const cacheKey = `api_${chain}_${address}_${action}_${page}_${walletLimitNonAlchemy}`;
+                  const cached = await redisClient.get(cacheKey);
+                  if (cached) {
+                    logger.info(`API cache hit for ${cacheKey}`);
+                    return { type, data: JSON.parse(cached) };
+                  }
+                  const url = `${chainConfig.apiUrl}?module=account&action=${action}&address=${address}&startblock=0&endblock=99999999&page=${page}&offset=${walletLimitNonAlchemy}&sort=desc&chainid=${chain}&apikey=${chainConfig.apiKey}`;
+                  const response = await fetchWithRateLimit(url, { timeout: 10000 });
+                  const data = response.data.result || [];
+                  await redisClient.setEx(cacheKey, 3600, JSON.stringify(data));
+                  return { type, data };
+                })()
+              );
+            });
+          }
+          const responses = await Promise.allSettled(fetchPromises);
+          let transactions = [];
+          let tokenTransactions = [];
+          responses.forEach((result) => {
+            if (result.status === 'fulfilled') {
+              if (result.value.type === 'native') transactions = result.value.data;
+              if (result.value.type === 'token') tokenTransactions = result.value.data;
+              if (result.value.type === 'internal') internalData = result.value.data;
+            }
+          });
+          if (!Array.isArray(transactions)) transactions = [];
+          if (!Array.isArray(tokenTransactions)) tokenTransactions = [];
+          if (!Array.isArray(internalData)) internalData = [];
+          if (chain !== 'solana' && chain !== 'tron') {
+            const uniqueContracts = [...new Set(tokenTransactions
+              .map(tx => tx.contractAddress)
+              .filter(isAddress)
+            )];
+            if (uniqueContracts.length > 0) {
+              const platform = chainIdToName[chain];
+              const contractList = uniqueContracts.join(',');
+              const cacheKey = `token_prices_${platform}_${contractList}_${page}_${walletLimitNonAlchemy}`;
+              const cached = await redisClient.get(cacheKey);
+              if (cached) {
+                tokenPrices = JSON.parse(cached);
+                logger.info(`Token prices cache hit for ${cacheKey}`);
+              } else {
+                try {
+                  const response = await fetchWithRateLimit(
+                    `https://api.coingecko.com/api/v3/simple/token_price/${platform}?contract_addresses=${contractList}&vs_currencies=usd`,
+                    { headers: { 'x-cg-demo-api-key': process.env.COINGECKO_API_KEY } }
+                  );
+                  tokenPrices = response.data || {};
+                  await redisClient.setEx(cacheKey, 300, JSON.stringify(tokenPrices));
+                  logger.info(`Batch fetched and cached prices for ${uniqueContracts.length} tokens`);
+                } catch (e) {
+                  logger.error('Batch token price fetch failed:', e.message);
+                }
+              }
+            }
+          }
           const nativeTxPromises = transactions.map(async (tx) => {
             let value = '0';
             let tokenSymbol = chainConfig.name === 'ethereum' ? 'ETH' : chainConfig.name.toUpperCase();
@@ -1513,32 +1790,56 @@ export async function POST(request) {
       // Auto-label & DB save...
       const allAddressesSet = new Set([...addresses, address]);
       const allAddresses = [...allAddressesSet];
+
+      const knownNametagsMap = new Map(
+        Object.entries(nametags)
+          .filter(([, data]) => data.name && data.name !== 'Unknown')
+          .map(([addr, data]) => [addr, { label: data.name, image: data.image }])
+      );
+
       const unknownAddresses = allAddresses.filter(
-        (addr) => !nametags?.[addr] || nametags[addr].name === 'Unknown'
+        (addr) => !nametags[addr] || nametags[addr].name === 'Unknown'
       ).slice(0, 50);
+
       if (unknownAddresses.length > 0) {
         const mockNodes = unknownAddresses.map(addr => {
-          const addrTxs = [...incoming, ...outgoing, ...layer3Transactions].filter(tx => tx.address.toLowerCase() === addr || (tx.layer2Address && tx.layer2Address.toLowerCase() === addr));
+          const addrTxs = [...incoming, ...outgoing, ...layer3Transactions].filter(
+            tx => tx.address.toLowerCase() === addr || (tx.layer2Address && tx.layer2Address.toLowerCase() === addr)
+          );
           const totalValue = addrTxs.reduce((sum, tx) => sum + parseFloat(tx.usdValue || 0), 0);
           const txCount = addrTxs.length;
           const uniqueTokens = new Set(addrTxs.map(tx => tx.tokenSymbol)).size;
           const velocity = txCount > 0 ? txCount / 30 : 0;
+
           return {
             id: addr,
-            totalValue,
+            totalValue: totalValue.toString(),
             txCount,
             degree: 1,
             uniqueTokens,
             velocity,
+            sellRatio: 0,
+            airdropScore: 0,
+            interactionWithExchanges: 0,
+            txEntropy: 0,
           };
         });
-        const autoLabels = await autoLabelWallets(mockNodes);
+
+        const autoLabels = await autoLabelWallets(mockNodes, null, knownNametagsMap);
+
         await saveAutoLabelsToDB(autoLabels);
+
         Object.entries(autoLabels).forEach(([addr, { label }]) => {
-          if (!nametags[addr]) {
-            nametags[addr] = { name: label, image: '/icons/default.webp', description: '', subcategory: 'ML Auto' };
+          if (!nametags[addr] || nametags[addr].name === 'Unknown') {
+            nametags[addr] = {
+              name: label,
+              image: '/icons/default.webp',
+              description: '',
+              subcategory: 'ML Auto'
+            };
           }
         });
+
         processedIncoming.forEach(tx => {
           const ntag = nametags[tx.address.toLowerCase()];
           if (ntag) {
@@ -1559,27 +1860,26 @@ export async function POST(request) {
             tx.nametag = ntagTo.name;
             tx.image = ntagTo.image;
           }
-          // Also update for layer2 if needed, but frontend uses source for from
         });
       }
-      const calculateServerRisk = (txs) => {
-        return txs.map(tx => ({
-          ...tx,
-          riskScore: Math.random() > 0.8 ? 0.9 : 0.3
-        }));
-      };
-      const resultWithRisk = {
-        ...result,
-        incoming: calculateServerRisk(result.incoming),
-        outgoing: calculateServerRisk(result.outgoing),
-        layer3: calculateServerRisk(result.layer3),
-      };
-      await redisClient.setEx(cacheKey, 3600, JSON.stringify(resultWithRisk));
-      return NextResponse.json(resultWithRisk, { headers: securityHeaders });
+      // const calculateServerRisk = (txs) => {
+      //   return txs.map(tx => ({
+      //     ...tx,
+      //     riskScore: Math.random() > 0.8 ? 0.9 : 0.3
+      //   }));
+      // };
+      // const resultWithRisk = {
+      //   ...result,
+      //   incoming: calculateServerRisk(result.incoming),
+      //   outgoing: calculateServerRisk(result.outgoing),
+      //   layer3: calculateServerRisk(result.layer3),
+      // };
+      await redisClient.setEx(cacheKey, 3600, JSON.stringify(result));
+      return NextResponse.json(result, { headers: securityHeaders });
     }
   } catch (error) {
     logger.error('Error processing request:', error.message);
-    await trackViolation(ip, error.message);
-    return NextResponse.json({ error: error.message }, { status: 429, headers: securityHeaders });
+    await trackViolation(ip, error.message || 'Unknown error');
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500, headers: securityHeaders });
   }
 }

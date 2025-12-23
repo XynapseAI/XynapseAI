@@ -1,7 +1,6 @@
 import { NextResponse } from 'next/server';
 import { detectClustersServer } from '../../../utils/serverClustering';
 
-// Danh sách các nguồn gốc (origins) được phép truy cập API
 const allowedOrigins = [
   process.env.NEXT_PUBLIC_APP_URL,
   'http://localhost:3000',
@@ -14,25 +13,25 @@ const allowedOrigins = [
 ].filter(Boolean);
 
 /**
- * Hàm kiểm tra nguồn gốc truy cập (Origin Check)
+ * (Origin Check)
  * @param {string | null} origin - Header Origin
  * @param {string | null} referer - Header Referer
  * @returns {boolean}
  */
+
 function isAllowedOrigin(origin, referer) {
   try {
-    // 1. Kiểm tra Origin trực tiếp
+
     if (origin && (allowedOrigins.includes(origin) || new URL(origin).hostname.endsWith('xynapseai.net'))) {
       return true;
     }
-    // 2. Kiểm tra Referer nếu Origin không có
     if (!origin && referer) {
       const refOrigin = new URL(referer).origin;
       if (allowedOrigins.includes(refOrigin) || new URL(refOrigin).hostname.endsWith('xynapseai.net')) {
         return true;
       }
     }
-    // 3. Cho phép yêu cầu nội bộ hoặc không rõ trong môi trường dev
+
     if (!origin && process.env.NODE_ENV === 'development') {
       console.log('Localhost request - skipping violation check');
       return true;
@@ -44,8 +43,8 @@ function isAllowedOrigin(origin, referer) {
 }
 
 /**
- * Xử lý yêu cầu POST tới /api/cluster
- * @param {Request} request - Đối tượng Request của Next.js
+ * POST /api/cluster
+ * @param {Request} request
  * @returns {NextResponse}
  */
 export async function POST(request) {
@@ -54,13 +53,13 @@ export async function POST(request) {
   const referer = request.headers.get('referer');
   const ip = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || '::1';
 
-  // 1. Kiểm tra Origin/CORS
+  // 1. Origin/CORS
   if (!isAllowedOrigin(origin, referer)) {
     console.warn(`[Violation] Blocked request from Origin: ${origin || 'None'} and Referer: ${referer || 'None'} at IP: ${ip}`);
     return NextResponse.json({ success: false, error: 'Forbidden Origin' }, { status: 403 });
   }
 
-  // 2. Tải các thư viện nặng (Dynamic Import) - FIXED: Handle load errors gracefully
+  // 2.(Dynamic Import) - FIXED: Handle load errors gracefully
   let tf = null;
   let IsolationForest = null;
 
@@ -82,7 +81,7 @@ export async function POST(request) {
     // Continue without IF
   }
 
-  // 3. Xử lý yêu cầu chính - FIXED: No client worker call; metrics computed in serverClustering
+  // 3.FIXED: No client worker call; metrics computed in serverClustering
   try {
     const body = await request.json();
     const { nodes, edges, options } = body;
@@ -91,7 +90,6 @@ export async function POST(request) {
       return NextResponse.json({ success: false, error: 'Invalid input: nodes and edges must be arrays.' }, { status: 400 });
     }
 
-    // Gọi hàm logic chính (đã fix errors)
     const clusters = await detectClustersServer(
       nodes,
       edges,
@@ -116,7 +114,6 @@ export async function POST(request) {
       stack: error.stack
     });
 
-    // Trả về lỗi 500
     return NextResponse.json({
       success: false,
       error: error.message,

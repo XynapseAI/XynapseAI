@@ -215,6 +215,42 @@ function securityHeaders(origin) {
     return headers;
 }
 
+const PRIORITY_ORDER = [
+    'ethereum',
+    'bsc',
+    'polygon',
+    'arbitrum',
+    'optimism',
+    'base',  
+    'solana',
+    'avalanche',
+    'mantle',
+    'linea',
+    'scroll',
+    'tron',
+    'bitcoin',
+    'unichain',
+    'monad',
+];
+
+const PLATFORM_KEY_MAP = {
+    ethereum: 'ethereum',
+    bsc: 'binance-smart-chain',
+    optimism: 'optimistic-ethereum',
+    polygon: 'polygon-pos',
+    arbitrum: 'arbitrum-one',
+    base: 'base',
+    solana: 'solana',
+    avalanche: 'avalanche',
+    mantle: 'mantle',
+    linea: 'linea',
+    scroll: 'scroll',
+    tron: 'tron',
+    bitcoin: 'bitcoin',
+    unichain: 'unichain',
+    monad: 'monad',
+};
+
 export async function OPTIONS(request) {
     const origin = request.headers.get('origin');
     const pathname = new URL(request.url).pathname;
@@ -338,18 +374,44 @@ export async function GET(request) {
 
         const results = await withRetry(() => query(searchSql, [searchTerm, exactMatch, startMatch]));
 
-        // Process results để extract contractAddress (default: ethereum nếu có, otherwise first)
-        const processedData = results.rows.map(row => ({
-            coingecko_id: row.coingecko_id,
-            symbol: row.symbol,
-            name: row.name,
-            image: row.image,
-            contractAddress: row.platforms?.ethereum || (row.platforms ? Object.values(row.platforms)[0] : null),
-            platforms: row.platforms,
-            detail_platforms: row.detail_platforms,
-            decimals: row.decimals,
-            chain: row.platforms ? Object.keys(row.platforms)[0] || 'multi' : null
-        }));
+        const processedData = results.rows.map(row => {
+            const platforms = row.platforms || {};
+            const platformKeys = Object.keys(platforms);
+
+            let selectedShort = null;
+            let selectedPlatformKey = null;
+
+            if (platformKeys.length > 0) {
+                for (const shortName of PRIORITY_ORDER) {
+                    const platKey = PLATFORM_KEY_MAP[shortName];
+                    if (platKey && platforms[platKey]) {
+                        selectedShort = shortName;
+                        selectedPlatformKey = platKey;
+                        break;
+                    }
+                }
+
+                if (!selectedPlatformKey) {
+                    selectedPlatformKey = platformKeys[0];
+                    selectedShort = platformKeys.length > 1 ? 'multi' : platformKeys[0]; // nếu nhiều chain → đánh dấu multi
+                }
+            }
+
+            const contractAddress = selectedPlatformKey ? platforms[selectedPlatformKey] : null;
+            const chain = selectedShort || 'multi';
+
+            return {
+                coingecko_id: row.coingecko_id,
+                symbol: row.symbol,
+                name: row.name,
+                image: row.image,
+                contractAddress,
+                platforms: row.platforms,
+                detail_platforms: row.detail_platforms,
+                decimals: row.decimals,
+                chain,
+            };
+        });
 
         const responseData = {
             success: true,
