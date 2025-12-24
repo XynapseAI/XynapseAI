@@ -417,20 +417,28 @@ const TrendChart = memo(({ transactions, velocity }) => {
     </div>
   );
 });
-const ClusterDashboard = memo(({ entity, isMobile, tokenImages }) => {
+const ClusterDashboard = memo(({ entity, isMobile, tokenImages, walletInfo }) => {
   if (!entity || entity.type !== 'cluster' || !entity.data || !entity.data.wallets || !entity.data.transactions) {
-    logger.warn('Invalid cluster data:', entity);
+    logger.warn('Invalid cluster data in ClusterDashboard:', entity);
     return null;
   }
   const { data: cluster } = entity;
-  const totalValue = cluster.totalValue || cluster.wallets.reduce((sum, w) => sum + parseFloat(w.totalValue || 0), 0);
-  const riskScore = cluster.riskScore || 0;
-  const txCount = cluster.transactions.length;
-  const avgTxValue = txCount > 0 ? totalValue / txCount : 0;
+  // Tính toán metrics an toàn
+  const totalValue = cluster.totalValue ||
+    cluster.wallets.reduce((sum, w) => sum + parseFloat(w.totalValue || 0), 0);
   const velocity = cluster.velocity || 0;
   const uniqueTokens = cluster.uniqueTokens || 0;
   const topTokensVolume = cluster.topTokensVolume || [];
   const outstandingTxs = cluster.outstandingTxs || [];
+  const riskScore = cluster.riskScore || 0;
+  // FIX CHẮC CHẮN: Đây là cluster đang hiển thị → nếu walletInfo có data → dùng nó làm hotspot
+  // Vì khi click vào root node hoặc cluster chứa root → selectedEntity luôn là cluster của root
+  const displayNametag = walletInfo?.nametag && walletInfo.nametag !== 'Unknown'
+    ? walletInfo.nametag
+    : (cluster.nametag || 'Unknown');
+  const displayImage = walletInfo?.image && isValidNametagImage(walletInfo.image)
+    ? walletInfo.image
+    : (cluster.image && isValidNametagImage(cluster.image) ? cluster.image : '/icons/default.webp');
   return (
     <div
       className={`bg-black/10 backdrop-blur-lg border border-white/20 rounded-2xl p-3 shadow-neon-md hide-scrollbar max-h-[calc(100vh-8rem)] ${isMobile ? 'w-full mt-2 overflow-auto max-h-[40vh]' : 'w-80 fixed left-4 top-32'}`}
@@ -438,18 +446,16 @@ const ClusterDashboard = memo(({ entity, isMobile, tokenImages }) => {
     >
       <h4 className="text-white text-[11px] font-bold mb-2 bg-gradient-to-r from-neon-blue/30 to-transparent rounded p-1 flex items-center gap-2">
         HotSpot:
-        {isValidNametagImage(cluster.image) && (
-          <img
-            src={cluster.image}
-            alt="Cluster logo"
-            width={16}
-            height={16}
-            className="rounded-full flex-shrink-0"
-            onError={(e) => (e.target.style.display = 'none')}
-            loading="lazy"
-          />
-        )}
-        {cluster.nametag || 'Unknown'}
+        <img
+          src={displayImage}
+          alt="Hotspot logo"
+          width={16}
+          height={16}
+          className="rounded-full flex-shrink-0"
+          onError={(e) => (e.target.src = '/icons/default.webp')}
+          loading="lazy"
+        />
+        <span className="truncate">{displayNametag}</span>
       </h4>
       <div className="grid grid-cols-2 gap-2 mb-2 text-[9px]">
         <div className="bg-white/10 p-2 rounded-lg">
@@ -469,34 +475,35 @@ const ClusterDashboard = memo(({ entity, isMobile, tokenImages }) => {
           <p className="text-white font-bold text-[12px]">{uniqueTokens}</p>
         </div>
       </div>
-      <div className="bg-white/10 p-2 rounded-lg mb-2">
-        <p className="text-white/90 text-[10px] font-bold mb-1">Top Tokens by Volume</p>
-        <div className="space-y-1">
-          {topTokensVolume.map(([key, vol]) => {
-            const tokenInfoItem = tokenImages[key];
-            const token = tokenInfoItem?.symbol || (isAddress(key) ? key.slice(0, 6) : key.toUpperCase());
-            const tokenLogo = tokenInfoItem?.image || '/icons/default.webp';
-            return (
-              <div key={key} className="flex items-center justify-between text-[10px] py-0.5 gap-2">
-                <div className="flex items-center gap-1 flex-1 min-w-0">
-                  <img
-                    src={tokenLogo}
-                    alt={`${token} logo`}
-                    width={14}
-                    height={14}
-                    className="rounded-full flex-shrink-0"
-                    onError={(e) => (e.target.src = '/icons/default.webp')}
-                    loading="lazy"
-                  />
-                  <span className="text-white/70 capitalize truncate">{token}</span>
+      {topTokensVolume.length > 0 && (
+        <div className="bg-white/10 p-2 rounded-lg mb-2">
+          <p className="text-white/90 text-[10px] font-bold mb-1">Top Tokens by Volume</p>
+          <div className="space-y-1">
+            {topTokensVolume.map(([key, vol]) => {
+              const tokenInfoItem = tokenImages[key];
+              const token = tokenInfoItem?.symbol || (isAddress(key) ? key.slice(0, 6) : key.toUpperCase());
+              const tokenLogo = tokenInfoItem?.image || '/icons/default.webp';
+              return (
+                <div key={key} className="flex items-center justify-between text-[10px] py-0.5 gap-2">
+                  <div className="flex items-center gap-1 flex-1 min-w-0">
+                    <img
+                      src={tokenLogo}
+                      alt={`${token} logo`}
+                      width={14}
+                      height={14}
+                      className="rounded-full flex-shrink-0"
+                      onError={(e) => (e.target.src = '/icons/default.webp')}
+                      loading="lazy"
+                    />
+                    <span className="text-white/70 capitalize truncate">{token}</span>
+                  </div>
+                  <span className="font-mono text-white/90 min-w-0">${formatLargeNumber(vol, 2)}</span>
                 </div>
-                <span className="font-mono text-white/90 min-w-0">${formatLargeNumber(vol, 2)}</span>
-              </div>
-            );
-          })}
+              );
+            })}
+          </div>
         </div>
-      </div>
-      {/* New: Outstanding Activities */}
+      )}
       {outstandingTxs.length > 0 && (
         <div className="bg-orange-500/20 p-2 rounded-lg mb-2 border border-orange-500/30">
           <p className="text-[9px] font-bold text-orange-300 mb-1">Outstanding Activities</p>
@@ -511,10 +518,12 @@ const ClusterDashboard = memo(({ entity, isMobile, tokenImages }) => {
         </div>
       )}
       <div className={`p-2 rounded-lg mb-2 ${riskScore > 0.5 ? 'bg-red-500/20 border-red-500/30' : 'bg-green-500/20 border-green-500/30'}`}>
-        <p className="text-[9px] font-bold">Risk Score: <span className={`${riskScore > 0.5 ? 'text-red-400' : 'text-green-400'}`}>{(riskScore * 100).toFixed(1)}%</span></p>
+        <p className="text-[9px] font-bold">
+          Risk Score: <span className={`${riskScore > 0.5 ? 'text-red-400' : 'text-green-400'}`}>{(riskScore * 100).toFixed(1)}%</span>
+        </p>
         {riskScore > 0.7 && <span className="text-red-400 text-[8px] inline-block ml-1">⚠️ High Risk</span>}
       </div>
-      <Suspense fallback={<div>Loading chart...</div>}>
+      <Suspense fallback={<div className="text-white/60 text-[9px]">Loading chart...</div>}>
         <TrendChart transactions={cluster.transactions} velocity={velocity} />
       </Suspense>
     </div>
@@ -1120,7 +1129,7 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
     }
   };
 
-  const initializeForceGraph = useCallback(async () => {
+    const initializeForceGraph = useCallback(async () => {
     if (!containerRef.current || !nodes.length || !walletInfo.address) {
       logger.warn('Cannot initialize ForceGraph: missing container, nodes, or walletInfo.address');
       return;
@@ -1137,7 +1146,11 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
       let clusterData;
       const rootCluster = detectedClusters.find(c => c.wallets.some(w => w.id.toLowerCase() === rootId));
       if (rootCluster) {
-        clusterData = rootCluster;
+        clusterData = {
+    ...rootCluster,
+    nametag: rootCluster.nametag || walletInfo.nametag || truncateAddress(rootId),
+    image: rootCluster.image || walletInfo.image || '/icons/default.webp',
+  };
       } else {
         // Fallback to root-only data
         let filteredRootTxs = [];
@@ -1185,25 +1198,56 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
         const allWallets = [rootWalletData, ...connectedWalletsWithData];
         const metrics = await computeMetricsInWorker(uniqueTxs, allWallets);
         clusterData = {
-          clusterId: 'root',
-          nametag: walletInfo.nametag || truncateAddress(rootId),
-          image: walletInfo.image,
-          wallets: allWallets,
-          transactions: allTxs,
-          riskScore: 0,
-          ...metrics,
-        };
-      }
-      setSelectedEntity({ type: 'cluster', data: rootCluster || clusterData });
+    clusterId: 'root',
+    nametag: walletInfo.nametag || truncateAddress(rootId),
+    image: walletInfo.image || '/icons/default.webp',
+    wallets: allWallets,
+    transactions: allTxs,
+    riskScore: 0,
+    ...metrics,
+  };
+} setSelectedEntity({ type: 'cluster', data: rootCluster || clusterData });
       // Preload images with reduced scope (only essential)
+            // Preload images - ưu tiên walletInfo.image trước tiên
       const imageCache = {};
-      const uniqueImages = [...new Set(positionedNodesData.slice(0, 50).map(n => n.image).filter(isValidNametagImage))]; // Limit preload to 50
+      const imagesToPreload = new Set();
+      // Luôn preload image của wallet gốc trước
+      if (walletInfo.image && isValidNametagImage(walletInfo.image)) {
+        imagesToPreload.add(walletInfo.image);
+      }
+      // Thêm các image khác từ nodes
+      positionedNodesData.forEach(n => {
+        if (n.image && isValidNametagImage(n.image)) {
+          imagesToPreload.add(n.image);
+        }
+      });
+      // Preload default image
+      const defaultUrl = '/icons/default.webp';
+      const defaultImg = new Image();
+      defaultImg.src = `${window.location.origin}${defaultUrl}`;
+      await new Promise((resolve) => {
+        defaultImg.onload = () => {
+          imageCache['default'] = defaultImg;
+          resolve();
+        };
+        defaultImg.onerror = () => {
+          console.error('Failed to load default image');
+          resolve(); // Continue even if default fails
+        };
+      });
+      const uniqueImages = Array.from(imagesToPreload);
       await Promise.all(uniqueImages.map(url => new Promise((resolve) => {
         if (imageCache[url]) return resolve();
         const img = new Image();
         img.crossOrigin = 'anonymous';
-        img.onload = () => { imageCache[url] = img; resolve(); };
-        img.onerror = () => resolve();
+        img.onload = () => {
+          imageCache[url] = img;
+          resolve();
+        };
+        img.onerror = () => {
+          imageCache[url] = imageCache['default'];
+          resolve();
+        };
         img.src = url.startsWith('http') ? url : `${window.location.origin}${url}`;
       })));
       const isTokenQuery = fullIncomingData.length === 0 && fullOutgoingData.length === 0;
@@ -1230,7 +1274,6 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
         id: `${e.data.source}-${e.data.target}-${index}`, // Unique ID for each edge
         width: e.data.layer === 3 ? 0.15 : 0.4
       }));
-
       // NEW: Precompute parallel indices to avoid O(n^2) filtering in linkCanvasObject
       const undirectedGroups = new Map();
       linksWithIds.forEach(link => {
@@ -1248,7 +1291,6 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
         link.numParallel = group.length;
         link.parallelIndex = group.findIndex(l => l.id === link.id);
       });
-
       graphRef.current = ForceGraph()(containerRef.current)
         .graphData({
           nodes: positionedNodesData.map(n => ({
@@ -1286,12 +1328,11 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
 </div>
 `;
         })
-        .nodeCanvasObject((node, ctx, globalScale) => {
+                        .nodeCanvasObject((node, ctx, globalScale) => {
           const size = node.val / globalScale;
           const cluster = detectedClusters.find(c => c.clusterId === node.clusterId);
           const risk = cluster?.riskScore || 0;
           const riskColor = risk > 0.7 ? '#FF0000' : risk > 0.3 ? '#FFA500' : '#00FF00';
-
           ctx.beginPath();
           ctx.arc(node.x, node.y, size, 0, 2 * Math.PI, false);
           ctx.fillStyle = node.color || riskColor;
@@ -1299,12 +1340,21 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
           ctx.strokeStyle = '#fff';
           ctx.lineWidth = 1 / globalScale;
           ctx.stroke();
-
-          const isRoot = node.id.toLowerCase() === walletInfo.address.toLowerCase();
-          const rootImage = isRoot ? walletInfo.image : node.image;
-
-          if (isValidNametagImage(rootImage) && imageCache[rootImage]) {
-            const img = imageCache[rootImage];
+          // Ưu tiên walletInfo.image cho root node
+          const isRoot = node.id.toLowerCase() === walletInfo.address?.toLowerCase();
+          let displayImage = '/icons/default.webp';
+          if (isRoot && walletInfo.image) {
+            displayImage = walletInfo.image;
+          } else if (node.image) {
+            displayImage = node.image;
+          }
+          let finalDisplayImage = displayImage;
+          if (!imageCache[displayImage]) {
+            finalDisplayImage = '/icons/default.webp';
+          }
+          // Image đã được preload → chắc chắn có trong cache
+          if (imageCache[finalDisplayImage]) {
+            const img = imageCache[finalDisplayImage];
             ctx.save();
             ctx.beginPath();
             ctx.arc(node.x, node.y, size, 0, 2 * Math.PI);
@@ -1367,7 +1417,6 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
           ctx.strokeStyle = isLayer3
             ? `rgba(200, 200, 255, ${0.6 * opacity})`
             : `rgba(255, 255, 255, ${0.6 * opacity})`;
-
           const baseWidth = isLayer3 ? 0.22 : 0.5;
           const valueScale = Math.min(1.5, Math.log(Number(link.value || 1) + 1) / Math.LN10);
           ctx.lineWidth = (baseWidth * valueScale * (1 - 0.15 * Math.abs(edgeIndex - (numEdges - 1) / 2))) / globalScale;
@@ -1445,7 +1494,7 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
       toast.error('Graph visualization failed. Please refresh.', { position: 'top-right', theme: 'dark' });
     }
   }, [nodes, edges, walletInfo, filterType, walletAddress, fullIncomingData, fullOutgoingData, fullLayer3Data, clusters, filterTransactions]);
-
+  
   useEffect(() => {
     initializeForceGraph().catch(console.error);
     return () => {
@@ -1954,6 +2003,7 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
             entity={selectedEntity}
             isMobile={isMobile}
             tokenImages={tokenImages}
+            walletInfo={walletInfo}
           />
         )}
         <VirtuosoTable

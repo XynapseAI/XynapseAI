@@ -1,5 +1,4 @@
 // app/api/get-transactions/route.js
-
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
 import { logger } from '../../../utils/serverLogger';
@@ -14,7 +13,6 @@ import crypto from 'crypto';
 import { BLOCKED_TOKEN_ADDRESSES } from '../../../utils/constants';
 import { autoLabelWallets } from '../../../utils/serverClustering';
 import { bech32 } from 'bech32';
-
 let redisClient;
 async function getRedisClient() {
   if (!redisClient) {
@@ -27,7 +25,6 @@ async function getRedisClient() {
   }
   return redisClient;
 }
-
 const securityHeaders = {
   'Content-Security-Policy': "default-src 'self'; frame-ancestors 'self';",
   'X-Content-Type-Options': 'nosniff',
@@ -37,21 +34,18 @@ const securityHeaders = {
   'Referrer-Policy': 'strict-origin-when-cross-origin',
   'Permissions-Policy': 'geolocation=(), microphone=(), camera=()',
 };
-
 async function banIP(ip, durationSeconds = 3600) {
   if (ip === '::1' || ip === '127.0.0.1') return;
   const redisClient = await getRedisClient();
   await redisClient.setEx(`banned_ip:${ip}`, durationSeconds, 'banned');
   logger.info(`IP banned: ${ip} for ${durationSeconds} seconds`);
 }
-
 async function checkIPBan(ip) {
   if (ip === '::1' || ip === '127.0.0.1') return;
   const redisClient = await getRedisClient();
   const isBanned = await redisClient.get(`banned_ip:${ip}`);
   if (isBanned) throw new Error('IP temporarily banned.');
 }
-
 async function trackViolation(ip, reason = '') {
   if (ip === '::1' || ip === '127.0.0.1') {
     logger.warn(`Localhost violation skipped: ${reason}`);
@@ -71,7 +65,6 @@ async function trackViolation(ip, reason = '') {
   }
   logger.warn(`Violation tracked for IP ${ip}: ${reason}`);
 }
-
 async function checkRateLimit(ip) {
   if (ip === '::1' || ip === '127.0.0.1') return;
   const redisClient = await getRedisClient();
@@ -84,12 +77,10 @@ async function checkRateLimit(ip) {
   const [requests] = await pipeline.exec();
   if (requests > maxRequests) throw new Error('Too many requests.');
 }
-
 let circuitOpen = false;
 let failureCount = 0;
 const maxFailures = 15;
 const resetTimeout = 120000;
-
 async function fetchWithRateLimit(url, config) {
   if (circuitOpen) throw new Error('Service temporarily unavailable.');
   try {
@@ -108,7 +99,6 @@ async function fetchWithRateLimit(url, config) {
     throw error;
   }
 }
-
 const limiterBottleneck = new Bottleneck({
   maxConcurrent: 25,
   minTime: 30,
@@ -116,13 +106,11 @@ const limiterBottleneck = new Bottleneck({
   reservoirRefreshAmount: 300,
   reservoirRefreshInterval: 30 * 1000,
 });
-
 axiosRetry(axios, {
   retries: 3,
   retryDelay: (retryCount) => Math.pow(2, retryCount) * 300 + Math.random() * 50,
   retryCondition: (error) => error.response?.status === 429 || error.code === 'ECONNABORTED' || error.response?.status === 400,
 });
-
 async function isAllowedOrigin(origin, referer, ip) {
   const configured = [
     process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000',
@@ -148,7 +136,6 @@ async function isAllowedOrigin(origin, referer, ip) {
     return false;
   }
 }
-
 const SUPPORTED_CHAINS = {
   '1': { name: 'ethereum', explorer: 'Etherscan', apiUrl: 'https://api.etherscan.io/v2/api', apiKey: process.env.ETHERSCAN_API_KEY, coingeckoId: 'ethereum' },
   '56': { name: 'bsc', explorer: 'BscScan', apiUrl: 'https://api.etherscan.io/v2/api', apiKey: process.env.ETHERSCAN_API_KEY, coingeckoId: 'binance-smart-chain' },
@@ -164,7 +151,6 @@ const SUPPORTED_CHAINS = {
   'bitcoin': { name: 'bitcoin', explorer: 'Mempool', apiUrl: 'https://mempool.space/api', apiKey: '', coingeckoId: 'bitcoin' },
   'monad': { name: 'monad', explorer: 'Monad Explorer', apiUrl: 'https://monadvision.com/', apiKey: process.env.ETHERSCAN_API_KEY, coingeckoId: 'monad' },
 };
-
 const alchemyNetworks = {
   '1': 'eth-mainnet',
   '10': 'opt-mainnet',
@@ -180,13 +166,10 @@ const alchemyNetworks = {
   '5000': 'mantle-mainnet',
   '534352': 'scroll-mainnet',
 };
-
 const ALCHEMY_API_KEY = process.env.ALCHEMY_API_KEY;
-
 const chainIdToName = Object.fromEntries(
   Object.entries(SUPPORTED_CHAINS).map(([id, { name }]) => [id, name])
 );
-
 const bodySchema = z.object({
   wallet_address: z.string().nonempty('Wallet address is required'),
   chain: z.enum(Object.keys(SUPPORTED_CHAINS), { message: 'Invalid chain' }),
@@ -195,7 +178,6 @@ const bodySchema = z.object({
   fetchLayer3: z.boolean().optional().default(false),
   isToken: z.boolean().optional().default(false),
 });
-
 function formatAddress(addr, chain) {
   if (!addr) return 'N/A';
   if (addr.startsWith('0x')) {
@@ -207,7 +189,6 @@ function formatAddress(addr, chain) {
   }
   return addr;
 }
-
 function isValidTokenSymbol(symbol) {
   if (!symbol || typeof symbol !== 'string') return false;
   const cleanedSymbol = symbol.trim().toLowerCase();
@@ -219,24 +200,19 @@ function isValidTokenSymbol(symbol) {
   const suspiciousKeywords = ['claim', 'free', 'airdrop', 'promo', 'reward', 'bonus'];
   return !suspiciousKeywords.some(keyword => cleanedSymbol.includes(keyword));
 }
-
 function isValidBitcoinAddress(addr) {
   if (typeof addr !== 'string') return false;
   addr = addr.trim();
-
   // Legacy: P2PKH (1...), P2SH (3...), less strict (allow 0, I, O, l and slight length variation)
   if (/^[13][0-9A-Za-z]{25,35}$/.test(addr)) {
     return true; // Skip checksum, basic format only for less strictness
   }
-
   // Bech32 (bc1...): Skip checksum, just format check for less strictness
   if (/^bc1[a-z0-9]{39,59}$/i.test(addr)) {
     return true;
   }
-
   return false;
 }
-
 function safeFormatUnits(value, unit) {
   if (value == null) return '0';
   try {
@@ -246,11 +222,9 @@ function safeFormatUnits(value, unit) {
     return typeof value === 'number' ? value.toFixed(6) : String(value);
   }
 }
-
 function safeFormatEther(value) {
   return safeFormatUnits(value, 18);
 }
-
 async function getChainLogo(coingeckoId) {
   const cacheKey = `chain_logo_${coingeckoId}`;
   const redisClient = await getRedisClient();
@@ -269,7 +243,6 @@ async function getChainLogo(coingeckoId) {
     return '/icons/default.webp';
   }
 }
-
 async function getCurrentPrice(cgId) {
   const redisClient = await getRedisClient();
   const cacheKey = `price_${cgId}`;
@@ -290,7 +263,6 @@ async function getCurrentPrice(cgId) {
   }
   return 0;
 }
-
 async function getTokenCurrentPriceBatch(platform, contractAddresses) {
   const redisClient = await getRedisClient();
   const contractList = contractAddresses.join(',');
@@ -316,12 +288,10 @@ async function getTokenCurrentPriceBatch(platform, contractAddresses) {
     return {};
   }
 }
-
 async function getTokenCurrentPrice(platform, contractAddress) {
   const prices = await getTokenCurrentPriceBatch(platform, [contractAddress]);
   return prices[contractAddress.toLowerCase()]?.usd || 0;
 }
-
 async function getNametagsBatch(addresses, chain) {
   const start = Date.now();
   const isCaseSensitive = ['bitcoin', 'solana', 'tron'].includes(chain);
@@ -516,7 +486,6 @@ async function getNametagsBatch(addresses, chain) {
   logger.info(`getNametagsBatch took ${(Date.now() - start) / 1000}s for ${uniqueLowers.length} addresses`);
   return cachedNametags;
 }
-
 async function getTokenImage(tokenAddress, chain) {
   if (!tokenAddress || !isAddress(tokenAddress)) return '/icons/default.webp';
   const redisClient = await getRedisClient();
@@ -553,7 +522,6 @@ async function getTokenImage(tokenAddress, chain) {
     return '/icons/default.webp';
   }
 }
-
 async function getTokenSymbolsBatch(baseUrl, contractAddresses) {
   const redisClient = await getRedisClient();
   const symbols = {};
@@ -613,36 +581,25 @@ async function getTokenSymbolsBatch(baseUrl, contractAddresses) {
   }
   return symbols;
 }
-
 async function fetchLayer3Transactions(layer2Addresses, chain, limit, page) {
   const start = Date.now();
   const transactions = [];
   const chainConfig = SUPPORTED_CHAINS[chain];
-
   if (!chainConfig.apiUrl && !alchemyNetworks[chain]) return transactions;
-
   const safeAddresses = (layer2Addresses || [])
     .filter(addr => typeof addr === 'string' && addr.trim().length > 0)
     .map(addr => addr.toLowerCase().trim())
     .slice(0, 10);
-
   if (safeAddresses.length === 0) return transactions;
-
   const layer2Nametags = await getNametagsBatch(safeAddresses);
-
   const validLayer2Addresses = safeAddresses.filter(
     addr => layer2Nametags[addr]?.name && layer2Nametags[addr].name !== 'Unknown'
   );
-
   logger.info(`Fetching Layer 3 transactions for ${validLayer2Addresses.length} valid Layer 2 addresses`);
-
   if (validLayer2Addresses.length === 0) return transactions;
-
   const layer3Limit = 20;
   let nativePrice = await getCurrentPrice(chainConfig.coingeckoId || 'bitcoin');
-
   const allRawTxs = [];
-
   for (const address of validLayer2Addresses) {
     try {
       let apiUrl;
@@ -683,7 +640,6 @@ async function fetchLayer3Transactions(layer2Addresses, chain, limit, page) {
             }]
           }).catch(() => ({ data: { result: { transfers: [] } } }))
         ]);
-
         const txData = [];
         txData.push(...(resOut.data.result.transfers || []).map(t => ({ ...t, type: 'outgoing', fromAddress: address })));
         txData.push(...(resIn.data.result.transfers || []).map(t => ({ ...t, type: 'incoming', fromAddress: address })));
@@ -692,11 +648,9 @@ async function fetchLayer3Transactions(layer2Addresses, chain, limit, page) {
       } else {
         continue;
       }
-
       const cacheKey = `layer3_tx_${chain}_${address}_${page}_${layer3Limit}`;
       const redisClient = await getRedisClient();
       const cached = await redisClient.get(cacheKey);
-
       let txData = [];
       if (cached) {
         logger.info(`Layer3 cache hit for ${cacheKey}`);
@@ -706,25 +660,19 @@ async function fetchLayer3Transactions(layer2Addresses, chain, limit, page) {
         txData = response.data || [];
         await redisClient.setEx(cacheKey, 3600, JSON.stringify(txData));
       }
-
       txData = txData.map(tx => ({ ...tx, layer2Address: address }));
       allRawTxs.push(...txData);
-
     } catch (error) {
       logger.error(`Failed to fetch Layer 3 for ${address}:`, error.message);
     }
   }
-
   const bitcoinLayer3Promises = allRawTxs.map(async (tx) => {
     if (chain !== 'bitcoin') return null;
-
     if (!tx.status?.confirmed) return null;
     const blockTime = tx.status.block_time ? new Date(tx.status.block_time * 1000).toISOString() : null;
     if (!blockTime) return null;
-
     let value = '0';
     let usdValue = 0;
-
     // Incoming to layer2Address
     const receivedVouts = tx.vout?.filter(v => v.scriptpubkey_address?.toLowerCase() === tx.layer2Address) || [];
     for (const vout of receivedVouts) {
@@ -746,7 +694,6 @@ async function fetchLayer3Transactions(layer2Addresses, chain, limit, page) {
         };
       }
     }
-
     // Outgoing from layer2Address
     const spentVins = tx.vin?.filter(v => v.prevout?.scriptpubkey_address?.toLowerCase() === tx.layer2Address) || [];
     for (const vin of spentVins) {
@@ -766,16 +713,13 @@ async function fetchLayer3Transactions(layer2Addresses, chain, limit, page) {
         layer2Address: tx.layer2Address,
       };
     }
-
     return null;
   });
-
   const bitcoinResults = await Promise.allSettled(bitcoinLayer3Promises);
   transactions.push(...bitcoinResults
     .filter(r => r.status === 'fulfilled' && r.value)
     .map(r => r.value)
   );
-
   // Nametags Layer 3
   const layer3Addrs = [...new Set(transactions.map(tx => tx.address?.toLowerCase()).filter(Boolean))];
   if (layer3Addrs.length > 0) {
@@ -788,33 +732,26 @@ async function fetchLayer3Transactions(layer2Addresses, chain, limit, page) {
       }
     });
   }
-
   logger.info(`fetchLayer3Transactions took ${(Date.now() - start) / 1000}s`);
   return transactions;
 }
-
 async function fetchFromEtherscanFallback(address, chain, limit, page) {
   if (chain !== '1') return { incoming: [], outgoing: [] };
   const chainConfig = SUPPORTED_CHAINS[chain];
   if (!chainConfig.apiKey) return { incoming: [], outgoing: [] };
-
   const offset = limit;
   const startblock = 0;
   const endblock = 99999999;
   const sort = 'desc';
-
   const endpoints = [
     { action: 'txlist', type: 'native' },
     { action: 'tokentx', type: 'token' },
     { action: 'txlistinternal', type: 'internal' }
   ];
-
   let nativeTxs = [];
   let tokenTxs = [];
   let internalTxs = [];
-
   const redisClient = await getRedisClient();
-
   for (const { action, type } of endpoints) {
     const url = `${chainConfig.apiUrl}?module=account&action=${action}&address=${address}&startblock=${startblock}&endblock=${endblock}&page=${page}&offset=${offset}&sort=${sort}&apikey=${chainConfig.apiKey}`;
     const cacheKey = `etherscan_fallback_${action}_${address}_${page}_${offset}`;
@@ -842,12 +779,10 @@ async function fetchFromEtherscanFallback(address, chain, limit, page) {
     if (type === 'token') tokenTxs = data;
     if (type === 'internal') internalTxs = data;
   }
-
   let incoming = [];
   let outgoing = [];
   let nativePrice = await getCurrentPrice(chainConfig.coingeckoId);
   const addresses = new Set();
-
   // Process native txs
   const nativeTxPromises = nativeTxs.map(async (tx) => {
     const value = safeFormatEther(tx.value);
@@ -881,7 +816,6 @@ async function fetchFromEtherscanFallback(address, chain, limit, page) {
       addresses.add(tx.address);
     }
   });
-
   // Process token txs
   const uniqueContracts = [...new Set(tokenTxs
     .map(tx => tx.contractAddress)
@@ -895,7 +829,6 @@ async function fetchFromEtherscanFallback(address, chain, limit, page) {
     image: await getTokenImage(contract, chain)
   }));
   const tokenImages = Object.fromEntries((await Promise.all(imagePromises)).map(o => [o.contract, o.image]));
-
   const tokenTxPromises = tokenTxs.map(async (tx) => {
     if (!isAddress(tx.contractAddress) || BLOCKED_TOKEN_ADDRESSES.includes(tx.contractAddress.toLowerCase()) || !isValidTokenSymbol(tx.tokenSymbol)) return null;
     const decimals = parseInt(tx.tokenDecimal || 18);
@@ -932,7 +865,6 @@ async function fetchFromEtherscanFallback(address, chain, limit, page) {
       addresses.add(tx.address);
     }
   });
-
   // Process internal txs
   const internalTxPromises = internalTxs.map(async (itx) => {
     if (itx.type !== 'call' || BigInt(itx.value) === 0n) return null;
@@ -968,10 +900,8 @@ async function fetchFromEtherscanFallback(address, chain, limit, page) {
       addresses.add(tx.address);
     }
   });
-
   return { incoming, outgoing };
 }
-
 async function hasConfidenceColumn() {
   try {
     const result = await query(
@@ -985,7 +915,6 @@ async function hasConfidenceColumn() {
     return false;
   }
 }
-
 async function saveAutoLabelsToDB(addressesWithLabels, chain) {
   const redisClient = await getRedisClient();
   const hasConf = await hasConfidenceColumn();
@@ -1021,7 +950,6 @@ async function saveAutoLabelsToDB(addressesWithLabels, chain) {
     }
   }
 }
-
 export async function POST(request) {
   const ip = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || '::1';
   const origin = request.headers.get('origin');
@@ -1106,6 +1034,7 @@ export async function POST(request) {
     let nativePrice = await getCurrentPrice(chainConfig.coingeckoId);
     let tokenPrices = {};
     const addresses = new Set();
+    addresses.add(address);  // Thêm address chính vào set để fetch nametag cho nó
     let layer3Transactions = [];
     let walletNametag;
     let chainLogo = await getChainLogo(chainConfig.coingeckoId);
@@ -1116,7 +1045,6 @@ export async function POST(request) {
       const symbols = await getTokenSymbolsBatch(baseUrl, [address]);
       tokenSymbol = symbols[caseSensitive ? address : address.toLowerCase()] || 'UNKNOWN';
       tokenImage = await getTokenImage(address, chain);
-
       logger.info(`Token query: ${address} - Symbol: ${tokenSymbol}, Image: ${tokenImage}`);
       const resToken = await axios.post(baseUrl, {
         jsonrpc: "2.0",
@@ -1238,6 +1166,7 @@ export async function POST(request) {
       let nativePrice = await getCurrentPrice(chainConfig.coingeckoId);
       let tokenPrices = {};
       const addresses = new Set();
+      addresses.add(address);  // Thêm address chính vào set để fetch nametag cho nó
       let layer3Transactions = [];
       let walletNametag;
       let chainLogo = await getChainLogo(chainConfig.coingeckoId);
@@ -1402,6 +1331,7 @@ export async function POST(request) {
           apiUrl = `${chainConfig.apiUrl}/transaction?address=${address}&limit=${walletLimitNonAlchemy}&start=${(page - 1) * walletLimitNonAlchemy}`;
           fetchPromises.push(fetchWithRateLimit(apiUrl, { timeout: 10000 }).then((res) => ({ type: 'native', data: res.data.transactions || [] })));
         } else if (chain === 'bitcoin') {
+          addresses.add(address);  // Thêm address chính vào set để fetch nametag cho nó
           let allTxs = [];
           let afterTxid = null;
           const targetLimit = Math.min(200, limit);
@@ -1438,18 +1368,14 @@ export async function POST(request) {
             allTxs.push(...pageTxs);
             afterTxid = pageTxs[pageTxs.length - 1]?.txid;
           } while (allTxs.length < targetLimit && afterTxid);
-
           logger.info(`Total Bitcoin transactions fetched: ${allTxs.length}`);
-
           const bitcoinTxPromises = allTxs.map(async (tx) => {
             if (!tx.status?.confirmed) return null;
             const blockTime = tx.status.block_time ? new Date(tx.status.block_time * 1000).toISOString() : null;
             if (!blockTime) return null;
-
             let tokenSymbol = 'BTC';
             let tokenImage = '/icons/default.webp';
             let nativePriceUsed = nativePrice || 0;
-
             if (tx.vout && Array.isArray(tx.vout)) {
               for (const vout of tx.vout) {
                 if (vout.scriptpubkey_address && (caseSensitive ? vout.scriptpubkey_address === address : vout.scriptpubkey_address.toLowerCase() === address) && vout.value > 546) {
@@ -1458,9 +1384,7 @@ export async function POST(request) {
                   const sourceAddr = tx.vin && tx.vin[0] && tx.vin[0].prevout?.scriptpubkey_address
                     ? tx.vin[0].prevout.scriptpubkey_address
                     : 'coinbase_or_unknown';
-
                   addresses.add(caseSensitive ? sourceAddr : sourceAddr.toLowerCase());
-
                   return {
                     address: sourceAddr,
                     hash: tx.txid,
@@ -1475,7 +1399,6 @@ export async function POST(request) {
                 }
               }
             }
-
             if (tx.vin && Array.isArray(tx.vin)) {
               for (const vin of tx.vin) {
                 if (vin.prevout && vin.prevout.scriptpubkey_address && (caseSensitive ? vin.prevout.scriptpubkey_address === address : vin.prevout.scriptpubkey_address.toLowerCase() === address)) {
@@ -1486,9 +1409,7 @@ export async function POST(request) {
                     const firstVout = tx.vout.find(v => v.scriptpubkey_address) || tx.vout[0];
                     targetAddr = firstVout?.scriptpubkey_address || 'unknown';
                   }
-
                   addresses.add(caseSensitive ? targetAddr : targetAddr.toLowerCase());
-
                   return {
                     address: targetAddr,
                     hash: tx.txid,
@@ -1503,10 +1424,8 @@ export async function POST(request) {
                 }
               }
             }
-
             return null;
           });
-
           const bitcoinTxResults = await Promise.allSettled(bitcoinTxPromises);
           bitcoinTxResults.forEach((result) => {
             if (result.status === 'fulfilled' && result.value) {
@@ -1772,17 +1691,14 @@ export async function POST(request) {
       // Auto-label & DB save...
       const allAddressesSet = new Set([...addresses, address]);
       const allAddresses = [...allAddressesSet];
-
       const knownNametagsMap = new Map(
         Object.entries(nametags)
           .filter(([, data]) => data.name && data.name !== 'Unknown')
           .map(([addr, data]) => [caseSensitive ? addr : addr.toLowerCase(), { label: data.name, image: data.image }])
       );
-
       const unknownAddresses = allAddresses.filter(
         (addr) => !nametags[caseSensitive ? addr : addr.toLowerCase()] || nametags[caseSensitive ? addr : addr.toLowerCase()].name === 'Unknown'
       ).slice(0, 50);
-
       if (unknownAddresses.length > 0) {
         const mockNodes = unknownAddresses.map(addr => {
           const addrTxs = [...incoming, ...outgoing, ...layer3Transactions].filter(
@@ -1792,7 +1708,6 @@ export async function POST(request) {
           const txCount = addrTxs.length;
           const uniqueTokens = new Set(addrTxs.map(tx => tx.tokenSymbol)).size;
           const velocity = txCount > 0 ? txCount / 30 : 0;
-
           return {
             id: addr,
             totalValue: totalValue.toString(),
@@ -1806,11 +1721,8 @@ export async function POST(request) {
             txEntropy: 0,
           };
         });
-
         const autoLabels = await autoLabelWallets(mockNodes, null, knownNametagsMap);
-
         await saveAutoLabelsToDB(autoLabels);
-
         Object.entries(autoLabels).forEach(([addr, { label }]) => {
           if (!nametags[caseSensitive ? addr : addr.toLowerCase()] || nametags[caseSensitive ? addr : addr.toLowerCase()].name === 'Unknown') {
             nametags[caseSensitive ? addr : addr.toLowerCase()] = {
@@ -1821,7 +1733,6 @@ export async function POST(request) {
             };
           }
         });
-
         processedIncoming.forEach(tx => {
           const ntag = nametags[caseSensitive ? tx.address : tx.address.toLowerCase()];
           if (ntag) {
@@ -1845,16 +1756,16 @@ export async function POST(request) {
         });
       }
       // const calculateServerRisk = (txs) => {
-      //   return txs.map(tx => ({
-      //     ...tx,
-      //     riskScore: Math.random() > 0.8 ? 0.9 : 0.3
-      //   }));
+      // return txs.map(tx => ({
+      // ...tx,
+      // riskScore: Math.random() > 0.8 ? 0.9 : 0.3
+      // }));
       // };
       // const resultWithRisk = {
-      //   ...result,
-      //   incoming: calculateServerRisk(result.incoming),
-      //   outgoing: calculateServerRisk(result.outgoing),
-      //   layer3: calculateServerRisk(result.layer3),
+      // ...result,
+      // incoming: calculateServerRisk(result.incoming),
+      // outgoing: calculateServerRisk(result.outgoing),
+      // layer3: calculateServerRisk(result.layer3),
       // };
       await redisClient.setEx(cacheKey, 3600, JSON.stringify(result));
       return NextResponse.json(result, { headers: securityHeaders });
