@@ -772,34 +772,32 @@ async function clearEtfRedisCache() {
 // Main function to run all crawlers
 async function runAllCrawlers() {
   console.log(`[${new Date().toISOString()}] Starting crawl cycle...`);
-  await ensurePrismaConnected(); 
-  await clearEtfRedisCache();
-  for (const target of TARGETS) {
-    if (target.type === "etherscan") {
-      await crawlEtherscanTopHolders(target.url, target.name, target.chainLabel);
-    } else if (target.type === "bitinfocharts") {
-      await crawlBitinfochartsTopHolders(target.urls, target.name, target.chainLabel);
-    } else if (target.type === "bitbo") {
-      await crawlBitboTopHolders(target.url, target.name, target.chainLabel);
-    } else if (target.type === "bitbo-flows") {
-      await crawlBitboEtfFlows(target.url, target.name, target.chainLabel);
+  try {
+    await ensurePrismaConnected(); 
+    await clearEtfRedisCache();
+
+    for (const target of TARGETS) {
+      if (target.type === "etherscan") {
+        await crawlEtherscanTopHolders(target.url, target.name, target.chainLabel);
+      } else if (target.type === "bitinfocharts") {
+        await crawlBitinfochartsTopHolders(target.urls, target.name, target.chainLabel);
+      } else if (target.type === "bitbo") {
+        await crawlBitboTopHolders(target.url, target.name, target.chainLabel);
+      } else if (target.type === "bitbo-flows") {
+        await crawlBitboEtfFlows(target.url, target.name, target.chainLabel);
+      }
+      await delay(2000);  
     }
-    await delay(2000);  
+
+    console.log(`[${new Date().toISOString()}] ✅ Crawl cycle completed successfully.`);
+  } catch (error) {
+    console.error(`[${new Date().toISOString()}] ❌ Crawl cycle failed:`, error.message);
+    process.exit(1);
+  } finally {
+    await prisma.$disconnect();
+    console.log(`[${new Date().toISOString()}] Prisma disconnected. Exiting process...`);
+    process.exit(0);
   }
-  console.log(`[${new Date().toISOString()}] Crawl cycle completed.`);
 }
 
-// Run immediately
 runAllCrawlers();
-
-cron.schedule("0 7 * * *", () => {
-  console.log(`[${new Date().toISOString()}] Starting scheduled crawl...`);
-  runAllCrawlers();
-});
-
-// Cleanup Prisma connection on process exit
-process.on("SIGINT", async () => {
-  await prisma.$disconnect();
-  console.log("Prisma client disconnected");
-  process.exit(0);
-});

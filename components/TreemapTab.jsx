@@ -37,9 +37,21 @@ const formatLargeNumber = (value, decimals = 1) => {
   }
   return Number(value.toFixed(decimals)).toLocaleString('en-US', { minimumFractionDigits: decimals, maximumFractionDigits: decimals });
 };
-const truncateAddress = (addr) => {
+const formatAddress = (addr, chain) => {
   if (!addr) return 'N/A';
-  return `${addr.slice(0, 6)}...${addr.slice(-4)}`;
+  if (addr.startsWith('0x')) {
+    try {
+      return getAddress(addr); // Convert to checksummed mixed case for EVM
+    } catch {
+      return addr;
+    }
+  }
+  return addr; // Preserve original case for Bitcoin and others
+};
+const truncateAddress = (addr, chain) => {
+  if (!addr) return 'N/A';
+  const formatted = formatAddress(addr, chain);
+  return `${formatted.slice(0, 6)}...${formatted.slice(-4)}`;
 };
 const isValidNametagImage = (image) => {
   return image && image !== '/icons/default.webp';
@@ -56,6 +68,7 @@ const getExplorerLogo = (selectedChain) => {
   }
   return '/logos/etherscan-logo.webp';
 };
+
 const VirtuosoTable = memo(({ transactions, isMobile, selectedChain, tokenImages, nametags, filterType, rootAddress }) => {
   if (!transactions || !Array.isArray(transactions)) {
     logger.warn('Invalid transactions in VirtuosoTable:', transactions);
@@ -84,10 +97,10 @@ const VirtuosoTable = memo(({ transactions, isMobile, selectedChain, tokenImages
     const filtered = transactions.filter((tx) => {
       if (filterType === 'all') return true;
       if (filterType === 'incoming') {
-        return tx.type === 'incoming' && tx.target?.toLowerCase() === rootAddress?.toLowerCase();
+        return tx.type === 'incoming' && tx.target?.localeCompare(rootAddress, undefined, { sensitivity: 'base' }) === 0;
       }
       if (filterType === 'outgoing') {
-        return tx.type === 'outgoing' && tx.source?.toLowerCase() === rootAddress?.toLowerCase();
+        return tx.type === 'outgoing' && tx.source?.localeCompare(rootAddress, undefined, { sensitivity: 'base' }) === 0;
       }
       return false;
     });
@@ -129,8 +142,8 @@ const VirtuosoTable = memo(({ transactions, isMobile, selectedChain, tokenImages
       tokenLogo = tokenInfoItem?.image || '/icons/default.webp';
       displaySymbol = tokenInfoItem?.symbol || tx.tokenSymbol || 'N/A';
     }
-    const fromNtag = nametags[tx.source?.toLowerCase()] || { name: 'Unknown', image: '/icons/default.webp' };
-    const toNtag = nametags[tx.target?.toLowerCase()] || { name: 'Unknown', image: '/icons/default.webp' };
+    const fromNtag = nametags[selectedChain === 'bitcoin' ? tx.source?.toLowerCase() : tx.source?.toLowerCase()] || { name: 'Unknown', image: '/icons/default.webp' }; // Already lower, safe for both
+    const toNtag = nametags[selectedChain === 'bitcoin' ? tx.target?.toLowerCase() : tx.target?.toLowerCase()] || { name: 'Unknown', image: '/icons/default.webp' };
     const displayValue = formatLargeNumber(Number(tx.value) || 0, 1);
     const { txUrl } = getExplorerUrls(selectedChain, tx.hash, '');
     const explorerLogo = getExplorerLogo(selectedChain);
@@ -175,7 +188,7 @@ const VirtuosoTable = memo(({ transactions, isMobile, selectedChain, tokenImages
                 />
               )}
               <span className="text-[8px] sm:text-[9px] truncate flex-1 min-w-0">
-                {fromNtag.name !== 'Unknown' ? fromNtag.name : truncateAddress(tx.source)}
+                {fromNtag.name !== 'Unknown' ? fromNtag.name : truncateAddress(tx.source, selectedChain)}
               </span>
               <button
                 className="ml-1 flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity duration-200"
@@ -207,7 +220,7 @@ const VirtuosoTable = memo(({ transactions, isMobile, selectedChain, tokenImages
                 />
               )}
               <span className="text-[8px] sm:text-[9px] truncate flex-1 min-w-0">
-                {toNtag.name !== 'Unknown' ? toNtag.name : truncateAddress(tx.target)}
+                {toNtag.name !== 'Unknown' ? toNtag.name : truncateAddress(tx.target, selectedChain)}
               </span>
               <button
                 className="ml-1 flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity duration-200"
@@ -1329,41 +1342,38 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
           const start = link.source;
           const end = link.target;
           if (!start || !end || !start.x || !end.x || !start.y || !end.y) return;
-          // Use precomputed values instead of filtering allLinks
+
           const numEdges = link.numParallel || 1;
           const edgeIndex = link.parallelIndex || 0;
           if (numEdges === 0) return;
-          // Dynamic offset: Scale with numEdges and globalScale for better spacing (avoid crowding)
-          const spacing = Math.max(4, 12 / numEdges) / globalScale; // Min 4px, max ~12px total spread
+
+          const spacing = Math.max(3, 10 / numEdges) / globalScale;
           const offset = (edgeIndex - (numEdges - 1) / 2) * spacing;
+
           // Direction vector
           const dx = end.x - start.x;
           const dy = end.y - start.y;
           const len = Math.sqrt(dx * dx + dy * dy);
-          if (len === 0) return; // Avoid div0
+          if (len === 0) return;
+
           const ux = dx / len;
           const uy = dy / len;
-          // Perpendicular unit vector (rotate 90 deg CCW)
+
+          // Perpendicular vector
           const px = -uy;
           const py = ux;
-          // Cubic Bezier for smoother, fuller curve (better than quadratic for long offsets)
-          // Control points: Offset the two mids perpendicularly
-          const mid1X = start.x + ux * (len * 0.25);
-          const mid1Y = start.y + uy * (len * 0.25);
-          const mid2X = start.x + ux * (len * 0.75);
-          const mid2Y = start.y + uy * (len * 0.75);
-          // Apply offset to both controls
-          const offsetMid1X = mid1X + px * offset;
-          const offsetMid1Y = mid1Y + py * offset;
-          const offsetMid2X = mid2X + px * offset;
-          const offsetMid2Y = mid2Y + py * offset;
-          ctx.beginPath();
-          ctx.moveTo(start.x, start.y);
-          // Cubic bezier: start -> ctrl1 -> ctrl2 -> end
-          ctx.bezierCurveTo(offsetMid1X, offsetMid1Y, offsetMid2X, offsetMid2Y, end.x, end.y);
+
+          const offsetX = px * offset;
+          const offsetY = py * offset;
+
           const isLayer3 = link.layer === 3;
-          // Dynamic opacity: Fade outer edges slightly for less clutter
+
           const opacity = Math.max(0.4, 1 - (Math.abs(edgeIndex - (numEdges - 1) / 2) / numEdges) * 0.6);
+
+          ctx.beginPath();
+          ctx.moveTo(start.x + offsetX, start.y + offsetY);
+          ctx.lineTo(end.x + offsetX, end.y + offsetY);
+
           ctx.strokeStyle = isLayer3
             ? `rgba(200, 200, 255, ${0.6 * opacity})`
             : `rgba(255, 255, 255, ${0.6 * opacity})`;
@@ -1556,11 +1566,12 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
     }
 
     // Normalize address
-    let normalizedAddress = result.address.toLowerCase();
+    let normalizedAddress = result.address.trim();
     if (result.address.startsWith('0x')) {
       try {
-        normalizedAddress = getAddress(result.address).toLowerCase();
+        normalizedAddress = getAddress(result.address); // Keep checksummed mixed case for EVM addresses
       } catch (err) {
+        normalizedAddress = result.address; // Preserve original case on error
       }
     }
 

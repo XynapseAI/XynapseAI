@@ -133,8 +133,8 @@ export default function UniversalSearch({
     // EVM address
     if (/^0x[a-fA-F0-9]{40}$/i.test(address)) return true;
 
-    // Bitcoin address (Legacy P2PKH, P2SH, Bech32)
-    if (/^[13][a-km-zA-HJ-NP-Z1-9]{25,34}$|^bc1[a-z0-9]{39,59}$/i.test(address)) return true;
+    // Bitcoin address (less strict: allow 0, I, O, l and slight length variation)
+    if (/^[13][0-9A-Za-z]{25,35}$|^bc1[a-z0-9]{39,59}$/i.test(address)) return true;
 
     // Solana address
     if (/^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(address)) return true;

@@ -196,6 +196,18 @@ const bodySchema = z.object({
   isToken: z.boolean().optional().default(false),
 });
 
+function formatAddress(addr, chain) {
+  if (!addr) return 'N/A';
+  if (addr.startsWith('0x')) {
+    try {
+      return ethers.getAddress(addr);
+    } catch {
+      return addr;
+    }
+  }
+  return addr;
+}
+
 function isValidTokenSymbol(symbol) {
   if (!symbol || typeof symbol !== 'string') return false;
   const cleanedSymbol = symbol.trim().toLowerCase();
@@ -212,57 +224,14 @@ function isValidBitcoinAddress(addr) {
   if (typeof addr !== 'string') return false;
   addr = addr.trim();
 
-  // Legacy: P2PKH (1...), P2SH (3...)
-  if (/^[13][a-km-zA-HJ-NP-Z1-9]{25,34}$/.test(addr)) {
-    const alphabet = '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz';
-    let n = BigInt(0);
-    for (let c of addr) {
-      const idx = alphabet.indexOf(c);
-      if (idx === -1) return false;
-      n = n * BigInt(58) + BigInt(idx);
-    }
-
-    let bytes = [];
-    let temp = n;
-    while (temp > 0n) {
-      bytes.unshift(Number(temp % 256n));
-      temp = temp / 256n;
-    }
-
-    const leadingOnes = addr.match(/^1+/)?.[0]?.length || 0;
-    while (bytes.length < 25 + leadingOnes) {
-      bytes.unshift(0);
-    }
-
-    if (bytes.length < 25) return false;
-
-    const payload = bytes.slice(0, -4);
-    const receivedChecksum = bytes.slice(-4);
-
-    const hash1 = crypto.createHash('sha256').update(Buffer.from(payload)).digest();
-    const hash2 = crypto.createHash('sha256').update(hash1).digest();
-    const calculatedChecksum = hash2.slice(0, 4);
-
-    return Buffer.from(receivedChecksum).equals(calculatedChecksum);
+  // Legacy: P2PKH (1...), P2SH (3...), less strict (allow 0, I, O, l and slight length variation)
+  if (/^[13][0-9A-Za-z]{25,35}$/.test(addr)) {
+    return true; // Skip checksum, basic format only for less strictness
   }
 
-  if (/^bc1[a-z0-9]{38,59}$/i.test(addr)) {
-    try {
-      const decoded = bech32.decode(addr.toLowerCase());
-      if (decoded.prefix !== 'bc') return false;
-
-      const data = bech32.fromWords(decoded.words.slice(1));
-      if (data.length !== 20 && data.length !== 32) return false;
-
-      const reencoded = bech32.encode('bc', [decoded.words[0], ...bech32.toWords(data)]);
-      if (reencoded !== addr.toLowerCase()) return false;
-
-      if (decoded.words[0] > 16) return false;
-
-      return true;
-    } catch (e) {
-      return false;
-    }
+  // Bech32 (bc1...): Skip checksum, just format check for less strictness
+  if (/^bc1[a-z0-9]{39,59}$/i.test(addr)) {
+    return true;
   }
 
   return false;
@@ -353,19 +322,21 @@ async function getTokenCurrentPrice(platform, contractAddress) {
   return prices[contractAddress.toLowerCase()]?.usd || 0;
 }
 
-async function getNametagsBatch(addresses) {
+async function getNametagsBatch(addresses, chain) {
   const start = Date.now();
-  const uniqueAddresses = [...new Set(addresses.map((addr) => addr.toLowerCase()))];
+  const isCaseSensitive = ['bitcoin', 'solana', 'tron'].includes(chain);
+  const lowerToOriginal = new Map(addresses.map(a => [a.toLowerCase(), a]));
+  const uniqueLowers = [...new Set(addresses.map(a => a.toLowerCase()))];
   const nametags = {};
-  if (uniqueAddresses.length === 0) return nametags;
+  if (uniqueLowers.length === 0) return nametags;
   const redisClient = await getRedisClient();
-  const cacheKeys = uniqueAddresses.map((addr) => `nametag_${addr}`);
+  const cacheKeys = uniqueLowers.map(addr => `nametag_${addr}`);
   const cachedResults = await redisClient.mGet(cacheKeys);
   const cachedNametags = cachedResults.reduce((acc, cached, index) => {
     if (cached) {
       const parsed = JSON.parse(cached);
-      acc[uniqueAddresses[index]] = {
-        address: uniqueAddresses[index],
+      acc[uniqueLowers[index]] = {
+        address: lowerToOriginal.get(uniqueLowers[index]),
         name: parsed.name,
         image: parsed.image,
         description: parsed.description || '',
@@ -374,30 +345,33 @@ async function getNametagsBatch(addresses) {
     }
     return acc;
   }, {});
-  const addressesToQuery = uniqueAddresses.filter((addr) => !cachedNametags[addr]);
-  if (addressesToQuery.length > 0) {
+  const lowersToQuery = uniqueLowers.filter(addr => !cachedNametags[addr]);
+  if (lowersToQuery.length > 0) {
+    const queryAddresses = isCaseSensitive ? lowersToQuery.map(l => lowerToOriginal.get(l)) : lowersToQuery;
     const result = await query(
       `SELECT address, nametag, image, description, subcategory
        FROM nametags
-       WHERE LOWER(address) = ANY($1)`,
-      [addressesToQuery]
+       WHERE ${isCaseSensitive ? 'address' : 'LOWER(address)'} = ANY($1)`,
+      [queryAddresses]
     );
     for (const row of result.rows) {
-      const address = row.address.toLowerCase();
-      cachedNametags[address] = {
-        address,
+      const addressKey = isCaseSensitive ? row.address.toLowerCase() : row.address;
+      const originalAddress = isCaseSensitive ? row.address : row.address;
+      cachedNametags[addressKey] = {
+        address: originalAddress,
         name: row.nametag || 'Unknown',
         image: row.image || '/icons/default.webp',
         description: row.description || '',
         subcategory: row.subcategory || 'Others',
       };
-      await redisClient.setEx(`nametag_${address}`, 30 * 24 * 60 * 60, JSON.stringify(cachedNametags[address]));
+      await redisClient.setEx(`nametag_${addressKey}`, 30 * 24 * 60 * 60, JSON.stringify(cachedNametags[addressKey]));
     }
   }
-  const addressesWithoutNametag = uniqueAddresses.filter(
-    (addr) => !cachedNametags[addr] || cachedNametags[addr].name === 'Unknown'
-  ).slice(0, 20); // Reduced to 20 for speed
-  if (addressesWithoutNametag.length > 0 && addressesWithoutNametag.length <= 20) { // Skip if >20
+  const lowersWithoutNametag = uniqueLowers.filter(
+    addr => !cachedNametags[addr] || cachedNametags[addr].name === 'Unknown'
+  );
+  const addressesWithoutNametag = lowersWithoutNametag.map(l => lowerToOriginal.get(l)).slice(0, 20);
+  if (!isCaseSensitive && chain === '1' && addressesWithoutNametag.length > 0 && addressesWithoutNametag.length <= 20) {
     const ENS_REGISTRY = '0x00000000000C2E074eC69A0dFb2997BA6C7d2e1e';
     const REGISTRY_ABI = ['function resolver(bytes32 node) view returns (address)'];
     const RESOLVER_ABI = ['function name(bytes32 node) view returns (string)'];
@@ -411,10 +385,17 @@ async function getNametagsBatch(addresses) {
       const cachedEns = await redisClient.get(ensBatchKey);
       if (cachedEns) {
         const parsedEns = JSON.parse(cachedEns);
-        Object.assign(cachedNametags, parsedEns);
+        Object.entries(parsedEns).forEach(([addrLower, data]) => {
+          cachedNametags[addrLower] = {
+            address: lowerToOriginal.get(addrLower),
+            ...data
+          };
+        });
         logger.info(`ENS batch cache hit for ${addressesWithoutNametag.length} addresses`);
       } else {
-        const reverseNodes = addressesWithoutNametag.map((addr) => ethers.namehash(`${addr.slice(2).toLowerCase()}.addr.reverse`));
+        const reverseNodes = addressesWithoutNametag
+          .filter(addr => addr.startsWith('0x'))
+          .map((addr) => ethers.namehash(`${addr.slice(2).toLowerCase()}.addr.reverse`));
         const registryInterface = new ethers.Interface(REGISTRY_ABI);
         const resolverInterface = new ethers.Interface(RESOLVER_ABI);
         const multicallContract = new ethers.Contract(ENS_MULTICALL_ADDRESS, MULTICALL_ABI, ENS_PROVIDER);
@@ -476,7 +457,8 @@ async function getNametagsBatch(addresses) {
           const ensResults = {};
           for (let vIndex = 0; vIndex < validIndices.length; vIndex++) {
             const index = validIndices[vIndex];
-            const address = addressesWithoutNametag[index];
+            const originalAddr = addressesWithoutNametag[index];
+            const addrLower = originalAddr.toLowerCase();
             const name = names[vIndex];
             if (name && name !== '') {
               let image = '/icons/default.webp';
@@ -495,40 +477,43 @@ async function getNametagsBatch(addresses) {
                 logger.error(`Failed to fetch CoinGecko image for ENS ${shortName}:`, cgError.message);
               }
               const ensNametag = { name, image, description: '', subcategory: 'ENS' };
-              ensResults[address] = ensNametag;
-              await redisClient.setEx(`nametag_${address}`, 30 * 24 * 60 * 60, JSON.stringify({ address, ...ensNametag }));
+              ensResults[addrLower] = { address: originalAddr, ...ensNametag };
+              await redisClient.setEx(`nametag_${addrLower}`, 30 * 24 * 60 * 60, JSON.stringify(ensResults[addrLower]));
               await query(
                 `INSERT INTO nametags (address, nametag, image, description, subcategory)
-                 VALUES (LOWER($1), $2, $3, $4, $5)
+                 VALUES ($1, $2, $3, $4, $5)
                  ON CONFLICT (address)
                  DO UPDATE SET
                  nametag = $2, image = $3, description = $4, subcategory = $5`,
-                [address.toLowerCase(), name, image, '', 'ENS']
+                [addrLower, name, image, '', 'ENS']
               );
-              logger.info(`Saved ENS ${name} for address ${address} to database`);
+              logger.info(`Saved ENS ${name} for address ${originalAddr} to database`);
             }
           }
           await redisClient.setEx(ensBatchKey, 30 * 24 * 60 * 60, JSON.stringify(ensResults));
-          Object.assign(cachedNametags, ensResults);
+          Object.entries(ensResults).forEach(([addrLower, data]) => {
+            cachedNametags[addrLower] = data;
+          });
         }
       }
     } catch (ensError) {
       logger.error(`Failed to fetch ENS via multicall for batch: ${ensError.message} - Full error:`, ensError);
     }
   }
-  for (const address of uniqueAddresses) {
-    if (!cachedNametags[address]) {
-      cachedNametags[address] = {
-        address,
+  for (const addrLower of uniqueLowers) {
+    if (!cachedNametags[addrLower]) {
+      const originalAddr = lowerToOriginal.get(addrLower);
+      cachedNametags[addrLower] = {
+        address: originalAddr,
         name: 'Unknown',
         image: '/icons/default.webp',
         description: '',
         subcategory: 'Others',
       };
-      await redisClient.setEx(`nametag_${address}`, 30 * 24 * 60 * 60, JSON.stringify(cachedNametags[address]));
+      await redisClient.setEx(`nametag_${addrLower}`, 30 * 24 * 60 * 60, JSON.stringify(cachedNametags[addrLower]));
     }
   }
-  logger.info(`getNametagsBatch took ${(Date.now() - start) / 1000}s for ${uniqueAddresses.length} addresses`);
+  logger.info(`getNametagsBatch took ${(Date.now() - start) / 1000}s for ${uniqueLowers.length} addresses`);
   return cachedNametags;
 }
 
@@ -791,7 +776,7 @@ async function fetchLayer3Transactions(layer2Addresses, chain, limit, page) {
     .map(r => r.value)
   );
 
-  // Nametags cho Layer 3
+  // Nametags Layer 3
   const layer3Addrs = [...new Set(transactions.map(tx => tx.address?.toLowerCase()).filter(Boolean))];
   if (layer3Addrs.length > 0) {
     const l3Nametags = await getNametagsBatch(layer3Addrs);
@@ -1001,37 +986,38 @@ async function hasConfidenceColumn() {
   }
 }
 
-async function saveAutoLabelsToDB(addressesWithLabels) {
+async function saveAutoLabelsToDB(addressesWithLabels, chain) {
   const redisClient = await getRedisClient();
   const hasConf = await hasConfidenceColumn();
   const confParam = hasConf ? ', confidence' : '';
   const confValue = hasConf ? ', $6' : '';
   const confUpdate = hasConf ? ', confidence = $6' : '';
+  const isCaseSensitive = ['bitcoin', 'solana', 'tron'].includes(chain);
   for (const [address, { label, confidence }] of Object.entries(addressesWithLabels)) {
     if (!label || label.trim() === '') {
-      logger.info(`Skipping auto-label save for ${address}: label is null/empty`);
+      logger.info(`Skipping auto-label save for ${formatAddress(address, chain)}: label is null/empty`);
       continue;
     }
     const image = '/icons/default.webp';
     const description = `Auto-labeled by ML (conf: ${confidence})`;
     const subcategory = 'ML Auto';
-    const params = [address.toLowerCase(), label, image, description, subcategory];
+    const dbAddress = isCaseSensitive ? address : address.toLowerCase();
+    const params = [dbAddress, label, image, description, subcategory];
     if (hasConf) params.push(parseFloat(confidence));
+    const queryText = `INSERT INTO nametags (address, nametag, image, description, subcategory${confParam})
+                       VALUES ($1, $2, $3, $4, $5${confValue})
+                       ON CONFLICT (address)
+                       DO UPDATE SET
+                       nametag = $2, image = $3, description = $4, subcategory = $5${confUpdate}`;
     try {
-      await query(
-        `INSERT INTO nametags (address, nametag, image, description, subcategory${confParam})
-         VALUES (LOWER($1), $2, $3, $4, $5${confValue})
-         ON CONFLICT (address)
-         DO UPDATE SET
-         nametag = $2, image = $3, description = $4, subcategory = $5${confUpdate}`,
-        params
-      );
-      const ntagObj = { address: address.toLowerCase(), name: label, image, description, subcategory };
+      await query(queryText, params);
+      const ntagObj = { address: dbAddress, name: label, image, description, subcategory };
       if (hasConf) ntagObj.confidence = confidence;
-      await redisClient.setEx(`nametag_${address.toLowerCase()}`, 30 * 24 * 60 * 60, JSON.stringify(ntagObj));
-      logger.info(`Auto-saved label for ${address}: ${label} (conf: ${confidence})`);
+      const redisKey = `nametag_${isCaseSensitive ? address : address.toLowerCase()}`;
+      await redisClient.setEx(redisKey, 30 * 24 * 60 * 60, JSON.stringify(ntagObj));
+      logger.info(`Auto-saved label for ${formatAddress(address, chain)}: ${label} (conf: ${confidence})`);
     } catch (dbErr) {
-      logger.error(`Failed to save auto-label for ${address}:`, dbErr.message);
+      logger.error(`Failed to save auto-label for ${formatAddress(address, chain)}:`, dbErr.message);
     }
   }
 }
@@ -1054,14 +1040,15 @@ export async function POST(request) {
       return NextResponse.json({ error: parsed.error.errors[0].message }, { status: 400, headers: securityHeaders });
     }
     const { wallet_address, chain, limit, page, fetchLayer3: inputFetchLayer3, isToken = false } = parsed.data;
-    const address = wallet_address.toLowerCase();
+    const caseSensitive = ['bitcoin', 'solana', 'tron'].includes(chain);
+    const address = caseSensitive ? wallet_address.trim() : wallet_address.toLowerCase().trim();
     const isPremium = request.headers.get('x-premium-user') === 'true';
     if (!isPremium && limit > 200) {
       await trackViolation(ip, 'Non-premium user attempted to fetch more than 200 transactions');
       return NextResponse.json({ error: 'Premium account required to fetch more than 200 transactions.' }, { status: 403, headers: securityHeaders });
     }
     const isBitcoin = chain === 'bitcoin';
-    if (isBitcoin && !isValidBitcoinAddress(wallet_address)) {
+    if (isBitcoin && !isValidBitcoinAddress(address)) {
       await trackViolation(ip, 'Invalid Bitcoin address (format or checksum)');
       return NextResponse.json({ error: 'Invalid Bitcoin address.' }, { status: 400, headers: securityHeaders });
     }
@@ -1127,7 +1114,7 @@ export async function POST(request) {
       const network = alchemyNetworks[chain];
       const baseUrl = `https://${network}.g.alchemy.com/v2/${ALCHEMY_API_KEY}`;
       const symbols = await getTokenSymbolsBatch(baseUrl, [address]);
-      tokenSymbol = symbols[address.toLowerCase()] || 'UNKNOWN';
+      tokenSymbol = symbols[caseSensitive ? address : address.toLowerCase()] || 'UNKNOWN';
       tokenImage = await getTokenImage(address, chain);
 
       logger.info(`Token query: ${address} - Symbol: ${tokenSymbol}, Image: ${tokenImage}`);
@@ -1189,9 +1176,9 @@ export async function POST(request) {
         const block_time = transfer.metadata.blockTimestamp;
         const usdValue = parseFloat(value) * tokenPrice;
         const tx = {
-          from: transfer.from.toLowerCase(),
-          to: transfer.to.toLowerCase(),
-          address: transfer.to.toLowerCase(),
+          from: caseSensitive ? transfer.from : transfer.from.toLowerCase(),
+          to: caseSensitive ? transfer.to : transfer.to.toLowerCase(),
+          address: caseSensitive ? transfer.to : transfer.to.toLowerCase(),
           hash: transfer.hash,
           value,
           usdValue: usdValue.toFixed(6),
@@ -1201,29 +1188,29 @@ export async function POST(request) {
           block_time,
           method: 'Transfer',
           type: 'outgoing',
-          layer2Address: transfer.from.toLowerCase(),
-          source: transfer.from.toLowerCase(),
-          target: transfer.to.toLowerCase(),
+          layer2Address: caseSensitive ? transfer.from : transfer.from.toLowerCase(),
+          source: caseSensitive ? transfer.from : transfer.from.toLowerCase(),
+          target: caseSensitive ? transfer.to : transfer.to.toLowerCase(),
         };
         tokenTransfers.push(tx);
-        addresses.add(transfer.from.toLowerCase());
-        addresses.add(transfer.to.toLowerCase());
+        addresses.add(caseSensitive ? transfer.from : transfer.from.toLowerCase());
+        addresses.add(caseSensitive ? transfer.to : transfer.to.toLowerCase());
       }
       addresses.add(address);
       const nametags = await getNametagsBatch([...addresses]);
       const dummyLayer2 = [];
       const processedDummyLayer2 = dummyLayer2.map((tx) => ({
         ...tx,
-        nametag: nametags[tx.to.toLowerCase()]?.name || 'Unknown',
-        image: nametags[tx.to.toLowerCase()]?.image || '/icons/default.webp',
+        nametag: nametags[caseSensitive ? tx.to : tx.to.toLowerCase()]?.name || 'Unknown',
+        image: nametags[caseSensitive ? tx.to : tx.to.toLowerCase()]?.image || '/icons/default.webp',
         chainLogo,
       }));
       layer3Transactions = tokenTransfers.map((tx) => ({
         ...tx,
-        nametag: nametags[tx.to.toLowerCase()]?.name || 'Unknown',
-        image: nametags[tx.to.toLowerCase()]?.image || '/icons/default.webp',
-        nametagLayer2: nametags[tx.from.toLowerCase()]?.name || 'Unknown',
-        imageLayer2: nametags[tx.from.toLowerCase()]?.image || '/icons/default.webp',
+        nametag: nametags[caseSensitive ? tx.to : tx.to.toLowerCase()]?.name || 'Unknown',
+        image: nametags[caseSensitive ? tx.to : tx.to.toLowerCase()]?.image || '/icons/default.webp',
+        nametagLayer2: nametags[caseSensitive ? tx.from : tx.from.toLowerCase()]?.name || 'Unknown',
+        imageLayer2: nametags[caseSensitive ? tx.from : tx.from.toLowerCase()]?.image || '/icons/default.webp',
         chainLogo,
       }));
       walletNametag = {
@@ -1325,7 +1312,7 @@ export async function POST(request) {
         }
         const imagePromises = uniqueContracts.map(async (contract) => {
           const image = await getTokenImage(contract, chain);
-          return { contract: contract.toLowerCase(), image };
+          return { contract: caseSensitive ? contract : contract.toLowerCase(), image };
         });
         const tokenImages = Object.fromEntries((await Promise.all(imagePromises)).map(({ contract, image }) => [contract, image]));
         // Process outgoing
@@ -1334,7 +1321,7 @@ export async function POST(request) {
           if (transfer.category === 'erc20' || transfer.category === 'erc721' || transfer.category === 'erc1155') {
             decimalsLocal = transfer.rawContract?.decimal ? parseInt(transfer.rawContract.decimal, 16) : 18;
             value = safeFormatUnits(transfer.rawContract?.value, decimalsLocal);
-            tokenSymbolLocal = transfer.asset || tokenSymbols[transfer.rawContract?.address?.toLowerCase()] || 'UNKNOWN';
+            tokenSymbolLocal = transfer.asset || tokenSymbols[caseSensitive ? transfer.rawContract?.address : transfer.rawContract?.address?.toLowerCase()] || 'UNKNOWN';
             contractAddressLocal = transfer.rawContract?.address;
           } else {
             value = safeFormatEther(transfer.value);
@@ -1342,17 +1329,17 @@ export async function POST(request) {
             contractAddressLocal = null;
           }
           if (parseFloat(value) === 0 && contractAddressLocal) continue;
-          let tokenImageLocal = contractAddressLocal ? tokenImages[contractAddressLocal.toLowerCase()] || '/icons/default.webp' : '/icons/default.webp';
+          let tokenImageLocal = contractAddressLocal ? tokenImages[caseSensitive ? contractAddressLocal : contractAddressLocal.toLowerCase()] || '/icons/default.webp' : '/icons/default.webp';
           let usdValue = 0;
           if (contractAddressLocal) {
-            const price = tokenPrices[contractAddressLocal.toLowerCase()]?.usd || await getTokenCurrentPrice(chainIdToName[chain], contractAddressLocal);
+            const price = tokenPrices[caseSensitive ? contractAddressLocal : contractAddressLocal.toLowerCase()]?.usd || await getTokenCurrentPrice(chainIdToName[chain], contractAddressLocal);
             usdValue = parseFloat(value) * price;
           } else {
             usdValue = parseFloat(value) * nativePrice;
           }
           const block_time = transfer.metadata.blockTimestamp;
           outgoing.push({
-            address: transfer.to.toLowerCase(),
+            address: caseSensitive ? transfer.to : transfer.to.toLowerCase(),
             hash: transfer.hash,
             value,
             usdValue: usdValue.toFixed(6),
@@ -1363,7 +1350,7 @@ export async function POST(request) {
             type: 'outgoing',
             method: transfer.category === 'erc20' ? 'Transfer' : undefined,
           });
-          addresses.add(transfer.to.toLowerCase());
+          addresses.add(caseSensitive ? transfer.to : transfer.to.toLowerCase());
         }
         // Process incoming
         for (const transfer of transfersIn) {
@@ -1371,7 +1358,7 @@ export async function POST(request) {
           if (transfer.category === 'erc20' || transfer.category === 'erc721' || transfer.category === 'erc1155') {
             decimalsLocal = transfer.rawContract?.decimal ? parseInt(transfer.rawContract.decimal, 16) : 18;
             value = safeFormatUnits(transfer.rawContract?.value, decimalsLocal);
-            tokenSymbolLocal = transfer.asset || tokenSymbols[transfer.rawContract?.address?.toLowerCase()] || 'UNKNOWN';
+            tokenSymbolLocal = transfer.asset || tokenSymbols[caseSensitive ? transfer.rawContract?.address : transfer.rawContract?.address?.toLowerCase()] || 'UNKNOWN';
             contractAddressLocal = transfer.rawContract?.address;
           } else {
             value = safeFormatEther(transfer.value);
@@ -1379,17 +1366,17 @@ export async function POST(request) {
             contractAddressLocal = null;
           }
           if (parseFloat(value) === 0 && contractAddressLocal) continue;
-          let tokenImageLocal = contractAddressLocal ? tokenImages[contractAddressLocal.toLowerCase()] || '/icons/default.webp' : '/icons/default.webp';
+          let tokenImageLocal = contractAddressLocal ? tokenImages[caseSensitive ? contractAddressLocal : contractAddressLocal.toLowerCase()] || '/icons/default.webp' : '/icons/default.webp';
           let usdValue = 0;
           if (contractAddressLocal) {
-            const price = tokenPrices[contractAddressLocal.toLowerCase()]?.usd || await getTokenCurrentPrice(chainIdToName[chain], contractAddressLocal);
+            const price = tokenPrices[caseSensitive ? contractAddressLocal : contractAddressLocal.toLowerCase()]?.usd || await getTokenCurrentPrice(chainIdToName[chain], contractAddressLocal);
             usdValue = parseFloat(value) * price;
           } else {
             usdValue = parseFloat(value) * nativePrice;
           }
           const block_time = transfer.metadata.blockTimestamp;
           incoming.push({
-            address: transfer.from.toLowerCase(),
+            address: caseSensitive ? transfer.from : transfer.from.toLowerCase(),
             hash: transfer.hash,
             value,
             usdValue: usdValue.toFixed(6),
@@ -1400,7 +1387,7 @@ export async function POST(request) {
             type: 'incoming',
             method: transfer.category === 'erc20' ? 'Transfer' : undefined,
           });
-          addresses.add(transfer.from.toLowerCase());
+          addresses.add(caseSensitive ? transfer.from : transfer.from.toLowerCase());
         }
       } else {
         // Original fetching logic for non-Alchemy chains
@@ -1465,14 +1452,14 @@ export async function POST(request) {
 
             if (tx.vout && Array.isArray(tx.vout)) {
               for (const vout of tx.vout) {
-                if (vout.scriptpubkey_address && vout.scriptpubkey_address.toLowerCase() === address && vout.value > 546) {
+                if (vout.scriptpubkey_address && (caseSensitive ? vout.scriptpubkey_address === address : vout.scriptpubkey_address.toLowerCase() === address) && vout.value > 546) {
                   const value = (vout.value / 1e8).toString();
                   const usdValue = Number(value) * nativePriceUsed;
                   const sourceAddr = tx.vin && tx.vin[0] && tx.vin[0].prevout?.scriptpubkey_address
                     ? tx.vin[0].prevout.scriptpubkey_address
                     : 'coinbase_or_unknown';
 
-                  addresses.add(sourceAddr.toLowerCase());
+                  addresses.add(caseSensitive ? sourceAddr : sourceAddr.toLowerCase());
 
                   return {
                     address: sourceAddr,
@@ -1491,7 +1478,7 @@ export async function POST(request) {
 
             if (tx.vin && Array.isArray(tx.vin)) {
               for (const vin of tx.vin) {
-                if (vin.prevout && vin.prevout.scriptpubkey_address && vin.prevout.scriptpubkey_address.toLowerCase() === address) {
+                if (vin.prevout && vin.prevout.scriptpubkey_address && (caseSensitive ? vin.prevout.scriptpubkey_address === address : vin.prevout.scriptpubkey_address.toLowerCase() === address)) {
                   const value = (vin.prevout.value / 1e8).toString();
                   const usdValue = Number(value) * nativePriceUsed;
                   let targetAddr = 'unknown';
@@ -1500,7 +1487,7 @@ export async function POST(request) {
                     targetAddr = firstVout?.scriptpubkey_address || 'unknown';
                   }
 
-                  addresses.add(targetAddr.toLowerCase());
+                  addresses.add(caseSensitive ? targetAddr : targetAddr.toLowerCase());
 
                   return {
                     address: targetAddr,
@@ -1526,10 +1513,10 @@ export async function POST(request) {
               const tx = result.value;
               if (tx.type === 'outgoing') {
                 outgoing.push(tx);
-                addresses.add(tx.address.toLowerCase());
+                addresses.add(caseSensitive ? tx.address : tx.address.toLowerCase());
               } else {
                 incoming.push(tx);
-                addresses.add(tx.address.toLowerCase());
+                addresses.add(caseSensitive ? tx.address : tx.address.toLowerCase());
               }
             }
           });
@@ -1636,7 +1623,7 @@ export async function POST(request) {
             if (parseFloat(value) === 0) return null;
             usdValue = Number(value) * nativePrice;
             return {
-              address: tx.from === address ? tx.to : tx.from,
+              address: caseSensitive ? (tx.from === address ? tx.to : tx.from) : (tx.from === address ? tx.to : tx.from),
               hash: tx.hash || tx.transactionHash,
               value,
               usdValue: usdValue.toFixed(6),
@@ -1653,10 +1640,10 @@ export async function POST(request) {
               const tx = result.value;
               if (tx.type === 'outgoing') {
                 outgoing.push(tx);
-                addresses.add(tx.address.toLowerCase());
+                addresses.add(caseSensitive ? tx.address : tx.address.toLowerCase());
               } else {
                 incoming.push(tx);
-                addresses.add(tx.address.toLowerCase());
+                addresses.add(caseSensitive ? tx.address : tx.address.toLowerCase());
               }
             }
           });
@@ -1673,8 +1660,8 @@ export async function POST(request) {
                 logger.warn(`Missing or invalid block_time for internal tx ${itx.hash} from address ${address}`);
                 return null;
               }
-              const from = itx.from.toLowerCase();
-              const to = itx.to.toLowerCase();
+              const from = caseSensitive ? itx.from : itx.from.toLowerCase();
+              const to = caseSensitive ? itx.to : itx.to.toLowerCase();
               const isOutgoing = from === address;
               const addressLocal = isOutgoing ? to : from;
               const type = isOutgoing ? 'outgoing' : 'incoming';
@@ -1696,16 +1683,16 @@ export async function POST(request) {
                 const tx = result.value;
                 if (tx.type === 'outgoing') {
                   outgoing.push(tx);
-                  addresses.add(tx.address.toLowerCase());
+                  addresses.add(caseSensitive ? tx.address : tx.address.toLowerCase());
                 } else {
                   incoming.push(tx);
-                  addresses.add(tx.address.toLowerCase());
+                  addresses.add(caseSensitive ? tx.address : tx.address.toLowerCase());
                 }
               }
             });
           }
           const tokenPromises = tokenTransactions.map(async (tx) => {
-            if (!isAddress(tx.contractAddress) || BLOCKED_TOKEN_ADDRESSES.includes(tx.contractAddress.toLowerCase()) || !isValidTokenSymbol(tx.tokenSymbol)) {
+            if (!isAddress(tx.contractAddress) || BLOCKED_TOKEN_ADDRESSES.includes(caseSensitive ? tx.contractAddress : tx.contractAddress.toLowerCase()) || !isValidTokenSymbol(tx.tokenSymbol)) {
               return null;
             }
             let value = (parseInt(tx.value) / Math.pow(10, parseInt(tx.tokenDecimal || 18))).toString();
@@ -1719,10 +1706,10 @@ export async function POST(request) {
               logger.warn(`Missing or invalid block_time for token tx ${tx.hash} from address ${address}`);
               return null;
             }
-            const price = tokenPrices[contractAddress.toLowerCase()]?.usd || await getTokenCurrentPrice(chainIdToName[chain], contractAddress);
+            const price = tokenPrices[caseSensitive ? contractAddress : contractAddress.toLowerCase()]?.usd || await getTokenCurrentPrice(chainIdToName[chain], contractAddress);
             usdValue = Number(value) * price;
             return {
-              address: tx.from === address ? tx.to : tx.from,
+              address: caseSensitive ? (tx.from === address ? tx.to : tx.from) : (tx.from === address ? tx.to : tx.from),
               hash: tx.hash,
               value,
               usdValue: usdValue.toFixed(6),
@@ -1739,21 +1726,21 @@ export async function POST(request) {
               const tx = result.value;
               if (tx.type === 'outgoing') {
                 outgoing.push(tx);
-                addresses.add(tx.address.toLowerCase());
+                addresses.add(caseSensitive ? tx.address : tx.address.toLowerCase());
               } else {
                 incoming.push(tx);
-                addresses.add(tx.address.toLowerCase());
+                addresses.add(caseSensitive ? tx.address : tx.address.toLowerCase());
               }
             }
           });
         }
       }
       if (fetchLayer3) {
-        const layer2Addresses = [...new Set([...incoming, ...outgoing].map((tx) => tx.address.toLowerCase()))];
+        const layer2Addresses = [...new Set([...incoming, ...outgoing].map((tx) => caseSensitive ? tx.address : tx.address.toLowerCase()))];
         layer3Transactions = await fetchLayer3Transactions(layer2Addresses, chain, limit, page);
       }
-      const nametags = await getNametagsBatch([...addresses, address]);
-      walletNametag = nametags[address] || {
+      const nametags = await getNametagsBatch([...addresses]);
+      walletNametag = nametags[caseSensitive ? address : address.toLowerCase()] || {
         name: 'Unknown',
         image: '/icons/default.webp',
         description: '',
@@ -1761,14 +1748,14 @@ export async function POST(request) {
       };
       const processedIncoming = incoming.map((tx) => ({
         ...tx,
-        nametag: nametags[tx.address.toLowerCase()]?.name || 'Unknown',
-        image: nametags[tx.address.toLowerCase()]?.image || '/icons/default.webp',
+        nametag: nametags[caseSensitive ? tx.address : tx.address.toLowerCase()]?.name || 'Unknown',
+        image: nametags[caseSensitive ? tx.address : tx.address.toLowerCase()]?.image || '/icons/default.webp',
         chainLogo,
       }));
       const processedOutgoing = outgoing.map((tx) => ({
         ...tx,
-        nametag: nametags[tx.address.toLowerCase()]?.name || 'Unknown',
-        image: nametags[tx.address.toLowerCase()]?.image || '/icons/default.webp',
+        nametag: nametags[caseSensitive ? tx.address : tx.address.toLowerCase()]?.name || 'Unknown',
+        image: nametags[caseSensitive ? tx.address : tx.address.toLowerCase()]?.image || '/icons/default.webp',
         chainLogo,
       }));
       const result = {
@@ -1789,17 +1776,17 @@ export async function POST(request) {
       const knownNametagsMap = new Map(
         Object.entries(nametags)
           .filter(([, data]) => data.name && data.name !== 'Unknown')
-          .map(([addr, data]) => [addr, { label: data.name, image: data.image }])
+          .map(([addr, data]) => [caseSensitive ? addr : addr.toLowerCase(), { label: data.name, image: data.image }])
       );
 
       const unknownAddresses = allAddresses.filter(
-        (addr) => !nametags[addr] || nametags[addr].name === 'Unknown'
+        (addr) => !nametags[caseSensitive ? addr : addr.toLowerCase()] || nametags[caseSensitive ? addr : addr.toLowerCase()].name === 'Unknown'
       ).slice(0, 50);
 
       if (unknownAddresses.length > 0) {
         const mockNodes = unknownAddresses.map(addr => {
           const addrTxs = [...incoming, ...outgoing, ...layer3Transactions].filter(
-            tx => tx.address.toLowerCase() === addr || (tx.layer2Address && tx.layer2Address.toLowerCase() === addr)
+            tx => (caseSensitive ? tx.address : tx.address.toLowerCase()) === addr || (tx.layer2Address && (caseSensitive ? tx.layer2Address : tx.layer2Address.toLowerCase()) === addr)
           );
           const totalValue = addrTxs.reduce((sum, tx) => sum + parseFloat(tx.usdValue || 0), 0);
           const txCount = addrTxs.length;
@@ -1825,8 +1812,8 @@ export async function POST(request) {
         await saveAutoLabelsToDB(autoLabels);
 
         Object.entries(autoLabels).forEach(([addr, { label }]) => {
-          if (!nametags[addr] || nametags[addr].name === 'Unknown') {
-            nametags[addr] = {
+          if (!nametags[caseSensitive ? addr : addr.toLowerCase()] || nametags[caseSensitive ? addr : addr.toLowerCase()].name === 'Unknown') {
+            nametags[caseSensitive ? addr : addr.toLowerCase()] = {
               name: label,
               image: '/icons/default.webp',
               description: '',
@@ -1836,21 +1823,21 @@ export async function POST(request) {
         });
 
         processedIncoming.forEach(tx => {
-          const ntag = nametags[tx.address.toLowerCase()];
+          const ntag = nametags[caseSensitive ? tx.address : tx.address.toLowerCase()];
           if (ntag) {
             tx.nametag = ntag.name;
             tx.image = ntag.image;
           }
         });
         processedOutgoing.forEach(tx => {
-          const ntag = nametags[tx.address.toLowerCase()];
+          const ntag = nametags[caseSensitive ? tx.address : tx.address.toLowerCase()];
           if (ntag) {
             tx.nametag = ntag.name;
             tx.image = ntag.image;
           }
         });
         layer3Transactions.forEach(tx => {
-          const ntagTo = nametags[tx.address.toLowerCase()];
+          const ntagTo = nametags[caseSensitive ? tx.address : tx.address.toLowerCase()];
           if (ntagTo) {
             tx.nametag = ntagTo.name;
             tx.image = ntagTo.image;
