@@ -681,6 +681,7 @@ export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initi
     },
     [session, status, toast],
   )
+
   const fetchMempoolTransactions = useCallback(async () => {
     if (selectedToken?.id !== 'bitcoin' || document.visibilityState !== 'visible') {
       setMempoolTransactions([])
@@ -688,213 +689,101 @@ export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initi
       setMempoolError(null)
       return
     }
+
     setIsLoadingMempool(true)
     setMempoolError(null)
+
     try {
-      // Fetch BTC price from CoinGecko
       const btcPriceResponse = await axios.get(
         'https://api.coingecko.com/api/v3/simple/price?ids=bitcoin&vs_currencies=usd',
         { timeout: 10000 },
       )
-      const btcPrice = btcPriceResponse.data.bitcoin?.usd || 0
-      if (!btcPrice) {
-        setMempoolError('BTC price not available')
-        setIsLoadingMempool(false)
-        return
-      }
-      // Determine params based on initial fetch or polling
-      const isInitial = isInitialMempoolFetch.current && mempoolTransactions.length === 0
-      const limit = isInitial ? MEMPOOL_INIT_LIMIT : MEMPOOL_POLL_LIMIT
-      let allRawTxs = []
-      let currentPage = 1
-      let hasMore = true
-      while (hasMore) {
-        const params = {
-          maxAge: MEMPOOL_MAX_AGE,
-          limit,
-          page: currentPage,
-        }
-        const response = await axios.get('/api/mempool-transactions', {
-          params,
-          headers: {
-            Authorization: session?.accessToken ? `Bearer ${session.accessToken}` : undefined,
-          },
-          timeout: 50000,
-        })
-        if (response.data.success && Array.isArray(response.data.data)) {
-          allRawTxs = [...allRawTxs, ...response.data.data]
-          const pagination = response.data.pagination || {}
-          hasMore = pagination.totalPages > currentPage
-          if (hasMore) currentPage++
-          if (isInitial) isInitialMempoolFetch.current = false
-        } else {
-          setMempoolError('Invalid mempool transaction data')
-          break
-        }
-      }
-      const rawNewTxs = allRawTxs.filter((tx) => {
-        const isNew = !mempoolTxCache.current.has(tx.txid)
-        const valueUSD = tx.value_btc * btcPrice || 0
-        return isNew && valueUSD >= 1000000 // Only take transactions >= 1M USD
+      const btcPrice = btcPriceResponse.data.bitcoin?.usd || 70000
+
+      // Chỉ lấy 100 tx đầu tiên (initial) hoặc 30 tx mới (polling)
+      const isInitial = isInitialMempoolFetch.current
+      const limit = isInitial ? 100 : 30
+
+      const response = await axios.get('/api/mempool-transactions', {
+        params: { limit, maxAge: MEMPOOL_MAX_AGE },
+        timeout: 30000,
       })
-      // Collect unique addresses from new transactions
-      const uniqueAddresses = new Set()
-      rawNewTxs.forEach((tx) => {
-        ;(tx.inputs || []).forEach((input) => {
-          const addr = input.address
-          if (addr && addr !== 'unknown') uniqueAddresses.add(addr)
-        })
-        ;(tx.outputs || []).forEach((output) => {
-          const addr = output.address
-          if (addr && addr !== 'unknown') uniqueAddresses.add(addr)
-        })
-      })
-      const addressesArray = Array.from(uniqueAddresses)
-      // Fetch nametags from database for Bitcoin addresses
-      const newNameTags = {}
-      if (addressesArray.length > 0 && status === 'authenticated') {
-        try {
-          const batchSize = 50
-          const batches = []
-          for (let i = 0; i < addressesArray.length; i += batchSize) {
-            batches.push(addressesArray.slice(i, i + batchSize))
-          }
-          const batchPromises = batches.map((batch) =>
-            cacheLimiter.schedule(async () => {
-              const cacheKey = `nametags-batch-${batch.join('-')}-session_required` // Session-dependent
-              const fetchFn = async () => {
-                const response = await axios.post(
-                  `/api/nametags`,
-                  { addresses: batch },
-                  {
-                    headers: {
-                      Authorization: `Bearer ${session?.accessToken}`,
-                    },
-                    timeout: 40000,
-                  },
-                )
-                return response.data.data
-              }
-              return await getCachedData(
-                cacheKey,
-                fetchFn,
-                NAME_TAG_CACHE_DURATION,
-                0,
-                true,
-                session,
-                status,
-              )
-            }),
-          )
-          const responses = await Promise.allSettled(batchPromises)
-          responses.forEach((result, index) => {
-            if (result.status === 'fulfilled' && result.value) {
-              const batchAddresses = batches[index]
-              batchAddresses.forEach((address) => {
-                const normalizedAddress = address.toLowerCase()
-                const data = result.value?.[normalizedAddress]
-                const nameTag = data?.Labels?.deposit?.['Name Tag'] || null
-                const image = data?.Labels?.deposit?.image || '/icons/default.webp'
-                newNameTags[normalizedAddress] = { nameTag, image, timestamp: Date.now() }
-              })
-            } else {
-              batches[index].forEach((address) => {
-                const normalizedAddress = address.toLowerCase()
-                newNameTags[normalizedAddress] = {
-                  nameTag: null,
-                  image: null,
-                  timestamp: Date.now(),
-                }
-              })
-            }
-          })
-        } catch (error) {
-          console.error(`fetchNameTagsForAddresses error:`, {
-            status: error.response?.status,
-            data: error.response?.data,
-            message: error.message,
-          })
-          const errorMessage =
-            error.response?.status === 401
-              ? 'Unauthorized: Please log in again.'
-              : error.response?.status === 429
-                ? 'Too many requests. Please try again later.'
-                : error.response?.status === 400
-                  ? 'Invalid addresses provided.'
-                  : error.response?.data?.detail || `Failed to fetch Name Tags: ${error.message}`
-          addressesArray.forEach((address) => {
-            const normalizedAddress = address.toLowerCase()
-            newNameTags[normalizedAddress] = { nameTag: null, image: null, timestamp: Date.now() }
-          })
-          toast.error(errorMessage, { position: 'top-center', autoClose: 5000 })
-        }
-      } else if (addressesArray.length > 0) {
-        addressesArray.forEach((address) => {
-          const normalizedAddress = address.toLowerCase()
-          newNameTags[normalizedAddress] = { nameTag: null, image: null, timestamp: Date.now() }
-        })
+
+      if (!response.data.success || !Array.isArray(response.data.data)) {
+        throw new Error('Invalid mempool data')
       }
-      // Update nameTagsRef with newNameTags
-      setNameTags((prev) => {
-        const updated = { ...prev, ...newNameTags }
-        nameTagsRef.current = updated
-        return updated
+
+      const rawTxs = response.data.data
+        .filter((tx) => tx.value_btc * btcPrice >= 500000) // Chỉ tx >= $500k để giảm tải
+        .slice(0, limit)
+
+      // Chỉ lấy address từ 50 tx đầu để fetch name tag (giảm tải Redis)
+      const addressSet = new Set()
+      rawTxs.slice(0, 50).forEach((tx) => {
+        ;(tx.inputs || []).forEach((i) => i.address && addressSet.add(i.address))
+        ;(tx.outputs || []).forEach((o) => o.address && addressSet.add(o.address))
       })
-      const newTxs = rawNewTxs.map((tx) => {
+
+      const addressesToTag = Array.from(addressSet).filter((a) => a !== 'unknown')
+
+      if (addressesToTag.length > 0) {
+        await fetchNameTagsForAddresses(addressesToTag)
+      }
+
+      const processedTxs = rawTxs.map((tx) => {
         mempoolTxCache.current.add(tx.txid)
-        const inputs = (tx.inputs || []).map((input) => {
-          const addr = input.address || 'unknown'
-          const normalizedAddr = addr.toLowerCase()
-          const tagData = nameTagsRef.current[normalizedAddr]
-          return {
-            address: addr,
-            nameTag: addr === 'unknown' ? 'Unknown' : tagData?.nameTag || null, // <-- Add this condition
-            image: tagData?.image || null,
-          }
-        })
-        const outputs = (tx.outputs || []).map((output) => {
-          const addr = output.address || 'unknown'
-          const normalizedAddr = addr.toLowerCase()
-          const tagData = nameTagsRef.current[normalizedAddr]
-          return {
-            address: addr,
-            nameTag: addr === 'unknown' ? 'Unknown' : tagData?.nameTag || null, // <-- Add this condition
-            image: tagData?.image || null,
-          }
-        })
         return {
           txid: tx.txid,
           value_usd: tx.value_btc * btcPrice,
           value_btc: tx.value_btc,
           timestamp: tx.timestamp || Math.floor(Date.now() / 1000),
-          inputs,
-          outputs,
+          inputs: (tx.inputs || []).map((i) => ({
+            address: i.address || 'unknown',
+            nameTag:
+              i.address === 'unknown'
+                ? 'Unknown'
+                : nameTagsRef.current[i.address?.toLowerCase()]?.nameTag || null,
+            image: nameTagsRef.current[i.address?.toLowerCase()]?.image || null,
+          })),
+          outputs: (tx.outputs || []).map((o) => ({
+            address: o.address || 'unknown',
+            nameTag:
+              o.address === 'unknown'
+                ? 'Unknown'
+                : nameTagsRef.current[o.address?.toLowerCase()]?.nameTag || null,
+            image: nameTagsRef.current[o.address?.toLowerCase()]?.image || null,
+          })),
           fee: tx.fee || 0,
-          size: tx.size || 0,
           status: tx.status || {},
         }
       })
-      // Update mempoolTransactions with new data, keeping up to MAX_MEMPOOL_TXS transactions
+
       setMempoolTransactions((prev) => {
-        const updated = [...newTxs, ...prev]
-          .slice(0, MAX_MEMPOOL_TXS)
-          .sort((a, b) => b.timestamp - a.timestamp)
-        return updated
+        if (isInitial) {
+          return processedTxs.sort((a, b) => b.timestamp - a.timestamp)
+        }
+        // Polling: thêm tx mới vào đầu, giữ tối đa 200
+        const combined = [...processedTxs, ...prev]
+        const unique = []
+        const seen = new Set()
+        for (const tx of combined) {
+          if (!seen.has(tx.txid)) {
+            seen.add(tx.txid)
+            unique.push(tx)
+          }
+        }
+        return unique.slice(0, 200).sort((a, b) => b.timestamp - a.timestamp)
       })
+
+      isInitialMempoolFetch.current = false
     } catch (error) {
-      const errorMessage =
-        error.response?.status === 401
-          ? 'Unauthorized: Please log in again.'
-          : error.response?.status === 429
-            ? 'Too many requests. Please try again later.'
-            : error.response?.data?.detail ||
-              `Failed to fetch mempool transactions: ${error.message}`
-      setMempoolError(errorMessage)
-      console.error('Mempool transaction fetch error:', { error: errorMessage })
+      setMempoolError('Failed to load mempool transactions')
+      console.error('Mempool fetch error:', error)
     } finally {
       setIsLoadingMempool(false)
     }
   }, [selectedToken, session, fetchNameTagsForAddresses, nameTagsRef])
+
   useEffect(() => {
     if (selectedToken?.id !== 'bitcoin' || document.visibilityState !== 'visible') {
       setMempoolTransactions([])

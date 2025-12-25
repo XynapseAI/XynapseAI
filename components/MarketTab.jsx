@@ -166,6 +166,7 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
     isLoadingPage,
     setIsLoadingPage,
     loadMoreDexData,
+    fetchNameTagsForAddresses,
   } = useMarketTabLogic({ recaptchaRef, toast, initialTokenData, toast })
   const dropdownRef = useRef(null)
   const chainDropdownRef = useRef(null)
@@ -228,7 +229,7 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
     if (txHash && SUPPORTED_INTERNAL_CHAINS.includes(normalizedChain)) {
       return {
         url: `/explorer?query=${txHash}&chain=${normalizedChain}`,
-        logo: '/logos/logo.png', // Logo dự án của bạn
+        logo: '/logos/logo.png',
         isInternal: true,
       }
     }
@@ -245,7 +246,7 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
     const explorerUrls = getExplorerUrls(normalizedChain, txHash, address)
     return {
       url: explorerUrls.txUrl || '#',
-      logo: '/logos/logo.png', // Vẫn dùng logo dự án cho fallback Etherscan-like
+      logo: '/logos/logo.png',
       isInternal: false,
     }
   }
@@ -764,6 +765,40 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
     else if (activeMarketTab === 'dex') left = '66.666%'
     return { left, width, transition: 'left 0.3s ease-in-out' }
   }, [activeMarketTab])
+
+  // Tối ưu name tags: Chỉ fetch khi tab Holders mở và có data
+  useEffect(() => {
+    if (activeMarketTab === 'holders' && onChainData.topHolders.length > 0) {
+      const visibleHolders = onChainData.topHolders.slice(0, 50)
+      const addresses = visibleHolders
+        .map((h) => h.address)
+        .filter((a) => a && !nameTags[a.toLowerCase()])
+
+      if (addresses.length > 0) {
+        fetchNameTagsForAddresses(addresses)
+      }
+    }
+  }, [activeMarketTab, onChainData.topHolders, nameTags, fetchNameTagsForAddresses])
+
+  // Tối ưu name tags: Chỉ fetch khi tab DEX mở và có trades
+  useEffect(() => {
+    if (activeMarketTab === 'dex' && sortedTrades.length > 0) {
+      const visibleTrades = sortedTrades.slice(0, 30)
+      const addressSet = new Set()
+
+      visibleTrades.forEach((trade) => {
+        trade.tx_from_address?.address && addressSet.add(trade.tx_from_address.address)
+        trade.to_token_address?.address && addressSet.add(trade.to_token_address.address)
+      })
+
+      const addresses = Array.from(addressSet).filter((a) => a && !nameTags[a.toLowerCase()])
+
+      if (addresses.length > 0) {
+        fetchNameTagsForAddresses(addresses)
+      }
+    }
+  }, [activeMarketTab, sortedTrades, nameTags, fetchNameTagsForAddresses])
+
   return (
     <section
       ref={trendingListRef} // AutoAnimate for trending
@@ -2058,14 +2093,14 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                                         )}
                                       </div>
                                       <Virtuoso
-                                        style={{
-                                          height: '100%',
-                                          overflow: 'auto',
-                                          scrollbarWidth: 'none',
-                                          msOverflowStyle: 'none',
-                                        }}
+                                        style={{ height: '100%', overflow: 'auto' }}
                                         className="hide-scrollbar"
                                         data={trades}
+                                        endReached={() => {
+                                          if (!isLoadingMoreDex && hasMoreDex) {
+                                            loadMoreDexData()
+                                          }
+                                        }}
                                         itemContent={(index, item) => {
                                           const txHash = isBitcoin ? item.txid : item.tx_hash
                                           const timestamp = isBitcoin
@@ -2085,6 +2120,7 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                                               : item.to_token_address?.address,
                                             chain,
                                           )
+
                                           const TradeRow = React.memo(() => (
                                             <div className="flex border-t border-[#FFFFFF10] bg-[#0A0A0A]/80 py-1.5 px-2 text-[9px] sm:text-[11px]">
                                               {/* Tx/Time */}
@@ -2092,19 +2128,14 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                                                 <button
                                                   onClick={(e) => {
                                                     e.stopPropagation()
-                                                    if (explorerInfo.isInternal) {
-                                                      // Dùng Next.js router để chuyển nội bộ
-                                                      window.location.href = explorerInfo.url
-                                                    } else {
-                                                      window.open(
-                                                        explorerInfo.url,
-                                                        '_blank',
-                                                        'noopener,noreferrer',
-                                                      )
-                                                    }
+                                                    window.open(
+                                                      explorerInfo.url,
+                                                      '_blank',
+                                                      'noopener,noreferrer',
+                                                    )
                                                   }}
                                                   className="p-1 rounded-md hover:bg-[#FFFFFF]/10 transition-all duration-300 cursor-pointer"
-                                                  title="View transaction"
+                                                  title="View transaction in new tab"
                                                 >
                                                   <img
                                                     src={explorerInfo.logo}
@@ -2149,7 +2180,7 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                                                   </button>
                                                 )}
                                               </div>
-                                              {/* From Address */}
+
                                               {/* From Address */}
                                               <div className="flex-[2] flex items-center justify-center gap-2 group relative">
                                                 {fromAddressInfo.image && (
@@ -2174,11 +2205,10 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                                                       chain,
                                                       null,
                                                       addr,
-                                                    ) // hash = null, address = addr
-
+                                                    )
                                                     if (addrExplorerInfo.isInternal) {
                                                       window.location.href =
-                                                        addrExplorerInfo.url + '&type=wallet' // Thêm type=wallet để Explorer biết là xem address
+                                                        addrExplorerInfo.url + '&type=wallet'
                                                     } else {
                                                       window.open(
                                                         addrExplorerInfo.url,
@@ -2240,7 +2270,7 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                                                   </svg>
                                                 </button>
                                               </div>
-                                              {/* To Address */}
+
                                               {/* To Address */}
                                               <div className="flex-[2] flex items-center justify-center gap-2 group relative">
                                                 {toAddressInfo.image && (
@@ -2266,7 +2296,6 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                                                       null,
                                                       addr,
                                                     )
-
                                                     if (addrExplorerInfo.isInternal) {
                                                       window.location.href =
                                                         addrExplorerInfo.url + '&type=wallet'
@@ -2331,6 +2360,7 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                                                   </svg>
                                                 </button>
                                               </div>
+
                                               {/* Value */}
                                               <div className="flex-1 flex flex-col gap-1 items-center justify-center text-[10px]">
                                                 <span className="font-semibold flex items-center gap-2 text-[8px] sm:text-[10px]">
@@ -2383,6 +2413,7 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                                                   </span>
                                                 </div>
                                               </div>
+
                                               {/* Fee/Status */}
                                               <div className="flex-1 flex flex-col gap-1 items-center justify-center text-center text-[9px] sm:text-[11px]">
                                                 {isBitcoin && (
@@ -2392,7 +2423,11 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                                                 )}
                                                 {isBitcoin ? (
                                                   <span
-                                                    className={`px-1 py-0.5 rounded-full text-[7px] sm:text-[9px] font-semibold text-center ${item.status.confirmed ? 'bg-emerald-400/10 text-emerald-400' : 'bg-yellow-500/10 text-yellow-500'}`}
+                                                    className={`px-1 py-0.5 rounded-full text-[7px] sm:text-[9px] font-semibold text-center ${
+                                                      item.status.confirmed
+                                                        ? 'bg-emerald-400/10 text-emerald-400'
+                                                        : 'bg-yellow-500/10 text-yellow-500'
+                                                    }`}
                                                   >
                                                     {item.status.confirmed
                                                       ? 'Confirmed'
@@ -2404,6 +2439,7 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                                                   </span>
                                                 )}
                                               </div>
+
                                               {!isBitcoin && (
                                                 <div className="flex-1 flex items-center justify-center">
                                                   <img
@@ -2418,13 +2454,32 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                                               )}
                                             </div>
                                           ))
+
                                           return (
                                             <TradeRow
                                               key={`${item.tx_hash || item.txid}-${index}`}
                                             />
-                                          ) // Stable key
+                                          )
                                         }}
-                                        endReached={loadMoreDexData} // Infinite scroll
+                                        components={{
+                                          Footer: () => {
+                                            if (hasMoreDex && isLoadingMoreDex) {
+                                              return (
+                                                <div className="p-4 text-center text-[#D4D4D4] text-xs">
+                                                  Loading more transactions...
+                                                </div>
+                                              )
+                                            }
+                                            if (hasMoreDex) {
+                                              return (
+                                                <div className="p-4 text-center text-[#D4D4D4] text-xs">
+                                                  Scroll to load more
+                                                </div>
+                                              )
+                                            }
+                                            return null
+                                          },
+                                        }}
                                       />
                                     </div>
                                   </>
@@ -2643,7 +2698,6 @@ export default React.memo(MarketTab, (prev, next) => {
     prev.initialTokenSlug === next.initialTokenSlug
   )
 })
-
 ;<style jsx global>{`
   .custom-scrollbar::-webkit-scrollbar {
     width: 5px;
