@@ -1,5 +1,4 @@
 // app/api/token-cluster/route.js
-// app/api/token-cluster/route.js
 import { NextResponse } from 'next/server';
 import { query } from '../../../utils/postgres';
 import { logger } from '../../../utils/serverLogger';

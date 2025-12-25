@@ -104,8 +104,13 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
   const [isMobile, setIsMobile] = useState(typeof window !== 'undefined' && window.innerWidth <= 640);
   const [activeTab, setActiveTab] = useState('profile');
   const [isSigningOut, setIsSigningOut] = useState(false);
+  const [followedTasks, setFollowedTasks] = useState(new Set());
+  const [immediateLoading, setImmediateLoading] = useState(false);
   const [showEmail, setShowEmail] = useState(false);
   const [showWallet, setShowWallet] = useState(false); // Add state for wallet display
+  const [showV2Modal, setShowV2Modal] = useState(false);
+  const [pendingTask, setPendingTask] = useState(null);
+  const [currentPage, setCurrentPage] = useState({ leaderboard: 1 });
   // NEW: States for Badge tab mint flow
   const [showMintModal, setShowMintModal] = useState(false);
   const [mintStep, setMintStep] = useState('connectWallet'); // 'connectWallet', 'connectTwitter', 'mintNFT'
@@ -129,6 +134,7 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
   const email = session?.user?.email || '';
   const isBaseAccount = email.includes('@base.xynapseai.net');
   const [followXCompleted, setFollowXCompleted] = useState(false);
+  const itemsPerPage = 20;
   // Updated: Use wagmi to read current counter for preview ID
   const { data: currentCounter } = useReadContract({
     address: CONTRACT_ADDRESS,
@@ -257,7 +263,7 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
     const currentWallet = address || userData?.walletAddress;
     setWalletAddressForQuery(currentWallet || null);
   }, [address, userData?.walletAddress]);
-  /*
+
   const { data: tasks, isLoading: tasksLoading, error: tasksError } = useQuery({
     queryKey: ['tasks', session?.user?.id, csrfToken],
     queryFn: async () => {
@@ -326,8 +332,7 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
       // Removed toast to avoid duplicates
     },
   });
-  */
-  /*
+
   const handleFollow = (taskId) => {
     const followUrl = `https://x.com/intent/follow?screen_name=XynapseAI`;
     window.open(followUrl, '_blank');
@@ -446,7 +451,7 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
       },
     });
   }, [verifyTaskMutation]);
-  */
+
   const connectTwitterMutation = useMutation({
     mutationFn: async () => {
       window.location.href = '/api/twitter/connect';
@@ -471,7 +476,7 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
     }
     return '/fallback-image.webp';
   }, []);
-  /*
+
   const DailyCheckinBar = ({ last7Days, streak, onCheckin, isLoading, userData, twitterConnected }) => {
     const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
     const todayIndex = new Date().getDay();
@@ -727,8 +732,7 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
       </div>
     );
   }, [tasks, tasksLoading, taskProgressLoading, tasksError, taskProgress, verifyTaskMutation, userData, isMobile, followedTasks, immediateLoading, handleVerifyTask, connectTwitterMutation, handleDailyCheckin]);
-  */
-  /*
+
   const renderUserRow = useCallback(
     (user, index, isCurrentUser = false) => {
       const rank = rankings?.findIndex((u) => u.id === user.id) + 1 || 'N/A';
@@ -866,7 +870,7 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
       </div>
     );
   }, [leaderboardLoading, leaderboardError, rankings, userData, isMobile, currentPage, getPaginatedData, getTotalPages, handlePageChange, renderUserRow, session]);
-  */
+
   useEffect(() => {
     if (process.env.NODE_ENV === 'production') {
       console.log = () => { };
@@ -1056,15 +1060,12 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
     onSuccess: async () => {
       await Promise.all([
         queryClient.invalidateQueries(['userData', session?.user?.id, csrfToken]),
-        /*
         queryClient.invalidateQueries(['leaderboard', session?.user?.id, csrfToken]),
-        */
+
       ]);
       await Promise.all([
         queryClient.refetchQueries(['userData', session?.user?.id, csrfToken]),
-        /*
         queryClient.refetchQueries(['leaderboard', session?.user?.id, csrfToken]),
-        */
       ]);
     },
     onError: (err) => {
@@ -1131,13 +1132,9 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
       */
       Promise.all([
         clearCache(cacheKey),
-        /*
         clearCache(leaderboardCacheKey),
-        */
         queryClient.invalidateQueries(['userData', session?.user?.id, csrfToken]),
-        /*
         queryClient.invalidateQueries(['leaderboard', session?.user?.id, csrfToken]),
-        */
       ])
         .then(() => {
           return Promise.all([
@@ -1834,9 +1831,9 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
   if (!session) {
     return <LoginPrompt />;
   }
-  // const overallLoading = immediateLoading /*
-  // || verifyTaskMutation.isLoading
-  // */;
+   const overallLoading = immediateLoading
+   || verifyTaskMutation.isLoading
+
   return (
     <motion.div
       initial={{ opacity: 0, y: 20 }}
@@ -1865,7 +1862,7 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
           transition={{ duration: 0.5, delay: 0.2 }}
         >
           <div className="border-b border-white/15 bg-black/50 rounded-t-xl flex h-[32px] sm:h-[40px] overflow-hidden">
-            {['profile', 'genesis'].map((tab) => {
+            {['profile', 'genesis' , 'tasks' , 'leaderboard'].map((tab) => {
               const isActive = activeTab === tab;
               return (
                 <motion.button
@@ -1945,7 +1942,7 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
       {/* UPDATED: Render Mint Modal */}
       {renderMintModal()}
       {/* v2 Fallback Modal */}
-      {/* <AnimatePresence>
+       <AnimatePresence>
         {showV2Modal && (
           <motion.div
             className="fixed inset-0 bg-[#0A0A0A]/50 backdrop-blur-sm z-50 flex items-center justify-center p-4"
@@ -1988,7 +1985,7 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
             </motion.div>
           </motion.div>
         )}
-      </AnimatePresence> */}
+      </AnimatePresence>
       <style jsx>{`
         .hide-scrollbar::-webkit-scrollbar {
           display: none;

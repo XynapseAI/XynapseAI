@@ -4,7 +4,7 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "set NODE_OPTIONS=--max-old-space-size=4096 && next dev",
+    "dev": "set NODE_OPTIONS=--max-old-space-size=5120 && next dev",
     "postinstall": "npx prisma generate",
     "build": "prisma generate && next build",
     "start": "next start",

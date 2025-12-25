@@ -1,3 +1,4 @@
+
 // app/api/etherscan-explorer/route.js
 import { NextResponse } from 'next/server';
 import axios from 'axios';
@@ -7,18 +8,15 @@ import Bottleneck from 'bottleneck';
 import { isAddress } from 'ethers';
 import { createClient } from 'redis';
 import { ethers } from 'ethers';
-
 const limiterBottleneck = new Bottleneck({
   maxConcurrent: 10,
   minTime: 200,
 });
-
 const fetchWithRateLimit = limiterBottleneck.wrap(async (url, config = {}) => {
   // Add abort signal for long timeouts
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), config.timeout || 30000);
   config.signal = controller.signal;
-
   try {
     const response = await axios.get(url, config);
     clearTimeout(timeoutId);
@@ -35,7 +33,6 @@ const fetchWithRateLimit = limiterBottleneck.wrap(async (url, config = {}) => {
     throw error;
   }
 });
-
 // Redis Client
 let redisClient;
 async function getRedisClient() {
@@ -52,7 +49,6 @@ async function getRedisClient() {
   }
   return redisClient;
 }
-
 // FIXED: CoinGecko platform map (same as CMC slugs) - Added more chains
 const platformIdMap = {
   ethereum: 'ethereum',
@@ -69,20 +65,17 @@ const platformIdMap = {
   monad: 'monad',
   hyperevm: 'hyperevm',
 };
-
 // FIXED: Fetch token metadata/logo from CoinGecko by contract (batch via Promise.all)
 async function fetchCoinGeckoInfo(chain, addresses) {
   if (addresses.length === 0) {
     logger.info('No addresses for CoinGecko fetch');
     return {};
   }
-
   const platform = platformIdMap[chain];
   if (!platform) {
     logger.warn(`Unsupported platform for CoinGecko: ${chain}`);
     return {};
   }
-
   const cgInfos = {};
   await Promise.all(addresses.map(async (addr) => {
     const url = `https://api.coingecko.com/api/v3/coins/${platform}/contract/${addr}?localization=false&market_data=false`;
@@ -102,25 +95,21 @@ async function fetchCoinGeckoInfo(chain, addresses) {
       logger.warn(`CoinGecko info failed for ${addr} on ${platform}: ${err.message}`);
     }
   }));
-
   const matchedCount = Object.keys(cgInfos).length;
   logger.info(`CoinGecko info fetched for ${matchedCount} tokens on ${platform} (queried ${addresses.length})`);
   return cgInfos;
 }
-
 // FIXED: Fetch prices from CoinGecko by contract addresses (batch support)
 async function fetchCoinGeckoPrices(chain, addresses) {
   if (addresses.length === 0) {
     logger.info('No addresses for CoinGecko prices');
     return {};
   }
-
   const platform = platformIdMap[chain];
   if (!platform) {
     logger.warn(`Unsupported platform for CoinGecko prices: ${chain}`);
     return {};
   }
-
   const addressStr = addresses.join(',');
   const url = `https://api.coingecko.com/api/v3/simple/token_price/${platform}?contract_addresses=${addressStr}&vs_currencies=usd`;
   try {
@@ -134,14 +123,12 @@ async function fetchCoinGeckoPrices(chain, addresses) {
     return {};
   }
 }
-
 // UPDATED: Fetch native price (keep CMC for accuracy) - Added more chains
 async function fetchNativePrice(chain) {
   if (!process.env.COINMARKETCAP_API_KEY) {
     logger.info(`CMC key missing, skipping native price for ${chain}`);
     return null;
   }
-
   const nativeIdMap = {
     ethereum: '1027', // ETH
     bsc: '1839', // BNB
@@ -159,7 +146,6 @@ async function fetchNativePrice(chain) {
   };
   const nativeId = nativeIdMap[chain];
   if (!nativeId) return null;
-
   const idStr = nativeId;
   const url = `https://pro-api.coinmarketcap.com/v1/cryptocurrency/quotes/latest?id=${idStr}&convert=USD`;
   const config = {
@@ -169,7 +155,6 @@ async function fetchNativePrice(chain) {
     },
     timeout: 10000,
   };
-
   try {
     const res = await fetchWithRateLimit(url, config);
     if (res.data.status?.error_code === 0) {
@@ -182,17 +167,14 @@ async function fetchNativePrice(chain) {
   }
   return null;
 }
-
 // FIXED: Enrich tokens with CoinGecko (logo + price by contract, no key needed)
 async function enrichWithCoinGecko(tokens) {
   if (tokens.length === 0) return tokens;
   const chain = tokens[0].chain;
   const uniqueAddrs = [...new Set(tokens.map(t => t.tokenAddress?.toLowerCase()).filter(Boolean))];
   logger.info(`Enriching ${tokens.length} tokens on ${chain} with CoinGecko`);
-
   const cgInfos = await fetchCoinGeckoInfo(chain, uniqueAddrs);
   const cgPrices = await fetchCoinGeckoPrices(chain, uniqueAddrs);
-
   return tokens.map(t => {
     const lowerAddr = t.tokenAddress?.toLowerCase();
     const cgInfo = cgInfos[lowerAddr];
@@ -202,7 +184,6 @@ async function enrichWithCoinGecko(tokens) {
     const amount = Number(rawValue) / 10 ** decimals;
     const valueUSD = cgPrice ? amount * cgPrice : null;
     logger.info(`Enriched ${t.tokenAddress} on ${chain}: ${t.symbol || cgInfo?.symbol}, dec=${decimals}, amount=${amount.toFixed(6)}, USD=${valueUSD?.toFixed(2)}`);
-
     return {
       ...t,
       logo: cgInfo?.logo || `https://via.placeholder.com/16?text=${t.symbol || 'T'}`,
@@ -214,7 +195,6 @@ async function enrichWithCoinGecko(tokens) {
     };
   });
 }
-
 // Full chainIdMap (unchanged, added plasma map)
 const chainIdMap = {
   ethereum: '1',
@@ -245,7 +225,6 @@ const chainIdMap = {
   world: '480',
   zksync: '324',
 };
-
 // NEW: primaryChainNameMap - Map chainId (str) to primary chain name for parallel search
 const primaryChainNameMap = {
   '1': 'ethereum',
@@ -270,10 +249,8 @@ const primaryChainNameMap = {
   '480': 'world',
   '324': 'zksync',
 };
-
 // Supported Etherscan chains (exclude new/unsupported like monad, hyperevm)
 const supportedEtherscanChainIds = ['1', '42161', '137', '8453', '43114', '42220', '100', '59144', '130', '324'];
-
 // Alchemy RPC map (same as frontend)
 const rpcMap = {
   ethereum: `https://eth-mainnet.g.alchemy.com/v2/${process.env.ALCHEMY_API_KEY}`,
@@ -294,7 +271,6 @@ const rpcMap = {
   unichain: `https://linea-mainnet.g.alchemy.com/v2/${process.env.ALCHEMY_API_KEY}`,
   world: `https://worldchain-mainnet.g.alchemy.com/v2/${process.env.ALCHEMY_API_KEY}`,
 };
-
 // NEW: Fetch token info using Alchemy provider
 async function fetchTokenInfo(provider, tokenAddress) {
   const lowerAddr = tokenAddress.toLowerCase();
@@ -306,7 +282,6 @@ async function fetchTokenInfo(provider, tokenAddress) {
     logger.info(`Using known token info for ${lowerAddr}: ${knownTokens[lowerAddr].symbol}`);
     return knownTokens[lowerAddr];
   }
-
   const abi = [
     "function name() view returns (string)",
     "function symbol() view returns (string)",
@@ -314,7 +289,6 @@ async function fetchTokenInfo(provider, tokenAddress) {
   ];
   const contract = new ethers.Contract(tokenAddress, abi, provider);
   let info = { name: 'Unknown Token', symbol: 'UNK', decimals: 18 };
-
   try {
     info.name = await contract.name();
   } catch {
@@ -330,11 +304,9 @@ async function fetchTokenInfo(provider, tokenAddress) {
   } catch {
     logger.warn(`Failed to fetch decimals for ${tokenAddress}`);
   }
-
   logger.info(`Fetched token info for ${tokenAddress}: ${info.symbol} (${info.decimals} dec)`);
   return info;
 }
-
 // UPDATED: Verify candidate by receipt (primary) + fallback block timestamp
 async function verifyTxOnChain(chainId, txHash, transaction) {
   const receiptUrl = `${ETHERSCAN_V2_BASE_URL}?chainid=${chainId}&module=proxy&action=eth_getTransactionReceipt&txhash=${txHash}&apikey=${process.env.ETHERSCAN_API_KEY}`;
@@ -356,7 +328,6 @@ async function verifyTxOnChain(chainId, txHash, transaction) {
   } catch (err) {
     logger.warn(`Receipt verification failed on ${chainId}: ${err.message}`);
   }
-
   // Fallback: Block timestamp recent
   if (transaction.blockNumber) {
     const blockUrl = `${ETHERSCAN_V2_BASE_URL}?chainid=${chainId}&module=proxy&action=eth_getBlockByNumber&tag=${transaction.blockNumber}&boolean=true&apikey=${process.env.ETHERSCAN_API_KEY}`;
@@ -376,10 +347,8 @@ async function verifyTxOnChain(chainId, txHash, transaction) {
       logger.warn(`Block fallback failed on ${chainId}: ${err.message}`);
     }
   }
-
   return { valid: false, numLogs: 0, receipt: null, isSuccess: false };
 }
-
 // Allowed origins (unchanged)
 const allowedOrigins = [
   process.env.NEXT_PUBLIC_APP_URL,
@@ -391,7 +360,6 @@ const allowedOrigins = [
   "https://base.xynapseai.net",
   'https://xynapse-ai-xynapse-projects.vercel.app',
 ].filter(Boolean);
-
 function isAllowedOrigin(origin, referer) {
   try {
     if (origin && (allowedOrigins.includes(origin) || new URL(origin).hostname.endsWith('xynapseai.net'))) {
@@ -420,7 +388,6 @@ function isAllowedOrigin(origin, referer) {
     return false;
   }
 }
-
 const bodySchema = z.object({
   action: z.enum(['wallet-balances', 'token-balances', 'transactions', 'tx-details', 'address-overview', 'token-supply', 'token-info', 'token-transactions'], { message: 'Invalid action' }),
   chain: z.string().optional(),
@@ -442,10 +409,8 @@ const bodySchema = z.object({
   (data) => (['token-supply', 'token-info', 'token-transactions'].includes(data.action) ? !!data.tokenAddress : true),
   { message: 'Token address is required for token-supply, token-info and token-transactions', path: ['tokenAddress'] }
 );
-
 // V2 unified base URL
 const ETHERSCAN_V2_BASE_URL = 'https://api.etherscan.io/v2/api';
-
 // UPDATED: Helper to fetch token info via provider or fallback known tokens
 async function fetchTokenInfoViaProvider(provider, tokenAddress, chainId) {
   if (provider) {
@@ -461,14 +426,12 @@ async function fetchTokenInfoViaProvider(provider, tokenAddress, chainId) {
     logger.info(`Using known token info for ${lowerAddr}: ${knownTokens[lowerAddr].symbol}`);
     return knownTokens[lowerAddr];
   }
-
   const calls = [
     { selector: '0x06fdde03', key: 'name' },
     { selector: '0x95d89b41', key: 'symbol' },
     { selector: '0x313ce567', key: 'decimals' },
   ];
   let info = { name: 'Unknown', symbol: 'UNK', decimals: 18 };
-
   await Promise.all(calls.map(async (call) => {
     let callUrl = `${ETHERSCAN_V2_BASE_URL}?chainid=${chainId}&module=proxy&action=eth_call&to=${tokenAddress}&data=${call.selector}&tag=latest&apikey=${process.env.ETHERSCAN_API_KEY}`;
     try {
@@ -491,7 +454,6 @@ async function fetchTokenInfoViaProvider(provider, tokenAddress, chainId) {
   logger.info(`Fetched token info for ${tokenAddress}: ${info.symbol} (${info.decimals} dec)`);
   return info;
 }
-
 // CORS wrapper (unchanged)
 const handlerWrapper = (handler) =>
   limiterBottleneck.wrap(async (req) => {
@@ -500,11 +462,9 @@ const handlerWrapper = (handler) =>
     const referer = req.headers.get('referer');
     const startTime = Date.now();
     logger.info(`Request to /api/etherscan-explorer from IP ${ip}, Origin: ${origin || 'null'}, Referer: ${referer || 'null'}`);
-
     if (!isAllowedOrigin(origin, referer)) {
       return NextResponse.json({ detail: 'Not allowed by CORS' }, { status: 403 });
     }
-
     const res = await handler(req);
     const allowOrigin = origin || (referer ? new URL(referer).origin : process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000');
     res.headers.set('Access-Control-Allow-Origin', allowOrigin);
@@ -514,7 +474,6 @@ const handlerWrapper = (handler) =>
     logger.info(`Response for /api/etherscan-explorer, time: ${Date.now() - startTime}ms`, { ip });
     return res;
   });
-
 export const POST = handlerWrapper(async (request) => {
   const ip = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown';
   let body;
@@ -524,7 +483,6 @@ export const POST = handlerWrapper(async (request) => {
     logger.warn(`Invalid JSON body: ${err.message}`, { ip });
     return NextResponse.json({ detail: 'Invalid JSON body' }, { status: 400 });
   }
-
   let parsedBody;
   try {
     parsedBody = bodySchema.parse(body);
@@ -532,28 +490,23 @@ export const POST = handlerWrapper(async (request) => {
     logger.warn(`Validation error: ${err.message}`, { ip });
     return NextResponse.json({ detail: 'Validation failed', errors: err.errors }, { status: 400 });
   }
-
   const { chain, action, address, txHash, tokenAddress, page, offset } = parsedBody;
   const chainId = chainIdMap[chain?.toLowerCase()];
   if (!chainId && action !== 'tx-details') {
     logger.warn(`Unsupported chain for Etherscan V2: ${chain}`, { ip });
     return NextResponse.json({ detail: `Unsupported chain for Etherscan V2: ${chain}` }, { status: 400 });
   }
-
   logger.info(`Processing ${action} for chain ${chain} (ID: ${chainId})`, { ip, txHash: txHash?.slice(0, 10) + '...' });
-
   if (!process.env.ETHERSCAN_API_KEY) {
     logger.error('ETHERSCAN_API_KEY is not configured');
     return NextResponse.json({ detail: 'Server configuration error: Missing ETHERSCAN_API_KEY' }, { status: 500 });
   }
-
   return new NextResponse(
     new ReadableStream({
       async start(controller) {
         try {
           let apiUrl = `${ETHERSCAN_V2_BASE_URL}?chainid=${chainId}`;
           let data = {};
-
           if (action === 'tx-details' && txHash) {
             const redis = await getRedisClient();
             const cacheKey = `explorer:tx:${chain}:${txHash.toLowerCase()}`;
@@ -565,7 +518,6 @@ export const POST = handlerWrapper(async (request) => {
               controller.close();
               return;
             }
-
             let supportedChains;
             if (chain) {
               const lowerChain = chain.toLowerCase();
@@ -584,7 +536,6 @@ export const POST = handlerWrapper(async (request) => {
               const priB = priorityOrder.indexOf(b[0]);
               return (priA === -1 ? Infinity : priA) - (priB === -1 ? Infinity : priB);
             });
-
             const isSupportedByEtherscan = supportedEtherscanChainIds.includes(chainId);
             if (!isSupportedByEtherscan && chain) {
               // Use Alchemy for unsupported chains like monad, hyperevm
@@ -647,13 +598,11 @@ export const POST = handlerWrapper(async (request) => {
                     chain: chain,
                   };
                 });
-
                 logger.info(`Found ${data.tokenTransfers.length} token transfers (${data.tokenTransfers.filter(t => t.type === 'ERC721').length} NFTs), enriching on ${chain}`);
                 data.tokenTransfers = await enrichWithCoinGecko(data.tokenTransfers);
               } else {
                 logger.info('No token transfers, skipping enrich');
               }
-
               const nativePrice = await fetchNativePrice(chain);
               if (nativePrice) {
                 const nativeValue = Number(tx.value || 0n) / 1e18;
@@ -664,14 +613,12 @@ export const POST = handlerWrapper(async (request) => {
                 data.feeUSD = fee * nativePrice;
                 logger.info(`Native ${chain} enriched: value USD ${data.nativeValueUSD}, fee USD ${data.feeUSD}`);
               }
-
               await redis.set(cacheKey, JSON.stringify(data), 'EX', 3600);
               logger.info(`Cached tx-details via Alchemy: ${cacheKey}`);
               controller.enqueue(JSON.stringify({ success: true, data }));
               controller.close();
               return;
             }
-
             // Original Etherscan logic for supported chains
             const searchPromises = sortedChains.map(async ([chainIdStr, chainName]) => {
               const txUrl = `${ETHERSCAN_V2_BASE_URL}?chainid=${chainIdStr}&module=proxy&action=eth_getTransactionByHash&txhash=${txHash}&apikey=${process.env.ETHERSCAN_API_KEY}`;
@@ -692,10 +639,8 @@ export const POST = handlerWrapper(async (request) => {
               }
               return null;
             });
-
             let candidates = (await Promise.all(searchPromises)).filter(Boolean);
             logger.info(`Found ${candidates.length} tx candidates for ${txHash.slice(0, 10)}...`);
-
             if (candidates.length === 0) {
               if (!chain) {
                 const baseId = '8453';
@@ -711,11 +656,9 @@ export const POST = handlerWrapper(async (request) => {
                 throw new Error('Transaction not found on selected chain');
               }
             }
-
             if (candidates.length === 0) {
               throw new Error('Transaction not found on any supported chain');
             }
-
             const verifyPromises = candidates.map(async (cand) => {
               const verify = await verifyTxOnChain(cand.chainId, txHash, cand.transaction);
               if (verify.valid) {
@@ -724,13 +667,11 @@ export const POST = handlerWrapper(async (request) => {
               }
               return null;
             });
-
             let validCandidates = (await Promise.all(verifyPromises)).filter(Boolean);
             if (validCandidates.length === 0 && candidates.length > 0) {
               logger.warn(`No receipt valid, falling back to timestamp check for candidates`);
               validCandidates = candidates.filter(c => c.transaction.blockNumber).map(c => ({ ...c, numLogs: 0, receipt: null })).slice(0, 1);
             }
-
             if (validCandidates.length === 0) {
               throw new Error(chain ? 'Transaction not found on selected chain' : 'Transaction not found on any supported chain');
             }
@@ -738,10 +679,8 @@ export const POST = handlerWrapper(async (request) => {
               validCandidates.sort((a, b) => b.numLogs - a.numLogs);
               logger.warn(`Multiple valid candidates for ${txHash.slice(0, 10)}... taking max logs: ${validCandidates[0].chainName} (${validCandidates[0].numLogs} logs)`);
             }
-
             const { chainName: foundChainName, chainId: foundChainId, transaction, numLogs, receipt: preReceipt } = validCandidates[0];
             logger.info(`TX verified on ${foundChainName} (ID: ${foundChainId}) for hash ${txHash.slice(0, 10)}... (${numLogs} logs)`);
-
             let receiptResponse;
             if (preReceipt) {
               receiptResponse = { data: { result: preReceipt } };
@@ -750,15 +689,12 @@ export const POST = handlerWrapper(async (request) => {
               receiptResponse = await fetchWithRateLimit(receiptUrl, { timeout: 30000 });
               logger.info(`Receipt fetch for ${foundChainName}: status ${receiptResponse.status}`);
             }
-
             let internalUrl = `${ETHERSCAN_V2_BASE_URL}?chainid=${foundChainId}&module=account&action=txlistinternal&txhash=${txHash}&apikey=${process.env.ETHERSCAN_API_KEY}`;
             const internalResponse = await fetchWithRateLimit(internalUrl, { timeout: 30000 });
             logger.info(`Internal txs fetch for ${foundChainName}: status ${internalResponse.status}`);
-
             let blockUrl = `${ETHERSCAN_V2_BASE_URL}?chainid=${foundChainId}&module=proxy&action=eth_getBlockByNumber&tag=${transaction.blockNumber}&boolean=true&apikey=${process.env.ETHERSCAN_API_KEY}`;
             const blockResponse = await fetchWithRateLimit(blockUrl, { timeout: 30000 });
             logger.info(`Block fetch for ${foundChainName}: status ${blockResponse.status}`);
-
             data = {
               detectedChain: foundChainName,
               verificationDetails: { numLogs },
@@ -768,7 +704,6 @@ export const POST = handlerWrapper(async (request) => {
               block: blockResponse.data.result || null,
               tokenTransfers: [],
             };
-
             if (data.receipt && data.receipt.logs) {
               data.receipt.logs.forEach((log, logIndex) => {
                 if (log.topics && log.topics[0] === '0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef') {
@@ -780,7 +715,6 @@ export const POST = handlerWrapper(async (request) => {
                     to,
                     logIndex,
                   };
-
                   if (log.topics.length === 3) {
                     // ERC-20
                     transfer.type = 'ERC20';
@@ -802,7 +736,6 @@ export const POST = handlerWrapper(async (request) => {
                 }
               });
             }
-
             if (data.tokenTransfers.length > 0) {
               const uniqueTokens = [...new Set(data.tokenTransfers.map(t => t.tokenAddress))];
               const tokenInfos = {};
@@ -820,13 +753,11 @@ export const POST = handlerWrapper(async (request) => {
                   chain: foundChainName,
                 };
               });
-
               logger.info(`Found ${data.tokenTransfers.length} token transfers (${data.tokenTransfers.filter(t => t.type === 'ERC721').length} NFTs), enriching on ${foundChainName}`);
               data.tokenTransfers = await enrichWithCoinGecko(data.tokenTransfers);
             } else {
               logger.info('No token transfers, skipping enrich');
             }
-
             const nativePrice = await fetchNativePrice(foundChainName);
             if (nativePrice) {
               const nativeValue = Number(parseInt(data.transaction.value || '0x0', 16)) / 1e18;
@@ -837,10 +768,8 @@ export const POST = handlerWrapper(async (request) => {
               data.feeUSD = fee * nativePrice;
               logger.info(`Native ${foundChainName} enriched: value USD ${data.nativeValueUSD}, fee USD ${data.feeUSD}`);
             }
-
             await redis.set(cacheKey, JSON.stringify(data), 'EX', 3600);
             logger.info(`Cached tx-details: ${cacheKey}`);
-
             controller.enqueue(JSON.stringify({ success: true, data }));
           } else if (action === 'wallet-balances' && address) {
             const apiModule = 'account';
@@ -849,7 +778,6 @@ export const POST = handlerWrapper(async (request) => {
             logger.info('Calling Etherscan V2 API for native balance', { module: apiModule, action: apiAction, chain, address, ip });
             const response = await fetchWithRateLimit(apiUrl, { timeout: 15000 });
             logger.info(`API fetch for balance: status ${response.status}`);
-
             if (response.data.status === '1' && typeof response.data.result === 'string') {
               const ethBalanceWei = BigInt(response.data.result);
               const nativePrice = await fetchNativePrice(chain);
@@ -874,7 +802,6 @@ export const POST = handlerWrapper(async (request) => {
             logger.info('Calling Etherscan V2 API for token balances via tokentx', { module: apiModule, action: apiAction, chain, address, ip });
             const response = await fetchWithRateLimit(apiUrl, { timeout: 15000 });
             logger.info(`API fetch for tokentx: status ${response.status}`);
-
             if (response.data.status === '1' && Array.isArray(response.data.result)) {
               const balances = {};
               response.data.result.forEach((tx) => {
@@ -915,14 +842,12 @@ export const POST = handlerWrapper(async (request) => {
             controller.enqueue(JSON.stringify({ success: true, data }));
           } else if (action === 'address-overview' && address) {
             const overview = {};
-
             let balUrl = `${ETHERSCAN_V2_BASE_URL}?chainid=${chainId}&module=account&action=balance&address=${address}&tag=latest&apikey=${process.env.ETHERSCAN_API_KEY}`;
             const balResponse = await fetchWithRateLimit(balUrl, { timeout: 15000 });
             logger.info(`API fetch for balance overview: status ${balResponse.status}`);
             if (balResponse.data.status === '1') {
               overview.nativeBalance = balResponse.data.result;
             }
-
             let tokUrl = `${ETHERSCAN_V2_BASE_URL}?chainid=${chainId}&module=account&action=tokentx&address=${address}&startblock=0&endblock=99999999&page=1&offset=10000&sort=desc&apikey=${process.env.ETHERSCAN_API_KEY}`;
             const tokResponse = await fetchWithRateLimit(tokUrl, { timeout: 15000 });
             logger.info(`API fetch for tokentx overview: status ${tokResponse.status}`);
@@ -959,15 +884,36 @@ export const POST = handlerWrapper(async (request) => {
               tokenData = await enrichWithCoinGecko(tokenData);
               overview.tokenBalances = tokenData;
             }
-
             let txCountUrl = `${ETHERSCAN_V2_BASE_URL}?chainid=${chainId}&module=proxy&action=eth_getTransactionCount&address=${address}&tag=latest&apikey=${process.env.ETHERSCAN_API_KEY}`;
             const txCountResponse = await fetchWithRateLimit(txCountUrl, { timeout: 15000 });
             logger.info(`API fetch for tx count: status ${txCountResponse.status}`);
             if (txCountResponse.data.result) {
               overview.txCount = parseInt(txCountResponse.data.result, 16);
             }
-
             data = overview;
+            controller.enqueue(JSON.stringify({ success: true, data }));
+          } else if (action === 'transactions' && address) {
+            const apiModule = 'account';
+            const apiAction = 'txlist';
+            apiUrl += `&module=${apiModule}&action=${apiAction}&address=${address}&startblock=0&endblock=99999999&page=${page}&offset=${offset}&sort=desc&apikey=${process.env.ETHERSCAN_API_KEY}`;
+            logger.info('Calling Etherscan V2 API for transactions', { module: apiModule, action: apiAction, chain, address, page, offset, ip });
+            const response = await fetchWithRateLimit(apiUrl, { timeout: 15000 });
+            logger.info(`API fetch for transactions: status ${response.status}`);
+            if (response.data.status === '1' && Array.isArray(response.data.result)) {
+              data = response.data.result.map(tx => ({
+                hash: tx.hash,
+                blockNumber: tx.blockNumber,
+                timeStamp: tx.timeStamp,
+                from: tx.from,
+                to: tx.to,
+                value: tx.value,
+                gasUsed: tx.gasUsed,
+                gasPrice: tx.gasPrice,
+                isError: tx.isError,
+              }));
+            } else {
+              logger.warn(`Etherscan V2 API returned status ${response.data.status} for transactions: ${response.data.message}`, { ip, address });
+            }
             controller.enqueue(JSON.stringify({ success: true, data }));
           } else if (action === 'token-supply' && tokenAddress) {
             const apiModule = 'stats';
@@ -976,7 +922,6 @@ export const POST = handlerWrapper(async (request) => {
             logger.info('Calling Etherscan V2 API', { module: apiModule, action: apiAction, chain, tokenAddress, ip });
             const response = await fetchWithRateLimit(apiUrl, { timeout: 15000 });
             logger.info(`API fetch for token supply: status ${response.status}`);
-
             if (response.data.status === '1' && typeof response.data.result === 'string') {
               const supply = response.data.result;
               data = { tokenAddress, totalSupply: supply };
@@ -1006,7 +951,6 @@ export const POST = handlerWrapper(async (request) => {
             logger.info('Calling Etherscan V2 API', { module: apiModule, action: apiAction, chain, tokenAddress, page, offset, ip });
             const response = await fetchWithRateLimit(apiUrl, { timeout: 15000 });
             logger.info(`API fetch for token tx: status ${response.status}`);
-
             if (response.data.status === '1' && Array.isArray(response.data.result)) {
               data = response.data.result.map((tx) => ({
                 chain,

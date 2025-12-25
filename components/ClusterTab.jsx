@@ -35,7 +35,7 @@ const NAMETAG_LOGOS = {
   "grayscale-mini": "/icons/grayscale.webp",
   "21shares-arkb": "/icons/21shares.webp",
   "bitwise-bitb": "/icons/bitwise.webp",
-  "vaneck-hodl": "/icons/vaneck.webp", 
+  "vaneck-hodl": "/icons/vaneck.webp",
   // Thêm các nametag khác nếu cần
 };
 const EXCHANGE_MAPPING = {
@@ -524,33 +524,38 @@ const ClusterTab = ({ recaptchaRef, initialClusterId, activeTab: propActiveTab, 
     logger.log("Processing walletData for deduplication:", { walletData: memoizedWalletData });
     const walletMap = new Map();
     memoizedWalletData.forEach((wallet, index) => {
-      const addr = (wallet.holder_address || wallet.name_tag)?.toLowerCase();
-      if (!addr) return;
+      // Lấy address gốc (giữ nguyên case) và version lowercase để làm key
+      const originalAddr = wallet.holder_address || wallet.name_tag || '';
+      const addrLower = originalAddr.toLowerCase(); // Chỉ dùng để deduplicate và matching
+      if (!addrLower) return;
+
       const chainLower = wallet.chain?.toLowerCase();
       let logo = wallet.image ||
         (chainLower === "bitcoin" ? BITCOIN_LOGO :
           chainLower === "dogecoin" ? DOGECOIN_LOGO :
             chainLower === "litecoin" ? LITECOIN_LOGO :
               "/fallback-image.webp");
-      // Check for nametag-specific logos
-      const entityIdLower = (wallet.holder_address || wallet.name_tag)?.toLowerCase();
+
+      // Nametag logo check dùng lowercase
+      const entityIdLower = originalAddr.toLowerCase();
       if (NAMETAG_LOGOS[entityIdLower]) {
         logo = NAMETAG_LOGOS[entityIdLower];
       }
-      if (!walletMap.has(addr)) {
-        walletMap.set(addr, {
-          holder_address: wallet.holder_address || wallet.name_tag, // Use nametag if no address
-          display_name: wallet.name_tag || wallet.holder_address || "N/A",
+
+      if (!walletMap.has(addrLower)) {
+        walletMap.set(addrLower, {
+          holder_address: originalAddr, // Giữ nguyên case gốc
+          display_name: wallet.name_tag || originalAddr || "N/A",
           cluster_name: wallet.cluster_name,
           name_tag: wallet.name_tag || "N/A",
           image: logo,
           total_value_usd: Number(wallet.total_value_usd) || 0,
           token_count: Number(wallet.token_count) || 0,
-          key: `${addr}-${index}`,
+          key: `${addrLower}-${index}`,
           chain: wallet.chain,
         });
       } else {
-        const existing = walletMap.get(addr);
+        const existing = walletMap.get(addrLower);
         existing.total_value_usd += Number(wallet.total_value_usd) || 0;
         existing.token_count += Number(wallet.token_count) || 0;
       }
@@ -594,19 +599,11 @@ const ClusterTab = ({ recaptchaRef, initialClusterId, activeTab: propActiveTab, 
         throw new Error("Invalid Bitcoin transaction data format");
       }
       const filteredTxs = result.data.filter((tx) => {
-        // Normalize Bitcoin addresses for matching (lowercase for legacy and bech32)
         const fromAddresses = tx.inputs.map((input) => input.address.toLowerCase());
         const toAddresses = tx.outputs.map((output) => output.address.toLowerCase());
         const clusterWallets = uniqueWalletData
           .filter((w) => w.chain?.toLowerCase() === "bitcoin")
-          .map((w) => {
-            let addr = (w.holder_address || w.name_tag || '').toLowerCase();
-            // For legacy Bitcoin addresses starting with '1' or '3', ensure full lowercase normalization
-            if (/^[13][a-km-zA-HJ-NP-Z1-9]{25,34}$/.test(addr)) {
-              addr = addr.toLowerCase(); // Already done, but reinforce
-            }
-            return addr;
-          });
+          .map((w) => (w.holder_address || w.name_tag || '').toLowerCase()); // Dùng lowercase để match
         return (
           fromAddresses.some((addr) => clusterWallets.includes(addr)) ||
           toAddresses.some((addr) => clusterWallets.includes(addr))
@@ -969,6 +966,7 @@ const ClusterTab = ({ recaptchaRef, initialClusterId, activeTab: propActiveTab, 
     }));
   }, [memoizedPortfolioData, memoizedWalletData, chainLogos]);
 
+  // Sửa hàm truncateAddressWithHover để hỗ trợ regex cả chữ hoa và dùng address gốc để truncate
   const truncateAddressWithHover = (address, nameTag, source) => {
     if (!address || address === 'None' || typeof address !== 'string' || address === 'N/A') {
       return (
@@ -977,21 +975,25 @@ const ClusterTab = ({ recaptchaRef, initialClusterId, activeTab: propActiveTab, 
         </div>
       );
     }
-    const normalizedAddress = address.toLowerCase();
+
     let shortAddress;
-    // Custom truncation for Bitcoin addresses when source is Blockchair
     if (source === 'Blockchair') {
-      // Handle both legacy (1..., 3...) and bech32 (bc1...) Bitcoin addresses
-      if (/^[13][a-km-zA-HJ-NP-Z1-9]{25,34}$|^bc1[a-zA-Z0-9]{39,59}$/.test(address)) {
+      // Regex hỗ trợ cả chữ hoa và thường cho legacy Bitcoin addresses
+      const isLegacy = /^[13][A-Za-km-zA-HJ-NP-Z1-9]{25,34}$/.test(address);
+      const isBech32 = /^bc1[a-zA-Z0-9]{39,59}$/.test(address);
+      if (isLegacy || isBech32) {
+        // Giữ nguyên case gốc để truncate đẹp mắt
         shortAddress = `${address.slice(0, 6)}...${address.slice(-4)}`;
       } else {
-        shortAddress = address; // Fallback for unrecognized formats
+        shortAddress = address;
       }
     } else {
-      // Use existing truncateAddress for EVM and other addresses
+      // EVM và các chain khác: lowercase để lookup name tag
+      const normalizedAddress = address.toLowerCase();
       const { text, shortAddress: computedShortAddress } = truncateAddress(address, { [normalizedAddress]: { name: nameTag } }, source);
       shortAddress = computedShortAddress;
     }
+
     if (nameTag && nameTag !== 'N/A' && nameTag !== address) {
       return (
         <div className="flex items-center gap-2 group relative">
@@ -1005,55 +1007,30 @@ const ClusterTab = ({ recaptchaRef, initialClusterId, activeTab: propActiveTab, 
             className="ml-1 text-[#D4D4D4] hover:text-[#FFF]/80 opacity-0 group-hover:opacity-100 p-1 rounded-lg cursor-pointer"
             whileHover={{ scale: 1.05 }}
             whileTap={{ scale: 0.95 }}
-            role="button"
-            aria-label="Copy address"
           >
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              className="w-4 h-4"
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-              strokeWidth={2}
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"
-              />
+            <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
             </svg>
           </motion.span>
         </div>
       );
     }
+
     return (
       <div className="flex items-center gap-2 group relative">
         <span className="truncate">{shortAddress}</span>
         <motion.span
           onClick={(e) => {
             e.stopPropagation();
-            navigator.clipboard.writeText(address);
+            navigator.clipboard.writeText(address); // Copy nguyên bản có case
             toast.success("Address copied!", { autoClose: 2000 });
           }}
           className="ml-1 text-[#D4D4D4] hover:text-[#FFF]/80 opacity-0 group-hover:opacity-100 p-1 rounded-lg cursor-pointer"
           whileHover={{ scale: 1.05 }}
           whileTap={{ scale: 0.95 }}
-          role="button"
-          aria-label="Copy address"
         >
-          <svg
-            xmlns="http://www.w3.org/2000/svg"
-            className="w-4 h-4"
-            fill="none"
-            viewBox="0 0 24 24"
-            stroke="currentColor"
-            strokeWidth={2}
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"
-            />
+          <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
           </svg>
         </motion.span>
       </div>
@@ -1382,14 +1359,14 @@ const ClusterTab = ({ recaptchaRef, initialClusterId, activeTab: propActiveTab, 
           <div className="w-[25%] sm:w-[25%] px-2 sm:px-3 text-[#FFF]/80 text-[9px] sm:text-[10px] text-center overflow-hidden text-ellipsis">
             <div className="flex flex-col items-center gap-1">
               <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[7px] sm:text-[8px] font-bold uppercase tracking-wider ${tx.type === 'swap'
-                  ? 'bg-neon-blue/20 text-neon-blue border border-neon-blue/20 shadow-lg shadow-neon-blue/20'
-                  : tx.type === 'received' || isIncoming
-                    ? 'bg-emerald-400/20 text-emerald-400 border border-emerald-400/20 shadow-lg shadow-emerald-400/20'
-                    : tx.type === 'sent' || isOutgoing
-                      ? 'bg-[#00FFFF20]/20 text-[#FFF]/80 border border-[#00FFFF20]/20 shadow-lg shadow-[#00FFFF20]/20'
-                      : isInternal
-                        ? 'bg-gray-500/30 text-white/80 border border-gray-500/30 shadow-lg shadow-gray-500/30'
-                        : 'bg-gray-500/30 text-white/80 border border-gray-500/30'
+                ? 'bg-neon-blue/20 text-neon-blue border border-neon-blue/20 shadow-lg shadow-neon-blue/20'
+                : tx.type === 'received' || isIncoming
+                  ? 'bg-emerald-400/20 text-emerald-400 border border-emerald-400/20 shadow-lg shadow-emerald-400/20'
+                  : tx.type === 'sent' || isOutgoing
+                    ? 'bg-[#00FFFF20]/20 text-[#FFF]/80 border border-[#00FFFF20]/20 shadow-lg shadow-[#00FFFF20]/20'
+                    : isInternal
+                      ? 'bg-gray-500/30 text-white/80 border border-gray-500/30 shadow-lg shadow-gray-500/30'
+                      : 'bg-gray-500/30 text-white/80 border border-gray-500/30'
                 }`}>
                 {typeDisplay}
               </span>
