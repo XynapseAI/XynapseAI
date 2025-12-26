@@ -286,7 +286,7 @@ export default function DexTab() {
                 const newTrades = []
                 msg.data.forEach((trade, index) => {
                     const value = parseFloat(trade.px) * parseFloat(trade.sz)
-                    const WHALE_THRESHOLD = 500000
+                    const WHALE_THRESHOLD = 100000
                     if (value > WHALE_THRESHOLD) {
                         const uniqueId = `${trade.time}-${trade.px}-${trade.sz}-${Date.now()}-${Math.random().toString(36).substr(2, 9)}-${index}`
                         const newTrade = {
@@ -372,7 +372,7 @@ export default function DexTab() {
                 const newTrades = []
                 msg.trades.forEach((trade, index) => {
                     const value = parseFloat(trade.usd_amount)
-                    const WHALE_THRESHOLD = 500000
+                    const WHALE_THRESHOLD = 100000
                     if (value > WHALE_THRESHOLD) {
                         const side = trade.is_maker_ask ? 'Buy' : 'Sell'
                         const uniqueId = trade.trade_id
