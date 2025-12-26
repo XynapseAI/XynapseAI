@@ -17,7 +17,6 @@ import {
 import { motion, AnimatePresence } from 'framer-motion'
 import { LoadingOverlay } from '@/utils/helpers'
 import { ChevronDown, Copy, ChevronLeft, ChevronRight } from 'lucide-react'
-
 const hlColors = [
     '#00FF88',
     '#00E7FF',
@@ -32,7 +31,6 @@ const hlColors = [
     '#1E90FF',
     '#FF69B4',
 ]
-
 // --- FORMATTERS ---
 export const formatCompactNumber = (num) => {
     if (!num) return '$0'
@@ -45,17 +43,14 @@ export const formatCompactNumber = (num) => {
         maximumFractionDigits: 2,
     }).format(value)
 }
-
 export const formatStandardNumber = (num) => {
     if (!num) return '0'
     return new Intl.NumberFormat('de-DE').format(parseFloat(num))
 }
-
 const safeFixed = (v, decimals = 1) => {
     const num = Number(v || 0)
     return isNaN(num) ? '0' : num.toFixed(decimals)
 }
-
 // Custom Tooltip
 const CustomTooltip = ({ active, payload, label, isPnl }) => {
     if (active && payload && payload.length) {
@@ -93,7 +88,6 @@ const CustomTooltip = ({ active, payload, label, isPnl }) => {
     }
     return null
 }
-
 // Custom Pie Label
 const renderCustomizedLabel = ({ cx, cy, midAngle, innerRadius, outerRadius, percent, name }) => {
     if (percent < 0.05) return null
@@ -115,14 +109,12 @@ const renderCustomizedLabel = ({ cx, cy, midAngle, innerRadius, outerRadius, per
         </text>
     )
 }
-
 // Simple toast component
 const Toast = ({ message, onClose }) => {
     useEffect(() => {
         const timer = setTimeout(onClose, 2000)
         return () => clearTimeout(timer)
     }, [onClose])
-
     return (
         <motion.div
             initial={{ opacity: 0, y: 50 }}
@@ -134,7 +126,6 @@ const Toast = ({ message, onClose }) => {
         </motion.div>
     )
 }
-
 export default function DexTab() {
     const [inputWalletAddress, setInputWalletAddress] = useState('')
     const [currentWallet, setCurrentWallet] = useState('')
@@ -160,7 +151,6 @@ export default function DexTab() {
     const [isAssetMenuOpen, setIsAssetMenuOpen] = useState(false)
     const [recentWhaleTrades, setRecentWhaleTrades] = useState([])
     const [toastMessage, setToastMessage] = useState(null)
-
     // Pagination for large trades
     const largeTrades = fills
         .filter(
@@ -169,7 +159,6 @@ export default function DexTab() {
                 parseFloat(f.sz) * parseFloat(f.px) > 100000,
         )
         .sort((a, b) => b.time - a.time)
-
     const [largePage, setLargePage] = useState(1)
     const tradesPerPage = 10
     const largeTotalPages = Math.ceil(largeTrades.length / tradesPerPage)
@@ -177,7 +166,6 @@ export default function DexTab() {
         (largePage - 1) * tradesPerPage,
         largePage * tradesPerPage,
     )
-
     const [randomWhaleWallet, setRandomWhaleWallet] = useState(null)
     const wsHyperRef = useRef(null)
     const wsLighterRef = useRef(null)
@@ -190,20 +178,16 @@ export default function DexTab() {
     const assetToMarketIdLighter = useRef({})
     const marketIdToSymbolLighter = useRef({})
     const inputRef = useRef(null)
-
     const metaData = selectedDEX === 'hyperliquid' ? metaDataHyper : metaDataLighter
     const activeAssets = selectedDEX === 'hyperliquid' ? activeAssetsHyper : activeAssetsLighter
-
     const assetToImage = metaData.universe.reduce((acc, u) => {
         acc[u.name] = u.image || null
         return acc
     }, {})
-
     const assetToColor = activeAssets.reduce((acc, asset, i) => {
         acc[asset] = hlColors[i % hlColors.length]
         return acc
     }, {})
-
     const oiData = metaData.universe
         .map((u, i) => ({
             name: u.name,
@@ -211,26 +195,22 @@ export default function DexTab() {
         }))
         .sort((a, b) => b.value - a.value)
         .slice(0, 10)
-
     const copyToClipboard = (text) => {
         navigator.clipboard.writeText(text)
         setToastMessage('Copied to clipboard!')
     }
-
     const fetchInitialWhaleTrades = async () => {
         try {
             const resHyper = await fetch('/api/hyperliquid/whale-trades')
             if (resHyper.ok) {
                 const data = await resHyper.json()
                 setRecentWhaleTrades(data.map((t) => ({ ...t, dex: 'hyperliquid' })).slice(0, 100))
-
                 if (data.length > 0) {
                     const randomTrade = data[Math.floor(Math.random() * data.length)]
                     const randomAddr = Math.random() > 0.5 ? randomTrade.buyer : randomTrade.seller
                     setRandomWhaleWallet(randomAddr)
                 }
             }
-
             const resLighter = await fetch('/api/lighter/whale-trades')
             if (resLighter.ok) {
                 const data = await resLighter.json()
@@ -242,23 +222,19 @@ export default function DexTab() {
             console.error('Failed to fetch initial whale trades', err)
         }
     }
-
     useEffect(() => {
         if (randomWhaleWallet && portfolioData.length === 0 && currentWallet === '') {
             fetchUserData(randomWhaleWallet)
         }
     }, [randomWhaleWallet, portfolioData.length, currentWallet])
-
     useEffect(() => {
         fetchGlobalDataHyper()
         fetchGlobalDataLighter()
         fetchInitialWhaleTrades()
     }, [])
-
     useEffect(() => {
         connectWebSocketHyper()
         connectWebSocketLighter()
-
         return () => {
             if (wsHyperRef.current) {
                 wsHyperRef.current.close()
@@ -274,31 +250,25 @@ export default function DexTab() {
             }
         }
     }, [activeAssetsHyper, activeAssetsLighter])
-
     useEffect(() => {
         fetchCandles(selectedAsset)
         fetchL2Book(selectedAsset)
     }, [selectedAsset])
-
     useEffect(() => {
         fetchCandles(selectedAsset)
         fetchL2Book(selectedAsset)
     }, [selectedDEX, selectedAsset])
-
     // Add this new useEffect after the existing useEffects
     useEffect(() => {
         if (currentWallet) {
             fetchUserData(currentWallet)
         }
     }, [selectedDEX])
-
     const connectWebSocketHyper = () => {
         if (wsHyperRef.current && wsHyperRef.current.readyState === WebSocket.OPEN) {
             return
         }
-
         wsHyperRef.current = new WebSocket('wss://api.hyperliquid.xyz/ws')
-
         wsHyperRef.current.onopen = () => {
             console.log('Hyperliquid WebSocket connected')
             reconnectAttemptsHyper.current = 0
@@ -310,14 +280,13 @@ export default function DexTab() {
                 wsHyperRef.current.send(JSON.stringify(subMsg))
             })
         }
-
         wsHyperRef.current.onmessage = (event) => {
             const msg = JSON.parse(event.data)
             if (msg.channel === 'trades') {
                 const newTrades = []
                 msg.data.forEach((trade, index) => {
                     const value = parseFloat(trade.px) * parseFloat(trade.sz)
-                    const WHALE_THRESHOLD = 100000
+                    const WHALE_THRESHOLD = 500000
                     if (value > WHALE_THRESHOLD) {
                         const uniqueId = `${trade.time}-${trade.px}-${trade.sz}-${Date.now()}-${Math.random().toString(36).substr(2, 9)}-${index}`
                         const newTrade = {
@@ -335,7 +304,6 @@ export default function DexTab() {
                         newTrades.push(newTrade)
                     }
                 })
-
                 if (newTrades.length > 0) {
                     setRecentWhaleTrades((prev) => {
                         const existingIds = new Set(prev.map((t) => t.id))
@@ -356,18 +324,15 @@ export default function DexTab() {
                 }
             }
         }
-
         wsHyperRef.current.onerror = (error) => {
             console.error('Hyperliquid WebSocket error:', error)
             handleReconnectHyper()
         }
-
         wsHyperRef.current.onclose = () => {
             console.log('Hyperliquid WebSocket closed')
             handleReconnectHyper()
         }
     }
-
     const handleReconnectHyper = () => {
         if (reconnectAttemptsHyper.current < MAX_RECONNECT_ATTEMPTS) {
             const delay = RECONNECT_DELAY * Math.pow(2, reconnectAttemptsHyper.current)
@@ -382,14 +347,11 @@ export default function DexTab() {
             console.error('Max reconnect attempts reached for Hyperliquid.')
         }
     }
-
     const connectWebSocketLighter = () => {
         if (wsLighterRef.current && wsLighterRef.current.readyState === WebSocket.OPEN) {
             return
         }
-
         wsLighterRef.current = new WebSocket('wss://mainnet.zklighter.elliot.ai/stream')
-
         wsLighterRef.current.onopen = () => {
             console.log('Lighter WebSocket connected')
             reconnectAttemptsLighter.current = 0
@@ -404,14 +366,13 @@ export default function DexTab() {
                 }
             })
         }
-
         wsLighterRef.current.onmessage = (event) => {
             const msg = JSON.parse(event.data)
             if (msg.type === 'update/trade') {
                 const newTrades = []
                 msg.trades.forEach((trade, index) => {
                     const value = parseFloat(trade.usd_amount)
-                    const WHALE_THRESHOLD = 100000
+                    const WHALE_THRESHOLD = 500000
                     if (value > WHALE_THRESHOLD) {
                         const side = trade.is_maker_ask ? 'Buy' : 'Sell'
                         const uniqueId = trade.trade_id
@@ -430,7 +391,6 @@ export default function DexTab() {
                         newTrades.push(newTrade)
                     }
                 })
-
                 if (newTrades.length > 0) {
                     setRecentWhaleTrades((prev) => {
                         const existingIds = new Set(prev.map((t) => t.id))
@@ -449,18 +409,15 @@ export default function DexTab() {
                 }
             }
         }
-
         wsLighterRef.current.onerror = (error) => {
             console.error('Lighter WebSocket error:', error)
             handleReconnectLighter()
         }
-
         wsLighterRef.current.onclose = () => {
             console.log('Lighter WebSocket closed')
             handleReconnectLighter()
         }
     }
-
     const handleReconnectLighter = () => {
         if (reconnectAttemptsLighter.current < MAX_RECONNECT_ATTEMPTS) {
             const delay = RECONNECT_DELAY * Math.pow(2, reconnectAttemptsLighter.current)
@@ -475,14 +432,12 @@ export default function DexTab() {
             console.error('Max reconnect attempts reached for Lighter.')
         }
     }
-
     const fetchGlobalDataHyper = async () => {
         setLoading(true)
         try {
             const metaRes = await fetch('/api/hyperliquid')
             const meta = await metaRes.json()
             setMetaDataHyper({ universe: meta.universe, assetCtxs: meta.assetCtxs })
-
             const sortedAssets = meta.universe
                 .map((u, i) => ({
                     name: u.name,
@@ -499,7 +454,6 @@ export default function DexTab() {
             setLoading(false)
         }
     }
-
     const fetchGlobalDataLighter = async () => {
         setLoading(true)
         try {
@@ -509,7 +463,6 @@ export default function DexTab() {
             const universe = orderBooksData.order_books
                 .filter((o) => o.market_type === 'perp' && o.status === 'active')
                 .map((o) => ({ name: o.symbol, image: null }))
-
             const exchangeStatsRes = await fetch(`${baseUrl}/exchangeStats`)
             const stats = await exchangeStatsRes.json()
             const assetCtxs = universe.map((u) => {
@@ -518,23 +471,19 @@ export default function DexTab() {
                 }
                 return { dayNtlVlm: s.daily_quote_token_volume, openInterest: 0 }
             })
-
             setMetaDataLighter({ universe, assetCtxs })
-
             assetToMarketIdLighter.current = orderBooksData.order_books.reduce((acc, o) => {
                 if (o.market_type === 'perp' && o.status === 'active') {
                     acc[o.symbol] = o.market_id
                 }
                 return acc
             }, {})
-
             marketIdToSymbolLighter.current = orderBooksData.order_books.reduce((acc, o) => {
                 if (o.market_type === 'perp' && o.status === 'active') {
                     acc[o.market_id] = o.symbol
                 }
                 return acc
             }, {})
-
             const sortedAssets = universe
                 .map((u, i) => ({
                     name: u.name,
@@ -551,66 +500,36 @@ export default function DexTab() {
             setLoading(false)
         }
     }
-
     const fetchCandles = async (asset) => {
+        let assetToUse = asset
+        if (!metaDataHyper.universe.some((u) => u.name === assetToUse)) {
+            assetToUse = 'BTC'
+        }
         const now = Date.now()
         const start = now - 30 * 24 * 60 * 60 * 1000
-        if (selectedDEX === 'hyperliquid') {
-            const res = await fetch('https://api.hyperliquid.xyz/info', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    type: 'candleSnapshot',
-                    req: { coin: asset, interval: '1d', startTime: start, endTime: now },
-                }),
-            })
-            setCandleData(await res.json())
-        } else {
-            const baseUrl = 'https://mainnet.zklighter.elliot.ai/api/v1'
-            const marketId = assetToMarketIdLighter.current[asset]
-            if (marketId === undefined) return
-            const startSec = Math.floor(start / 1000)
-            const endSec = Math.floor(now / 1000)
-            const res = await fetch(
-                `${baseUrl}/candlesticks?resolution=1d&market=${marketId}&start=${startSec}&end=${endSec}&includeEmpty=false`,
-            )
-            const data = await res.json()
-            // Assume data.candlesticks = [{timestamp (sec), open, high, low, close, volume}]
-            setCandleData(
-                (data.candlesticks || []).map((c) => ({
-                    t: c.timestamp * 1000,
-                    o: c.open,
-                    h: c.high,
-                    l: c.low,
-                    c: c.close,
-                })),
-            )
-        }
+        const res = await fetch('https://api.hyperliquid.xyz/info', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                type: 'candleSnapshot',
+                req: { coin: assetToUse, interval: '1d', startTime: start, endTime: now },
+            }),
+        })
+        setCandleData(await res.json())
     }
-
     const fetchL2Book = async (asset) => {
-        if (selectedDEX === 'hyperliquid') {
-            const res = await fetch('https://api.hyperliquid.xyz/info', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ type: 'l2Book', coin: asset }),
-            })
-            const book = await res.json()
-            setL2Book({ bids: book.levels[0], asks: book.levels[1] })
-        } else {
-            const baseUrl = 'https://mainnet.zklighter.elliot.ai/api/v1'
-            const marketId = assetToMarketIdLighter.current[asset]
-            if (marketId === undefined) return
-            const res = await fetch(`${baseUrl}/orderBookOrders?market=${marketId}`)
-            const book = await res.json()
-            // Assume {asks: [{price, size}], bids: [{price, size}]}
-            setL2Book({
-                bids: (book.bids || []).map((b) => ({ px: b.price, sz: b.size })),
-                asks: (book.asks || []).map((a) => ({ px: a.price, sz: a.size })),
-            })
+        let assetToUse = asset
+        if (!metaDataHyper.universe.some((u) => u.name === assetToUse)) {
+            assetToUse = 'BTC'
         }
+        const res = await fetch('https://api.hyperliquid.xyz/info', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ type: 'l2Book', coin: assetToUse }),
+        })
+        const book = await res.json()
+        setL2Book({ bids: book.levels[0], asks: book.levels[1] })
     }
-
     const fetchUserData = async (address) => {
         if (!address) return
         setLoading(true)
@@ -624,7 +543,6 @@ export default function DexTab() {
                 })
                 const state = await stateRes.json()
                 setPortfolioData(state.assetPositions.map((pos) => pos.position))
-
                 const fillsRes = await fetch('https://api.hyperliquid.xyz/info', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
@@ -632,7 +550,6 @@ export default function DexTab() {
                 })
                 const fillsData = await fillsRes.json()
                 setFills(fillsData)
-
                 let totalPnl = 0
                 let wins = 0
                 fillsData.forEach((fill) => {
@@ -643,7 +560,6 @@ export default function DexTab() {
                 const numTrades = fillsData.length
                 const winRate = numTrades > 0 ? (wins / numTrades) * 100 : 0
                 setAnalytics({ totalPnl, winRate, numTrades })
-
                 const pnlData = []
                 let cumulativePnl = 0
                 fillsData.sort((a, b) => a.time - b.time)
@@ -662,7 +578,6 @@ export default function DexTab() {
                 const state = await res.json()
                 setPortfolioData(state.positions || [])
                 setFills([])
-
                 const totalPnl = (state.positions || []).reduce(
                     (sum, p) =>
                         sum +
@@ -671,7 +586,6 @@ export default function DexTab() {
                     0,
                 )
                 setAnalytics({ totalPnl, winRate: 0, numTrades: 0 })
-
                 setPnlChartData([])
             }
             setCurrentWallet(address)
@@ -682,25 +596,20 @@ export default function DexTab() {
             setLoading(false)
         }
     }
-
     const handleAssetChange = (asset) => {
         setSelectedAsset(asset)
         setIsAssetMenuOpen(false)
         fetchCandles(asset)
         fetchL2Book(asset)
     }
-
     const handleDEXChange = (dex) => {
         setSelectedDEX(dex)
         setIsDexMenuOpen(false)
     }
-
     const filteredPnlData = pnlChartData.filter((d) => activeAssets.includes(d.asset))
-
     const shortWallet = currentWallet
         ? `${currentWallet.slice(0, 8)}...${currentWallet.slice(-6)}`
         : ''
-
     return (
         <motion.div
             initial={{ opacity: 0, y: 20 }}
@@ -709,7 +618,6 @@ export default function DexTab() {
         >
             {loading && <LoadingOverlay isLoading={true} />}
             {toastMessage && <Toast message={toastMessage} onClose={() => setToastMessage(null)} />}
-
             {/* Global Dashboard */}
             <div className="p-4">
                 {/* DEX Selector */}
@@ -764,12 +672,11 @@ export default function DexTab() {
                         )}
                     </AnimatePresence>
                 </div>
-
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     {/* OI Distribution */}
                     {selectedDEX === 'hyperliquid' && oiData.length > 0 && (
-                        <div className="h-[320px]">
-                            <h3 className="text-sm font-bold text-[#FFF] mb-2">
+                        <div className="h-[250px] md:h-[320px]">
+                            <h3 className="text-xs sm:text-sm font-bold text-[#FFF] mb-2">
                                 Open Interest Distribution
                             </h3>
                             <ResponsiveContainer>
@@ -780,8 +687,10 @@ export default function DexTab() {
                                         nameKey="name"
                                         cx="50%"
                                         cy="50%"
-                                        innerRadius={60}
-                                        outerRadius={110}
+                                        // Mobile: outerRadius 77 → innerRadius 40 (dày hơn nhiều)
+                                        // PC: outerRadius 110 → innerRadius 60 (vẫn dày hơn trước)
+                                        innerRadius={window.innerWidth < 768 ? 40 : 60}
+                                        outerRadius={window.innerWidth < 768 ? 77 : 110}
                                         paddingAngle={2}
                                         labelLine={false}
                                         label={renderCustomizedLabel}
@@ -798,10 +707,9 @@ export default function DexTab() {
                             </ResponsiveContainer>
                         </div>
                     )}
-
                     {/* Top Assets by Volume */}
                     <div>
-                        <h3 className="text-sm font-bold text-[#FFF] mb-2">
+                        <h3 className="text-xs sm:text-sm font-bold text-[#FFF] mb-2">
                             Top Assets by 24h Volume
                         </h3>
                         <div className="space-y-2">
@@ -812,11 +720,11 @@ export default function DexTab() {
                                     image: u.image,
                                 }))
                                 .sort((a, b) => b.volume - a.volume)
-                                .slice(0, 6)
+                                .slice(0, 5)
                                 .map((asset, i) => (
                                     <div
                                         key={i}
-                                        className="flex justify-between items-center p-2 bg-[#FFFFFF]/5 rounded-lg"
+                                        className="text-xs sm:text-sm flex justify-between items-center p-2 bg-[#FFFFFF]/5 rounded-lg"
                                     >
                                         <div className="flex items-center gap-3">
                                             {asset.image && (
@@ -837,7 +745,6 @@ export default function DexTab() {
                                 ))}
                         </div>
                     </div>
-
                     {/* Price Chart + Selector */}
                     <div className="col-span-2">
                         <div className="flex justify-between items-center mb-3">
@@ -888,7 +795,7 @@ export default function DexTab() {
                                 </AnimatePresence>
                             </div>
                         </div>
-                        <div className="h-[300px]">
+                        <div className="h-[280px] md:h-[300px]">
                             <ResponsiveContainer>
                                 <AreaChart data={candleData}>
                                     <defs>
@@ -933,18 +840,16 @@ export default function DexTab() {
                             </ResponsiveContainer>
                         </div>
                     </div>
-
                     {/* Recent Whale Trades */}
                     <div className="col-span-2 bg-[#0A0A0A]/90 border border-[#FFFFFF20] rounded-2xl p-6">
                         <div className="flex justify-between items-center mb-4">
-                            <h3 className="text-lg font-bold text-[#FFF]">Whale Trades</h3>
+                            <h3 className="text-lg font-bold text-[#FFF]">Activity</h3>
                             <span className="text-[10px] text-gray-400">
                                 {recentWhaleTrades.length > 0
                                     ? `${recentWhaleTrades.length} trade${recentWhaleTrades.length > 1 ? 's' : ''}`
                                     : 'Waiting for data...'}
                             </span>
                         </div>
-
                         <div className="overflow-auto max-h-[450px] custom-scrollbar">
                             <table className="w-full text-xs min-w-[1000px]">
                                 <thead className="text-gray-400 border-b border-white/10 sticky top-0 bg-[#0A0A0A]/90 z-10">
@@ -992,9 +897,6 @@ export default function DexTab() {
                                                                 alt={trade.dex}
                                                                 className="w-4 h-4 rounded"
                                                             />
-                                                            <span className="text-xs capitalize">
-                                                                {trade.dex}
-                                                            </span>
                                                         </div>
                                                     </td>
                                                     <td className="py-3 px-4 text-gray-300">
@@ -1013,9 +915,21 @@ export default function DexTab() {
                                                     </td>
                                                     <td className="py-3 px-4">
                                                         <span
-                                                            className={`font-bold ${trade.side === 'Buy' ? 'text-emerald-400' : 'text-red-400'}`}
+                                                            className={`font-bold text-xs px-3 py-1 rounded-md border inline-block min-w-[40px] text-center ${
+                                                                // Ưu tiên trade.side nếu có và đúng định dạng
+                                                                trade.side &&
+                                                                (trade.side.toLowerCase() ===
+                                                                    'buy' ||
+                                                                    trade.side === 'Buy')
+                                                                    ? 'border-emerald-400 bg-emerald-400/20 text-emerald-400'
+                                                                    : 'border-red-400 bg-red-400/20 text-red-400'
+                                                            }`}
                                                         >
-                                                            {trade.side}
+                                                            {trade.side &&
+                                                            (trade.side.toLowerCase() === 'buy' ||
+                                                                trade.side === 'Buy')
+                                                                ? 'Buy'
+                                                                : 'Sell'}
                                                         </span>
                                                     </td>
                                                     <td className="py-3 px-6 text-right font-mono text-gray-200">
@@ -1074,7 +988,6 @@ export default function DexTab() {
                     </div>
                 </div>
             </div>
-
             {/* Personal Dashboard */}
             <div className="border border-[#FFFFFF20] rounded-2xl bg-[#0A0A0A]/90 p-6">
                 <h2 className="text-lg font-bold text-[#FFF] mb-4"> Highlight </h2>
@@ -1105,7 +1018,6 @@ export default function DexTab() {
                         </button>
                     </div>
                 </form>
-
                 {portfolioData.length > 0 && (
                     <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
                         <div className="space-y-6">
@@ -1118,7 +1030,7 @@ export default function DexTab() {
                                         ?
                                     </div>
                                     <div>
-                                        <p className="text-xs text-gray-400 flex items-center gap-1">
+                                        <p className="text-xs text-gray-400 flex items-center gap-1 pb-1">
                                             Source:
                                             <img
                                                 src={
@@ -1169,7 +1081,6 @@ export default function DexTab() {
                                     </div>
                                 </div>
                             </div>
-
                             <div>
                                 <h3 className="text-sm font-bold text-[#FFF] mb-3">
                                     Cumulative PnL
@@ -1204,7 +1115,6 @@ export default function DexTab() {
                                 </div>
                             </div>
                         </div>
-
                         <div className="space-y-6">
                             <div>
                                 <h3 className="text-sm font-bold text-[#FFF] mb-3">
@@ -1270,7 +1180,6 @@ export default function DexTab() {
                                     )}
                                 </div>
                             </div>
-
                             <div>
                                 <h3 className="text-sm font-bold text-[#FFF] mb-3">
                                     Large Trades (This Wallet)
@@ -1379,7 +1288,6 @@ export default function DexTab() {
                                                 </tbody>
                                             </table>
                                         </div>
-
                                         {largeTotalPages > 1 && (
                                             <div className="flex items-center justify-center gap-6 mt-4 text-sm">
                                                 <button
