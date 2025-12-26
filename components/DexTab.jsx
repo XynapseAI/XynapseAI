@@ -1,3 +1,4 @@
+// components\DexTab.jsx
 'use client'
 import { useState, useEffect, useRef } from 'react'
 import {
@@ -134,6 +135,7 @@ export default function DexTab() {
     const [isDexMenuOpen, setIsDexMenuOpen] = useState(false)
     const [metaDataHyper, setMetaDataHyper] = useState({ universe: [], assetCtxs: [] })
     const [metaDataLighter, setMetaDataLighter] = useState({ universe: [], assetCtxs: [] })
+    const [orderBooksLighter, setOrderBooksLighter] = useState([])
     const [candleData, setCandleData] = useState([])
     const [l2Book, setL2Book] = useState({ bids: [], asks: [] })
     const [pnlChartData, setPnlChartData] = useState([])
@@ -143,6 +145,7 @@ export default function DexTab() {
         totalPnl: 0,
         winRate: 0,
         numTrades: 0,
+        totalBalance: 0,
     })
     const [activeAssetsHyper, setActiveAssetsHyper] = useState([])
     const [activeAssetsLighter, setActiveAssetsLighter] = useState([])
@@ -288,7 +291,7 @@ export default function DexTab() {
                     const value = parseFloat(trade.px) * parseFloat(trade.sz)
                     const WHALE_THRESHOLD = 100000
                     if (value > WHALE_THRESHOLD) {
-                        const uniqueId = `${trade.time}-${trade.px}-${trade.sz}-${Date.now()}-${Math.random().toString(36).substr(2, 9)}-${index}`
+                        const uniqueId = `hyper-${trade.time}-${trade.coin}-${trade.px}-${trade.sz}-${trade.users[0]}-${trade.users[1]}-${index}`
                         const newTrade = {
                             id: uniqueId,
                             time: trade.time,
@@ -460,16 +463,26 @@ export default function DexTab() {
             const baseUrl = 'https://mainnet.zklighter.elliot.ai/api/v1'
             const orderBooksRes = await fetch(`${baseUrl}/orderBooks`)
             const orderBooksData = await orderBooksRes.json()
+            setOrderBooksLighter(orderBooksData.order_books)
             const universe = orderBooksData.order_books
                 .filter((o) => o.market_type === 'perp' && o.status === 'active')
-                .map((o) => ({ name: o.symbol, image: null }))
+                .map((o) => ({
+                    name: o.symbol,
+                    image:
+                        o.symbol === 'ETH'
+                            ? 'https://cryptologos.cc/logos/ethereum-eth-logo.png?v=032'
+                            : o.symbol === 'BTC'
+                              ? 'https://cryptologos.cc/logos/bitcoin-btc-logo.png?v=032'
+                              : null,
+                }))
             const exchangeStatsRes = await fetch(`${baseUrl}/exchangeStats`)
             const stats = await exchangeStatsRes.json()
             const assetCtxs = universe.map((u) => {
                 const s = stats.order_book_stats.find((st) => st.symbol === u.name) || {
                     daily_quote_token_volume: 0,
+                    open_interest: 0,
                 }
-                return { dayNtlVlm: s.daily_quote_token_volume, openInterest: 0 }
+                return { dayNtlVlm: s.daily_quote_token_volume, openInterest: s.open_interest || 0 }
             })
             setMetaDataLighter({ universe, assetCtxs })
             assetToMarketIdLighter.current = orderBooksData.order_books.reduce((acc, o) => {
@@ -502,100 +515,291 @@ export default function DexTab() {
     }
     const fetchCandles = async (asset) => {
         let assetToUse = asset
-        if (!metaDataHyper.universe.some((u) => u.name === assetToUse)) {
-            assetToUse = 'BTC'
+        if (selectedDEX === 'hyperliquid') {
+            if (!metaDataHyper.universe.some((u) => u.name === assetToUse)) {
+                assetToUse = 'BTC'
+            }
+            const now = Date.now()
+            const start = now - 30 * 24 * 60 * 60 * 1000
+            const res = await fetch('https://api.hyperliquid.xyz/info', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    type: 'candleSnapshot',
+                    req: { coin: assetToUse, interval: '1d', startTime: start, endTime: now },
+                }),
+            })
+            setCandleData(await res.json())
+        } else {
+            const baseUrl = 'https://mainnet.zklighter.elliot.ai/api/v1'
+            const marketId = assetToMarketIdLighter.current[assetToUse]
+            if (marketId === undefined) {
+                assetToUse = activeAssetsLighter[0] || 'BTC'
+            }
+            const now = Date.now()
+            const start = now - 30 * 24 * 60 * 60 * 1000
+            const res = await fetch(
+                `${baseUrl}/candlesticks?market_id=${marketId}&resolution=1d&start_timestamp=${start}&end_timestamp=${now}`,
+            )
+            const data = await res.json()
+            setCandleData(data.candlesticks || data || [])
         }
-        const now = Date.now()
-        const start = now - 30 * 24 * 60 * 60 * 1000
-        const res = await fetch('https://api.hyperliquid.xyz/info', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                type: 'candleSnapshot',
-                req: { coin: assetToUse, interval: '1d', startTime: start, endTime: now },
-            }),
-        })
-        setCandleData(await res.json())
     }
     const fetchL2Book = async (asset) => {
         let assetToUse = asset
-        if (!metaDataHyper.universe.some((u) => u.name === assetToUse)) {
-            assetToUse = 'BTC'
+        if (selectedDEX === 'hyperliquid') {
+            if (!metaDataHyper.universe.some((u) => u.name === assetToUse)) {
+                assetToUse = 'BTC'
+            }
+            const res = await fetch('https://api.hyperliquid.xyz/info', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ type: 'l2Book', coin: assetToUse }),
+            })
+            const book = await res.json()
+            setL2Book({ bids: book.levels[0], asks: book.levels[1] })
+        } else {
+            const marketId = assetToMarketIdLighter.current[assetToUse]
+            if (marketId === undefined) {
+                assetToUse = activeAssetsLighter[0] || 'BTC'
+            }
+            const book = orderBooksLighter.find((o) => o.market_id === marketId)
+            setL2Book({ bids: book?.bids || [], asks: book?.asks || [] })
         }
-        const res = await fetch('https://api.hyperliquid.xyz/info', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ type: 'l2Book', coin: assetToUse }),
-        })
-        const book = await res.json()
-        setL2Book({ bids: book.levels[0], asks: book.levels[1] })
     }
+
     const fetchUserData = async (address) => {
-        if (!address) return
+        if (!address || !address.trim()) return
+        const trimmedAddress = address.trim()
         setLoading(true)
         setError(null)
+        let dex = ''
+        let accountL1Address = ''
         try {
-            if (selectedDEX === 'hyperliquid') {
-                const stateRes = await fetch('https://api.hyperliquid.xyz/info', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ type: 'clearinghouseState', user: address }),
-                })
-                const state = await stateRes.json()
-                setPortfolioData(state.assetPositions.map((pos) => pos.position))
-                const fillsRes = await fetch('https://api.hyperliquid.xyz/info', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ type: 'userFills', user: address }),
-                })
-                const fillsData = await fillsRes.json()
-                setFills(fillsData)
-                let totalPnl = 0
-                let wins = 0
-                fillsData.forEach((fill) => {
-                    const pnl = parseFloat(fill.closedPnl) || 0
-                    totalPnl += pnl
-                    if (pnl > 0) wins++
-                })
-                const numTrades = fillsData.length
-                const winRate = numTrades > 0 ? (wins / numTrades) * 100 : 0
-                setAnalytics({ totalPnl, winRate, numTrades })
-                const pnlData = []
-                let cumulativePnl = 0
-                fillsData.sort((a, b) => a.time - b.time)
-                fillsData.forEach((fill) => {
-                    cumulativePnl += parseFloat(fill.closedPnl) || 0
-                    pnlData.push({
-                        date: new Date(fill.time).toLocaleDateString(),
-                        pnl: cumulativePnl,
-                        asset: fill.coin,
-                    })
-                })
-                setPnlChartData(pnlData)
-            } else {
+            if (/^\d+$/.test(trimmedAddress)) {
+                // Numeric ID - Lighter index
+                dex = 'lighter'
+                setSelectedDEX('lighter')
                 const baseUrl = 'https://mainnet.zklighter.elliot.ai/api/v1'
-                const res = await fetch(`${baseUrl}/account?by=l1_address&l1_address=${address}`)
+                const queryParam = `by=index&value=${trimmedAddress}`
+                const res = await fetch(`${baseUrl}/account?${queryParam}`)
+                if (!res.ok) {
+                    const errData = await res.json().catch(() => ({}))
+                    throw new Error(errData.message || 'Account not found or invalid ID/address')
+                }
                 const state = await res.json()
-                setPortfolioData(state.positions || [])
-                setFills([])
-                const totalPnl = (state.positions || []).reduce(
+                accountL1Address = state.accounts[0]?.l1_address || ''
+                setPortfolioData(
+                    (state.accounts[0]?.positions || []).filter(
+                        (p) => parseFloat(p.position) !== 0,
+                    ),
+                )
+                let totalPnl = (state.accounts[0]?.positions || []).reduce(
                     (sum, p) =>
                         sum +
                         (parseFloat(p.unrealized_pnl) || 0) +
                         (parseFloat(p.realized_pnl) || 0),
                     0,
                 )
-                setAnalytics({ totalPnl, winRate: 0, numTrades: 0 })
-                setPnlChartData([])
+                let totalBalance = parseFloat(state.accounts[0]?.available_balance || 0)
+                // Fetch trades for fills
+                const baseId = state.accounts[0]?.account_index || trimmedAddress
+                const tradesRes = await fetch(
+                    `${baseUrl}/trades?account_index=${baseId}&limit=500&sort_by=timestamp&sort_dir=desc`,
+                )
+                let fillsData = []
+                if (tradesRes.ok) {
+                    const tradesData = await tradesRes.json()
+                    fillsData = tradesData.trades.map((t) => ({
+                        time: t.timestamp,
+                        coin: marketIdToSymbolLighter.current[t.market_id] || 'UNKNOWN',
+                        closedPnl: t.pnl || 0,
+                        sz: t.usd_amount / parseFloat(t.price) || t.amount || 0,
+                        px: t.price,
+                        dir: t.is_maker_ask ? 'Sell' : 'Buy',
+                        hash: t.trade_id,
+                    }))
+                    setFills(fillsData)
+                } else {
+                    setFills([])
+                }
+                let wins = 0
+                fillsData.forEach((fill) => {
+                    const pnl = parseFloat(fill.closedPnl) || 0
+                    if (pnl > 0) wins++
+                })
+                const numTrades = fillsData.length
+                const winRate = numTrades > 0 ? (wins / numTrades) * 100 : 0
+                setAnalytics({ totalPnl, winRate, numTrades, totalBalance })
+                // Fetch PnL chart
+                const pnlRes = await fetch(
+                    `${baseUrl}/pnl?by=index&value=${baseId}&resolution=1d&count_back=30`,
+                )
+                let pnlData = []
+                if (pnlRes.ok) {
+                    const pnlDataApi = await pnlRes.json()
+                    let cumulativePnl = 0
+                    if (pnlDataApi.pnl && Array.isArray(pnlDataApi.pnl)) {
+                        pnlDataApi.pnl.sort((a, b) => a.timestamp - b.timestamp)
+                        pnlData = pnlDataApi.pnl.map((entry) => {
+                            cumulativePnl += parseFloat(entry.pnl || entry.value || 0)
+                            return {
+                                date: new Date(entry.timestamp).toLocaleDateString(),
+                                pnl: cumulativePnl,
+                                asset: entry.symbol || 'All',
+                            }
+                        })
+                    }
+                }
+                setPnlChartData(pnlData)
+            } else if (trimmedAddress.startsWith('0x') && trimmedAddress.length === 42) {
+                // Try Hyperliquid first
+                try {
+                    dex = 'hyperliquid'
+                    setSelectedDEX('hyperliquid')
+                    const stateRes = await fetch('https://api.hyperliquid.xyz/info', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ type: 'clearinghouseState', user: trimmedAddress }),
+                    })
+                    if (!stateRes.ok) {
+                        const errData = await stateRes.json().catch(() => ({}))
+                        throw new Error(errData.msg || 'Invalid wallet address')
+                    }
+                    const state = await stateRes.json()
+                    setPortfolioData(
+                        state.assetPositions
+                            .map((pos) => pos.position)
+                            .filter((p) => parseFloat(p.szi) !== 0),
+                    )
+                    const fillsRes = await fetch('https://api.hyperliquid.xyz/info', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ type: 'userFills', user: trimmedAddress }),
+                    })
+                    const fillsData = await fillsRes.json()
+                    setFills(fillsData)
+                    let totalPnl = 0
+                    let wins = 0
+                    fillsData.forEach((fill) => {
+                        const pnl = parseFloat(fill.closedPnl) || 0
+                        totalPnl += pnl
+                        if (pnl > 0) wins++
+                    })
+                    const numTrades = fillsData.length
+                    const winRate = numTrades > 0 ? (wins / numTrades) * 100 : 0
+                    let totalBalance = parseFloat(state.marginSummary.accountValue || 0)
+                    setAnalytics({ totalPnl, winRate, numTrades, totalBalance })
+                    const pnlData = []
+                    let cumulativePnl = 0
+                    fillsData.sort((a, b) => a.time - b.time)
+                    fillsData.forEach((fill) => {
+                        cumulativePnl += parseFloat(fill.closedPnl) || 0
+                        pnlData.push({
+                            date: new Date(fill.time).toLocaleDateString(),
+                            pnl: cumulativePnl,
+                            asset: fill.coin,
+                        })
+                    })
+                    setPnlChartData(pnlData)
+                } catch (hyperErr) {
+                    // Fall back to Lighter l1_address
+                    dex = 'lighter'
+                    setSelectedDEX('lighter')
+                    const baseUrl = 'https://mainnet.zklighter.elliot.ai/api/v1'
+                    const queryParam = `by=l1_address&l1_address=${trimmedAddress}`
+                    const res = await fetch(`${baseUrl}/account?${queryParam}`)
+                    if (!res.ok) {
+                        const errData = await res.json().catch(() => ({}))
+                        throw new Error(
+                            errData.message || 'Account not found or invalid ID/address',
+                        )
+                    }
+                    const state = await res.json()
+                    accountL1Address = trimmedAddress
+                    setPortfolioData(
+                        (state.accounts[0]?.positions || []).filter(
+                            (p) => parseFloat(p.position) !== 0,
+                        ),
+                    )
+                    let totalPnl = (state.accounts[0]?.positions || []).reduce(
+                        (sum, p) =>
+                            sum +
+                            (parseFloat(p.unrealized_pnl) || 0) +
+                            (parseFloat(p.realized_pnl) || 0),
+                        0,
+                    )
+                    let totalBalance = parseFloat(state.accounts[0]?.available_balance || 0)
+                    // Fetch trades for fills
+                    const baseId = state.accounts[0]?.account_index
+                    const tradesRes = await fetch(
+                        `${baseUrl}/trades?account_index=${baseId}&limit=500&sort_by=timestamp&sort_dir=desc`,
+                    )
+                    let fillsData = []
+                    if (tradesRes.ok) {
+                        const tradesData = await tradesRes.json()
+                        fillsData = tradesData.trades.map((t) => ({
+                            time: t.timestamp,
+                            coin: marketIdToSymbolLighter.current[t.market_id] || 'UNKNOWN',
+                            closedPnl: t.pnl || 0,
+                            sz: t.usd_amount / parseFloat(t.price) || t.amount || 0,
+                            px: t.price,
+                            dir: t.is_maker_ask ? 'Sell' : 'Buy',
+                            hash: t.trade_id,
+                        }))
+                        setFills(fillsData)
+                    } else {
+                        setFills([])
+                    }
+                    let wins = 0
+                    fillsData.forEach((fill) => {
+                        const pnl = parseFloat(fill.closedPnl) || 0
+                        if (pnl > 0) wins++
+                    })
+                    const numTrades = fillsData.length
+                    const winRate = numTrades > 0 ? (wins / numTrades) * 100 : 0
+                    setAnalytics({ totalPnl, winRate, numTrades, totalBalance })
+                    // Fetch PnL chart
+                    const pnlRes = await fetch(
+                        `${baseUrl}/pnl?by=index&value=${baseId}&resolution=1d&count_back=30`,
+                    )
+                    let pnlData = []
+                    if (pnlRes.ok) {
+                        const pnlDataApi = await pnlRes.json()
+                        let cumulativePnl = 0
+                        if (pnlDataApi.pnl && Array.isArray(pnlDataApi.pnl)) {
+                            pnlDataApi.pnl.sort((a, b) => a.timestamp - b.timestamp)
+                            pnlData = pnlDataApi.pnl.map((entry) => {
+                                cumulativePnl += parseFloat(entry.pnl || entry.value || 0)
+                                return {
+                                    date: new Date(entry.timestamp).toLocaleDateString(),
+                                    pnl: cumulativePnl,
+                                    asset: entry.symbol || 'All',
+                                }
+                            })
+                        }
+                    }
+                    setPnlChartData(pnlData)
+                }
+            } else {
+                throw new Error(
+                    'Invalid format. Use Ethereum address (0x...) or numeric Account ID.',
+                )
             }
-            setCurrentWallet(address)
+            setCurrentWallet(accountL1Address || trimmedAddress)
         } catch (err) {
-            setError('Failed to fetch user data. Check wallet address.')
+            setError(err.message || 'Failed to fetch user data. Check the address/ID again.')
             console.error(err)
+            setPortfolioData([])
+            setFills([])
+            setAnalytics({ totalPnl: 0, winRate: 0, numTrades: 0, totalBalance: 0 })
+            setPnlChartData([])
+            setCurrentWallet('')
         } finally {
             setLoading(false)
         }
     }
+
     const handleAssetChange = (asset) => {
         setSelectedAsset(asset)
         setIsAssetMenuOpen(false)
@@ -674,7 +878,7 @@ export default function DexTab() {
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     {/* OI Distribution */}
-                    {selectedDEX === 'hyperliquid' && oiData.length > 0 && (
+                    {oiData.length > 0 && (
                         <div className="h-[250px] md:h-[320px]">
                             <h3 className="text-xs sm:text-sm font-bold text-[#FFF] mb-2">
                                 Open Interest Distribution
@@ -687,8 +891,6 @@ export default function DexTab() {
                                         nameKey="name"
                                         cx="50%"
                                         cy="50%"
-                                        // Mobile: outerRadius 77 → innerRadius 40 (dày hơn nhiều)
-                                        // PC: outerRadius 110 → innerRadius 60 (vẫn dày hơn trước)
                                         innerRadius={window.innerWidth < 768 ? 40 : 60}
                                         outerRadius={window.innerWidth < 768 ? 77 : 110}
                                         paddingAngle={2}
@@ -843,7 +1045,30 @@ export default function DexTab() {
                     {/* Recent Whale Trades */}
                     <div className="col-span-2 bg-[#0A0A0A]/90 border border-[#FFFFFF20] rounded-2xl p-6">
                         <div className="flex justify-between items-center mb-4">
-                            <h3 className="text-lg font-bold text-[#FFF]">Activity</h3>
+                            <div className="relative group">
+                                <h3 className="text-lg font-bold text-[#FFF] inline-flex items-center gap-2">
+                                    Activity
+                                    <svg
+                                        xmlns="http://www.w3.org/2000/svg"
+                                        className="h-4 w-4 text-gray-500"
+                                        fill="none"
+                                        viewBox="0 0 24 24"
+                                        stroke="currentColor"
+                                    >
+                                        <path
+                                            strokeLinecap="round"
+                                            strokeLinejoin="round"
+                                            strokeWidth={2}
+                                            d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                                        />
+                                    </svg>
+                                </h3>
+                                <div className="absolute left-0 top-full mt-2 w-72 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-50">
+                                    <div className="bg-[#0A0A0A]/95 backdrop-blur-xl border border-[#FFFFFF20] p-3 rounded-lg text-xs text-gray-300 shadow-2xl">
+                                        Lighter uses numeric account IDs instead of EVM addresses.
+                                    </div>
+                                </div>
+                            </div>
                             <span className="text-[10px] text-gray-400">
                                 {recentWhaleTrades.length > 0
                                     ? `${recentWhaleTrades.length} trade${recentWhaleTrades.length > 1 ? 's' : ''}`
@@ -916,7 +1141,6 @@ export default function DexTab() {
                                                     <td className="py-3 px-4">
                                                         <span
                                                             className={`font-bold text-xs px-3 py-1 rounded-md border inline-block min-w-[40px] text-center ${
-                                                                // Ưu tiên trade.side nếu có và đúng định dạng
                                                                 trade.side &&
                                                                 (trade.side.toLowerCase() ===
                                                                     'buy' ||
@@ -947,30 +1171,48 @@ export default function DexTab() {
                                                     </td>
                                                     <td className="py-3 px-6 font-mono text-[10px] text-white">
                                                         <div className="flex items-center gap-2">
-                                                            <span>
-                                                                {trade.buyer.slice(0, 8)}...
-                                                                {trade.buyer.slice(-6)}
+                                                            <span
+                                                                className={
+                                                                    trade.dex === 'lighter'
+                                                                        ? 'break-all'
+                                                                        : ''
+                                                                }
+                                                            >
+                                                                {trade.dex === 'lighter'
+                                                                    ? String(trade.buyer)
+                                                                    : `${String(trade.buyer).slice(0, 8)}...${String(trade.buyer).slice(-6)}`}
                                                             </span>
                                                             <Copy
                                                                 size={12}
-                                                                className="cursor-pointer hover:text-emerald-400 transition"
+                                                                className="cursor-pointer hover:text-emerald-400 transition flex-shrink-0"
                                                                 onClick={() =>
-                                                                    copyToClipboard(trade.buyer)
+                                                                    copyToClipboard(
+                                                                        String(trade.buyer),
+                                                                    )
                                                                 }
                                                             />
                                                         </div>
                                                     </td>
                                                     <td className="py-3 px-6 font-mono text-[10px] text-white">
                                                         <div className="flex items-center gap-2">
-                                                            <span>
-                                                                {trade.seller.slice(0, 8)}...
-                                                                {trade.seller.slice(-6)}
+                                                            <span
+                                                                className={
+                                                                    trade.dex === 'lighter'
+                                                                        ? 'break-all'
+                                                                        : ''
+                                                                }
+                                                            >
+                                                                {trade.dex === 'lighter'
+                                                                    ? String(trade.seller)
+                                                                    : `${String(trade.seller).slice(0, 8)}...${String(trade.seller).slice(-6)}`}
                                                             </span>
                                                             <Copy
                                                                 size={12}
-                                                                className="cursor-pointer hover:text-emerald-400 transition"
+                                                                className="cursor-pointer hover:text-emerald-400 transition flex-shrink-0"
                                                                 onClick={() =>
-                                                                    copyToClipboard(trade.seller)
+                                                                    copyToClipboard(
+                                                                        String(trade.seller),
+                                                                    )
                                                                 }
                                                             />
                                                         </div>
@@ -1007,7 +1249,7 @@ export default function DexTab() {
                             type="text"
                             value={inputWalletAddress}
                             onChange={(e) => setInputWalletAddress(e.target.value)}
-                            placeholder="Enter Wallet Address (0x...)"
+                            placeholder="Enter Wallet Address (0x...) or ID in the case of Lighter"
                             className="flex-1 px-3 py-2 bg-black/60 border border-white/15 rounded-lg text-white text-xs placeholder-gray-500 focus:outline-none focus:border-emerald-500/50"
                         />
                         <button
@@ -1018,7 +1260,7 @@ export default function DexTab() {
                         </button>
                     </div>
                 </form>
-                {portfolioData.length > 0 && (
+                {currentWallet && (
                     <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
                         <div className="space-y-6">
                             <div>
@@ -1051,13 +1293,15 @@ export default function DexTab() {
                                                 <Copy
                                                     size={14}
                                                     className="cursor-pointer text-gray-500 hover:text-emerald-400 transition"
-                                                    onClick={() => copyToClipboard(currentWallet)}
+                                                    onClick={() =>
+                                                        copyToClipboard(String(currentWallet))
+                                                    }
                                                 />
                                             )}
                                         </div>
                                     </div>
                                 </div>
-                                <div className="grid grid-cols-3 gap-4">
+                                <div className="grid grid-cols-4 gap-4">
                                     <div className="bg-[#FFFFFF]/5 p-4 rounded-lg text-center">
                                         <p className="text-xs text-gray-400 mb-1">Total PnL</p>
                                         <p
@@ -1077,6 +1321,12 @@ export default function DexTab() {
                                         <p className="text-xs text-gray-400 mb-1">Total Trades</p>
                                         <p className="text-xl font-bold text-white">
                                             {analytics.numTrades}
+                                        </p>
+                                    </div>
+                                    <div className="bg-[#FFFFFF]/5 p-4 rounded-lg text-center">
+                                        <p className="text-xs text-gray-400 mb-1">Total Balance</p>
+                                        <p className="text-xl font-bold text-white">
+                                            {formatCompactNumber(analytics.totalBalance)}
                                         </p>
                                     </div>
                                 </div>
@@ -1118,6 +1368,71 @@ export default function DexTab() {
                         <div className="space-y-6">
                             <div>
                                 <h3 className="text-sm font-bold text-[#FFF] mb-3">
+                                    Current Positions
+                                </h3>
+                                {portfolioData.length === 0 ? (
+                                    <p className="text-xs text-gray-500">No positions found.</p>
+                                ) : (
+                                    <div className="overflow-x-auto">
+                                        <table className="w-full text-xs">
+                                            <thead className="text-gray-400 border-b border-white/10">
+                                                <tr>
+                                                    <th className="text-left py-2 px-4">Asset</th>
+                                                    <th className="text-right py-2 px-4">
+                                                        Position
+                                                    </th>
+                                                    <th className="text-right py-2 px-4">
+                                                        Entry Price
+                                                    </th>
+                                                    <th className="text-right py-2 px-4">
+                                                        Unrealized PnL
+                                                    </th>
+                                                </tr>
+                                            </thead>
+                                            <tbody className="divide-y divide-white/5">
+                                                {portfolioData.map((pos, i) => (
+                                                    <tr key={i} className="hover:bg-white/5">
+                                                        <td className="py-2 px-4 font-medium">
+                                                            {pos.symbol || pos.coin}
+                                                        </td>
+                                                        <td className="py-2 px-4 text-right font-mono">
+                                                            {parseFloat(pos.position || pos.szi) *
+                                                                (pos.sign || 1)}
+                                                        </td>
+                                                        <td className="py-2 px-4 text-right font-mono">
+                                                            $
+                                                            {pos.avg_entry_price ||
+                                                                pos.entryPx ||
+                                                                0}
+                                                        </td>
+                                                        <td className="py-2 px-4 text-right">
+                                                            <span
+                                                                className={
+                                                                    parseFloat(
+                                                                        pos.unrealized_pnl ||
+                                                                            pos.unrealizedPnl ||
+                                                                            0,
+                                                                    ) >= 0
+                                                                        ? 'text-emerald-400'
+                                                                        : 'text-red-400'
+                                                                }
+                                                            >
+                                                                {formatCompactNumber(
+                                                                    pos.unrealized_pnl ||
+                                                                        pos.unrealizedPnl ||
+                                                                        0,
+                                                                )}
+                                                            </span>
+                                                        </td>
+                                                    </tr>
+                                                ))}
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                )}
+                            </div>
+                            <div>
+                                <h3 className="text-sm font-bold text-[#FFF] mb-3">
                                     Major Losses / Liquidations
                                 </h3>
                                 <div className="space-y-2 max-h-[200px] overflow-y-auto text-xs custom-scrollbar">
@@ -1136,9 +1451,8 @@ export default function DexTab() {
                                             )
                                             .sort((a, b) => b.time - a.time)
                                             .map((liq, i) => (
-                                                // In the Major Losses map, replace the inner div with this
                                                 <div
-                                                    key={i}
+                                                    key={`liq-${i}`}
                                                     className="p-3 bg-red-500/10 border border-red-500/20 rounded-lg flex items-center justify-between"
                                                 >
                                                     <div className="flex items-center gap-3">
@@ -1215,7 +1529,10 @@ export default function DexTab() {
                                                 </thead>
                                                 <tbody className="divide-y divide-white/5">
                                                     {displayedLargeTrades.map((trade, i) => (
-                                                        <tr key={i} className="hover:bg-white/5">
+                                                        <tr
+                                                            key={`large-trade-${i}`}
+                                                            className="hover:bg-white/5"
+                                                        >
                                                             <td className="py-2 px-4">
                                                                 <div className="flex items-center gap-1">
                                                                     <img
@@ -1246,11 +1563,14 @@ export default function DexTab() {
                                                             </td>
                                                             <td className="py-2 px-4">
                                                                 <span
-                                                                    className={
-                                                                        trade.dir.includes('Buy')
-                                                                            ? 'text-emerald-400'
-                                                                            : 'text-red-400'
-                                                                    }
+                                                                    className={`font-bold ${
+                                                                        trade.closedPnl != null &&
+                                                                        parseFloat(
+                                                                            trade.closedPnl,
+                                                                        ) !== 0
+                                                                            ? 'text-red-500'
+                                                                            : 'text-emerald-400'
+                                                                    }`}
                                                                 >
                                                                     {trade.dir}
                                                                 </span>
