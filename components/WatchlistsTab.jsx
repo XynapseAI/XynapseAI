@@ -35,6 +35,37 @@ axiosRetry(axios, {
   retryDelay: (retryCount) => retryCount * 1000,
   retryCondition: (error) => error.code === 'ECONNABORTED' || error.response?.status >= 500,
 })
+
+const getInternalExplorerUrl = (chain, txHash = '', address = '', type = '') => {
+  const normalizedChain = chain?.toLowerCase() || 'ethereum'
+
+  const SUPPORTED_INTERNAL_CHAINS = [
+    'bitcoin',
+    'ethereum',
+    'bsc',
+    'arbitrum',
+    'optimism',
+    'polygon',
+    'base',
+    'solana',
+    'linea',
+    'unichain',
+    'monad',
+    'hyperevm',
+    'eclipse', // nếu có hỗ trợ
+  ]
+
+  if (SUPPORTED_INTERNAL_CHAINS.includes(normalizedChain)) {
+    let query = txHash || address
+    let extra = type ? `&type=${type}` : ''
+    return `/explorer?query=${query}&chain=${normalizedChain}${extra}`
+  }
+
+  // Fallback cũ
+  const { txUrl, addressUrl } = getExplorerUrls(normalizedChain, txHash, address)
+  return txUrl || addressUrl || '#'
+}
+
 // Utility constants
 const NATIVE_TOKEN_INFO = {
   ethereum: { name: 'Ethereum', symbol: 'ETH', logo: '/ethereum-logo.webp' },
@@ -1302,14 +1333,16 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
         </div>
         <div className="px-2 text-[10px] text-gray-500">
           Pool:{' '}
-          <a
-            href={poolLink}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="text-gray-500 hover:underline"
+          <button
+            onClick={(e) => {
+              e.stopPropagation()
+              const url = getInternalExplorerUrl('ethereum', '', position.pool, 'wallet') // hoặc chain_id thực tế
+              window.open(url, '_blank', 'noopener,noreferrer')
+            }}
+            className="text-gray-500 hover:text-[#00FFFF] hover:underline"
           >
             {truncatedPool}
-          </a>
+          </button>
         </div>
         <div className="px-2 text-[10px] text-gray-500 flex gap-2 flex-wrap">
           <span>
@@ -1424,18 +1457,49 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
   }
   const renderTransactionRow = (index, tx) => {
     const transactionKey = tx.hash || `tx-${index}`
-    const { txUrl, addressUrl } = getExplorerUrls(tx.chain, transactionKey, tx.from || tx.address)
     const isSVM = SUPPORTED_SVM_CHAINS.includes(tx.chain)
+    const normalizedChain = String(tx.chain || tx.chain_id || 'ethereum').toLowerCase()
+    // Internal explorer URL helper
+    const getInternalUrl = (hash = '', address = '', type = '') => {
+      const SUPPORTED_INTERNAL_CHAINS = [
+        'bitcoin',
+        'ethereum',
+        'bsc',
+        'arbitrum',
+        'optimism',
+        'polygon',
+        'base',
+        'solana',
+        'linea',
+        'unichain',
+        'monad',
+        'hyperevm',
+        'eclipse',
+      ]
+      if (SUPPORTED_INTERNAL_CHAINS.includes(normalizedChain)) {
+        let query = hash || address
+        let extra = type ? `&type=${type}` : ''
+        return `/explorer?query=${query}&chain=${normalizedChain}${extra}`
+      }
+      // Fallback cũ
+      const { txUrl, addressUrl } = getExplorerUrls(tx.chain, hash, address)
+      return txUrl || addressUrl || '#'
+    }
+
     let tokenLogo = isSVM
       ? tx.token_metadata?.logo || NATIVE_TOKEN_INFO[tx.chain]?.logo || '/icons/default.webp'
       : tx.token_metadata?.logo && !tx.token_metadata.logo.includes('scontent.xx.fbcdn.net')
         ? tx.token_metadata.logo
         : NATIVE_TOKEN_INFO[tx.chain]?.logo || '/icons/default.webp'
+
     let tokenSymbol = tx.token || 'Unknown'
+
     const addressToShow = tx.type === 'receive' ? tx.from : tx.to
     const { text: displayAddress, image: addressImage } = truncateAddress(addressToShow, nameTags)
+
     let displayValue = Number(tx.value).toLocaleString('en-US', { maximumFractionDigits: 1 })
     let typeDisplay = tx.type ? tx.type.charAt(0).toUpperCase() + tx.type.slice(1) : 'Other'
+
     if (tx.type === 'swap' && tx.swap_details && !isSVM) {
       const sent = tx.swap_details.sent[0]
       const received = tx.swap_details.received[0]
@@ -1461,8 +1525,10 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
         ? `${Number(tx.value).toLocaleString('en-US', { maximumFractionDigits: 1 })} ${tokenSymbol}`
         : 'N/A'
     }
-    // Truncate hash for SVM
+
+    // Truncate hash for display (SVM)
     const truncatedHash = isSVM ? `${tx.hash.slice(0, 6)}...${tx.hash.slice(-4)}` : tx.hash
+
     return (
       <motion.div
         key={`${tx.chain}-${transactionKey}-${index}`}
@@ -1471,6 +1537,7 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.3, delay: 0.1 }}
       >
+        {/* Token + Chain */}
         <div className="w-[25%] px-4 sm:px-6 text-[#D4D4D4] text-[12px] sm:text-[14px] flex flex-col items-center gap-1 relative overflow-hidden text-ellipsis">
           <div className="relative flex-shrink-0">
             <img
@@ -1500,8 +1567,10 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
             {tokenSymbol}
           </span>
         </div>
+
         {!isSVM ? (
           <>
+            {/* Type + Address */}
             <div className="w-[25%] px-4 sm:px-6 text-[#D4D4D4] text-[12px] sm:text-[14px] flex flex-col items-center gap-1 overflow-hidden text-ellipsis">
               <span
                 className={`inline-flex px-1 sm:px-1.5 py-0.5 rounded-full text-[9px] sm:text-[12px] font-medium ${
@@ -1516,7 +1585,7 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
               >
                 {typeDisplay}
               </span>
-              <div className="flex items-center justify-center gap-4">
+              <div className="flex items-center justify-center gap-2">
                 {addressImage && (
                   <img
                     src={addressImage}
@@ -1528,17 +1597,23 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
                     loading="lazy"
                   />
                 )}
-                <a
-                  href={addressUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-[9px] text-[#FFF]/80 hover:text-[#00FFFF20]/80 truncate"
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    if (addressToShow && tx.chain) {
+                      const url = getInternalUrl('', addressToShow, 'wallet')
+                      window.open(url, '_blank', 'noopener,noreferrer')
+                    }
+                  }}
+                  className="text-[#FFF]/80 hover:text-[#00FFFF] truncate text-[9px] cursor-pointer"
                   title={addressToShow}
                 >
                   {displayAddress}
-                </a>
+                </button>
               </div>
             </div>
+
+            {/* Value */}
             <div className="w-[25%] px-4 sm:px-6 text-[#D4D4D4] text-[11px] sm:text-[14px] flex items-center justify-center overflow-hidden text-ellipsis">
               <div className="flex flex-col items-center">
                 <span className="font-semibold">{displayValue}</span>
@@ -1549,18 +1624,29 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
                 )}
               </div>
             </div>
+
+            {/* Tx Hash + Time */}
             <div className="w-[25%] px-4 sm:px-6 text-[#D4D4D4] text-[12px] sm:text-[14px] flex flex-col items-center gap-0.5 overflow-hidden text-ellipsis">
-              <a href={txUrl} target="_blank" rel="noopener noreferrer">
+              <button
+                onClick={(e) => {
+                  e.stopPropagation()
+                  const hash = tx.hash
+                  if (hash && tx.chain) {
+                    const url = getInternalUrl(hash)
+                    window.open(url, '_blank', 'noopener,noreferrer')
+                  }
+                }}
+                className="p-1 rounded-lg hover:bg-[#FFFFFF]/10 transition-all"
+              >
                 <img
-                  src="/logos/etherscan-logo.webp"
-                  alt="Explorer"
+                  src="/logos/logo.png" // Logo app cho internal explorer
+                  alt="Internal Explorer"
                   width={isMobile ? 14 : 16}
                   height={isMobile ? 14 : 16}
-                  className="rounded-full"
-                  onError={(e) => (e.target.src = '/fallback-image.webp')}
+                  className="rounded-xl hover:scale-110 transition-transform"
                   loading="lazy"
                 />
-              </a>
+              </button>
               <span className="text-[7px] sm:text-[10px] text-[#D4D4D4]">
                 {tx.block_time
                   ? formatDistanceToNow(new Date(tx.block_time), { addSuffix: true })
@@ -1570,6 +1656,7 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
           </>
         ) : (
           <>
+            {/* Value (SVM) */}
             <div className="w-[25%] px-4 sm:px-6 text-[#D4D4D4] text-[11px] sm:text-[14px] flex items-center justify-center overflow-hidden text-ellipsis">
               <div className="flex flex-col items-center">
                 <span className="font-semibold">{displayValue}</span>
@@ -1580,26 +1667,40 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
                 )}
               </div>
             </div>
-            <div className="w-[25%] px-4 sm:px-6 text-[#D4D4D4] text-[12px] sm:text-[14px] flex items-center justify-center gap-4 overflow-hidden text-ellipsis">
-              <img
-                src="/logos/solscan.webp"
-                alt="Solscan Explorer"
-                width={isMobile ? 14 : 16}
-                height={isMobile ? 14 : 16}
-                className="rounded-full"
-                onError={(e) => (e.target.src = '/fallback-image.webp')}
-                loading="lazy"
-              />
-              <a
-                href={txUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-[#00FFFF20] hover:text-[#00FFFF20]/80 truncate"
+
+            {/* Hash (SVM) */}
+            <div className="w-[25%] px-4 sm:px-6 text-[#D4D4D4] text-[12px] sm:text-[14px] flex items-center justify-center gap-2 overflow-hidden text-ellipsis">
+              <button
+                onClick={(e) => {
+                  e.stopPropagation()
+                  const url = getInternalUrl(tx.hash)
+                  window.open(url, '_blank', 'noopener,noreferrer')
+                }}
+                className="p-1 rounded-lg hover:bg-[#FFFFFF]/10 transition-all"
+              >
+                <img
+                  src="/logos/logo.png"
+                  alt="Internal Explorer"
+                  width={isMobile ? 14 : 16}
+                  height={isMobile ? 14 : 16}
+                  className="rounded-xl hover:scale-110 transition-transform"
+                  loading="lazy"
+                />
+              </button>
+              <button
+                onClick={(e) => {
+                  e.stopPropagation()
+                  const url = getInternalUrl(tx.hash)
+                  window.open(url, '_blank', 'noopener,noreferrer')
+                }}
+                className="text-[#00FFFF20] hover:text-[#00FFFF] truncate text-[9px] cursor-pointer"
                 title={tx.hash}
               >
                 {truncatedHash}
-              </a>
+              </button>
             </div>
+
+            {/* Time (SVM) */}
             <div className="w-[25%] px-4 sm:px-6 text-[#D4D4D4] text-[12px] sm:text-[14px] flex items-center justify-center overflow-hidden text-ellipsis">
               <span className="text-[10px] sm:text-[12px] text-[#D4D4D4]">
                 {tx.block_time
@@ -1826,7 +1927,21 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
                                 'Unnamed Wallet'}
                             </span>
                             <span className="text-[8px] sm:text-[9px] text-[#D4D4D4] truncate max-w-[120px] sm:max-w-[150px]">
-                              {truncatedWalletAddress}
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation()
+                                  const url = getInternalExplorerUrl(
+                                    wallet.chainType === 'SVM' ? 'solana' : 'ethereum',
+                                    '',
+                                    wallet.address,
+                                    'wallet',
+                                  )
+                                  window.open(url, '_blank', 'noopener,noreferrer')
+                                }}
+                                className="hover:text-[#00FFFF] underline-offset-2 hover:underline"
+                              >
+                                {truncatedWalletAddress}
+                              </button>
                             </span>
                           </div>
                         </div>

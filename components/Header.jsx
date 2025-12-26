@@ -1,38 +1,48 @@
 // components/Header.jsx
-'use client';
-import { motion, AnimatePresence } from 'framer-motion';
-import { useState, useEffect, useRef, useMemo } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation'; // Added useSearchParams for preserving query/chain in explorer
-import { Power, Search as SearchIcon, BarChart3, Network, Activity, List, User, BadgeDollarSign } from 'lucide-react'; // Removed unused Zap
-import Link from 'next/link';
-import Image from 'next/image';
-import { useCurrency } from './CurrencyContext';
-import { logger } from '../utils/clientLogger';
-import '../styles/globals.css';
+'use client'
+import { motion, AnimatePresence } from 'framer-motion'
+import { useState, useEffect, useRef, useMemo } from 'react'
+import { useRouter, useSearchParams } from 'next/navigation' // Added useSearchParams for preserving query/chain in explorer
+import {
+  Power,
+  Search as SearchIcon,
+  BarChart3,
+  Network,
+  Activity,
+  List,
+  User,
+  BadgeDollarSign,
+  AudioLines,
+} from 'lucide-react' // Removed unused Zap
+import Link from 'next/link'
+import Image from 'next/image'
+import { useCurrency } from './CurrencyContext'
+import { logger } from '../utils/clientLogger'
+import '../styles/globals.css'
 
 export default function Header({ activeTab, setActiveTab, handleSignOut, selectedAddress }) {
-  const [isMenuOpen, setIsMenuOpen] = useState(false);
-  const [searchQuery, setSearchQuery] = useState('');
-  const [searchResults, setSearchResults] = useState([]);
-  const [isSearchDropdownOpen, setIsSearchDropdownOpen] = useState(false);
-  const menuRef = useRef(null);
-  const searchRef = useRef(null);
-  const router = useRouter();
-  const searchParams = useSearchParams(); // Added to preserve params for explorer
+  const [isMenuOpen, setIsMenuOpen] = useState(false)
+  const [searchQuery, setSearchQuery] = useState('')
+  const [searchResults, setSearchResults] = useState([])
+  const [isSearchDropdownOpen, setIsSearchDropdownOpen] = useState(false)
+  const menuRef = useRef(null)
+  const searchRef = useRef(null)
+  const router = useRouter()
+  const searchParams = useSearchParams() // Added to preserve params for explorer
 
   // Currency context fallback
-  let currency = 'usd';
-  let setCurrency = () => console.warn('setCurrency not available');
-  let availableCurrencies = ['usd', 'eur', 'btc'];
+  let currency = 'usd'
+  let setCurrency = () => console.warn('setCurrency not available')
+  let availableCurrencies = ['usd', 'eur', 'btc']
   try {
-    const context = useCurrency();
+    const context = useCurrency()
     if (context) {
-      ({ currency, setCurrency, availableCurrencies } = context);
+      ;({ currency, setCurrency, availableCurrencies } = context)
     } else {
-      console.error('CurrencyContext is not available. Using fallback values.');
+      console.error('CurrencyContext is not available. Using fallback values.')
     }
   } catch (err) {
-    console.error('Error accessing CurrencyContext:', err);
+    console.error('Error accessing CurrencyContext:', err)
   }
 
   const tabs = [
@@ -42,147 +52,153 @@ export default function Header({ activeTab, setActiveTab, handleSignOut, selecte
     { id: 'graph', label: 'Graph', icon: Activity },
     { id: 'watchlists', label: 'Watchlists', icon: List },
     { id: 'explorer', label: 'Explorer', icon: SearchIcon }, // Added Explorer tab with Search icon
+    { id: 'dex', label: 'Dex', icon: AudioLines },
     { id: 'profile', label: 'Profile', icon: User },
-  ];
+  ]
 
   // Memoized dynamic href builder for better performance
   const getTabHref = useMemo(() => {
     return (tabId) => {
-      const tab = tabs.find(t => t.id === tabId);
-      if (tab?.href) return tab.href; // External if defined
+      const tab = tabs.find((t) => t.id === tabId)
+      if (tab?.href) return tab.href // External if defined
 
-      let queryStr = `tab=${tabId}`;
+      let queryStr = `tab=${tabId}`
       // Preserve params based on tab
       if (tabId === 'explorer') {
-        const currentQuery = searchParams.get('query') || '';
-        const currentChain = searchParams.get('chain') || '';
-        if (currentQuery) queryStr += `&query=${encodeURIComponent(currentQuery)}`;
-        if (currentChain) queryStr += `&chain=${currentChain}`;
+        const currentQuery = searchParams.get('query') || ''
+        const currentChain = searchParams.get('chain') || ''
+        if (currentQuery) queryStr += `&query=${encodeURIComponent(currentQuery)}`
+        if (currentChain) queryStr += `&chain=${currentChain}`
       } else if (tabId === 'watchlists' && selectedAddress) {
-        queryStr += `&address=${encodeURIComponent(selectedAddress)}`;
+        queryStr += `&address=${encodeURIComponent(selectedAddress)}`
       } else if (tabId === 'cluster') {
-        const clusterId = new URLSearchParams(window.location.search).get('clusterId') || searchParams.get('clusterId');
-        if (clusterId) queryStr += `&clusterId=${encodeURIComponent(clusterId)}`;
+        const clusterId =
+          new URLSearchParams(window.location.search).get('clusterId') ||
+          searchParams.get('clusterId')
+        if (clusterId) queryStr += `&clusterId=${encodeURIComponent(clusterId)}`
       }
-      return `/dashboard?${queryStr}`;
-    };
-  }, [tabs, searchParams, selectedAddress]);
+      return `/dashboard?${queryStr}`
+    }
+  }, [tabs, searchParams, selectedAddress])
 
   useEffect(() => {
     const handleClickOutside = (event) => {
       if (menuRef.current && !menuRef.current.contains(event.target)) {
-        setIsMenuOpen(false);
+        setIsMenuOpen(false)
       }
       if (searchRef.current && !searchRef.current.contains(event.target)) {
-        setIsSearchDropdownOpen(false);
+        setIsSearchDropdownOpen(false)
       }
-    };
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, []);
+    }
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [])
 
   const handleSearch = async () => {
     if (!searchQuery.trim()) {
-      setSearchResults([]);
-      setIsSearchDropdownOpen(false);
-      return;
+      setSearchResults([])
+      setIsSearchDropdownOpen(false)
+      return
     }
     try {
-      const response = await fetch(`/api/coingecko?action=exchange-search&query=${encodeURIComponent(searchQuery)}`, {
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-      });
-      const result = await response.json();
-      if (!response.ok) throw new Error(result.detail || 'Failed to search exchanges');
-      setSearchResults(result.data || []);
-      setIsSearchDropdownOpen(true);
-      logger.log('Exchange search results:', { query: searchQuery, results: result.data });
+      const response = await fetch(
+        `/api/coingecko?action=exchange-search&query=${encodeURIComponent(searchQuery)}`,
+        {
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+        },
+      )
+      const result = await response.json()
+      if (!response.ok) throw new Error(result.detail || 'Failed to search exchanges')
+      setSearchResults(result.data || [])
+      setIsSearchDropdownOpen(true)
+      logger.log('Exchange search results:', { query: searchQuery, results: result.data })
     } catch (err) {
-      logger.error('Error searching exchanges:', { query: searchQuery, error: err.message });
-      setSearchResults([]);
-      setIsSearchDropdownOpen(false);
+      logger.error('Error searching exchanges:', { query: searchQuery, error: err.message })
+      setSearchResults([])
+      setIsSearchDropdownOpen(false)
     }
-  };
+  }
 
   const handleExchangeSelect = (exchange) => {
-    router.push(`/dashboard?tab=cluster&clusterId=${exchange.id}`, { scroll: false });
-    setSearchQuery('');
-    setSearchResults([]);
-    setIsSearchDropdownOpen(false);
-    setActiveTab('cluster');
-  };
+    router.push(`/dashboard?tab=cluster&clusterId=${exchange.id}`, { scroll: false })
+    setSearchQuery('')
+    setSearchResults([])
+    setIsSearchDropdownOpen(false)
+    setActiveTab('cluster')
+  }
 
   // Shared handler for tab navigation (now used in onClick of Link)
   const handleTabNavigation = (tabId) => {
-    setActiveTab(tabId);
-    setIsMenuOpen(false); // Close mobile menu
-  };
+    setActiveTab(tabId)
+    setIsMenuOpen(false) // Close mobile menu
+  }
 
   const handleMouseEnter = (e, tabLabel) => {
-    const container = e.currentTarget.querySelector('.matrix-text');
+    const container = e.currentTarget.querySelector('.matrix-text')
     if (container) {
-      container.classList.add('active');
-      const spans = container.querySelectorAll('span');
-      const positions = Array.from(spans).map((span) => span.offsetLeft);
-      const charCount = spans.length;
+      container.classList.add('active')
+      const spans = container.querySelectorAll('span')
+      const positions = Array.from(spans).map((span) => span.offsetLeft)
+      const charCount = spans.length
 
-      const shuffledIndices1 = Array.from({ length: charCount }, (_, i) => i);
-      const shuffledIndices2 = Array.from({ length: charCount }, (_, i) => i);
-      const shuffledIndices3 = Array.from({ length: charCount }, (_, i) => i);
+      const shuffledIndices1 = Array.from({ length: charCount }, (_, i) => i)
+      const shuffledIndices2 = Array.from({ length: charCount }, (_, i) => i)
+      const shuffledIndices3 = Array.from({ length: charCount }, (_, i) => i)
       for (let i = charCount - 1; i > 0; i--) {
-        const j1 = Math.floor(Math.random() * (i + 1));
-        const j2 = Math.floor(Math.random() * (i + 1));
-        const j3 = Math.floor(Math.random() * (i + 1));
-        [shuffledIndices1[i], shuffledIndices1[j1]] = [shuffledIndices1[j1], shuffledIndices1[i]];
-        [shuffledIndices2[i], shuffledIndices2[j2]] = [shuffledIndices2[j2], shuffledIndices2[i]];
-        [shuffledIndices3[i], shuffledIndices3[j3]] = [shuffledIndices3[j3], shuffledIndices3[i]];
+        const j1 = Math.floor(Math.random() * (i + 1))
+        const j2 = Math.floor(Math.random() * (i + 1))
+        const j3 = Math.floor(Math.random() * (i + 1))
+        ;[shuffledIndices1[i], shuffledIndices1[j1]] = [shuffledIndices1[j1], shuffledIndices1[i]]
+        ;[shuffledIndices2[i], shuffledIndices2[j2]] = [shuffledIndices2[j2], shuffledIndices2[i]]
+        ;[shuffledIndices3[i], shuffledIndices3[j3]] = [shuffledIndices3[j3], shuffledIndices3[i]]
       }
 
       spans.forEach((span, index) => {
         if (span.textContent !== '\u00A0') {
-          const targetIndex1 = shuffledIndices1[index];
-          const targetIndex2 = shuffledIndices2[index];
-          const targetIndex3 = shuffledIndices3[index];
-          const offset1 = positions[targetIndex1] - positions[index];
-          const offset2 = positions[targetIndex2] - positions[index];
-          const offset3 = positions[targetIndex3] - positions[index];
+          const targetIndex1 = shuffledIndices1[index]
+          const targetIndex2 = shuffledIndices2[index]
+          const targetIndex3 = shuffledIndices3[index]
+          const offset1 = positions[targetIndex1] - positions[index]
+          const offset2 = positions[targetIndex2] - positions[index]
+          const offset3 = positions[targetIndex3] - positions[index]
 
-          span.style.setProperty('--shuffle-offset-1', `${offset1}px`);
-          span.style.setProperty('--shuffle-offset-2', `${offset2}px`);
-          span.style.setProperty('--shuffle-offset-3', `${offset3}px`);
+          span.style.setProperty('--shuffle-offset-1', `${offset1}px`)
+          span.style.setProperty('--shuffle-offset-2', `${offset2}px`)
+          span.style.setProperty('--shuffle-offset-3', `${offset3}px`)
 
           span.classList.add(
             'animate-matrix-flip',
             'animate-flicker',
             'animate-shuffle-position',
-            `animation-delay-${(index % 13) + 1}`
-          );
+            `animation-delay-${(index % 13) + 1}`,
+          )
         }
-      });
+      })
 
       setTimeout(() => {
-        container.classList.remove('active');
+        container.classList.remove('active')
         spans.forEach((span) => {
           span.classList.remove(
             'animate-matrix-flip',
             'animate-flicker',
             'animate-shuffle-position',
-            ...Array.from(span.classList).filter((c) => c.startsWith('animation-delay-'))
-          );
-          span.style.removeProperty('--shuffle-offset-1');
-          span.style.removeProperty('--shuffle-offset-2');
-          span.style.removeProperty('--shuffle-offset-3');
-        });
-      }, 400);
+            ...Array.from(span.classList).filter((c) => c.startsWith('animation-delay-')),
+          )
+          span.style.removeProperty('--shuffle-offset-1')
+          span.style.removeProperty('--shuffle-offset-2')
+          span.style.removeProperty('--shuffle-offset-3')
+        })
+      }, 400)
     }
-  };
+  }
 
   const lineVariants = {
     closed: { rotate: 0, y: 0, opacity: 1, transition: { duration: 0.3 } },
     openTop: { rotate: 45, y: 6, transition: { duration: 0.3 } },
     openBottom: { rotate: -45, y: -6, transition: { duration: 0.3 } },
     hidden: { opacity: 0, transition: { duration: 0.3 } },
-  };
+  }
 
   const menuVariants = {
     closed: {
@@ -192,8 +208,8 @@ export default function Header({ activeTab, setActiveTab, handleSignOut, selecte
       transition: {
         duration: 0.3,
         ease: 'easeInOut',
-        scaleY: { duration: 0.2, ease: 'easeOut' }
-      }
+        scaleY: { duration: 0.2, ease: 'easeOut' },
+      },
     },
     open: {
       y: 0,
@@ -205,10 +221,10 @@ export default function Header({ activeTab, setActiveTab, handleSignOut, selecte
         type: 'spring',
         stiffness: 300,
         damping: 25,
-        scaleY: { duration: 0.3, ease: 'easeOut' }
-      }
+        scaleY: { duration: 0.3, ease: 'easeOut' },
+      },
     },
-  };
+  }
 
   const renderMatrixText = (text) => {
     return text.split('').map((char, index) => (
@@ -218,11 +234,13 @@ export default function Header({ activeTab, setActiveTab, handleSignOut, selecte
       >
         {char === ' ' ? '\u00A0' : char}
       </span>
-    ));
-  };
+    ))
+  }
 
   return (
-    <header className="sticky top-1 z-50 w-full"> {/* Changed top-4 to top-0 for better overlap prevention */}
+    <header className="sticky top-1 z-50 w-full">
+      {' '}
+      {/* Changed top-4 to top-0 for better overlap prevention */}
       <div className="w-[80%] mx-auto h-[4.5vh] sm:h-[4.5vh] bg-gradient-to-br from-black/80 to-gray-900/80 backdrop-blur-sm border border-white/20 rounded-xl flex justify-between items-center px-4 font-inter shadow-2xl">
         <div className="block sm:hidden">
           <motion.button
@@ -263,9 +281,9 @@ export default function Header({ activeTab, setActiveTab, handleSignOut, selecte
               transition={{ duration: 0.3, ease: 'easeInOut' }}
             >
               {tabs.map((tab) => {
-                const Icon = tab.icon;
-                const isActive = activeTab === tab.id;
-                const href = getTabHref(tab.id);
+                const Icon = tab.icon
+                const isActive = activeTab === tab.id
+                const href = getTabHref(tab.id)
                 return (
                   <Link
                     key={tab.id}
@@ -276,13 +294,16 @@ export default function Header({ activeTab, setActiveTab, handleSignOut, selecte
                     <motion.button
                       type="button" // Prevent default form submit if any
                       onMouseEnter={(e) => handleMouseEnter(e, tab.label)}
-                      className={`w-full h-full flex items-center gap-1 ${isActive
-                        ? 'text-neon-blue'
-                        : 'text-white/70 hover:text-white'
-                        }`}
+                      className={`w-full h-full flex items-center gap-1 ${
+                        isActive ? 'text-neon-blue' : 'text-white/70 hover:text-white'
+                      }`}
+                    >
+                      <Icon
+                        className={`w-3 h-3 flex-shrink-0 ${isActive ? 'text-white/80' : 'text-white/70 group-hover:text-white'}`}
+                      />
+                      <span
+                        className={`matrix-text relative overflow-hidden ${isActive ? 'text-white/80' : ''}`}
                       >
-                      <Icon className={`w-3 h-3 flex-shrink-0 ${isActive ? 'text-white/80' : 'text-white/70 group-hover:text-white'}`} />
-                      <span className={`matrix-text relative overflow-hidden ${isActive ? 'text-white/80' : ''}`}>
                         {renderMatrixText(tab.label)}
                       </span>
                       {isActive && (
@@ -294,7 +315,7 @@ export default function Header({ activeTab, setActiveTab, handleSignOut, selecte
                       )}
                     </motion.button>
                   </Link>
-                );
+                )
               })}
             </motion.nav>
           </AnimatePresence>
@@ -302,7 +323,11 @@ export default function Header({ activeTab, setActiveTab, handleSignOut, selecte
 
         {/* Right side: Website logo and X logo */}
         <div className="flex items-center gap-1">
-          <Link href="https://xynapseai.net" target="_blank" className="opacity-80 hover:opacity-100 transition-opacity">
+          <Link
+            href="https://xynapseai.net"
+            target="_blank"
+            className="opacity-80 hover:opacity-100 transition-opacity"
+          >
             <Image
               src="/logos/website.webp"
               alt="Xynapse Logo"
@@ -312,14 +337,13 @@ export default function Header({ activeTab, setActiveTab, handleSignOut, selecte
               priority
             />
           </Link>
-          <Link href="https://x.com/xynapseai_" target="_blank" rel="me noopener noreferrer" className="opacity-80 hover:opacity-100 transition-opacity">
-            <Image
-              src="/logos/x.webp"
-              alt="X Logo"
-              width={16}
-              height={16}
-              className="h-4 w-auto"
-            />
+          <Link
+            href="https://x.com/xynapseai_"
+            target="_blank"
+            rel="me noopener noreferrer"
+            className="opacity-80 hover:opacity-100 transition-opacity"
+          >
+            <Image src="/logos/x.webp" alt="X Logo" width={16} height={16} className="h-4 w-auto" />
           </Link>
         </div>
 
@@ -347,17 +371,18 @@ export default function Header({ activeTab, setActiveTab, handleSignOut, selecte
               </div>
               <nav className="flex flex-col space-y-2 flex-grow">
                 {tabs.map((tab) => {
-                  const Icon = tab.icon;
-                  const isActive = activeTab === tab.id;
-                  const href = getTabHref(tab.id);
+                  const Icon = tab.icon
+                  const isActive = activeTab === tab.id
+                  const href = getTabHref(tab.id)
                   return (
                     <Link
                       key={tab.id}
                       href={href}
-                      className={`relative w-full flex items-center gap-2 px-3 py-3 text-sm font-semibold transition-all duration-300 rounded-lg border border-transparent no-underline focus:outline-none ${isActive
-                        ? 'text-neon-blue'
-                        : 'text-white/70 hover:text-white hover:bg-white/5 hover:border-white/5'
-                        }`}
+                      className={`relative w-full flex items-center gap-2 px-3 py-3 text-sm font-semibold transition-all duration-300 rounded-lg border border-transparent no-underline focus:outline-none ${
+                        isActive
+                          ? 'text-neon-blue'
+                          : 'text-white/70 hover:text-white hover:bg-white/5 hover:border-white/5'
+                      }`}
                       onClick={() => handleTabNavigation(tab.id)}
                     >
                       <motion.button
@@ -365,8 +390,12 @@ export default function Header({ activeTab, setActiveTab, handleSignOut, selecte
                         onMouseEnter={(e) => handleMouseEnter(e, tab.label)}
                         className="w-full h-full flex items-center gap-2"
                       >
-                        <Icon className={`w-4 h-4 flex-shrink-0 ${isActive ? 'text-white/70' : 'text-white/70'}`} />
-                        <span className={`matrix-text flex-1 ${isActive ? 'text-white/70' : ''}`}>{renderMatrixText(tab.label)}</span>
+                        <Icon
+                          className={`w-4 h-4 flex-shrink-0 ${isActive ? 'text-white/70' : 'text-white/70'}`}
+                        />
+                        <span className={`matrix-text flex-1 ${isActive ? 'text-white/70' : ''}`}>
+                          {renderMatrixText(tab.label)}
+                        </span>
                         {isActive && (
                           <motion.div
                             className="absolute bottom-0 left-0 right-0 h-0.5 bg-gradient-to-r from-white to-emerald-400 rounded-full"
@@ -376,12 +405,16 @@ export default function Header({ activeTab, setActiveTab, handleSignOut, selecte
                         )}
                       </motion.button>
                     </Link>
-                  );
+                  )
                 })}
               </nav>
               {/* Add X logo to mobile menu footer for consistency */}
               <div className="mt-auto pt-4 border-t border-white/10 flex justify-end">
-                <Link href="https://xynapseai.net" target="_blank" className="opacity-80 hover:opacity-100 transition-opacity">
+                <Link
+                  href="https://xynapseai.net"
+                  target="_blank"
+                  className="opacity-80 hover:opacity-100 transition-opacity"
+                >
                   <Image
                     src="/logos/website.webp"
                     alt="Xynapse Logo"
@@ -391,7 +424,11 @@ export default function Header({ activeTab, setActiveTab, handleSignOut, selecte
                     priority
                   />
                 </Link>
-                <Link href="https://x.com/xynapseai_" target="_blank" className="opacity-80 hover:opacity-100 transition-opacity">
+                <Link
+                  href="https://x.com/xynapseai_"
+                  target="_blank"
+                  className="opacity-80 hover:opacity-100 transition-opacity"
+                >
                   <Image
                     src="/logos/x.webp"
                     alt="X Logo"
@@ -418,7 +455,6 @@ export default function Header({ activeTab, setActiveTab, handleSignOut, selecte
           )}
         </AnimatePresence>
       </div>
-
       <style jsx>{`
         .hide-scrollbar::-webkit-scrollbar {
           display: none;
@@ -444,58 +480,139 @@ export default function Header({ activeTab, setActiveTab, handleSignOut, selecte
           animation: shuffle-position 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94);
         }
         @keyframes matrix-flip {
-          0% { transform: rotateY(0deg) translateX(0); opacity: 1; }
-          50% { transform: rotateY(180deg) translateX(var(--shuffle-offset-1, 0)); opacity: 0.7; }
-          75% { transform: rotateY(270deg) translateX(var(--shuffle-offset-2, 0)); opacity: 0.4; }
-          100% { transform: rotateY(360deg) translateX(var(--shuffle-offset-3, 0)); opacity: 1; }
+          0% {
+            transform: rotateY(0deg) translateX(0);
+            opacity: 1;
+          }
+          50% {
+            transform: rotateY(180deg) translateX(var(--shuffle-offset-1, 0));
+            opacity: 0.7;
+          }
+          75% {
+            transform: rotateY(270deg) translateX(var(--shuffle-offset-2, 0));
+            opacity: 0.4;
+          }
+          100% {
+            transform: rotateY(360deg) translateX(var(--shuffle-offset-3, 0));
+            opacity: 1;
+          }
         }
         @keyframes flicker {
-          0%, 100% { opacity: 1; filter: brightness(1); }
-          50% { opacity: 0.6; filter: brightness(1.2); }
+          0%,
+          100% {
+            opacity: 1;
+            filter: brightness(1);
+          }
+          50% {
+            opacity: 0.6;
+            filter: brightness(1.2);
+          }
         }
         @keyframes shuffle-position {
-          0% { transform: translateX(0); }
-          33% { transform: translateX(var(--shuffle-offset-1, 0)); }
-          66% { transform: translateX(var(--shuffle-offset-2, 0)); }
-          100% { transform: translateX(var(--shuffle-offset-3, 0)); }
+          0% {
+            transform: translateX(0);
+          }
+          33% {
+            transform: translateX(var(--shuffle-offset-1, 0));
+          }
+          66% {
+            transform: translateX(var(--shuffle-offset-2, 0));
+          }
+          100% {
+            transform: translateX(var(--shuffle-offset-3, 0));
+          }
         }
-        .animation-delay-1 { animation-delay: 0.05s; }
-        .animation-delay-2 { animation-delay: 0.1s; }
-        .animation-delay-3 { animation-delay: 0.15s; }
-        .animation-delay-4 { animation-delay: 0.2s; }
-        .animation-delay-5 { animation-delay: 0.25s; }
-        .animation-delay-6 { animation-delay: 0.3s; }
-        .animation-delay-7 { animation-delay: 0.35s; }
-        .animation-delay-8 { animation-delay: 0.4s; }
-        .animation-delay-9 { animation-delay: 0.45s; }
-        .animation-delay-10 { animation-delay: 0.5s; }
-        .animation-delay-11 { animation-delay: 0.55s; }
-        .animation-delay-12 { animation-delay: 0.6s; }
-        .animation-delay-13 { animation-delay: 0.65s; }
+        .animation-delay-1 {
+          animation-delay: 0.05s;
+        }
+        .animation-delay-2 {
+          animation-delay: 0.1s;
+        }
+        .animation-delay-3 {
+          animation-delay: 0.15s;
+        }
+        .animation-delay-4 {
+          animation-delay: 0.2s;
+        }
+        .animation-delay-5 {
+          animation-delay: 0.25s;
+        }
+        .animation-delay-6 {
+          animation-delay: 0.3s;
+        }
+        .animation-delay-7 {
+          animation-delay: 0.35s;
+        }
+        .animation-delay-8 {
+          animation-delay: 0.4s;
+        }
+        .animation-delay-9 {
+          animation-delay: 0.45s;
+        }
+        .animation-delay-10 {
+          animation-delay: 0.5s;
+        }
+        .animation-delay-11 {
+          animation-delay: 0.55s;
+        }
+        .animation-delay-12 {
+          animation-delay: 0.6s;
+        }
+        .animation-delay-13 {
+          animation-delay: 0.65s;
+        }
         @media (max-width: 640px) {
           .matrix-text span {
             font-size: 9px;
           }
-          .animation-delay-1 { animation-delay: 0.04s; }
-          .animation-delay-2 { animation-delay: 0.08s; }
-          .animation-delay-3 { animation-delay: 0.12s; }
-          .animation-delay-4 { animation-delay: 0.16s; }
-          .animation-delay-5 { animation-delay: 0.2s; }
-          .animation-delay-6 { animation-delay: 0.24s; }
-          .animation-delay-7 { animation-delay: 0.28s; }
-          .animation-delay-8 { animation-delay: 0.32s; }
-          .animation-delay-9 { animation-delay: 0.36s; }
-          .animation-delay-10 { animation-delay: 0.4s; }
-          .animation-delay-11 { animation-delay: 0.44s; }
-          .animation-delay-12 { animation-delay: 0.48s; }
-          .animation-delay-13 { animation-delay: 0.52s; }
+          .animation-delay-1 {
+            animation-delay: 0.04s;
+          }
+          .animation-delay-2 {
+            animation-delay: 0.08s;
+          }
+          .animation-delay-3 {
+            animation-delay: 0.12s;
+          }
+          .animation-delay-4 {
+            animation-delay: 0.16s;
+          }
+          .animation-delay-5 {
+            animation-delay: 0.2s;
+          }
+          .animation-delay-6 {
+            animation-delay: 0.24s;
+          }
+          .animation-delay-7 {
+            animation-delay: 0.28s;
+          }
+          .animation-delay-8 {
+            animation-delay: 0.32s;
+          }
+          .animation-delay-9 {
+            animation-delay: 0.36s;
+          }
+          .animation-delay-10 {
+            animation-delay: 0.4s;
+          }
+          .animation-delay-11 {
+            animation-delay: 0.44s;
+          }
+          .animation-delay-12 {
+            animation-delay: 0.48s;
+          }
+          .animation-delay-13 {
+            animation-delay: 0.52s;
+          }
         }
         @media (prefers-reduced-motion: reduce) {
-          .animate-matrix-flip, .animate-flicker, .animate-shuffle-position {
+          .animate-matrix-flip,
+          .animate-flicker,
+          .animate-shuffle-position {
             animation: none;
           }
         }
       `}</style>
     </header>
-  );
+  )
 }
