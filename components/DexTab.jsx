@@ -178,7 +178,7 @@ export default function DexTab() {
     const inputRef = useRef(null)
     const metaData = selectedDEX === 'hyperliquid' ? metaDataHyper : metaDataLighter
     const activeAssets = selectedDEX === 'hyperliquid' ? activeAssetsHyper : activeAssetsLighter
-    const [eventSource, setEventSource] = useState(null);
+    const [eventSource, setEventSource] = useState(null)
     const assetToImage = metaData.universe.reduce((acc, u) => {
         acc[u.name] = u.image || null
         return acc
@@ -188,9 +188,9 @@ export default function DexTab() {
         return acc
     }, {})
     const oiData = useMemo(() => {
-        const currentMeta = selectedDEX === 'hyperliquid' ? metaDataHyper : metaDataLighter;
+        const currentMeta = selectedDEX === 'hyperliquid' ? metaDataHyper : metaDataLighter
 
-        if (!currentMeta.universe || currentMeta.universe.length === 0) return [];
+        if (!currentMeta.universe || currentMeta.universe.length === 0) return []
 
         return currentMeta.universe
             .map((u, i) => ({
@@ -199,8 +199,8 @@ export default function DexTab() {
             }))
             .filter((item) => item.value > 0)
             .sort((a, b) => b.value - a.value)
-            .slice(0, 10);
-    }, [selectedDEX, metaDataHyper, metaDataLighter]);
+            .slice(0, 10)
+    }, [selectedDEX, metaDataHyper, metaDataLighter])
     const copyToClipboard = (text) => {
         navigator.clipboard.writeText(text)
         setToastMessage('Copied to clipboard!')
@@ -212,50 +212,50 @@ export default function DexTab() {
         }
     }, [randomWhaleWallet, portfolioData.length, currentWallet])
     useEffect(() => {
-        fetchGlobalDataHyper();
-        fetchGlobalDataLighter();
-        const es = new EventSource('/api/whale-trades/sse');
-        setEventSource(es);
+        fetchGlobalDataHyper()
+        fetchGlobalDataLighter()
+        const es = new EventSource('/api/whale-trades/sse')
+        setEventSource(es)
 
         es.onmessage = (event) => {
             try {
-                const newData = JSON.parse(event.data);
+                const newData = JSON.parse(event.data)
 
                 // Nếu là full list (500 trades) – dùng để khởi tạo hoặc refresh page 1
                 if (Array.isArray(newData) && newData.length > 10) {
-                    setRecentWhaleTrades(newData);
-                    setActivityPage(1); // Luôn về trang 1 khi có full update
+                    setRecentWhaleTrades(newData)
+                    setActivityPage(1) // Luôn về trang 1 khi có full update
                 } else {
                     // Là update realtime (trade mới)
-                    setRecentWhaleTrades(prev => {
-                        const existingIds = new Set(prev.map(t => t.id));
-                        const tradesToAdd = Array.isArray(newData) ? newData : [newData];
-                        const uniqueNew = tradesToAdd.filter(t => !existingIds.has(t.id));
+                    setRecentWhaleTrades((prev) => {
+                        const existingIds = new Set(prev.map((t) => t.id))
+                        const tradesToAdd = Array.isArray(newData) ? newData : [newData]
+                        const uniqueNew = tradesToAdd.filter((t) => !existingIds.has(t.id))
                         const updated = [...uniqueNew, ...prev]
                             .sort((a, b) => b.time - a.time)
-                            .slice(0, totalDisplayTrades); // Giới hạn 500
-                        return updated;
-                    });
-                    setActivityPage(1); // Trade mới → tự động về trang 1
+                            .slice(0, totalDisplayTrades) // Giới hạn 500
+                        return updated
+                    })
+                    setActivityPage(1) // Trade mới → tự động về trang 1
                 }
             } catch (err) {
-                console.error('SSE parse error:', err);
+                console.error('SSE parse error:', err)
             }
-        };
+        }
 
         es.onerror = () => {
-            console.error('SSE connection error, reconnecting in 3s...');
-            es.close();
+            console.error('SSE connection error, reconnecting in 3s...')
+            es.close()
             setTimeout(() => {
-                setEventSource(new EventSource('/api/whale-trades/sse'));
-            }, 3000);
-        };
+                setEventSource(new EventSource('/api/whale-trades/sse'))
+            }, 3000)
+        }
 
         return () => {
-            es.close();
-            setEventSource(null);
-        };
-    }, []);
+            es.close()
+            setEventSource(null)
+        }
+    }, [])
 
     useEffect(() => {
         if (
@@ -264,24 +264,26 @@ export default function DexTab() {
             portfolioData.length === 0 &&
             !randomWhaleWallet
         ) {
-            const randomTrade = recentWhaleTrades[Math.floor(Math.random() * Math.min(50, recentWhaleTrades.length))];
+            const randomTrade =
+                recentWhaleTrades[
+                    Math.floor(Math.random() * Math.min(50, recentWhaleTrades.length))
+                ]
 
-            let address = '';
-            let dex = randomTrade.dex;
+            let address = ''
+            let dex = randomTrade.dex
 
             if (dex === 'hyperliquid') {
-                address = Math.random() > 0.5 ? randomTrade.buyer : randomTrade.seller;
+                address = Math.random() > 0.5 ? randomTrade.buyer : randomTrade.seller
             } else if (dex === 'lighter') {
-                address = Math.random() > 0.5 ? randomTrade.buyer : randomTrade.seller;
+                address = Math.random() > 0.5 ? randomTrade.buyer : randomTrade.seller
             }
 
             if (address && address !== 'unknown') {
-                setRandomWhaleWallet(address);
-                console.log('Auto-selected random whale:', { dex, address });
+                setRandomWhaleWallet(address)
+                console.log('Auto-selected random whale:', { dex, address })
             }
         }
-    }, [recentWhaleTrades, currentWallet, portfolioData.length, randomWhaleWallet]);
-
+    }, [recentWhaleTrades, currentWallet, portfolioData.length, randomWhaleWallet])
 
     useEffect(() => {
         fetchCandles(selectedAsset)
@@ -335,8 +337,8 @@ export default function DexTab() {
                         o.symbol === 'ETH'
                             ? 'https://cryptologos.cc/logos/ethereum-eth-logo.png?v=032'
                             : o.symbol === 'BTC'
-                                ? 'https://cryptologos.cc/logos/bitcoin-btc-logo.png?v=032'
-                                : null,
+                              ? 'https://cryptologos.cc/logos/bitcoin-btc-logo.png?v=032'
+                              : null,
                 }))
             const exchangeStatsRes = await fetch(`${baseUrl}/exchangeStats`)
             const stats = await exchangeStatsRes.json()
@@ -377,15 +379,15 @@ export default function DexTab() {
         }
     }
     const fetchCandles = async (asset) => {
-        let assetToUse = asset;
-        setCandleData([]);
+        let assetToUse = asset
+        setCandleData([])
 
         if (selectedDEX === 'hyperliquid') {
             if (!metaDataHyper.universe.some((u) => u.name === assetToUse)) {
-                assetToUse = 'BTC';
+                assetToUse = 'BTC'
             }
-            const now = Date.now();
-            const start = now - 30 * 24 * 60 * 60 * 1000;
+            const now = Date.now()
+            const start = now - 30 * 24 * 60 * 60 * 1000
             const res = await fetch('https://api.hyperliquid.xyz/info', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -393,35 +395,35 @@ export default function DexTab() {
                     type: 'candleSnapshot',
                     req: { coin: assetToUse, interval: '1d', startTime: start, endTime: now },
                 }),
-            });
-            const rawData = await res.json();
+            })
+            const rawData = await res.json()
 
             const formatted = rawData.map((candle) => ({
-                t: candle.t,      // timestamp (ms)
+                t: candle.t, // timestamp (ms)
                 c: parseFloat(candle.c),
-            }));
-            setCandleData(formatted);
+            }))
+            setCandleData(formatted)
         } else {
             // Lighter
-            const marketId = assetToMarketIdLighter.current[assetToUse];
+            const marketId = assetToMarketIdLighter.current[assetToUse]
             if (marketId === undefined) {
-                assetToUse = activeAssetsLighter[0] || 'BTC';
+                assetToUse = activeAssetsLighter[0] || 'BTC'
             }
-            const now = Date.now();
-            const start = now - 30 * 24 * 60 * 60 * 1000;
+            const now = Date.now()
+            const start = now - 30 * 24 * 60 * 60 * 1000
             const res = await fetch(
                 `https://mainnet.zklighter.elliot.ai/api/v1/candlesticks?market_id=${assetToMarketIdLighter.current[assetToUse]}&resolution=1d&start_timestamp=${start}&end_timestamp=${now}`,
-            );
-            const data = await res.json();
+            )
+            const data = await res.json()
 
-            const candlesticks = data.candlesticks || [];
+            const candlesticks = data.candlesticks || []
             const formatted = candlesticks.map((candle) => ({
                 t: candle.timestamp * 1000,
                 c: parseFloat(candle.close),
-            }));
-            setCandleData(formatted);
+            }))
+            setCandleData(formatted)
         }
-    };
+    }
     const fetchL2Book = async (asset) => {
         let assetToUse = asset
         if (selectedDEX === 'hyperliquid') {
@@ -725,7 +727,7 @@ export default function DexTab() {
                                 initial={{ opacity: 0, y: -10 }}
                                 animate={{ opacity: 1, y: 0 }}
                                 exit={{ opacity: 0, y: -10 }}
-                                className="absolute z-10 mt-2 w-48 bg-black/90 border border-white/15 rounded-lg shadow-2xl"
+                                className="absolute z-10 mt-2 w-52 sm:48 bg-black/90 border border-white/15 rounded-lg shadow-2xl"
                             >
                                 <li
                                     onClick={() => handleDEXChange('hyperliquid')}
@@ -740,7 +742,7 @@ export default function DexTab() {
                                 </li>
                                 <li
                                     onClick={() => handleDEXChange('lighter')}
-                                    className="flex items-center gap-3 px-4 py-2.5 text-sm cursor-pointer hover:bg-white/10 transition"
+                                    className="flex items-center gap-3 px-4 py-2.5 text-xs cursor-pointer hover:bg-white/10 transition"
                                 >
                                     <img
                                         src="/lighter.webp"
@@ -775,7 +777,10 @@ export default function DexTab() {
                                         label={renderCustomizedLabel}
                                     >
                                         {oiData.map((entry, i) => (
-                                            <Cell key={`cell-${i}`} fill={hlColors[i % hlColors.length]} />
+                                            <Cell
+                                                key={`cell-${i}`}
+                                                fill={hlColors[i % hlColors.length]}
+                                            />
                                         ))}
                                     </Pie>
                                     <Tooltip content={<CustomTooltip />} />
@@ -790,7 +795,7 @@ export default function DexTab() {
                     {/* Top Assets by Volume */}
                     <div>
                         <h3 className="text-xs sm:text-sm font-bold text-[#FFF] mb-2">
-                            Top Assets by 24h Volume
+                            Top Assets by Volume (24h)
                         </h3>
                         <div className="space-y-2">
                             {metaData.universe
@@ -834,13 +839,13 @@ export default function DexTab() {
                             <div className="relative">
                                 <button
                                     onClick={() => setIsAssetMenuOpen(!isAssetMenuOpen)}
-                                    className="flex items-center gap-2 px-4 py-2 bg-black/60 border border-white/15 rounded-lg text-white hover:border-white/30 transition"
+                                    className="text-xs sm:text-sm flex items-center gap-2 px-4 py-2 bg-black/60 border border-white/15 rounded-lg text-white hover:border-white/30 transition"
                                 >
                                     {assetToImage[selectedAsset] && (
                                         <img
                                             src={assetToImage[selectedAsset]}
                                             alt={selectedAsset}
-                                            className="w-5 h-5 rounded-full"
+                                            className="w-3 h-3 sm:w-5 sm:h-5 rounded-full"
                                         />
                                     )}
                                     <span className="font-medium">{selectedAsset}</span>
@@ -858,13 +863,13 @@ export default function DexTab() {
                                                 <li
                                                     key={u.name}
                                                     onClick={() => handleAssetChange(u.name)}
-                                                    className="flex items-center gap-3 px-4 py-2.5 text-sm cursor-pointer hover:bg-white/10 transition"
+                                                    className="text-xs sm:text-sm flex items-center gap-3 px-4 py-2.5 text-sm cursor-pointer hover:bg-white/10 transition"
                                                 >
                                                     {u.image && (
                                                         <img
                                                             src={u.image}
                                                             alt={u.name}
-                                                            className="w-5 h-5 rounded-full"
+                                                            className="w-3 h-3 sm:w-5 sm:h-5 rounded-full"
                                                         />
                                                     )}
                                                     <span>{u.name}</span>
@@ -880,12 +885,30 @@ export default function DexTab() {
                                 {candleData.length > 0 ? (
                                     <AreaChart data={candleData}>
                                         <defs>
-                                            <linearGradient id="colorPrice" x1="0" y1="0" x2="0" y2="1">
-                                                <stop offset="5%" stopColor="#00E7FF" stopOpacity={0.3} />
-                                                <stop offset="95%" stopColor="#00E7FF" stopOpacity={0} />
+                                            <linearGradient
+                                                id="colorPrice"
+                                                x1="0"
+                                                y1="0"
+                                                x2="0"
+                                                y2="1"
+                                            >
+                                                <stop
+                                                    offset="5%"
+                                                    stopColor="#00E7FF"
+                                                    stopOpacity={0.3}
+                                                />
+                                                <stop
+                                                    offset="95%"
+                                                    stopColor="#00E7FF"
+                                                    stopOpacity={0}
+                                                />
                                             </linearGradient>
                                         </defs>
-                                        <CartesianGrid stroke="#333" strokeDasharray="4 4" vertical={false} />
+                                        <CartesianGrid
+                                            stroke="#333"
+                                            strokeDasharray="4 4"
+                                            vertical={false}
+                                        />
                                         <XAxis
                                             dataKey="t"
                                             tickFormatter={(t) => new Date(t).toLocaleDateString()}
@@ -908,7 +931,9 @@ export default function DexTab() {
                                     </AreaChart>
                                 ) : (
                                     <div className="flex items-center justify-center h-full">
-                                        <p className="text-gray-500 text-sm">Loading price data...</p>
+                                        <p className="text-gray-500 text-sm">
+                                            Loading price data...
+                                        </p>
                                     </div>
                                 )}
                             </ResponsiveContainer>
@@ -955,24 +980,38 @@ export default function DexTab() {
                                         <th className="text-left py-3 px-2 md:px-4">Time</th>
                                         <th className="text-left py-3 px-2 md:px-4">Symbol</th>
                                         <th className="text-left py-3 px-2 md:px-4">Side</th>
-                                        <th className="hidden md:table-cell text-right py-3 px-3 md:px-6">Price</th>
+                                        <th className="hidden md:table-cell text-right py-3 px-3 md:px-6">
+                                            Price
+                                        </th>
                                         <th className="text-right py-3 px-3 md:px-6">Size (USD)</th>
-                                        <th className="text-left py-3 px-3 md:px-6">Buyer Address</th>
-                                        <th className="text-left py-3 px-3 md:px-6">Seller Address</th>
-                                        <th className="hidden md:table-cell text-left py-3 px-2 md:px-4">Status</th>
+                                        <th className="text-left py-3 px-3 md:px-6">
+                                            Buyer Address
+                                        </th>
+                                        <th className="text-left py-3 px-3 md:px-6">
+                                            Seller Address
+                                        </th>
+                                        <th className="hidden md:table-cell text-left py-3 px-2 md:px-4">
+                                            Status
+                                        </th>
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-white/5">
                                     {recentWhaleTrades.length === 0 ? (
                                         <tr>
-                                            <td colSpan="9" className="py-12 text-center text-gray-500">
+                                            <td
+                                                colSpan="9"
+                                                className="py-12 text-center text-gray-500"
+                                            >
                                                 No whale trades yet — waiting for real-time data...
                                             </td>
                                         </tr>
                                     ) : (
                                         <AnimatePresence>
                                             {recentWhaleTrades
-                                                .slice((activityPage - 1) * tradesPerPage, activityPage * tradesPerPage)
+                                                .slice(
+                                                    (activityPage - 1) * tradesPerPage,
+                                                    activityPage * tradesPerPage,
+                                                )
                                                 .map((trade) => (
                                                     <motion.tr
                                                         key={trade.id}
@@ -985,57 +1024,101 @@ export default function DexTab() {
                                                         <td className="py-3 px-2 md:px-4">
                                                             <div className="flex items-center gap-1">
                                                                 <img
-                                                                    src={trade.dex === 'hyperliquid' ? '/hyperliquid.webp' : '/lighter.webp'}
+                                                                    src={
+                                                                        trade.dex === 'hyperliquid'
+                                                                            ? '/hyperliquid.webp'
+                                                                            : '/lighter.webp'
+                                                                    }
                                                                     alt={trade.dex}
                                                                     className="w-4 h-4 rounded"
                                                                 />
                                                             </div>
                                                         </td>
                                                         <td className="py-3 px-2 md:px-4 text-gray-300 text-[10px] md:text-xs">
-                                                            {new Date(trade.time).toLocaleString('en-US', {
-                                                                hour: '2-digit',
-                                                                minute: '2-digit',
-                                                                second: '2-digit',
-                                                                hour12: false,
-                                                            })}
+                                                            {new Date(trade.time).toLocaleString(
+                                                                'en-US',
+                                                                {
+                                                                    hour: '2-digit',
+                                                                    minute: '2-digit',
+                                                                    second: '2-digit',
+                                                                    hour12: false,
+                                                                },
+                                                            )}
                                                         </td>
                                                         <td className="py-3 px-2 md:px-4 font-medium text-white text-[10px] md:text-xs">
                                                             {trade.symbol}-PERP
                                                         </td>
                                                         <td className="py-3 px-2 md:px-4">
-                                                            <span className={`font-bold text-[10px] md:text-[11px] px-3 py-1 rounded-md border inline-block min-w-[40px] text-center ${trade.side.toLowerCase() === 'buy'
-                                                                    ? 'border-emerald-400 bg-emerald-400/20 text-emerald-400'
-                                                                    : 'border-red-400 bg-red-400/20 text-red-400'
-                                                                }`}>
+                                                            <span
+                                                                className={`font-bold text-[10px] md:text-[11px] px-3 py-1 rounded-md border inline-block min-w-[40px] text-center ${
+                                                                    trade.side.toLowerCase() ===
+                                                                    'buy'
+                                                                        ? 'border-emerald-400 bg-emerald-400/20 text-emerald-400'
+                                                                        : 'border-red-400 bg-red-400/20 text-red-400'
+                                                                }`}
+                                                            >
                                                                 {trade.side}
                                                             </span>
                                                         </td>
                                                         <td className="hidden md:table-cell py-3 px-3 md:px-6 text-right font-mono text-gray-200 text-xs md:text-sm">
-                                                            ${parseFloat(trade.price).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 4 })}
+                                                            $
+                                                            {parseFloat(trade.price).toLocaleString(
+                                                                'en-US',
+                                                                {
+                                                                    minimumFractionDigits: 2,
+                                                                    maximumFractionDigits: 4,
+                                                                },
+                                                            )}
                                                         </td>
                                                         <td className="py-3 px-3 md:px-6 text-right font-mono text-emerald-400">
                                                             {formatCompactNumber(trade.sizeUsd)}
                                                         </td>
                                                         <td className="py-3 px-3 md:px-6 font-mono text-[11px] md:text-xs text-white">
                                                             <div className="flex items-center gap-2">
-                                                                <span className={trade.dex === 'lighter' ? 'break-all' : ''}>
+                                                                <span
+                                                                    className={
+                                                                        trade.dex === 'lighter'
+                                                                            ? 'break-all'
+                                                                            : ''
+                                                                    }
+                                                                >
                                                                     {trade.dex === 'lighter'
                                                                         ? String(trade.buyer)
                                                                         : `${String(trade.buyer).slice(0, 8)}...${String(trade.buyer).slice(-6)}`}
                                                                 </span>
-                                                                <Copy size={12} className="cursor-pointer hover:text-emerald-400 transition flex-shrink-0"
-                                                                    onClick={() => copyToClipboard(String(trade.buyer))} />
+                                                                <Copy
+                                                                    size={12}
+                                                                    className="cursor-pointer hover:text-emerald-400 transition flex-shrink-0"
+                                                                    onClick={() =>
+                                                                        copyToClipboard(
+                                                                            String(trade.buyer),
+                                                                        )
+                                                                    }
+                                                                />
                                                             </div>
                                                         </td>
                                                         <td className="py-3 px-3 md:px-6 font-mono text-[11px] md:text-xs text-white">
                                                             <div className="flex items-center gap-2">
-                                                                <span className={trade.dex === 'lighter' ? 'break-all' : ''}>
+                                                                <span
+                                                                    className={
+                                                                        trade.dex === 'lighter'
+                                                                            ? 'break-all'
+                                                                            : ''
+                                                                    }
+                                                                >
                                                                     {trade.dex === 'lighter'
                                                                         ? String(trade.seller)
                                                                         : `${String(trade.seller).slice(0, 8)}...${String(trade.seller).slice(-6)}`}
                                                                 </span>
-                                                                <Copy size={12} className="cursor-pointer hover:text-emerald-400 transition flex-shrink-0"
-                                                                    onClick={() => copyToClipboard(String(trade.seller))} />
+                                                                <Copy
+                                                                    size={12}
+                                                                    className="cursor-pointer hover:text-emerald-400 transition flex-shrink-0"
+                                                                    onClick={() =>
+                                                                        copyToClipboard(
+                                                                            String(trade.seller),
+                                                                        )
+                                                                    }
+                                                                />
                                                             </div>
                                                         </td>
                                                         <td className="hidden md:table-cell py-3 px-2 md:px-4 text-gray-400 text-[10px] md:text-xs">
@@ -1053,7 +1136,7 @@ export default function DexTab() {
                         {recentWhaleTrades.length > tradesPerPage && (
                             <div className="flex items-center justify-center gap-4 mt-4">
                                 <button
-                                    onClick={() => setActivityPage(p => Math.max(1, p - 1))}
+                                    onClick={() => setActivityPage((p) => Math.max(1, p - 1))}
                                     disabled={activityPage === 1}
                                     className="p-2 rounded-lg bg-white/5 hover:bg-white/10 disabled:opacity-50 disabled:cursor-not-allowed transition"
                                 >
@@ -1063,7 +1146,9 @@ export default function DexTab() {
                                     Page {activityPage} / {totalPages}
                                 </span>
                                 <button
-                                    onClick={() => setActivityPage(p => Math.min(totalPages, p + 1))}
+                                    onClick={() =>
+                                        setActivityPage((p) => Math.min(totalPages, p + 1))
+                                    }
                                     disabled={activityPage === totalPages}
                                     className="p-2 rounded-lg bg-white/5 hover:bg-white/10 disabled:opacity-50 disabled:cursor-not-allowed transition"
                                 >
@@ -1148,7 +1233,9 @@ export default function DexTab() {
                                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
                                     <div className="bg-[#FFFFFF]/5 p-4 rounded-lg text-center">
                                         <p className="text-xs text-gray-400 mb-1">Total PnL</p>
-                                        <p className={`text-lg sm:text-xl font-bold ${analytics.totalPnl >= 0 ? 'text-emerald-400' : 'text-red-500'}`}>
+                                        <p
+                                            className={`text-lg sm:text-xl font-bold ${analytics.totalPnl >= 0 ? 'text-emerald-400' : 'text-red-500'}`}
+                                        >
                                             {analytics.totalPnl >= 0 ? '+' : ''}
                                             {formatCompactNumber(analytics.totalPnl)}
                                         </p>
@@ -1252,8 +1339,8 @@ export default function DexTab() {
                                                                 className={
                                                                     parseFloat(
                                                                         pos.unrealized_pnl ||
-                                                                        pos.unrealizedPnl ||
-                                                                        0,
+                                                                            pos.unrealizedPnl ||
+                                                                            0,
                                                                     ) >= 0
                                                                         ? 'text-emerald-400'
                                                                         : 'text-red-400'
@@ -1261,8 +1348,8 @@ export default function DexTab() {
                                                             >
                                                                 {formatCompactNumber(
                                                                     pos.unrealized_pnl ||
-                                                                    pos.unrealizedPnl ||
-                                                                    0,
+                                                                        pos.unrealizedPnl ||
+                                                                        0,
                                                                 )}
                                                             </span>
                                                         </td>
@@ -1337,9 +1424,7 @@ export default function DexTab() {
                                 </div>
                             </div>
                             <div>
-                                <h3 className="text-sm font-bold text-[#FFF] mb-3">
-                                    Large Trades
-                                </h3>
+                                <h3 className="text-sm font-bold text-[#FFF] mb-3">Large Trades</h3>
                                 {displayedLargeTrades.length === 0 ? (
                                     <p className="text-xs text-gray-500">No large trades found.</p>
                                 ) : (
@@ -1380,7 +1465,7 @@ export default function DexTab() {
                                                                     <img
                                                                         src={
                                                                             selectedDEX ===
-                                                                                'hyperliquid'
+                                                                            'hyperliquid'
                                                                                 ? '/hyperliquid.webp'
                                                                                 : '/lighter.webp'
                                                                         }
@@ -1405,13 +1490,14 @@ export default function DexTab() {
                                                             </td>
                                                             <td className="py-2 px-4">
                                                                 <span
-                                                                    className={`font-bold ${trade.closedPnl != null &&
+                                                                    className={`font-bold ${
+                                                                        trade.closedPnl != null &&
                                                                         parseFloat(
                                                                             trade.closedPnl,
                                                                         ) !== 0
-                                                                        ? 'text-red-500'
-                                                                        : 'text-emerald-400'
-                                                                        }`}
+                                                                            ? 'text-red-500'
+                                                                            : 'text-emerald-400'
+                                                                    }`}
                                                                 >
                                                                     {trade.dir}
                                                                 </span>
@@ -1434,8 +1520,8 @@ export default function DexTab() {
                                                                 >
                                                                     {trade.closedPnl
                                                                         ? formatCompactNumber(
-                                                                            trade.closedPnl,
-                                                                        )
+                                                                              trade.closedPnl,
+                                                                          )
                                                                         : '-'}
                                                                 </span>
                                                             </td>
