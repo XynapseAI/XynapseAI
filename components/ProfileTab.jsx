@@ -1,52 +1,109 @@
-'use client';
-import { motion, AnimatePresence } from 'framer-motion';
-import { useState, useEffect, useCallback, useRef, Fragment } from 'react';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import axios from 'axios';
-import { useSession, signOut } from 'next-auth/react';
-import { useRouter, useSearchParams } from 'next/navigation';
-import Image from 'next/image';
-import { Trophy, Award, Flame, User, Crown, Calendar, Info, Check, Coins, Shield, Users, Eye, EyeOff, RefreshCw, Copy, Wallet, HelpCircle } from 'lucide-react'; // Added HelpCircle icon
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceDot } from 'recharts';
-import { ethers, parseEther } from 'ethers';
-import { ToastContainer, toast } from 'react-toastify';
-import 'react-toastify/dist/ReactToastify.css';
-import { cacheData, getCachedData, clearCache, clearAllCaches } from '../utils/indexedDB';
-import { LoadingOverlay } from '@/utils/helpers';
-import { debounce } from 'lodash';
-import LoginPrompt from './LoginPrompt';
-import ReCAPTCHA from 'react-google-recaptcha';
-import { logger } from '../utils/clientLogger';
+'use client'
+import { motion, AnimatePresence } from 'framer-motion'
+import { useState, useEffect, useCallback, useRef, Fragment } from 'react'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import axios from 'axios'
+import { useSession, signOut } from 'next-auth/react'
+import { useRouter, useSearchParams } from 'next/navigation'
+import Image from 'next/image'
+import {
+  Trophy,
+  Award,
+  Flame,
+  User,
+  Crown,
+  Calendar,
+  Info,
+  Check,
+  Coins,
+  Shield,
+  Users,
+  Eye,
+  EyeOff,
+  RefreshCw,
+  Copy,
+  Wallet,
+  HelpCircle,
+} from 'lucide-react' // Added HelpCircle icon
+import {
+  LineChart,
+  Line,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  ResponsiveContainer,
+  ReferenceDot,
+} from 'recharts'
+import { ethers, parseEther } from 'ethers'
+import { ToastContainer, toast } from 'react-toastify'
+import 'react-toastify/dist/ReactToastify.css'
+import { cacheData, getCachedData, clearCache, clearAllCaches } from '../utils/indexedDB'
+import { LoadingOverlay } from '@/utils/helpers'
+import { debounce } from 'lodash'
+import LoginPrompt from './LoginPrompt'
+import ReCAPTCHA from 'react-google-recaptcha'
+import { logger } from '../utils/clientLogger'
 import {
   ConnectWallet,
   Wallet as OnchainWalletWrapper, // Renamed to avoid conflict with lucide Wallet icon
-} from '@coinbase/onchainkit/wallet';
-import { useAccount, useDisconnect, useChainId, useWriteContract, useSwitchChain, useReadContract, useSendCalls } from 'wagmi';
-import { encodeFunctionData } from 'viem';
-import { Attribution } from 'ox/erc8021';
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:3000/api';
+} from '@coinbase/onchainkit/wallet'
+import {
+  useAccount,
+  useDisconnect,
+  useChainId,
+  useWriteContract,
+  useSwitchChain,
+  useReadContract,
+  useSendCalls,
+} from 'wagmi'
+import { encodeFunctionData } from 'viem'
+import { Attribution } from 'ox/erc8021'
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:3000/api'
 // Updated: Use faster Cloudflare IPFS gateway for baseURI to reduce loading time
-const BASE_URI_GATEWAY = 'https://ipfs.io/ipfs/QmNoskhe6ES3e7X6huo6PJRuKhpGU5MuuZqhHAvavzaV5J/';
-const CONTRACT_ADDRESS = "0x22EE9eE1a5986ff354d34ed19Eb28E65091C7648"; // Deployed contract address
-const BASE_CHAIN_ID = 8453; // Base Sepolia for testing; change to 8453 for mainnet if deployed there
+const BASE_URI_GATEWAY = 'https://ipfs.io/ipfs/QmNoskhe6ES3e7X6huo6PJRuKhpGU5MuuZqhHAvavzaV5J/'
+const CONTRACT_ADDRESS = '0x22EE9eE1a5986ff354d34ed19Eb28E65091C7648' // Deployed contract address
+const BASE_CHAIN_ID = 8453 // Base Sepolia for testing; change to 8453 for mainnet if deployed there
 // NEW: Builder Code for Base attribution (replace with your actual code from base.dev)
-const builderCode = process.env.NEXT_PUBLIC_BUILDER_CODE || "bc_kne07rwd";
-const dataSuffix = Attribution.toDataSuffix({ codes: [builderCode] });
+const builderCode = process.env.NEXT_PUBLIC_BUILDER_CODE || 'bc_kne07rwd'
+const dataSuffix = Attribution.toDataSuffix({ codes: [builderCode] })
 // Enhanced Spinner component - Accepts className and color props for flexibility
-const Spinner = ({ className = "h-4 w-4", color = "text-blue-400" }) => (
-  <svg className={`animate-spin ${className} ${color}`} xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+const Spinner = ({ className = 'h-4 w-4', color = 'text-blue-400' }) => (
+  <svg
+    className={`animate-spin ${className} ${color}`}
+    xmlns="http://www.w3.org/2000/svg"
+    fill="none"
+    viewBox="0 0 24 24"
+  >
+    <circle
+      className="opacity-25"
+      cx="12"
+      cy="12"
+      r="10"
+      stroke="currentColor"
+      strokeWidth="4"
+    ></circle>
+    <path
+      className="opacity-75"
+      fill="currentColor"
+      d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+    ></path>
   </svg>
-);
+)
 // Blinking Dots component for loading states
 const BlinkingDots = () => (
   <div className="flex items-center gap-0.5">
     <span className="w-1 h-1 bg-blue-400 rounded-full animate-bounce"></span>
-    <span className="w-1 h-1 bg-blue-400 rounded-full animate-bounce" style={{ animationDelay: '0.1s' }}></span>
-    <span className="w-1 h-1 bg-blue-400 rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></span>
+    <span
+      className="w-1 h-1 bg-blue-400 rounded-full animate-bounce"
+      style={{ animationDelay: '0.1s' }}
+    ></span>
+    <span
+      className="w-1 h-1 bg-blue-400 rounded-full animate-bounce"
+      style={{ animationDelay: '0.2s' }}
+    ></span>
   </div>
-);
+)
 const CustomTooltip = ({ active, payload, label }) => {
   if (active && payload && payload.length) {
     return (
@@ -61,10 +118,10 @@ const CustomTooltip = ({ active, payload, label }) => {
           Points: <span className="text-emerald-400">{payload[0].value}</span>
         </p>
       </motion.div>
-    );
+    )
   }
-  return null;
-};
+  return null
+}
 // Updated ABI: Added balanceOf for on-chain mint check, counter for preview ID
 const NFT_ABI = [
   {
@@ -95,47 +152,49 @@ const NFT_ABI = [
     inputs: [{ name: 'owner', type: 'address' }],
     outputs: [{ name: '', type: 'uint256' }],
   },
-];
+]
 export default function ProfileTab({ recaptchaRef, handleSignOut }) {
-  const { data: session, status } = useSession();
-  const queryClient = useQueryClient();
-  const router = useRouter();
-  const searchParams = useSearchParams();
-  const [isMobile, setIsMobile] = useState(typeof window !== 'undefined' && window.innerWidth <= 640);
-  const [activeTab, setActiveTab] = useState('profile');
-  const [isSigningOut, setIsSigningOut] = useState(false);
-  const [showEmail, setShowEmail] = useState(false);
-  const [showWallet, setShowWallet] = useState(false); // Add state for wallet display
+  const { data: session, status } = useSession()
+  const queryClient = useQueryClient()
+  const router = useRouter()
+  const searchParams = useSearchParams()
+  const [isMobile, setIsMobile] = useState(
+    typeof window !== 'undefined' && window.innerWidth <= 640,
+  )
+  const [activeTab, setActiveTab] = useState('profile')
+  const [isSigningOut, setIsSigningOut] = useState(false)
+  const [showEmail, setShowEmail] = useState(false)
+  const [showWallet, setShowWallet] = useState(false) // Add state for wallet display
   // NEW: States for Badge tab mint flow
-  const [showMintModal, setShowMintModal] = useState(false);
-  const [mintStep, setMintStep] = useState('connectWallet'); // 'connectWallet', 'connectTwitter', 'mintNFT'
+  const [showMintModal, setShowMintModal] = useState(false)
+  const [mintStep, setMintStep] = useState('connectWallet') // 'connectWallet', 'connectTwitter', 'mintNFT'
   // NEW: Track completion of each step
-  const [walletConnected, setWalletConnected] = useState(false);
-  const [twitterConnected, setTwitterConnected] = useState(false);
-  const [isUpdatingWallet, setIsUpdatingWallet] = useState(false);
-  const [hasUpdatedWallet, setHasUpdatedWallet] = useState(false);
-  const hasTriggeredRef = useRef(false);
+  const [walletConnected, setWalletConnected] = useState(false)
+  const [twitterConnected, setTwitterConnected] = useState(false)
+  const [isUpdatingWallet, setIsUpdatingWallet] = useState(false)
+  const [hasUpdatedWallet, setHasUpdatedWallet] = useState(false)
+  const hasTriggeredRef = useRef(false)
   // NEW: Tooltip state for Genesis NFT
-  const [showNftTooltip, setShowNftTooltip] = useState(false);
-  const recaptchaV2Ref = useRef(null);
-  const { address, isConnected, connector } = useAccount();
-  const { disconnect } = useDisconnect(); // For manual disconnect
-  const { writeContractAsync } = useWriteContract();
-  const switchChainMutation = useSwitchChain();
-  const { sendCalls } = useSendCalls();
-  const [nftImageSrc, setNftImageSrc] = useState('');
-  const chainId = useChainId();
-  const [walletAddressForQuery, setWalletAddressForQuery] = useState(null);
-  const email = session?.user?.email || '';
-  const isBaseAccount = email.includes('@base.xynapseai.net');
-  const [followXCompleted, setFollowXCompleted] = useState(false);
+  const [showNftTooltip, setShowNftTooltip] = useState(false)
+  const recaptchaV2Ref = useRef(null)
+  const { address, isConnected, connector } = useAccount()
+  const { disconnect } = useDisconnect() // For manual disconnect
+  const { writeContractAsync } = useWriteContract()
+  const switchChainMutation = useSwitchChain()
+  const { sendCalls } = useSendCalls()
+  const [nftImageSrc, setNftImageSrc] = useState('')
+  const chainId = useChainId()
+  const [walletAddressForQuery, setWalletAddressForQuery] = useState(null)
+  const email = session?.user?.email || ''
+  const isBaseAccount = email.includes('@base.xynapseai.net')
+  const [followXCompleted, setFollowXCompleted] = useState(false)
   // Updated: Use wagmi to read current counter for preview ID
   const { data: currentCounter } = useReadContract({
     address: CONTRACT_ADDRESS,
     abi: NFT_ABI,
     functionName: 'counter',
     chainId: BASE_CHAIN_ID,
-  });
+  })
   // NEW: On-chain mint check via balanceOf
   const { data: nftBalance } = useReadContract({
     address: CONTRACT_ADDRESS,
@@ -143,74 +202,82 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
     functionName: 'balanceOf',
     args: [walletAddressForQuery || '0x0000000000000000000000000000000000000000'],
     chainId: BASE_CHAIN_ID,
-  });
-  const nftMinted = (nftBalance || 0n) > 0n;
+  })
+  const nftMinted = (nftBalance || 0n) > 0n
   // Updated: Fetch metadata for next token ID (preview) with timeout
   useEffect(() => {
     const fetchMetadata = async () => {
-      if (!currentCounter) return; // Wait for counter
-      console.log('Current counter:', currentCounter); // Debug: Check ID
+      if (!currentCounter) return // Wait for counter
+      console.log('Current counter:', currentCounter) // Debug: Check ID
       try {
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 10000); // 10s timeout
-        const previewId = currentCounter.toString();
-        const metadataUrl = `${BASE_URI_GATEWAY}${previewId}.json`;
-        console.log('Fetching metadata URL:', metadataUrl); // Debug: Check URL
-        const response = await fetch(metadataUrl, { signal: controller.signal });
-        clearTimeout(timeoutId);
-        if (!response.ok) throw new Error(`Failed to fetch metadata: ${response.status}`);
-        const data = await response.json();
-        console.log('Metadata fetched:', data); // Debug: Check JSON
+        const controller = new AbortController()
+        const timeoutId = setTimeout(() => controller.abort(), 10000) // 10s timeout
+        const previewId = currentCounter.toString()
+        const metadataUrl = `${BASE_URI_GATEWAY}${previewId}.json`
+        console.log('Fetching metadata URL:', metadataUrl) // Debug: Check URL
+        const response = await fetch(metadataUrl, { signal: controller.signal })
+        clearTimeout(timeoutId)
+        if (!response.ok) throw new Error(`Failed to fetch metadata: ${response.status}`)
+        const data = await response.json()
+        console.log('Metadata fetched:', data) // Debug: Check JSON
         // Replace ipfs:// with reliable gateway
-        const imageUrl = data.image.replace('ipfs://', 'https://ipfs.io/ipfs/');
-        console.log('Image URL:', imageUrl); // Debug: Check image URL
-        setNftImageSrc(imageUrl);
+        const imageUrl = data.image.replace('ipfs://', 'https://ipfs.io/ipfs/')
+        console.log('Image URL:', imageUrl) // Debug: Check image URL
+        setNftImageSrc(imageUrl)
       } catch (err) {
         if (err.name === 'AbortError') {
-          console.warn('Metadata fetch timed out after 10s');
+          console.warn('Metadata fetch timed out after 10s')
         } else {
-          console.error('Error fetching NFT metadata:', err);
+          console.error('Error fetching NFT metadata:', err)
         }
-        setNftImageSrc('/placeholder_nft.png'); // Fallback immediately
+        setNftImageSrc('/placeholder_nft.png') // Fallback immediately
       }
-    };
-    if (currentCounter) {
-      fetchMetadata();
     }
-  }, [currentCounter]);
-  const { data: csrfToken, isLoading: csrfLoading, error: csrfError } = useQuery({
+    if (currentCounter) {
+      fetchMetadata()
+    }
+  }, [currentCounter])
+  const {
+    data: csrfToken,
+    isLoading: csrfLoading,
+    error: csrfError,
+  } = useQuery({
     queryKey: ['csrfToken'],
     queryFn: async () => {
-      const response = await axios.get('/api/csrf-token', { withCredentials: true });
-      if (!response.data.csrfToken) throw new Error('Empty CSRF token received');
-      return response.data.csrfToken;
+      const response = await axios.get('/api/csrf-token', { withCredentials: true })
+      if (!response.data.csrfToken) throw new Error('Empty CSRF token received')
+      return response.data.csrfToken
     },
     retry: 3,
     retryDelay: 2000,
     enabled: status === 'authenticated',
     onError: (err) => {
       if (process.env.NODE_ENV !== 'production') {
-        logger.error('Error fetching CSRF token:', err);
+        logger.error('Error fetching CSRF token:', err)
       }
       // Removed toast to avoid duplicates
     },
-  });
-  const { data: userData, isLoading: userLoading, error: userError } = useQuery({
+  })
+  const {
+    data: userData,
+    isLoading: userLoading,
+    error: userError,
+  } = useQuery({
     queryKey: ['userData', session?.user?.id, csrfToken],
     queryFn: async () => {
-      const cacheKey = `userData-${session.user.id}`;
-      const cached = await getCachedData(cacheKey);
+      const cacheKey = `userData-${session.user.id}`
+      const cached = await getCachedData(cacheKey)
       if (cached) {
         if (cached.twitterHandle && window.location.search.includes('twitterConnected=true')) {
-          await clearCache(cacheKey);
-          throw new Error('Cache invalidated due to Twitter connection');
+          await clearCache(cacheKey)
+          throw new Error('Cache invalidated due to Twitter connection')
         }
         // NEW: Handle wallet connection cache invalidation
         if (cached.walletAddress && searchParams.get('walletConnected') === 'true') {
-          await clearCache(cacheKey);
-          throw new Error('Cache invalidated due to Wallet connection');
+          await clearCache(cacheKey)
+          throw new Error('Cache invalidated due to Wallet connection')
         }
-        return cached;
+        return cached
       }
       try {
         const response = await axios.get(`/api/user?uid=${encodeURIComponent(session.user.id)}`, {
@@ -218,8 +285,9 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
             'x-csrf-token': csrfToken,
           },
           withCredentials: true,
-        });
-        if (!response.data.success) throw new Error(response.data.detail || 'Unable to fetch user data');
+        })
+        if (!response.data.success)
+          throw new Error(response.data.detail || 'Unable to fetch user data')
         const user = {
           ...response.data.user,
           isPremium: response.data.user.isPremium || false,
@@ -231,14 +299,14 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
           daysActive: response.data.user.daysActive || 0,
           streak: response.data.user.streak || 0,
           last7Days: response.data.user.last7Days || [],
-        };
-        await cacheData(cacheKey, user, 24 * 60 * 1000);
-        return user;
+        }
+        await cacheData(cacheKey, user, 24 * 60 * 1000)
+        return user
       } catch (err) {
         if (process.env.NODE_ENV !== 'production') {
-          logger.error('Error fetching user data:', err.response?.data || err.message);
+          logger.error('Error fetching user data:', err.response?.data || err.message)
         }
-        throw err;
+        throw err
       }
     },
     enabled: status === 'authenticated' && !!session?.user?.id && !!csrfToken,
@@ -247,16 +315,16 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
     retryDelay: (attempt) => Math.min(1000 * 2 ** attempt, 30000),
     onError: async (err) => {
       if (process.env.NODE_ENV !== 'production') {
-        logger.error('Error fetching user data:', err.response?.data || err.message);
+        logger.error('Error fetching user data:', err.response?.data || err.message)
       }
       // Removed toast to avoid duplicates
     },
-  });
+  })
   // NEW: Update wallet query address when address or saved changes
   useEffect(() => {
-    const currentWallet = address || userData?.walletAddress;
-    setWalletAddressForQuery(currentWallet || null);
-  }, [address, userData?.walletAddress]);
+    const currentWallet = address || userData?.walletAddress
+    setWalletAddressForQuery(currentWallet || null)
+  }, [address, userData?.walletAddress])
   /*
   const { data: tasks, isLoading: tasksLoading, error: tasksError } = useQuery({
     queryKey: ['tasks', session?.user?.id, csrfToken],
@@ -449,28 +517,28 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
   */
   const connectTwitterMutation = useMutation({
     mutationFn: async () => {
-      window.location.href = '/api/twitter/connect';
+      window.location.href = '/api/twitter/connect'
     },
     onError: (err) => {
-      logger.error('Connect Twitter error:', err);
+      logger.error('Connect Twitter error:', err)
       // Removed toast to avoid duplicates
     },
-  });
+  })
   const getProfilePictureSrc = useCallback((profilePicture) => {
     const isValidUrl = (url) => {
       try {
-        new URL(url);
-        return true;
+        new URL(url)
+        return true
       } catch (err) {
-        logger.warn(`Invalid URL: ${url}`, err);
-        return false;
+        logger.warn(`Invalid URL: ${url}`, err)
+        return false
       }
-    };
-    if (profilePicture && typeof profilePicture === 'string' && isValidUrl(profilePicture)) {
-      return profilePicture;
     }
-    return '/fallback-image.webp';
-  }, []);
+    if (profilePicture && typeof profilePicture === 'string' && isValidUrl(profilePicture)) {
+      return profilePicture
+    }
+    return '/fallback-image.webp'
+  }, [])
   /*
   const DailyCheckinBar = ({ last7Days, streak, onCheckin, isLoading, userData, twitterConnected }) => {
     const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
@@ -869,58 +937,60 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
   */
   useEffect(() => {
     if (process.env.NODE_ENV === 'production') {
-      console.log = () => { };
-      console.error = () => { };
-      console.warn = () => { };
+      console.log = () => {}
+      console.error = () => {}
+      console.warn = () => {}
     }
-  }, []);
+  }, [])
   useEffect(() => {
-    const handleResize = () => setIsMobile(window.innerWidth <= 640);
-    window.addEventListener('resize', handleResize);
-    handleResize();
-    return () => window.removeEventListener('resize', handleResize);
-  }, []);
+    const handleResize = () => setIsMobile(window.innerWidth <= 640)
+    window.addEventListener('resize', handleResize)
+    handleResize()
+    return () => window.removeEventListener('resize', handleResize)
+  }, [])
   const onSignOut = async () => {
-    setIsSigningOut(true);
-    await handleSignOut();
-    setIsSigningOut(false);
-  };
-  let isExecuting = false;
+    setIsSigningOut(true)
+    await handleSignOut()
+    setIsSigningOut(false)
+  }
+  let isExecuting = false
   const debouncedExecuteRecaptcha = useCallback(
     async (action, retries = 3) => {
       if (!recaptchaRef.current) {
         if (process.env.NODE_ENV !== 'production') {
-          logger.error('reCAPTCHA ref is null');
+          logger.error('reCAPTCHA ref is null')
         }
-        throw new Error('reCAPTCHA not initialized');
+        throw new Error('reCAPTCHA not initialized')
       }
       for (let i = 0; i < retries; i++) {
         try {
-          await recaptchaRef.current.reset();
+          await recaptchaRef.current.reset()
           const token = await Promise.race([
             recaptchaRef.current.executeAsync(),
-            new Promise((_, reject) => setTimeout(() => reject(new Error('reCAPTCHA timeout')), 20000)),
-          ]);
-          if (!token) throw new Error('Empty reCAPTCHA token');
-          return token;
+            new Promise((_, reject) =>
+              setTimeout(() => reject(new Error('reCAPTCHA timeout')), 20000),
+            ),
+          ])
+          if (!token) throw new Error('Empty reCAPTCHA token')
+          return token
         } catch (error) {
           if (process.env.NODE_ENV !== 'production') {
-            logger.error(`reCAPTCHA attempt ${i + 1} failed for ${action}: ${error.message}`);
+            logger.error(`reCAPTCHA attempt ${i + 1} failed for ${action}: ${error.message}`)
           }
           if (i === retries - 1) {
-            throw new Error(`reCAPTCHA failed after ${retries} attempts: ${error.message}`);
+            throw new Error(`reCAPTCHA failed after ${retries} attempts: ${error.message}`)
           }
-          await new Promise((resolve) => setTimeout(resolve, 1000));
+          await new Promise((resolve) => setTimeout(resolve, 1000))
         }
       }
     },
-    [recaptchaRef]
-  );
+    [recaptchaRef],
+  )
   const createChargeMutation = useMutation({
     mutationFn: async () => {
-      if (!session?.user?.id) throw new Error('Not authenticated');
-      if (!csrfToken) throw new Error('CSRF token not available');
-      const token = await debouncedExecuteRecaptcha('create_charge');
+      if (!session?.user?.id) throw new Error('Not authenticated')
+      if (!csrfToken) throw new Error('CSRF token not available')
+      const token = await debouncedExecuteRecaptcha('create_charge')
       const response = await axios.post(
         '/api/coinbase/create-charge',
         { userId: session.user.id, plan: 'premium' },
@@ -931,33 +1001,39 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
             'Content-Type': 'application/json',
           },
           withCredentials: true,
-        }
-      );
-      if (!response.data.success) throw new Error(response.data.detail || 'Unable to create charge');
-      return response.data.hostedUrl;
+        },
+      )
+      if (!response.data.success) throw new Error(response.data.detail || 'Unable to create charge')
+      return response.data.hostedUrl
     },
     onSuccess: async () => {
-      await queryClient.invalidateQueries(['userData', session?.user?.id, csrfToken]);
+      await queryClient.invalidateQueries(['userData', session?.user?.id, csrfToken])
     },
     onError: (err) => {
       // Removed toast to avoid duplicates
     },
-  });
+  })
   useEffect(() => {
-    if (userData?.twitterHandle && !userData?.profilePicture.includes('pbs.twimg.com') && status === 'authenticated') {
-      logger.warn('Twitter handle present but profile picture is not from Twitter, triggering refetch');
-      const cacheKey = `userData-${session.user.id}`;
+    if (
+      userData?.twitterHandle &&
+      !userData?.profilePicture.includes('pbs.twimg.com') &&
+      status === 'authenticated'
+    ) {
+      logger.warn(
+        'Twitter handle present but profile picture is not from Twitter, triggering refetch',
+      )
+      const cacheKey = `userData-${session.user.id}`
       clearCache(cacheKey).then(() => {
-        queryClient.invalidateQueries(['userData', session?.user?.id, csrfToken]);
-        queryClient.refetchQueries(['userData', session?.user?.id, csrfToken]);
-      });
+        queryClient.invalidateQueries(['userData', session?.user?.id, csrfToken])
+        queryClient.refetchQueries(['userData', session?.user?.id, csrfToken])
+      })
     }
-  }, [userData, session, csrfToken, queryClient, status]);
+  }, [userData, session, csrfToken, queryClient, status])
   // Sync wallet and twitter connection states for modal
   useEffect(() => {
-    setWalletConnected(!!address || !!userData?.walletAddress);
-    setTwitterConnected(!!userData?.twitterHandle);
-  }, [address, userData?.walletAddress, userData?.twitterHandle]);
+    setWalletConnected(!!address || !!userData?.walletAddress)
+    setTwitterConnected(!!userData?.twitterHandle)
+  }, [address, userData?.walletAddress, userData?.twitterHandle])
   // Automatically switch to Base Mainnet if connected to wrong chain
   useEffect(() => {
     if (isConnected && chainId !== BASE_CHAIN_ID) {
@@ -966,29 +1042,31 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
         {
           onSuccess: () => toast.info('Switched to Base Mainnet'),
           onError: (err) => toast.error(`Failed to switch network: ${err.message}`),
-        }
-      );
+        },
+      )
     }
-  }, [isConnected, chainId, switchChainMutation]);
+  }, [isConnected, chainId, switchChainMutation])
   const handleCopyWallet = async () => {
     if (userData?.walletAddress || address) {
-      await navigator.clipboard.writeText(userData?.walletAddress || address);
+      await navigator.clipboard.writeText(userData?.walletAddress || address)
       // Removed toast to avoid duplicates
     }
-  };
-  const displayInfo = isBaseAccount ? (userData?.walletAddress || address || '') : email;
+  }
+  const displayInfo = isBaseAccount ? userData?.walletAddress || address || '' : email
   const maskedInfo = isBaseAccount
     ? `${(userData?.walletAddress || address)?.slice(0, 6) || ''}...${(userData?.walletAddress || address)?.slice(-4) || ''}`
-    : (email ? email.replace(/./g, '*') : '********');
-  const fullInfo = displayInfo;
-  const currentAddress = address || userData?.walletAddress;
-  const isWalletSaved = !!userData?.walletAddress;
-  const statusText = isWalletSaved ? 'Connected' : 'Not Connected';
-  const displayedAddress = currentAddress || '';
+    : email
+      ? email.replace(/./g, '*')
+      : '********'
+  const fullInfo = displayInfo
+  const currentAddress = address || userData?.walletAddress
+  const isWalletSaved = !!userData?.walletAddress
+  const statusText = isWalletSaved ? 'Connected' : 'Not Connected'
+  const displayedAddress = currentAddress || ''
   // UPDATED: Simplified mutation for saving wallet address (no verification/signature)
   const updateWalletMutation = useMutation({
     mutationFn: async ({ walletAddress, v2Token } = {}) => {
-      const token = v2Token || await debouncedExecuteRecaptcha('update_wallet');
+      const token = v2Token || (await debouncedExecuteRecaptcha('update_wallet'))
       const response = await axios.patch(
         '/api/user',
         { uid: session.user.id, walletAddress }, // REMOVED: recaptchaToken from body
@@ -996,62 +1074,72 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
           headers: {
             'x-csrf-token': csrfToken,
             'x-recaptcha-token': token, // ADDED: Send in header as expected by backend
-            'Content-Type': 'application/json'
+            'Content-Type': 'application/json',
           },
           withCredentials: true,
-        }
-      );
-      if (!response.data.success) throw new Error(response.data.detail || 'Unable to update wallet');
+        },
+      )
+      if (!response.data.success) throw new Error(response.data.detail || 'Unable to update wallet')
     },
     onSuccess: async () => {
-      setHasUpdatedWallet(true);
-      setIsUpdatingWallet(false);
-      const cacheKey = `userData-${session.user.id}`;
-      await clearAllCaches(session.user.id);
-      await clearCache(cacheKey);
-      await queryClient.invalidateQueries({ queryKey: ['userData', session?.user?.id, csrfToken] });
-      await queryClient.refetchQueries({ queryKey: ['userData', session?.user?.id, csrfToken] });
+      setHasUpdatedWallet(true)
+      setIsUpdatingWallet(false)
+      const cacheKey = `userData-${session.user.id}`
+      await clearAllCaches(session.user.id)
+      await clearCache(cacheKey)
+      await queryClient.invalidateQueries({ queryKey: ['userData', session?.user?.id, csrfToken] })
+      await queryClient.refetchQueries({ queryKey: ['userData', session?.user?.id, csrfToken] })
       // REMOVED: window.location.reload(); to prevent infinite reload loop
     },
     onError: (err) => {
-      setHasUpdatedWallet(false);
-      setIsUpdatingWallet(false);
+      setHasUpdatedWallet(false)
+      setIsUpdatingWallet(false)
       // ADDED: On 403 (CSRF issue), refresh CSRF token
       if (err.response?.status === 403 && err.response.data.detail.includes('CSRF')) {
-        queryClient.invalidateQueries({ queryKey: ['csrfToken'] });
+        queryClient.invalidateQueries({ queryKey: ['csrfToken'] })
       }
     },
-  });
+  })
   const debouncedUpdateWallet = useCallback(
     debounce((address) => {
-      setIsUpdatingWallet(true);
-      updateWalletMutation.mutate({ walletAddress: address });
+      setIsUpdatingWallet(true)
+      updateWalletMutation.mutate({ walletAddress: address })
     }, 2000), // 2s debounce to avoid spamming on connect glitches
-    [updateWalletMutation]
-  );
+    [updateWalletMutation],
+  )
   useEffect(() => {
-    if (isConnected && !!address && userData && !userData.walletAddress && !isUpdatingWallet && !hasUpdatedWallet) {
-      debouncedUpdateWallet(address);
+    if (
+      isConnected &&
+      !!address &&
+      userData &&
+      !userData.walletAddress &&
+      !isUpdatingWallet &&
+      !hasUpdatedWallet
+    ) {
+      debouncedUpdateWallet(address)
     }
-  }, [isConnected, address, userData, isUpdatingWallet, hasUpdatedWallet, debouncedUpdateWallet]);
+  }, [isConnected, address, userData, isUpdatingWallet, hasUpdatedWallet, debouncedUpdateWallet])
 
   const disconnectTwitterMutation = useMutation({
     mutationFn: async () => {
-      await queryClient.invalidateQueries({ queryKey: ['csrfToken'] });
-      const newCsrfToken = await queryClient.fetchQuery({ queryKey: ['csrfToken'] });
-      const response = await axios.post(
-        '/api/twitter/connect',
-        { action: 'disconnect', uid: session.user.id },
-        {
-          headers: { 'x-csrf-token': newCsrfToken, 'Content-Type': 'application/json' },
-          withCredentials: true,
-        }
-      ).catch(err => {
-        logger.error('Disconnect Twitter error:', err.response?.data || err.message);
-        throw err;
-      });
-      if (!response.data.success) throw new Error(response.data.detail || 'Unable to disconnect Twitter');
-      await clearAllCaches(session.user.id);
+      await queryClient.invalidateQueries({ queryKey: ['csrfToken'] })
+      const newCsrfToken = await queryClient.fetchQuery({ queryKey: ['csrfToken'] })
+      const response = await axios
+        .post(
+          '/api/twitter/connect',
+          { action: 'disconnect', uid: session.user.id },
+          {
+            headers: { 'x-csrf-token': newCsrfToken, 'Content-Type': 'application/json' },
+            withCredentials: true,
+          },
+        )
+        .catch((err) => {
+          logger.error('Disconnect Twitter error:', err.response?.data || err.message)
+          throw err
+        })
+      if (!response.data.success)
+        throw new Error(response.data.detail || 'Unable to disconnect Twitter')
+      await clearAllCaches(session.user.id)
     },
     onSuccess: async () => {
       await Promise.all([
@@ -1059,18 +1147,18 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
         /*
         queryClient.invalidateQueries(['leaderboard', session?.user?.id, csrfToken]),
         */
-      ]);
+      ])
       await Promise.all([
         queryClient.refetchQueries(['userData', session?.user?.id, csrfToken]),
         /*
         queryClient.refetchQueries(['leaderboard', session?.user?.id, csrfToken]),
         */
-      ]);
+      ])
     },
     onError: (err) => {
       // Removed toast to avoid duplicates
     },
-  });
+  })
   const disconnectWalletMutation = useMutation({
     mutationFn: async () => {
       // FIXED: Removed reCAPTCHA for disconnect to fix production error
@@ -1080,52 +1168,79 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
         {
           headers: { 'x-csrf-token': csrfToken, 'Content-Type': 'application/json' },
           withCredentials: true,
-        }
-      );
-      if (!response.data.success) throw new Error(response.data.detail || 'Unable to disconnect wallet');
+        },
+      )
+      if (!response.data.success)
+        throw new Error(response.data.detail || 'Unable to disconnect wallet')
     },
     onSuccess: async () => {
-      disconnect();
-      setWalletConnected(false);
-      setHasUpdatedWallet(false); // Reset flag
-      hasTriggeredRef.current = false;
+      disconnect()
+      setWalletConnected(false)
+      setHasUpdatedWallet(false) // Reset flag
+      hasTriggeredRef.current = false
       // Removed toast to avoid duplicates
-      const cacheKey = `userData-${session.user.id}`;
-      await clearCache(cacheKey);
-      await queryClient.refetchQueries(['userData', session?.user?.id, csrfToken]);
+      const cacheKey = `userData-${session.user.id}`
+      await clearCache(cacheKey)
+      await queryClient.refetchQueries(['userData', session?.user?.id, csrfToken])
     },
     onError: (err) => {
       // Removed toast to avoid duplicates
     },
-  });
+  })
   const debouncedHandleSignOut = useCallback(
     debounce(() => handleSignOut(), 1000, { leading: true, trailing: false }),
-    [handleSignOut]
-  );
+    [handleSignOut],
+  )
   // Get Days Active
   const getDaysActive = useCallback(() => {
-    return userData?.daysActive || 0;
-  }, [userData]);
+    return userData?.daysActive || 0
+  }, [userData])
   // UPDATED: Auto-save wallet on connect (simplified, no verification) - FIXED: Only save if no wallet exists yet
   useEffect(() => {
-    if (isConnected && !!address && userData && !userData.walletAddress && !isUpdatingWallet && !hasUpdatedWallet) {
-      setIsUpdatingWallet(true);
-      updateWalletMutation.mutate({ walletAddress: address });
+    if (
+      isConnected &&
+      !!address &&
+      userData &&
+      !userData.walletAddress &&
+      !isUpdatingWallet &&
+      !hasUpdatedWallet
+    ) {
+      setIsUpdatingWallet(true)
+      updateWalletMutation.mutate({ walletAddress: address })
     }
-  }, [isConnected, address, userData, isUpdatingWallet, hasUpdatedWallet, updateWalletMutation]);
+  }, [isConnected, address, userData, isUpdatingWallet, hasUpdatedWallet, updateWalletMutation])
   // NEW: Auto-connect/save for Base/Farcaster apps on login - FIXED: Only save if no wallet exists yet
   useEffect(() => {
-    const isSpecialApp = isBaseAccount || !!userData?.farcaster_fid;
-    if (status === 'authenticated' && isSpecialApp && isConnected && !!address && userData && !userData.walletAddress && !isUpdatingWallet && !hasUpdatedWallet) {
-      setIsUpdatingWallet(true);
-      updateWalletMutation.mutate({ walletAddress: address });
+    const isSpecialApp = isBaseAccount || !!userData?.farcaster_fid
+    if (
+      status === 'authenticated' &&
+      isSpecialApp &&
+      isConnected &&
+      !!address &&
+      userData &&
+      !userData.walletAddress &&
+      !isUpdatingWallet &&
+      !hasUpdatedWallet
+    ) {
+      setIsUpdatingWallet(true)
+      updateWalletMutation.mutate({ walletAddress: address })
     }
-  }, [status, isBaseAccount, userData?.farcaster_fid, isConnected, address, userData, isUpdatingWallet, hasUpdatedWallet, updateWalletMutation]);
+  }, [
+    status,
+    isBaseAccount,
+    userData?.farcaster_fid,
+    isConnected,
+    address,
+    userData,
+    isUpdatingWallet,
+    hasUpdatedWallet,
+    updateWalletMutation,
+  ])
   // Handle Twitter redirect callback (existing)
   useEffect(() => {
-    const urlParams = new URLSearchParams(window.location.search);
+    const urlParams = new URLSearchParams(window.location.search)
     if (urlParams.get('twitterConnected') === 'true' && status === 'authenticated') {
-      const cacheKey = `userData-${session.user.id}`;
+      const cacheKey = `userData-${session.user.id}`
       /*
       const leaderboardCacheKey = `leaderboard-${session.user.id}`;
       */
@@ -1145,81 +1260,81 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
             /*
             queryClient.refetchQueries(['leaderboard', session?.user?.id, csrfToken]),
             */
-          ]);
+          ])
         })
         .then(() => {
-          window.history.replaceState({}, document.title, window.location.pathname);
+          window.history.replaceState({}, document.title, window.location.pathname)
           // Removed toast to avoid duplicates
-          setTwitterConnected(true);
+          setTwitterConnected(true)
         })
         .catch((err) => {
-          logger.error('Error handling Twitter connection callback:', err);
+          logger.error('Error handling Twitter connection callback:', err)
           // Removed toast to avoid duplicates
-        });
+        })
     }
-  }, [session, csrfToken, queryClient, status]);
+  }, [session, csrfToken, queryClient, status])
   // NEW: Handle wallet connection URL param for cache clear (analogous to Twitter)
   useEffect(() => {
     if (searchParams.get('walletConnected') === 'true' && status === 'authenticated') {
-      const cacheKey = `userData-${session.user.id}`;
+      const cacheKey = `userData-${session.user.id}`
       Promise.all([
         clearAllCaches(session.user.id), // Clear IndexedDB
         clearCache(cacheKey),
         queryClient.invalidateQueries(['userData', session?.user?.id, csrfToken]),
       ])
         .then(() => {
-          return queryClient.refetchQueries(['userData', session?.user?.id, csrfToken]);
+          return queryClient.refetchQueries(['userData', session?.user?.id, csrfToken])
         })
         .then(() => {
-          window.history.replaceState({}, document.title, window.location.pathname);
-          setWalletConnected(true);
+          window.history.replaceState({}, document.title, window.location.pathname)
+          setWalletConnected(true)
           // REMOVED: window.location.reload(); to prevent potential loops
         })
         .catch((err) => {
-          logger.error('Error handling Wallet connection callback:', err);
-        });
+          logger.error('Error handling Wallet connection callback:', err)
+        })
     }
-  }, [searchParams, status, session, csrfToken, queryClient]);
+  }, [searchParams, status, session, csrfToken, queryClient])
   const handleManualCacheClear = async () => {
     try {
-      await clearAllCaches(session.user.id);
-      window.location.reload();
+      await clearAllCaches(session.user.id)
+      window.location.reload()
     } catch (err) {
-      logger.error('Error clearing cache:', err);
+      logger.error('Error clearing cache:', err)
     }
-  };
+  }
   const getBalanceWithRetry = async (address, retries = 3) => {
     if (!address) {
-      throw new Error('Wallet not connected');
+      throw new Error('Wallet not connected')
     }
     for (let i = 0; i < retries; i++) {
       try {
-        const provider = new ethers.BrowserProvider(window.ethereum);
-        return await provider.getBalance(address);
+        const provider = new ethers.BrowserProvider(window.ethereum)
+        return await provider.getBalance(address)
       } catch (err) {
-        if (i === retries - 1 || !err.message.includes('RPC')) throw err;
-        await new Promise(resolve => setTimeout(resolve, 1000 * (i + 1)));
+        if (i === retries - 1 || !err.message.includes('RPC')) throw err
+        await new Promise((resolve) => setTimeout(resolve, 1000 * (i + 1)))
       }
     }
-  };
+  }
   // Updated: Handle Mint NFT - Use BASE_CHAIN_ID, fix max supply msg to 10000, integrate useSendCalls for Builder Code attribution, no record mint
   const handleMint = async () => {
     if (!isConnected || !address) {
-      toast.error('Please connect your wallet first.');
-      return;
+      toast.error('Please connect your wallet first.')
+      return
     }
     if (chainId !== BASE_CHAIN_ID) {
       try {
-        await switchChainMutation.mutateAsync({ chainId: BASE_CHAIN_ID });
-        toast.info('Please switch to Base network to mint.');
+        await switchChainMutation.mutateAsync({ chainId: BASE_CHAIN_ID })
+        toast.info('Please switch to Base network to mint.')
       } catch (err) {
-        toast.error('Network switching failed. Please switch to Base manually.');
+        toast.error('Network switching failed. Please switch to Base manually.')
       }
-      return;
+      return
     }
     if (nftMinted) {
-      toast.info('You have already minted!');
-      return;
+      toast.info('You have already minted!')
+      return
     }
     try {
       const hash = await writeContractAsync({
@@ -1228,41 +1343,41 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
         functionName: 'mint',
         value: parseEther('0.0002'),
         dataSuffix,
-      });
-      setShowMintModal(false);
-      toast.success('Genesis NFT minted successfully!');
+      })
+      setShowMintModal(false)
+      toast.success('Genesis NFT minted successfully!')
     } catch (err) {
-      let errorMsg = 'Mint failed. Please try again.';
+      let errorMsg = 'Mint failed. Please try again.'
       if (err.message?.includes('insufficient funds')) {
-        errorMsg = 'Insufficient ETH , make sure you have more than 0.0002 ETH for gas fees';
+        errorMsg = 'Insufficient ETH , make sure you have more than 0.0002 ETH for gas fees'
       } else if (err.message?.includes('Max supply')) {
-        errorMsg = 'Max supply (10,000) reached!';
+        errorMsg = 'Max supply (10,000) reached!'
       } else if (err.shortMessage) {
-        errorMsg = err.shortMessage;
+        errorMsg = err.shortMessage
       }
-      toast.error(errorMsg);
+      toast.error(errorMsg)
     }
-  };
+  }
   // NEW: Handle modal steps progression - Skip if already completed/minted (on-chain check)
   const handleNextStep = () => {
     if (mintStep === 'connectWallet' && walletConnected) {
-      setMintStep('connectTwitter');
+      setMintStep('connectTwitter')
     } else if (mintStep === 'connectTwitter' && twitterConnected) {
-      setMintStep('followX');
+      setMintStep('followX')
     } else if (mintStep === 'followX' && followXCompleted) {
       if (nftMinted) {
-        setShowMintModal(false);
+        setShowMintModal(false)
       } else {
-        setMintStep('mintNFT');
+        setMintStep('mintNFT')
       }
     }
-  };
+  }
   const handleConnectWallet = () => {
     // Trigger manual connect if needed (but auto-handled by useEffect)
-  };
+  }
   const handleConnectTwitter = () => {
-    connectTwitterMutation.mutate();
-  };
+    connectTwitterMutation.mutate()
+  }
   // Render Badge Section - UPDATED: Rely on on-chain nftMinted
   const renderBadgeSection = useCallback(() => {
     return (
@@ -1282,8 +1397,8 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
                   loading="eager"
                   priority={true}
                   onError={(e) => {
-                    console.error('Image load failed:', nftImageSrc); // Debug
-                    e.target.src = '/placeholder_nft.png';
+                    console.error('Image load failed:', nftImageSrc) // Debug
+                    e.target.src = '/placeholder_nft.png'
                   }}
                 />
               ) : (
@@ -1302,9 +1417,7 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
             <div className="p-5 flex flex-col flex-grow relative">
               {/* Title with ? icon for tooltip */}
               <div className="flex items-center justify-center gap-2 mb-4">
-                <h3 className="text-xs text-[#FFF] font-bold text-lg">
-                  Xynapse Genesis NFT
-                </h3>
+                <h3 className="text-xs text-[#FFF] font-bold text-lg">Xynapse Genesis NFT</h3>
                 <motion.button
                   onClick={() => setShowNftTooltip(!showNftTooltip)}
                   className="text-[#D4D4D4] hover:text-[#FFF] transition-colors p-0.5 rounded-full"
@@ -1322,10 +1435,16 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
                     initial={{ opacity: 0, scale: 0.95, y: 10 }}
                     animate={{ opacity: 1, scale: 1, y: 0 }}
                     exit={{ opacity: 0, scale: 0.95, y: 10 }}
-                    transition={{ duration: 0.2, ease: "easeOut" }}
+                    transition={{ duration: 0.2, ease: 'easeOut' }}
                   >
-                    <p className="font-medium text-[#FFF] mb-1 text-[10px] sm:text-sm">Genesis NFT Benefits</p>
-                    <p className="text-[8px] sm:text-xs leading-tight">This proprietary NFT is proof-of-concept for early adopters, granting early access to advanced tools, early feature launches within the XynapseAI ecosystem, and several other future benefits.</p>
+                    <p className="font-medium text-[#FFF] mb-1 text-[10px] sm:text-sm">
+                      Genesis NFT Benefits
+                    </p>
+                    <p className="text-[8px] sm:text-xs leading-tight">
+                      This proprietary NFT is proof-of-concept for early adopters, granting early
+                      access to advanced tools, early feature launches within the XynapseAI
+                      ecosystem, and several other future benefits.
+                    </p>
                   </motion.div>
                 )}
               </AnimatePresence>
@@ -1351,8 +1470,8 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
         </div> */}
         </div>
       </div>
-    );
-  }, [nftMinted, setShowMintModal, nftImageSrc, showNftTooltip]);
+    )
+  }, [nftMinted, setShowMintModal, nftImageSrc, showNftTooltip])
   // UPDATED: Render Mint Modal - Professional 3-step with lines, checkmarks, green on complete; skip if minted (on-chain)
   const renderMintModal = () => (
     <AnimatePresence>
@@ -1369,10 +1488,10 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
             initial={{ scale: isMobile ? 0.85 : 0.9, opacity: 0, y: 20 }}
             animate={{ scale: 1, opacity: 1, y: 0 }}
             exit={{ scale: isMobile ? 0.85 : 0.9, opacity: 0, y: 20 }}
-            transition={{ duration: 0.3, ease: "easeOut" }}
+            transition={{ duration: 0.3, ease: 'easeOut' }}
             onClick={(e) => e.stopPropagation()}
           >
-            <div className={isMobile ? "p-6" : "p-8"}>
+            <div className={isMobile ? 'p-6' : 'p-8'}>
               <h3 className="text-[#FFFFFF] font-bold text-center mb-8 text-lg lg:text-xl uppercase">
                 Mint Process
               </h3>
@@ -1384,40 +1503,51 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
                     (step === 'connectWallet' && walletConnected) ||
                     (step === 'connectTwitter' && twitterConnected) ||
                     (step === 'followX' && followXCompleted) ||
-                    (step === 'mintNFT' && false);
-                  const isActive = mintStep === step;
+                    (step === 'mintNFT' && false)
+                  const isActive = mintStep === step
 
                   return (
                     <Fragment key={step}>
                       <div className="flex flex-col items-center gap-3">
                         <div
-                          className={`flex items-center justify-center text-base font-bold border-4 transition-all duration-300 rounded-full ${isCompleted
-                            ? 'bg-white text-black border-white'
-                            : isActive
-                              ? 'border-white bg-[#FFFFFF20] text-white shadow-lg shadow-white/20'
-                              : 'border-[#FFFFFF40] bg-transparent text-[#AAAAAA]'
-                            } ${isMobile ? 'w-9 h-9' : 'w-10 h-10'}`}
+                          className={`flex items-center justify-center text-base font-bold border-4 transition-all duration-300 rounded-full ${
+                            isCompleted
+                              ? 'bg-white text-black border-white'
+                              : isActive
+                                ? 'border-white bg-[#FFFFFF20] text-white shadow-lg shadow-white/20'
+                                : 'border-[#FFFFFF40] bg-transparent text-[#AAAAAA]'
+                          } ${isMobile ? 'w-9 h-9' : 'w-10 h-10'}`}
                         >
-                          {isCompleted ? <Check className={isMobile ? 'w-4 h-4' : 'w-5 h-5'} /> : index + 1}
+                          {isCompleted ? (
+                            <Check className={isMobile ? 'w-4 h-4' : 'w-5 h-5'} />
+                          ) : (
+                            index + 1
+                          )}
                         </div>
-                        <span className={`text-[#CCCCCC] capitalize ${isMobile ? 'text-xs' : 'text-sm'}`}>
-                          {step === 'connectWallet' ? 'Wallet' :
-                            step === 'connectTwitter' ? 'Twitter' :
-                              step === 'followX' ? 'Follow X' :
-                                'Mint NFT'}
+                        <span
+                          className={`text-[#CCCCCC] capitalize ${isMobile ? 'text-xs' : 'text-sm'}`}
+                        >
+                          {step === 'connectWallet'
+                            ? 'Wallet'
+                            : step === 'connectTwitter'
+                              ? 'Twitter'
+                              : step === 'followX'
+                                ? 'Follow X'
+                                : 'Mint NFT'}
                         </span>
                       </div>
                       {index < 3 && (
-                        <div className={`flex-1 h-0.5 bg-[#FFFFFF30] ${isMobile ? 'mx-2' : 'mx-3'}`} />
+                        <div
+                          className={`flex-1 h-0.5 bg-[#FFFFFF30] ${isMobile ? 'mx-2' : 'mx-3'}`}
+                        />
                       )}
                     </Fragment>
-                  );
+                  )
                 })}
               </div>
 
               {/* Step content */}
               <div className="w-full max-w-md mx-auto flex flex-col items-center justify-center space-y-8 px-4">
-
                 {/* Step: Connect Wallet */}
                 {mintStep === 'connectWallet' && (
                   <div className="w-full text-center space-y-6">
@@ -1497,8 +1627,8 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
                     <div className="flex justify-center">
                       <button
                         onClick={() => {
-                          setFollowXCompleted(true);
-                          handleNextStep();
+                          setFollowXCompleted(true)
+                          handleNextStep()
                         }}
                         disabled={followXCompleted}
                         className="px-3 py-2 text-white border border-white rounded-xl font-medium hover:bg-white/10 transition flex items-center justify-center gap-3 min-w-[280px] disabled:opacity-70 disabled:cursor-not-allowed"
@@ -1531,10 +1661,14 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
                 {mintStep === 'mintNFT' && (
                   <div className="w-full text-center space-y-8">
                     <p className={`text-[#CCCCCC] ${isMobile ? 'text-xs' : 'text-sm'}`}>
-                      All done! Mint your exclusive Genesis NFT<br />
-                      Make sure you have switched to <span className="text-blue-500">Base Mainnet</span>.
+                      All done! Mint your exclusive Genesis NFT
+                      <br />
+                      Make sure you have switched to{' '}
+                      <span className="text-blue-500">Base Mainnet</span>.
                     </p>
-                    <div className={`relative mx-auto rounded-2xl overflow-hidden shadow-2xl ${isMobile ? 'w-60 h-60' : 'w-64 h-64'}`}>
+                    <div
+                      className={`relative mx-auto rounded-2xl overflow-hidden shadow-2xl ${isMobile ? 'w-60 h-60' : 'w-64 h-64'}`}
+                    >
                       {nftImageSrc ? (
                         <Image
                           src={nftImageSrc}
@@ -1561,10 +1695,11 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
                       <button
                         onClick={handleMint}
                         disabled={!isConnected}
-                        className={`px-5 py-2 rounded-xl font-medium transition text-sm min-w-[120px] ${!isConnected
+                        className={`px-5 py-2 rounded-xl font-medium transition text-sm min-w-[120px] ${
+                          !isConnected
                             ? 'bg-gray-600 text-gray-400 cursor-not-allowed'
                             : 'bg-white text-black hover:bg-gray-200'
-                          }`}
+                        }`}
                       >
                         Mint Now
                       </button>
@@ -1577,14 +1712,14 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
         </motion.div>
       )}
     </AnimatePresence>
-  );
+  )
   const renderProfileSection = useCallback(() => {
     if (userLoading) {
       return (
         <div className="h-full flex items-center justify-center">
           <LoadingOverlay isLoading={true} isMobile={isMobile} />
         </div>
-      );
+      )
     }
     if (userError) {
       return (
@@ -1595,14 +1730,14 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
         >
           Error: {userError.message}
         </motion.div>
-      );
+      )
     }
     if (!userData) {
       return (
         <div className="h-full flex items-center justify-center text-gray-500 text-xs">
           No profile data available.
         </div>
-      );
+      )
     }
     return (
       <div className="space-y-4">
@@ -1610,7 +1745,11 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
           <div className="h-[30vh] rounded-xl p-3 bg-[#0A0A0A]/80 backdrop-blur-md border border-[#FFFFFF20] shadow-[0_4px_12px_rgba(0,0,0,0.3)] glow-[#FFFFFF15] relative col-span-1 flex flex-col items-center justify-center">
             <div className="absolute top-1 right-1 p-2 flex gap-1 items-center z-10">
               <motion.button
-                onClick={() => queryClient.invalidateQueries({ queryKey: ['userData', session?.user?.id, csrfToken] })}
+                onClick={() =>
+                  queryClient.invalidateQueries({
+                    queryKey: ['userData', session?.user?.id, csrfToken],
+                  })
+                }
                 className="p-1 rounded-lg bg-[#FFFFFF]/10 hover:bg-emerald-400/20 transition-all duration-300 z-10 border border-[#FFFFFF20]"
                 whileHover={{ scale: 1.05 }}
                 whileTap={{ scale: 0.95 }}
@@ -1645,7 +1784,9 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
               </motion.button>
             </div>
             <div className="relative mb-3 flex justify-center">
-              <div className={`relative w-20 h-20 sm:w-20 sm:h-20 border-3 rounded-3xl overflow-hidden ${userData.tier === 'Premium' ? 'border-emerald-400' : 'border-[#D4D4D4]'} border-b-transparent`}>
+              <div
+                className={`relative w-20 h-20 sm:w-20 sm:h-20 border-3 rounded-3xl overflow-hidden ${userData.tier === 'Premium' ? 'border-emerald-400' : 'border-[#D4D4D4]'} border-b-transparent`}
+              >
                 <Image
                   src={getProfilePictureSrc(userData.profilePicture)}
                   alt={userData.googleName || userData.twitterHandle || 'User Avatar'}
@@ -1653,12 +1794,16 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
                   height={80}
                   className="w-full h-full object-cover"
                   onError={(e) => {
-                    e.target.src = '/fallback-image.webp'; // Ensure fallback on error
+                    e.target.src = '/fallback-image.webp' // Ensure fallback on error
                   }}
                 />
               </div>
-              <div className={`w-[65px] sm:w-[65px] absolute -bottom-2 bg-[#0A0A0A]/80 border-2 ${userData.tier === 'Premium' ? 'border-emerald-400' : 'border-[#D4D4D4]'} rounded-lg px-2 py-0.5 flex items-center justify-center text-[8px] sm:text-[9px]`}>
-                <span className={`font-bold ${userData.tier === 'Premium' ? 'text-emerald-400' : 'text-[#D4D4D4]'}`}>
+              <div
+                className={`w-[65px] sm:w-[65px] absolute -bottom-2 bg-[#0A0A0A]/80 border-2 ${userData.tier === 'Premium' ? 'border-emerald-400' : 'border-[#D4D4D4]'} rounded-lg px-2 py-0.5 flex items-center justify-center text-[8px] sm:text-[9px]`}
+              >
+                <span
+                  className={`font-bold ${userData.tier === 'Premium' ? 'text-emerald-400' : 'text-[#D4D4D4]'}`}
+                >
                   {userData.tier}
                 </span>
               </div>
@@ -1682,10 +1827,16 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
               </div>
             </div>
           </div>
-          <div className="h-[30vh] rounded-xl p-3 bg-[#0A0A0A]/80 backdrop-blur-md border border-[#FFFFFF20] shadow-[0_4px_12px_rgba(0,0,0,0.3)] glow-[#FFFFFF15] relative col-span-1"> {/* Twitter card */}
+          <div className="h-[30vh] rounded-xl p-3 bg-[#0A0A0A]/80 backdrop-blur-md border border-[#FFFFFF20] shadow-[0_4px_12px_rgba(0,0,0,0.3)] glow-[#FFFFFF15] relative col-span-1">
+            {' '}
+            {/* Twitter card */}
             <div className="flex justify-between items-center mb-3">
               <div className="flex items-center gap-2 flex-1 min-w-0">
-                <img src="/logos/x.webp" alt="X Logo" className="w-3 h-3 sm:w-4 sm:h-4 text-[#00FFFF] flex-shrink-0" />
+                <img
+                  src="/logos/x.webp"
+                  alt="X Logo"
+                  className="w-3 h-3 sm:w-4 sm:h-4 text-[#00FFFF] flex-shrink-0"
+                />
                 <span className="text-[#FFF] font-semibold text-sm flex-shrink-0">Twitter :</span>
                 {userData.twitterHandle && (
                   <a
@@ -1698,19 +1849,31 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
                   </a>
                 )}
               </div>
-              <span className={`px-2 py-1 rounded-full text-xs font-medium flex items-center gap-1 ${userData.twitterHandle ? 'text-emerald-400' : 'text-[#D4D4D4]'}`}>
+              <span
+                className={`px-2 py-1 rounded-full text-xs font-medium flex items-center gap-1 ${userData.twitterHandle ? 'text-emerald-400' : 'text-[#D4D4D4]'}`}
+              >
                 {userData.twitterHandle ? <Check className="w-3 h-3 text-emerald-400" /> : null}
                 {userData.twitterHandle ? 'Connected' : 'Not Connected'}
               </span>
             </div>
             <motion.button
-              onClick={() => userData.twitterHandle ? disconnectTwitterMutation.mutate({}) : connectTwitterMutation.mutate()}
+              onClick={() =>
+                userData.twitterHandle
+                  ? disconnectTwitterMutation.mutate({})
+                  : connectTwitterMutation.mutate()
+              }
               disabled={disconnectTwitterMutation.isLoading || connectTwitterMutation.isLoading}
-              className={`absolute bottom-3 right-3 px-3 py-1.5 rounded-lg text-xs font-medium transition-all duration-300 flex items-center justify-center gap-1 shadow-lg ${userData.twitterHandle
-                ? 'text-red-300 hover:bg-red-400/30 border border-red-400/30'
-                : 'text-[#00FFFF] border border-[#00FFFF]/50 bg-[#00FFFF]/10 hover:bg-[#00FFFF]/20'
-                }`}
-              whileTap={{ scale: (disconnectTwitterMutation.isLoading || connectTwitterMutation.isLoading) ? 1 : 0.98 }}
+              className={`absolute bottom-3 right-3 px-3 py-1.5 rounded-lg text-xs font-medium transition-all duration-300 flex items-center justify-center gap-1 shadow-lg ${
+                userData.twitterHandle
+                  ? 'text-red-300 hover:bg-red-400/30 border border-red-400/30'
+                  : 'text-[#00FFFF] border border-[#00FFFF]/50 bg-[#00FFFF]/10 hover:bg-[#00FFFF]/20'
+              }`}
+              whileTap={{
+                scale:
+                  disconnectTwitterMutation.isLoading || connectTwitterMutation.isLoading
+                    ? 1
+                    : 0.98,
+              }}
             >
               {disconnectTwitterMutation.isLoading || connectTwitterMutation.isLoading ? (
                 <BlinkingDots />
@@ -1731,7 +1894,9 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
                     <Wallet className="w-5 h-5 text-[#00FFFF]" />
                     <span className="text-[#FFF] font-semibold text-sm">Wallet</span>
                   </div>
-                  <span className={`px-2 py-1 rounded-full text-xs font-medium flex items-center gap-1 ${isWalletSaved ? 'text-emerald-400' : 'text-[#D4D4D4]'}`}>
+                  <span
+                    className={`px-2 py-1 rounded-full text-xs font-medium flex items-center gap-1 ${isWalletSaved ? 'text-emerald-400' : 'text-[#D4D4D4]'}`}
+                  >
                     {isWalletSaved ? <Check className="w-3 h-3 text-emerald-400" /> : null}
                     {statusText}
                   </span>
@@ -1742,11 +1907,12 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
                   <div className="w-full min-h-[3rem] flex items-center justify-between relative mb-4">
                     {displayedAddress && (
                       <>
-                        <p className={`text-xs text-[#D4D4D4] pr-2 flex-1 min-w-0 ${showWallet ? 'whitespace-pre-wrap break-words max-h-[3rem] overflow-y-auto' : 'truncate'}`}>
+                        <p
+                          className={`text-xs text-[#D4D4D4] pr-2 flex-1 min-w-0 ${showWallet ? 'whitespace-pre-wrap break-words max-h-[3rem] overflow-y-auto' : 'truncate'}`}
+                        >
                           {showWallet
                             ? displayedAddress
-                            : `${displayedAddress.slice(0, 6)}...${displayedAddress.slice(-4)}`
-                          }
+                            : `${displayedAddress.slice(0, 6)}...${displayedAddress.slice(-4)}`}
                         </p>
                         <div className="flex items-center gap-2 flex-shrink-0 absolute right-0 top-1/2 -translate-y-1/2">
                           <motion.button
@@ -1762,7 +1928,11 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
                             whileHover={{ scale: 1.1 }}
                             whileTap={{ scale: 0.9 }}
                           >
-                            {showWallet ? <EyeOff className="w-3 h-3" /> : <Eye className="w-3 h-3" />}
+                            {showWallet ? (
+                              <EyeOff className="w-3 h-3" />
+                            ) : (
+                              <Eye className="w-3 h-3" />
+                            )}
                           </motion.button>
                         </div>
                       </>
@@ -1779,12 +1949,14 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
                 </div>
               </OnchainWalletWrapper>
             </div>
-            {(isConnected || isWalletSaved) ? (
+            {isConnected || isWalletSaved ? (
               <motion.button
                 onClick={() => disconnectWalletMutation.mutate({})}
                 disabled={isUpdatingWallet || disconnectWalletMutation.isLoading}
                 className={`absolute bottom-3 right-3 px-3 py-1.5 rounded-lg text-xs font-medium transition-all duration-300 flex items-center justify-center gap-1 shadow-lg text-red-300 hover:bg-red-400/30 border border-red-400/30 disabled:opacity-50 z-10`}
-                whileTap={{ scale: (isUpdatingWallet || disconnectWalletMutation.isLoading) ? 1 : 0.98 }}
+                whileTap={{
+                  scale: isUpdatingWallet || disconnectWalletMutation.isLoading ? 1 : 0.98,
+                }}
               >
                 {disconnectWalletMutation.isLoading ? <BlinkingDots /> : 'Disconnect'}
               </motion.button>
@@ -1829,10 +2001,33 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
           </div>
         </div>
       </div>
-    );
-  }, [userData, userLoading, userError, isMobile, session, csrfToken, queryClient, isSigningOut, showEmail, showWallet, getDaysActive, getProfilePictureSrc, handleCopyWallet, connectTwitterMutation, disconnectTwitterMutation, address, isConnected, isUpdatingWallet, disconnectWalletMutation, isWalletSaved, statusText, displayedAddress]); // remove immediateLoading
+    )
+  }, [
+    userData,
+    userLoading,
+    userError,
+    isMobile,
+    session,
+    csrfToken,
+    queryClient,
+    isSigningOut,
+    showEmail,
+    showWallet,
+    getDaysActive,
+    getProfilePictureSrc,
+    handleCopyWallet,
+    connectTwitterMutation,
+    disconnectTwitterMutation,
+    address,
+    isConnected,
+    isUpdatingWallet,
+    disconnectWalletMutation,
+    isWalletSaved,
+    statusText,
+    displayedAddress,
+  ]) // remove immediateLoading
   if (!session) {
-    return <LoginPrompt />;
+    return <LoginPrompt />
   }
   // const overallLoading = immediateLoading /*
   // || verifyTaskMutation.isLoading
@@ -1841,7 +2036,7 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
     <motion.div
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.6, ease: "easeOut" }}
+      transition={{ duration: 0.6, ease: 'easeOut' }}
       className="font-inter w-full max-w-9xl mx-auto p-2 sm:p-3 bg-[#0A0A0A]/80 backdrop-blur-md flex flex-col h-[calc(100vh-3rem)] overflow-y-auto hide-scrollbar"
     >
       {/* FIXED: ToastContainer - Ensured single instance, but comments suggest removal if issues persist */}
@@ -1850,10 +2045,10 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
         autoClose={5000}
         theme="dark"
         toastStyle={{
-          backgroundColor: "rgba(0, 0, 0, 0.9)",
-          backdropFilter: "blur(20px)",
-          border: "1px solid rgba(255, 255, 255, 0.1)",
-          borderRadius: "16px",
+          backgroundColor: 'rgba(0, 0, 0, 0.9)',
+          backdropFilter: 'blur(20px)',
+          border: '1px solid rgba(255, 255, 255, 0.1)',
+          borderRadius: '16px',
         }}
         limit={1} // FIXED: Limit to 1 to prevent multiples
       />
@@ -1866,15 +2061,14 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
         >
           <div className="border-b border-white/15 bg-black/50 rounded-t-xl flex h-[32px] sm:h-[40px] overflow-hidden">
             {['profile', 'genesis'].map((tab) => {
-              const isActive = activeTab === tab;
+              const isActive = activeTab === tab
               return (
                 <motion.button
                   key={tab}
                   onClick={() => setActiveTab(tab)}
-                  className={`flex-1 text-[10px] sm:text-xs font-bold text-white uppercase tracking-wider py-2 relative transition-all duration-300 flex items-center justify-center gap-1 ${isActive
-                    ? 'text-white shadow-lg'
-                    : 'text-white/70 hover:text-neon-blue'
-                    }`}
+                  className={`flex-1 text-[10px] sm:text-xs font-bold text-white uppercase tracking-wider py-2 relative transition-all duration-300 flex items-center justify-center gap-1 ${
+                    isActive ? 'text-white shadow-lg' : 'text-white/70 hover:text-neon-blue'
+                  }`}
                 >
                   {tab === 'profile' && <User className="w-3 h-3 sm:w-4 sm:h-4" />}
                   {tab === 'tasks' && <Check className="w-3 h-3 sm:w-4 sm:h-4" />}
@@ -1889,7 +2083,7 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
                     />
                   )}
                 </motion.button>
-              );
+              )
             })}
           </div>
           <div className="flex-1 overflow-hidden relative">
@@ -2001,16 +2195,30 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
           animation: ${isMobile ? 'none' : 'pulse 1.5s cubic-bezier(0.4, 0, 0.6, 1) infinite'};
         }
         @keyframes pulse {
-          0%, 100% { opacity: 1; }
-          50% { opacity: 0.5; }
+          0%,
+          100% {
+            opacity: 1;
+          }
+          50% {
+            opacity: 0.5;
+          }
         }
         .animate-shimmer {
-          background: linear-gradient(90deg, transparent 0%, rgba(255, 255, 255, 0.1) 50%, transparent 100%);
+          background: linear-gradient(
+            90deg,
+            transparent 0%,
+            rgba(255, 255, 255, 0.1) 50%,
+            transparent 100%
+          );
           animation: shimmer 1.5s infinite;
         }
         @keyframes shimmer {
-          0% { transform: translateX(-100%); }
-          100% { transform: translateX(100%); }
+          0% {
+            transform: translateX(-100%);
+          }
+          100% {
+            transform: translateX(100%);
+          }
         }
         .glow-emerald {
           box-shadow: 0 0 20px rgba(6, 78, 59, 0.3);
@@ -2022,8 +2230,12 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
           animation: glow 2s ease-in-out infinite alternate;
         }
         @keyframes glow {
-          from { opacity: 0.5; }
-          to { opacity: 1; }
+          from {
+            opacity: 0.5;
+          }
+          to {
+            opacity: 1;
+          }
         }
         .animate-scan {
           animation: scan 3s linear infinite;
@@ -2032,28 +2244,54 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
           animation: scan 5s linear infinite;
         }
         @keyframes scan {
-          0% { transform: translateY(-100%); }
-          100% { transform: translateY(100%); }
+          0% {
+            transform: translateY(-100%);
+          }
+          100% {
+            transform: translateY(100%);
+          }
         }
         .animate-pulse-slow {
           animation: pulse 3s cubic-bezier(0.4, 0, 0.6, 1) infinite;
         }
         @media (max-width: 640px) {
-          .text-base { font-size: 0.875rem; }
-          .text-lg { font-size: 1rem; }
-          .text-xl { font-size: 1rem; }
-          .text-2xl { font-size: 1.25rem; }
-          .text-[11px] { font-size: 9px; }
-          .text-[9px] { font-size: 7px; }
-          .text-[8px] { font-size: 6px; }
-          .h-[52px] { height: 48px; }
-          .min-h-[100px] { min-height: 80px; }
-          .grid-cols-4 { grid-template-columns: repeat(1, 1fr); } /* Stack on mobile */
+          .text-base {
+            font-size: 0.875rem;
+          }
+          .text-lg {
+            font-size: 1rem;
+          }
+          .text-xl {
+            font-size: 1rem;
+          }
+          .text-2xl {
+            font-size: 1.25rem;
+          }
+          .text-[11px] {
+            font-size: 9px;
+          }
+          .text-[9px] {
+            font-size: 7px;
+          }
+          .text-[8px] {
+            font-size: 6px;
+          }
+          .h-[52px] {
+            height: 48px;
+          }
+          .min-h-[100px] {
+            min-height: 80px;
+          }
+          .grid-cols-4 {
+            grid-template-columns: repeat(1, 1fr);
+          } /* Stack on mobile */
         }
         @media (min-width: 641px) and (max-width: 1024px) {
-          .grid-cols-4 { grid-template-columns: repeat(2, 1fr); } /* 2 cols on tablet */
+          .grid-cols-4 {
+            grid-template-columns: repeat(2, 1fr);
+          } /* 2 cols on tablet */
         }
       `}</style>
     </motion.div>
-  );
+  )
 }

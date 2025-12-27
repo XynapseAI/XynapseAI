@@ -371,6 +371,11 @@ function DashboardInner() {
   const [isMobile, setIsMobile] = useState(false) // NEW: State to detect mobile device (for hiding Farcaster button on PC)
   // FIXED: App domain from env (fix origin mismatch in preview)
   const appDomain = process.env.NEXT_PUBLIC_APP_DOMAIN || window.location.hostname
+  // Invite
+  const [pendingInviteCode, setPendingInviteCode] = useState(null)
+  useEffect(() => {
+    console.log('Current pendingInviteCode:', pendingInviteCode)
+  }, [pendingInviteCode])
   preconnect('https://auth.farcaster.xyz') // NEW: Preconnect to Quick Auth server for faster token retrieval (as per docs)
   const openModal = (content) => {
     setModalContent(content)
@@ -731,6 +736,24 @@ function DashboardInner() {
       handleAddMiniApp()
     }
   }, [status, isBaseApp, isWarpcastMobile])
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+
+    const params = new URLSearchParams(window.location.search)
+    const invite = params.get('invite')
+
+    if (invite && pendingInviteCode !== invite) {
+      setPendingInviteCode(invite)
+      console.log('✅ Invite code detected and saved:', invite)
+      safeLog('Detected invite code from URL:', invite)
+
+      // Clean URL
+      const cleanUrl = window.location.pathname + window.location.hash
+      window.history.replaceState({}, '', cleanUrl)
+    }
+  }, []) // Chỉ chạy 1 lần khi mount
+
   // useEffect(() => {
   // if (activeTab === 'etf' && router) {
   // router.replace('/etf');
@@ -825,19 +848,15 @@ function DashboardInner() {
   // FIXED: Merge old handleFarcasterSuccess with new (add authSuccess + shallow push). REMOVED: csrfToken (let NextAuth add automatically to avoid duplicate/mismatch)
   const handleFarcasterSuccess = async (result) => {
     try {
-      // REMOVED: const csrf = await getCsrfToken(); // Not needed, NextAuth handles CSRF in signIn POST
-      const res = await signIn(
-        'farcaster',
-        {
-          message: result.message,
-          signature: result.signature,
-          // REMOVED: csrfToken: csrf, // Avoid duplicate CSRF in credentials
-        },
-        {
-          redirect: false,
-          // Ensure cookies forwarded
-        },
-      )
+      const callbackUrl = pendingInviteCode
+        ? `/dashboard?invite=${pendingInviteCode}`
+        : '/dashboard'
+      const res = await signIn('farcaster', {
+        message: result.message,
+        signature: result.signature,
+        callbackUrl,
+        redirect: false,
+      })
       if (res?.error) {
         toast.error(`Farcaster login failed: ${res.error}`)
       } else {
@@ -863,8 +882,10 @@ function DashboardInner() {
   const handleEmailSignIn = async (e) => {
     e.preventDefault()
     try {
-      await signIn('email', { email, callbackUrl: '/dashboard', redirect: false })
-      // REMOVED: toast.success('Sign-in email sent, please check your inbox!', { position: 'top-center' }); // Silent send
+      const callbackUrl = pendingInviteCode
+        ? `/dashboard?invite=${pendingInviteCode}`
+        : '/dashboard'
+      await signIn('email', { email, callbackUrl, redirect: false })
     } catch (err) {
       safeError('Error signing in with email:', err)
       toast.error('Failed to sign in with email.', { position: 'top-center' })
@@ -872,7 +893,10 @@ function DashboardInner() {
   }
   const handleGoogleSignIn = async () => {
     try {
-      const result = await signIn('google', { callbackUrl: '/dashboard', redirect: false })
+      const callbackUrl = pendingInviteCode
+        ? `/dashboard?invite=${pendingInviteCode}`
+        : '/dashboard'
+      const result = await signIn('google', { callbackUrl, redirect: false })
       if (result?.error) {
         if (result.error.includes('Rate limit exceeded')) {
           toast.error('Too many sign-in attempts. Please try again later.', {

@@ -1,16 +1,16 @@
 // app\api\user\route.js
-import { NextResponse } from 'next/server';
-import { PrismaClient } from '@prisma/client';
-import { auth } from '@/lib/auth';
-import { verifyRecaptcha } from '../../../utils/verifyRecaptcha';
-import { z } from 'zod';
-import { logger } from '../../../utils/serverLogger';
-import { createClient } from 'redis';
-import crypto from 'crypto';
-import util from 'util';
-import cookie from 'cookie';
+import { NextResponse } from 'next/server'
+import { PrismaClient } from '@prisma/client'
+import { auth } from '@/lib/auth'
+import { verifyRecaptcha } from '../../../utils/verifyRecaptcha'
+import { z } from 'zod'
+import { logger } from '../../../utils/serverLogger'
+import { createClient } from 'redis'
+import crypto from 'crypto'
+import util from 'util'
+import cookie from 'cookie'
 
-const scrypt = util.promisify(crypto.scrypt);
+const scrypt = util.promisify(crypto.scrypt)
 
 const prisma = new PrismaClient({
   errorFormat: 'minimal',
@@ -19,99 +19,104 @@ const prisma = new PrismaClient({
       url: process.env.DATABASE_URL,
     },
   },
-});
+})
 
-let redisClient;
+let redisClient
 async function getRedisClient() {
-  if (redisClient?.isOpen) return redisClient;
-  const maxRetries = 3;
-  const delay = 1000;
+  if (redisClient?.isOpen) return redisClient
+  const maxRetries = 3
+  const delay = 1000
   for (let i = 0; i < maxRetries; i++) {
     try {
-      redisClient = createClient({ url: process.env.REDIS_URL || 'redis://localhost:6379' });
-      redisClient.on('error', (err) => logger.error('Redis Client Error', { err: err?.message }));
-      await redisClient.connect();
+      redisClient = createClient({ url: process.env.REDIS_URL || 'redis://localhost:6379' })
+      redisClient.on('error', (err) => logger.error('Redis Client Error', { err: err?.message }))
+      await redisClient.connect()
       if (process.env.NODE_ENV !== 'production') {
-        logger.info('Redis connected');
+        logger.info('Redis connected')
       }
-      return redisClient;
+      return redisClient
     } catch (err) {
-      if (i === maxRetries - 1) throw new Error('Failed to connect to Redis');
+      if (i === maxRetries - 1) throw new Error('Failed to connect to Redis')
       if (process.env.NODE_ENV !== 'production') {
-        logger.warn(`Redis connection failed, retrying...`, { attempt: i + 1, err: err?.message });
+        logger.warn(`Redis connection failed, retrying...`, { attempt: i + 1, err: err?.message })
       }
-      await new Promise((resolve) => setTimeout(resolve, delay));
+      await new Promise((resolve) => setTimeout(resolve, delay))
     }
   }
 }
 
 function getClientIp(request) {
-  const xForwardedFor = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim();
-  const xRealIp = request.headers.get('x-real-ip')?.trim();
-  const vercelIp = request.headers.get('x-vercel-forwarded-for')?.trim();
-  return xRealIp || vercelIp || xForwardedFor || 'unknown';
+  const xForwardedFor = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim()
+  const xRealIp = request.headers.get('x-real-ip')?.trim()
+  const vercelIp = request.headers.get('x-vercel-forwarded-for')?.trim()
+  return xRealIp || vercelIp || xForwardedFor || 'unknown'
 }
 
 const serializeBigInt = (obj) => {
   return JSON.parse(
-    JSON.stringify(obj, (key, value) =>
-      typeof value === 'bigint' ? value.toString() : value
-    )
-  );
-};
+    JSON.stringify(obj, (key, value) => (typeof value === 'bigint' ? value.toString() : value)),
+  )
+}
 
 async function withRetry(fn, retries = 3, delay = 2000) {
   for (let i = 0; i < retries; i++) {
     try {
-      return await fn();
+      return await fn()
     } catch (err) {
-      if (i === retries - 1) throw err;
+      if (i === retries - 1) throw err
       if (process.env.NODE_ENV !== 'production') {
-        logger.warn(`Database connection connection failed, retrying...`, { attempt: i + 1, err: err?.message });
+        logger.warn(`Database connection connection failed, retrying...`, {
+          attempt: i + 1,
+          err: err?.message,
+        })
       }
-      await new Promise((resolve) => setTimeout(resolve, delay));
+      await new Promise((resolve) => setTimeout(resolve, delay))
     }
   }
 }
 
 async function checkRateLimit(ip, userId = null) {
   if (process.env.NODE_ENV === 'development') {
-    return; // Skip rate limiting in development to prevent local issues
+    return // Skip rate limiting in development to prevent local issues
   }
-  const client = await getRedisClient();
-  const windowSeconds = 15 * 60;
-  const ipKey = `rate:ip:${ip}`;
-  const userKey = userId ? `rate:user:${userId}` : null;
-  const ipMax = process.env.NODE_ENV === 'development' ? 500 : 300;
-  const userMax = process.env.NODE_ENV === 'development' ? 300 : 500;
-  const ipCount = Number(await client.incr(ipKey));
-  if (ipCount === 1) await client.expire(ipKey, windowSeconds);
+  const client = await getRedisClient()
+  const windowSeconds = 15 * 60
+  const ipKey = `rate:ip:${ip}`
+  const userKey = userId ? `rate:user:${userId}` : null
+  const ipMax = process.env.NODE_ENV === 'development' ? 500 : 300
+  const userMax = process.env.NODE_ENV === 'development' ? 300 : 500
+  const ipCount = Number(await client.incr(ipKey))
+  if (ipCount === 1) await client.expire(ipKey, windowSeconds)
   if (ipCount > ipMax) {
-    throw new Error('Too many requests from this IP');
+    throw new Error('Too many requests from this IP')
   }
   if (userKey) {
-    const uCount = Number(await client.incr(userKey));
-    if (uCount === 1) await client.expire(userKey, windowSeconds);
+    const uCount = Number(await client.incr(userKey))
+    if (uCount === 1) await client.expire(userKey, windowSeconds)
     if (uCount > userMax) {
-      throw new Error('Too many requests for this user');
+      throw new Error('Too many requests for this user')
     }
   }
 }
 
 async function trackViolation(ip, reason) {
-  const client = await getRedisClient();
-  const key = `violations:${ip}`;
-  const maxViolations = 50;
-  const windowMs = 15 * 60 * 1000;
-  const violations = parseInt(await client.get(key)) || 0;
+  const client = await getRedisClient()
+  const key = `violations:${ip}`
+  const maxViolations = 50
+  const windowMs = 15 * 60 * 1000
+  const violations = parseInt(await client.get(key)) || 0
   if (violations >= maxViolations) {
-    await client.setEx(`banned_ip:${ip}`, 3600, 'banned');
-    logger.info('IP banned', { ip, reason });
-    throw new Error('IP banned due to repeated violations.');
+    await client.setEx(`banned_ip:${ip}`, 3600, 'banned')
+    logger.info('IP banned', { ip, reason })
+    throw new Error('IP banned due to repeated violations.')
   }
-  await client.multi().incr(key).expire(key, Math.floor(windowMs / 1000)).exec();
+  await client
+    .multi()
+    .incr(key)
+    .expire(key, Math.floor(windowMs / 1000))
+    .exec()
   if (process.env.NODE_ENV !== 'production') {
-    logger.warn('Violation recorded', { ip, reason, violations: violations + 1 });
+    logger.warn('Violation recorded', { ip, reason, violations: violations + 1 })
   }
 }
 
@@ -123,82 +128,88 @@ async function isAllowedOrigin(origin, referer, pathname, ip) {
     'https://xynapse-ai-xynapse-projects.vercel.app',
     'https://xynapse-ai.vercel.app',
     'https://base.xynapseai.net', // Add for Base mini app
-  ].filter(Boolean);
+  ].filter(Boolean)
 
   if (process.env.NODE_ENV !== 'production') {
-    return configured.includes(origin) || configured.includes(referer ? new URL(referer).origin : null);
+    return (
+      configured.includes(origin) || configured.includes(referer ? new URL(referer).origin : null)
+    )
   }
 
   try {
     if (!origin && !referer) {
-      await trackViolation(ip, 'Missing origin and referer in production');
-      return false;
+      await trackViolation(ip, 'Missing origin and referer in production')
+      return false
     }
 
     if (origin && origin !== 'null') {
       if (!origin.startsWith('https://')) {
-        await trackViolation(ip, 'Non-HTTPS origin in production');
-        return false;
+        await trackViolation(ip, 'Non-HTTPS origin in production')
+        return false
       }
       if (configured.includes(origin)) {
-        return true;
+        return true
       }
-      await trackViolation(ip, 'Invalid origin');
-      return false;
+      await trackViolation(ip, 'Invalid origin')
+      return false
     }
 
     if (referer) {
-      const refOrigin = new URL(referer).origin;
+      const refOrigin = new URL(referer).origin
       if (!refOrigin.startsWith('https://')) {
-        await trackViolation(ip, 'Non-HTTPS referer in production');
-        return false;
+        await trackViolation(ip, 'Non-HTTPS referer in production')
+        return false
       }
       if (configured.includes(refOrigin)) {
-        return true;
+        return true
       }
-      await trackViolation(ip, 'Invalid referer');
-      return false;
+      await trackViolation(ip, 'Invalid referer')
+      return false
     }
 
-    await trackViolation(ip, 'Invalid origin or referer');
-    return false;
+    await trackViolation(ip, 'Invalid origin or referer')
+    return false
   } catch {
-    await trackViolation(ip, 'Error validating origin');
-    return false;
+    await trackViolation(ip, 'Error validating origin')
+    return false
   }
 }
 
 function parseCookies(request) {
-  const raw = request.headers.get('cookie') || '';
+  const raw = request.headers.get('cookie') || ''
   try {
-    return cookie.parse(raw);
+    return cookie.parse(raw)
   } catch {
-    return {};
+    return {}
   }
 }
 
 async function generateCSRFToken() {
-  return crypto.randomBytes(32).toString('hex');
+  return crypto.randomBytes(32).toString('hex')
 }
 
 async function setCSRFToken(ip, userId) {
-  const client = await getRedisClient();
-  const token = await generateCSRFToken();
-  const key = `csrf:${userId || ip}`;
-  await client.setEx(key, 15 * 60, token);
-  return token;
+  const client = await getRedisClient()
+  const token = await generateCSRFToken()
+  const key = `csrf:${userId || ip}`
+  await client.setEx(key, 15 * 60, token)
+  return token
 }
 
 async function checkDoubleSubmitCSRF(request, ip, userId) {
-  const headerToken = request.headers.get('x-csrf-token') || '';
-  const cookies = parseCookies(request);
-  const cookieToken = cookies['csrf_token'] || '';
+  const headerToken = request.headers.get('x-csrf-token') || ''
+  const cookies = parseCookies(request)
+  const cookieToken = cookies['csrf_token'] || ''
 
-  if (process.env.NODE_ENV === 'development' && headerToken === 'dev-csrf' && cookieToken === 'dev-csrf') {
+  if (
+    process.env.NODE_ENV === 'development' &&
+    headerToken === 'dev-csrf' &&
+    cookieToken === 'dev-csrf'
+  ) {
     if (process.env.NODE_ENV !== 'production') {
-      logger.info('Development CSRF bypass used');
+      logger.info('Development CSRF bypass used')
     }
-    return true;
+    return true
   }
 
   if (!headerToken || !cookieToken) {
@@ -206,52 +217,57 @@ async function checkDoubleSubmitCSRF(request, ip, userId) {
       logger.warn('CSRF tokens missing', {
         headerProvided: !!headerToken,
         cookieProvided: !!cookieToken,
-      });
+      })
     }
-    return false;
+    return false
   }
 
-  const client = await getRedisClient();
-  const storedToken = await client.get(`csrf:${userId || ip}`);
+  const client = await getRedisClient()
+  const storedToken = await client.get(`csrf:${userId || ip}`)
   if (!storedToken) {
     if (process.env.NODE_ENV !== 'production') {
-      logger.warn('CSRF token not found in Redis', { key: `csrf:${userId || ip}` });
+      logger.warn('CSRF token not found in Redis', { key: `csrf:${userId || ip}` })
     }
-    return false;
+    return false
   }
 
   // FIXED: Add debug log for lengths
-  logger.info('CSRF token lengths', { header: headerToken.length, cookie: cookieToken.length, stored: storedToken.length });
+  logger.info('CSRF token lengths', {
+    header: headerToken.length,
+    cookie: cookieToken.length,
+    stored: storedToken.length,
+  })
 
-  const valid = crypto.timingSafeEqual(Buffer.from(headerToken), Buffer.from(cookieToken)) &&
-    crypto.timingSafeEqual(Buffer.from(cookieToken), Buffer.from(storedToken));
+  const valid =
+    crypto.timingSafeEqual(Buffer.from(headerToken), Buffer.from(cookieToken)) &&
+    crypto.timingSafeEqual(Buffer.from(cookieToken), Buffer.from(storedToken))
   if (!valid && process.env.NODE_ENV !== 'production') {
     logger.warn('CSRF token mismatch', {
       headerToken: mask(headerToken),
       cookieToken: mask(cookieToken),
       storedToken: mask(storedToken),
-    });
+    })
   }
-  return valid;
+  return valid
 }
 
 function mask(value, keep = 6) {
-  if (!value) return '';
-  return value.length <= keep ? '••••' : value.slice(0, keep) + '••••';
+  if (!value) return ''
+  return value.length <= keep ? '••••' : value.slice(0, keep) + '••••'
 }
 
 async function hashApiKey(apiKey) {
-  const salt = crypto.randomBytes(16).toString('hex');
-  const derived = await scrypt(apiKey, salt, 64);
+  const salt = crypto.randomBytes(16).toString('hex')
+  const derived = await scrypt(apiKey, salt, 64)
   return {
     api_key_hash: derived.toString('hex'),
     api_key_salt: salt,
-  };
+  }
 }
 
 // FIXED: Conditional sameSite: 'none' only prod (dev 'lax')
 function securityHeaders(csrfToken = null) {
-  const nonce = crypto.randomBytes(16).toString('base64');
+  const nonce = crypto.randomBytes(16).toString('base64')
   const csp = [
     "default-src 'self'",
     "script-src 'self' 'nonce-" + nonce + "'",
@@ -261,8 +277,8 @@ function securityHeaders(csrfToken = null) {
     "object-src 'none'",
     "frame-ancestors 'none'",
     "base-uri 'self'",
-    "form-action 'self'"
-  ].join('; ');
+    "form-action 'self'",
+  ].join('; ')
 
   const headers = {
     'Content-Security-Policy': csp,
@@ -272,23 +288,23 @@ function securityHeaders(csrfToken = null) {
     'Referrer-Policy': 'strict-origin-when-cross-origin',
     'Permissions-Policy': 'geolocation=(), microphone=(), camera=()',
     'Strict-Transport-Security': 'max-age=63072000; includeSubDomains; preload',
-  };
+  }
   if (csrfToken) {
-    const sameSite = process.env.NODE_ENV === 'production' ? 'none' : 'lax';
+    const sameSite = process.env.NODE_ENV === 'production' ? 'none' : 'lax'
     headers['Set-Cookie'] = cookie.serialize('csrf_token', csrfToken, {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
       sameSite: sameSite,
       maxAge: 15 * 60,
       path: '/',
-    });
+    })
   }
-  return headers;
+  return headers
 }
 
 const getSchema = z.object({
   uid: z.string().max(100),
-});
+})
 
 const postSchema = z.object({
   id: z.string().max(100),
@@ -298,13 +314,13 @@ const postSchema = z.object({
   googleName: z.string().max(255).optional(),
   emailVerified: z.boolean().optional(),
   walletAddress: z.string().optional(), // Add for Base
-});
+})
 
 // FIXED: Wrap in try-catch for DB error (cause 500)
 async function computeStreak(userId) {
   try {
-    const thirtyDaysAgo = new Date();
-    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+    const thirtyDaysAgo = new Date()
+    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30)
     const completions = await prisma.task_completions.findMany({
       where: {
         user_id: userId,
@@ -312,38 +328,38 @@ async function computeStreak(userId) {
         completed_at: { gte: thirtyDaysAgo },
       },
       orderBy: { completed_at: 'desc' },
-    });
+    })
 
-    let streak = 0;
-    let expectedDate = new Date();
-    expectedDate.setUTCHours(23, 59, 59, 999);
+    let streak = 0
+    let expectedDate = new Date()
+    expectedDate.setUTCHours(23, 59, 59, 999)
 
     for (const comp of completions) {
-      const compDate = new Date(comp.completed_at);
-      compDate.setUTCHours(23, 59, 59, 999);
+      const compDate = new Date(comp.completed_at)
+      compDate.setUTCHours(23, 59, 59, 999)
       if (compDate.getTime() === expectedDate.getTime()) {
-        streak++;
-        expectedDate.setDate(expectedDate.getDate() - 1);
+        streak++
+        expectedDate.setDate(expectedDate.getDate() - 1)
       } else {
-        break;
+        break
       }
     }
-    return streak;
+    return streak
   } catch (err) {
-    logger.error('computeStreak error', { err: err.message, userId });
-    return 0;  // Fallback
+    logger.error('computeStreak error', { err: err.message, userId })
+    return 0 // Fallback
   }
 }
 
 // FIXED: Wrap in try-catch for DB error
 async function getLast7Days(userId) {
   try {
-    const today = new Date();
-    today.setUTCHours(0, 0, 0, 0);
-    const todayEnd = new Date(today);
-    todayEnd.setUTCHours(23, 59, 59, 999);
-    const sevenDaysAgo = new Date(today);
-    sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+    const today = new Date()
+    today.setUTCHours(0, 0, 0, 0)
+    const todayEnd = new Date(today)
+    todayEnd.setUTCHours(23, 59, 59, 999)
+    const sevenDaysAgo = new Date(today)
+    sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7)
 
     const completions = await prisma.task_completions.findMany({
       where: {
@@ -351,125 +367,150 @@ async function getLast7Days(userId) {
         task_id: 'daily_checkin',
         completed_at: { gte: sevenDaysAgo, lte: todayEnd },
       },
-    });
+    })
 
-    const checked = new Set();
-    completions.forEach(comp => {
-      const dateStr = new Date(comp.completed_at).toISOString().split('T')[0];
-      checked.add(dateStr);
-    });
+    const checked = new Set()
+    completions.forEach((comp) => {
+      const dateStr = new Date(comp.completed_at).toISOString().split('T')[0]
+      checked.add(dateStr)
+    })
 
-    const last7 = [];
+    const last7 = []
     for (let i = 6; i >= 0; i--) {
-      const date = new Date(today);
-      date.setDate(date.getDate() - i);
-      const dateStr = date.toISOString().split('T')[0];
-      last7.push(checked.has(dateStr));
+      const date = new Date(today)
+      date.setDate(date.getDate() - i)
+      const dateStr = date.toISOString().split('T')[0]
+      last7.push(checked.has(dateStr))
     }
-    return last7;
+    return last7
   } catch (err) {
-    logger.error('getLast7Days error', { err: err.message, userId });
-    return Array(7).fill(false);  // Fallback
+    logger.error('getLast7Days error', { err: err.message, userId })
+    return Array(7).fill(false) // Fallback
   }
 }
 
 export async function GET(request) {
-  const ip = getClientIp(request);
-  const origin = request.headers.get('origin');
-  const referer = request.headers.get('referer');
-  const pathname = new URL(request.url).pathname;
-  const params = Object.fromEntries(request.nextUrl.searchParams);
+  const ip = getClientIp(request)
+  const origin = request.headers.get('origin')
+  const referer = request.headers.get('referer')
+  const pathname = new URL(request.url).pathname
+  const params = Object.fromEntries(request.nextUrl.searchParams)
   if (process.env.NODE_ENV !== 'production') {
-    logger.info('GET /api/user requested', { ip, pathname });
+    logger.info('GET /api/user requested', { ip, pathname })
   }
 
   if (!(await isAllowedOrigin(origin, referer, pathname, ip))) {
-    await trackViolation(ip, 'CORS blocked');
-    return NextResponse.json({ detail: 'Not allowed by CORS' }, { status: 403, headers: securityHeaders() });
+    await trackViolation(ip, 'CORS blocked')
+    return NextResponse.json(
+      { detail: 'Not allowed by CORS' },
+      { status: 403, headers: securityHeaders() },
+    )
   }
 
   // FIXED: Handle null origin in CORS headers
   const headers = {
     ...securityHeaders(),
-    ...(origin && origin !== 'null' && {
-      'Access-Control-Allow-Origin': origin,
-      'Access-Control-Allow-Methods': 'GET, POST',
-      'Access-Control-Allow-Headers': 'Content-Type, X-Recaptcha-Token, X-CSRF-Token',
-      'Access-Control-Allow-Credentials': 'true',
-    }),
+    ...(origin &&
+      origin !== 'null' && {
+        'Access-Control-Allow-Origin': origin,
+        'Access-Control-Allow-Methods': 'GET, POST',
+        'Access-Control-Allow-Headers': 'Content-Type, X-Recaptcha-Token, X-CSRF-Token',
+        'Access-Control-Allow-Credentials': 'true',
+      }),
     // CHANGED: Explicit for null origin – use referer if available
-    ...(origin === 'null' && referer && {
-      'Access-Control-Allow-Origin': new URL(referer).origin,
-      'Access-Control-Allow-Methods': 'GET, POST',
-      'Access-Control-Allow-Headers': 'Content-Type, X-Recaptcha-Token, X-CSRF-Token',
-      'Access-Control-Allow-Credentials': 'true',
-    }),
-  };
+    ...(origin === 'null' &&
+      referer && {
+        'Access-Control-Allow-Origin': new URL(referer).origin,
+        'Access-Control-Allow-Methods': 'GET, POST',
+        'Access-Control-Allow-Headers': 'Content-Type, X-Recaptcha-Token, X-CSRF-Token',
+        'Access-Control-Allow-Credentials': 'true',
+      }),
+  }
 
   try {
-    const session = await auth();
-    const userId = session?.user?.id || null;
+    const session = await auth()
+    const userId = session?.user?.id || null
 
     if (!session || !userId) {
-      await trackViolation(ip, 'Unauthenticated request');
-      return NextResponse.json({ detail: 'Not authenticated' }, { status: 401, headers });
+      await trackViolation(ip, 'Unauthenticated request')
+      return NextResponse.json({ detail: 'Not authenticated' }, { status: 401, headers })
     }
 
     try {
-      await checkRateLimit(ip, userId);
+      await checkRateLimit(ip, userId)
     } catch (err) {
       if (userId && err.message.includes('Too many requests')) {
-        logger.warn('GET /api/user rate limit soft-fail, serving cache if available', { userId });
+        logger.warn('GET /api/user rate limit soft-fail, serving cache if available', { userId })
       } else {
-        await trackViolation(ip, err.message);
-        return NextResponse.json({ detail: 'Too many requests' }, { status: 429, headers });
+        await trackViolation(ip, err.message)
+        return NextResponse.json({ detail: 'Too many requests' }, { status: 429, headers })
       }
     }
 
-    let newCsrfToken;
-    const csrfOk = await checkDoubleSubmitCSRF(request, ip, userId);
+    let newCsrfToken
+    const csrfOk = await checkDoubleSubmitCSRF(request, ip, userId)
     if (!csrfOk) {
-      newCsrfToken = await setCSRFToken(ip, userId);
-      return NextResponse.json({ detail: 'Invalid CSRF token. Please try again.' }, { status: 403, headers: securityHeaders(newCsrfToken) });
+      newCsrfToken = await setCSRFToken(ip, userId)
+      return NextResponse.json(
+        { detail: 'Invalid CSRF token. Please try again.' },
+        { status: 403, headers: securityHeaders(newCsrfToken) },
+      )
     }
 
-    let parsedParams;
+    let parsedParams
     try {
-      parsedParams = getSchema.parse(params);
+      parsedParams = getSchema.parse(params)
     } catch {
-      newCsrfToken = newCsrfToken || await setCSRFToken(ip, userId);
-      return NextResponse.json({ detail: 'Invalid input data' }, { status: 400, headers: securityHeaders(newCsrfToken) });
+      newCsrfToken = newCsrfToken || (await setCSRFToken(ip, userId))
+      return NextResponse.json(
+        { detail: 'Invalid input data' },
+        { status: 400, headers: securityHeaders(newCsrfToken) },
+      )
     }
-    const { uid } = parsedParams;
+    const { uid } = parsedParams
 
     if (uid !== session.user.id) {
-      newCsrfToken = newCsrfToken || await setCSRFToken(ip, userId);
-      return NextResponse.json({ detail: 'Access denied: Invalid UID' }, { status: 403, headers: securityHeaders(newCsrfToken) });
+      newCsrfToken = newCsrfToken || (await setCSRFToken(ip, userId))
+      return NextResponse.json(
+        { detail: 'Access denied: Invalid UID' },
+        { status: 403, headers: securityHeaders(newCsrfToken) },
+      )
     }
 
-    const recaptchaToken = request.headers.get('x-recaptcha-token');
+    const recaptchaToken = request.headers.get('x-recaptcha-token')
     if (recaptchaToken && process.env.NODE_ENV !== 'development') {
       try {
-        const recaptchaResponse = await verifyRecaptcha(recaptchaToken, 'get_user', ip);
-        if (!recaptchaResponse.success || (recaptchaResponse.score !== undefined && recaptchaResponse.score < 0.4)) {
-          newCsrfToken = newCsrfToken || await setCSRFToken(ip, userId);
-          return NextResponse.json({ detail: 'reCAPTCHA verification failed' }, { status: 403, headers: securityHeaders(newCsrfToken) });
+        const recaptchaResponse = await verifyRecaptcha(recaptchaToken, 'get_user', ip)
+        if (
+          !recaptchaResponse.success ||
+          (recaptchaResponse.score !== undefined && recaptchaResponse.score < 0.4)
+        ) {
+          newCsrfToken = newCsrfToken || (await setCSRFToken(ip, userId))
+          return NextResponse.json(
+            { detail: 'reCAPTCHA verification failed' },
+            { status: 403, headers: securityHeaders(newCsrfToken) },
+          )
         }
         if (process.env.NODE_ENV !== 'production') {
-          logger.info('reCAPTCHA OK', { ip, score: recaptchaResponse.score });
+          logger.info('reCAPTCHA OK', { ip, score: recaptchaResponse.score })
         }
       } catch {
-        newCsrfToken = newCsrfToken || await setCSRFToken(ip, userId);
-        return NextResponse.json({ detail: 'reCAPTCHA verification failed' }, { status: 403, headers: securityHeaders(newCsrfToken) });
+        newCsrfToken = newCsrfToken || (await setCSRFToken(ip, userId))
+        return NextResponse.json(
+          { detail: 'reCAPTCHA verification failed' },
+          { status: 403, headers: securityHeaders(newCsrfToken) },
+        )
       }
     }
 
     try {
-      const cacheKey = `user:${uid}`;
-      const client = await getRedisClient();
-      const cached = await client.get(cacheKey);
+      const cacheKey = `user:${uid}`
+      const client = await getRedisClient()
+      const cached = await client.get(cacheKey)
       if (cached) {
-        return NextResponse.json(JSON.parse(cached), { headers: securityHeaders(await setCSRFToken(ip, userId)) });
+        return NextResponse.json(JSON.parse(cached), {
+          headers: securityHeaders(await setCSRFToken(ip, userId)),
+        })
       }
 
       // UPDATED: Removed has_minted_nft from select (on-chain only)
@@ -483,7 +524,7 @@ export async function GET(request) {
             profile_picture: true,
             google_name: true,
             email_verified: true,
-            wallet_address: true, // Ensure select wallet
+            wallet_address: true,
             points: true,
             tweet_points: true,
             ai_points: true,
@@ -496,22 +537,26 @@ export async function GET(request) {
             twitter_handle: true,
             days_active: true,
             farcaster_fid: true,
+            invite_code: true, // Thêm invite_code
             twitter_handles: {
               select: {
                 profile_picture: true,
               },
             },
           },
-        })
-      );
+        }),
+      )
 
       if (!user) {
-        newCsrfToken = newCsrfToken || await setCSRFToken(ip, userId);
-        return NextResponse.json({ detail: 'User not found' }, { status: 500, headers: securityHeaders(newCsrfToken) });
+        newCsrfToken = newCsrfToken || (await setCSRFToken(ip, userId))
+        return NextResponse.json(
+          { detail: 'User not found' },
+          { status: 500, headers: securityHeaders(newCsrfToken) },
+        )
       }
 
-      const streak = await computeStreak(uid);
-      const last7Days = await getLast7Days(uid);
+      const streak = await computeStreak(uid)
+      const last7Days = await getLast7Days(uid)
 
       // UPDATED: Removed has_minted_nft from response
       const data = {
@@ -538,132 +583,176 @@ export async function GET(request) {
           streak,
           last7Days,
           farcaster_fid: user.farcaster_fid || null, // NEW: For auto-connect check
+          inviteCode: user.invite_code || '',
         },
-      };
+      }
 
-      await client.setEx(cacheKey, 300, JSON.stringify(serializeBigInt(data)));
-      newCsrfToken = newCsrfToken || await setCSRFToken(ip, userId);
-      return NextResponse.json(data, { headers: securityHeaders(newCsrfToken) });
+      await client.setEx(cacheKey, 300, JSON.stringify(serializeBigInt(data)))
+      newCsrfToken = newCsrfToken || (await setCSRFToken(ip, userId))
+      return NextResponse.json(data, { headers: securityHeaders(newCsrfToken) })
     } catch (error) {
-      logger.error('Error in /api/user GET', { error: error.message, stack: error.stack, ip });
-      newCsrfToken = newCsrfToken || await setCSRFToken(ip, userId);
-      return NextResponse.json({ detail: 'Server error' }, { status: 500, headers: securityHeaders(newCsrfToken) });
+      logger.error('Error in /api/user GET', { error: error.message, stack: error.stack, ip })
+      newCsrfToken = newCsrfToken || (await setCSRFToken(ip, userId))
+      return NextResponse.json(
+        { detail: 'Server error' },
+        { status: 500, headers: securityHeaders(newCsrfToken) },
+      )
     }
   } catch (error) {
-    logger.error('Unexpected error in /api/user GET', { error: error.message, stack: error.stack, ip });
-    return NextResponse.json({ detail: 'Server error' }, { status: 500, headers: securityHeaders() });
+    logger.error('Unexpected error in /api/user GET', {
+      error: error.message,
+      stack: error.stack,
+      ip,
+    })
+    return NextResponse.json(
+      { detail: 'Server error' },
+      { status: 500, headers: securityHeaders() },
+    )
   }
 }
 
 export async function POST(request) {
-  const ip = getClientIp(request);
-  const origin = request.headers.get('origin');
-  const referer = request.headers.get('referer');
-  const pathname = new URL(request.url).pathname;
+  const ip = getClientIp(request)
+  const origin = request.headers.get('origin')
+  const referer = request.headers.get('referer')
+  const pathname = new URL(request.url).pathname
   if (process.env.NODE_ENV !== 'production') {
-    logger.info('POST /api/user requested', { ip, pathname });
+    logger.info('POST /api/user requested', { ip, pathname })
   }
 
   if (!(await isAllowedOrigin(origin, referer, pathname, ip))) {
-    await trackViolation(ip, 'CORS blocked');
-    return NextResponse.json({ detail: 'Not allowed by CORS' }, { status: 403, headers: securityHeaders() });
+    await trackViolation(ip, 'CORS blocked')
+    return NextResponse.json(
+      { detail: 'Not allowed by CORS' },
+      { status: 403, headers: securityHeaders() },
+    )
   }
 
   // FIXED: Handle null origin in CORS headers
   const headers = {
     ...securityHeaders(),
-    ...(origin && origin !== 'null' && {
-      'Access-Control-Allow-Origin': origin,
-      'Access-Control-Allow-Methods': 'GET, POST',
-      'Access-Control-Allow-Headers': 'Content-Type, X-Recaptcha-Token, X-CSRF-Token',
-      'Access-Control-Allow-Credentials': 'true',
-    }),
+    ...(origin &&
+      origin !== 'null' && {
+        'Access-Control-Allow-Origin': origin,
+        'Access-Control-Allow-Methods': 'GET, POST',
+        'Access-Control-Allow-Headers': 'Content-Type, X-Recaptcha-Token, X-CSRF-Token',
+        'Access-Control-Allow-Credentials': 'true',
+      }),
     // CHANGED: Explicit for null origin – use referer if available
-    ...(origin === 'null' && referer && {
-      'Access-Control-Allow-Origin': new URL(referer).origin,
-      'Access-Control-Allow-Methods': 'GET, POST',
-      'Access-Control-Allow-Headers': 'Content-Type, X-Recaptcha-Token, X-CSRF-Token',
-      'Access-Control-Allow-Credentials': 'true',
-    }),
-  };
+    ...(origin === 'null' &&
+      referer && {
+        'Access-Control-Allow-Origin': new URL(referer).origin,
+        'Access-Control-Allow-Methods': 'GET, POST',
+        'Access-Control-Allow-Headers': 'Content-Type, X-Recaptcha-Token, X-CSRF-Token',
+        'Access-Control-Allow-Credentials': 'true',
+      }),
+  }
 
   try {
-    const session = await auth();
-    const userId = session?.user?.id || null;
+    const session = await auth()
+    const userId = session?.user?.id || null
 
     if (!session || !userId) {
-      await trackViolation(ip, 'Unauthenticated request');
-      return NextResponse.json({ detail: 'Not authenticated' }, { status: 401, headers });
+      await trackViolation(ip, 'Unauthenticated request')
+      return NextResponse.json({ detail: 'Not authenticated' }, { status: 401, headers })
     }
 
     try {
-      await checkRateLimit(ip, userId);
+      await checkRateLimit(ip, userId)
     } catch (err) {
-      await trackViolation(ip, err.message);
-      return NextResponse.json({ detail: 'Too many requests' }, { status: 429, headers });
+      await trackViolation(ip, err.message)
+      return NextResponse.json({ detail: 'Too many requests' }, { status: 429, headers })
     }
 
-    let newCsrfToken;
-    const csrfOk = await checkDoubleSubmitCSRF(request, ip, userId);
+    let newCsrfToken
+    const csrfOk = await checkDoubleSubmitCSRF(request, ip, userId)
     if (!csrfOk) {
-      newCsrfToken = await setCSRFToken(ip, userId);
-      return NextResponse.json({ detail: 'Invalid CSRF token. Please try again.' }, { status: 403, headers: securityHeaders(newCsrfToken) });
+      newCsrfToken = await setCSRFToken(ip, userId)
+      return NextResponse.json(
+        { detail: 'Invalid CSRF token. Please try again.' },
+        { status: 403, headers: securityHeaders(newCsrfToken) },
+      )
     }
 
-    const recaptchaToken = request.headers.get('x-recaptcha-token');
+    const recaptchaToken = request.headers.get('x-recaptcha-token')
     if (!recaptchaToken && process.env.NODE_ENV !== 'development') {
-      newCsrfToken = newCsrfToken || await setCSRFToken(ip, userId);
-      await trackViolation(ip, 'Missing reCAPTCHA token');
-      return NextResponse.json({ detail: 'Missing reCAPTCHA token' }, { status: 400, headers: securityHeaders(newCsrfToken) });
+      newCsrfToken = newCsrfToken || (await setCSRFToken(ip, userId))
+      await trackViolation(ip, 'Missing reCAPTCHA token')
+      return NextResponse.json(
+        { detail: 'Missing reCAPTCHA token' },
+        { status: 400, headers: securityHeaders(newCsrfToken) },
+      )
     }
     if (process.env.NODE_ENV !== 'development') {
       try {
-        const recaptchaResponse = await verifyRecaptcha(recaptchaToken, 'post_user', ip);
+        const recaptchaResponse = await verifyRecaptcha(recaptchaToken, 'post_user', ip)
         if (!recaptchaResponse.success) {
-          newCsrfToken = newCsrfToken || await setCSRFToken(ip, userId);
+          newCsrfToken = newCsrfToken || (await setCSRFToken(ip, userId))
           if (recaptchaResponse.needsFallback) {
-            return NextResponse.json({ detail: 'low_score_fallback' }, { status: 403, headers: securityHeaders(newCsrfToken) });
+            return NextResponse.json(
+              { detail: 'low_score_fallback' },
+              { status: 403, headers: securityHeaders(newCsrfToken) },
+            )
           }
-          await trackViolation(ip, `reCAPTCHA verification failed: ${recaptchaResponse.error}`);
-          return NextResponse.json({ detail: `reCAPTCHA verification failed: ${recaptchaResponse.error}` }, { status: 403, headers: securityHeaders(newCsrfToken) });
+          await trackViolation(ip, `reCAPTCHA verification failed: ${recaptchaResponse.error}`)
+          return NextResponse.json(
+            { detail: `reCAPTCHA verification failed: ${recaptchaResponse.error}` },
+            { status: 403, headers: securityHeaders(newCsrfToken) },
+          )
         }
         if (process.env.NODE_ENV !== 'production') {
-          logger.info('reCAPTCHA OK', { ip, score: recaptchaResponse.score });
+          logger.info('reCAPTCHA OK', { ip, score: recaptchaResponse.score })
         }
       } catch (error) {
-        newCsrfToken = newCsrfToken || await setCSRFToken(ip, userId);
-        await trackViolation(ip, `reCAPTCHA verification error: ${error.message}`);
-        return NextResponse.json({ detail: `reCAPTCHA verification failed: ${error.message}` }, { status: 403, headers: securityHeaders(newCsrfToken) });
+        newCsrfToken = newCsrfToken || (await setCSRFToken(ip, userId))
+        await trackViolation(ip, `reCAPTCHA verification error: ${error.message}`)
+        return NextResponse.json(
+          { detail: `reCAPTCHA verification failed: ${error.message}` },
+          { status: 403, headers: securityHeaders(newCsrfToken) },
+        )
       }
     }
 
-    let body;
+    let body
     try {
-      body = await request.json();
+      body = await request.json()
     } catch {
-      newCsrfToken = newCsrfToken || await setCSRFToken(ip, userId);
-      await trackViolation(ip, 'Invalid JSON body');
-      return NextResponse.json({ detail: 'Invalid JSON body' }, { status: 400, headers: securityHeaders(newCsrfToken) });
+      newCsrfToken = newCsrfToken || (await setCSRFToken(ip, userId))
+      await trackViolation(ip, 'Invalid JSON body')
+      return NextResponse.json(
+        { detail: 'Invalid JSON body' },
+        { status: 400, headers: securityHeaders(newCsrfToken) },
+      )
     }
 
-    let parsedBody;
+    let parsedBody
     try {
-      parsedBody = postSchema.parse(body);
+      parsedBody = postSchema.parse(body)
     } catch {
-      newCsrfToken = newCsrfToken || await setCSRFToken(ip, userId);
-      await trackViolation(ip, 'Invalid input data');
-      return NextResponse.json({ detail: 'Invalid input data' }, { status: 400, headers: securityHeaders(newCsrfToken) });
+      newCsrfToken = newCsrfToken || (await setCSRFToken(ip, userId))
+      await trackViolation(ip, 'Invalid input data')
+      return NextResponse.json(
+        { detail: 'Invalid input data' },
+        { status: 400, headers: securityHeaders(newCsrfToken) },
+      )
     }
 
-    const { id, email, profilePicture, googleId, googleName, emailVerified, walletAddress } = parsedBody;
+    const { id, email, profilePicture, googleId, googleName, emailVerified, walletAddress } =
+      parsedBody
 
     if (session.user.id !== id) {
-      newCsrfToken = newCsrfToken || await setCSRFToken(ip, userId);
-      await trackViolation(ip, 'Unauthorized user update');
-      return NextResponse.json({ detail: 'Not authorized' }, { status: 401, headers: securityHeaders(newCsrfToken) });
+      newCsrfToken = newCsrfToken || (await setCSRFToken(ip, userId))
+      await trackViolation(ip, 'Unauthorized user update')
+      return NextResponse.json(
+        { detail: 'Not authorized' },
+        { status: 401, headers: securityHeaders(newCsrfToken) },
+      )
     }
 
     try {
+      const url = new URL(request.url)
+      const inviteParam = url.searchParams.get('invite') // Lấy ?invite=code từ URL signup (nếu có)
+
       const userData = {
         email,
         google_id: googleId || null,
@@ -684,10 +773,36 @@ export async function POST(request) {
         is_premium: false,
         twitter_handle: null,
         days_active: 0,
-      };
+      }
 
-      const plainApiKey = crypto.randomBytes(32).toString('hex');
-      const { api_key_hash, api_key_salt } = await hashApiKey(plainApiKey);
+      const plainApiKey = crypto.randomBytes(32).toString('hex')
+      const { api_key_hash, api_key_salt } = await hashApiKey(plainApiKey)
+
+      let inviterId = null
+      if (inviteParam) {
+        const inviter = await prisma.users.findUnique({
+          where: { invite_code: inviteParam },
+          select: { id: true },
+        })
+        if (inviter) {
+          inviterId = inviter.id
+        }
+      }
+
+      let inviteCode = null
+      const existingUser = await prisma.users.findUnique({
+        where: { id },
+        select: { invite_code: true },
+      })
+
+      if (!existingUser?.invite_code) {
+        let isUnique = false
+        while (!isUnique) {
+          inviteCode = crypto.randomBytes(8).toString('hex').toUpperCase()
+          const conflict = await prisma.users.findUnique({ where: { invite_code: inviteCode } })
+          if (!conflict) isUnique = true
+        }
+      }
 
       const updatedUser = await withRetry(() =>
         prisma.users.upsert({
@@ -697,6 +812,8 @@ export async function POST(request) {
             api_key_hash,
             api_key_salt,
             api_key_updated_at: new Date(),
+            invited_by: inviterId,
+            ...(inviteCode && { invite_code: inviteCode }),
           },
           create: {
             ...userData,
@@ -705,22 +822,24 @@ export async function POST(request) {
             api_key_hash,
             api_key_salt,
             api_key_updated_at: new Date(),
+            invite_code: inviteCode || crypto.randomBytes(8).toString('hex').toUpperCase(),
+            invited_by: inviterId,
           },
-        })
-      );
+        }),
+      )
 
       try {
-        const client = await getRedisClient();
-        const cacheKey = `user:${id}`;
-        await client.del(cacheKey);
+        const client = await getRedisClient()
+        await client.del(`user:${id}`)
+        if (inviterId) await client.del(`user:${inviterId}`)
       } catch (err) {
-        if (process.env.NODE_ENV !== 'production') {
-          logger.warn('Failed to clear cache for user', { id: mask(id), err: err?.message });
-        }
+        logger.warn('Failed to clear cache after creating/updating invite code', {
+          err: err?.message,
+        })
       }
 
-      newCsrfToken = newCsrfToken || await setCSRFToken(ip, userId);
-      headers['X-API-Key'] = plainApiKey;
+      newCsrfToken = newCsrfToken || (await setCSRFToken(ip, userId))
+      headers['X-API-Key'] = plainApiKey
       return NextResponse.json(
         {
           success: true,
@@ -733,126 +852,162 @@ export async function POST(request) {
             email_verified: updatedUser.email_verified,
           }),
         },
-        { headers: { ...headers, ...securityHeaders(newCsrfToken) } }
-      );
-    } catch {
-      newCsrfToken = newCsrfToken || await setCSRFToken(ip, userId);
-      return NextResponse.json({ detail: 'Server error' }, { status: 500, headers: securityHeaders(newCsrfToken) });
+        { headers: { ...headers, ...securityHeaders(newCsrfToken) } },
+      )
+    } catch (error) {
+      logger.error('Error in POST /api/user', { error: error.message, stack: error.stack })
+      newCsrfToken = newCsrfToken || (await setCSRFToken(ip, userId))
+      return NextResponse.json(
+        { detail: 'Server error' },
+        { status: 500, headers: securityHeaders(newCsrfToken) },
+      )
     }
   } catch {
-    return NextResponse.json({ detail: 'Server error' }, { status: 500, headers: securityHeaders() });
+    return NextResponse.json(
+      { detail: 'Server error' },
+      { status: 500, headers: securityHeaders() },
+    )
   }
 }
 
 export async function PATCH(request) {
-  const ip = getClientIp(request);
-  const origin = request.headers.get('origin');
-  const referer = request.headers.get('referer');
-  const pathname = new URL(request.url).pathname;
+  const ip = getClientIp(request)
+  const origin = request.headers.get('origin')
+  const referer = request.headers.get('referer')
+  const pathname = new URL(request.url).pathname
   if (process.env.NODE_ENV !== 'production') {
-    logger.info('PATCH /api/user requested', { ip, pathname });
+    logger.info('PATCH /api/user requested', { ip, pathname })
   }
 
   if (!(await isAllowedOrigin(origin, referer, pathname, ip))) {
-    await trackViolation(ip, 'CORS blocked');
-    return NextResponse.json({ detail: 'Not allowed by CORS' }, { status: 403, headers: securityHeaders() });
+    await trackViolation(ip, 'CORS blocked')
+    return NextResponse.json(
+      { detail: 'Not allowed by CORS' },
+      { status: 403, headers: securityHeaders() },
+    )
   }
 
   const headers = {
     ...securityHeaders(),
-    ...(origin && origin !== 'null' && {
-      'Access-Control-Allow-Origin': origin,
-      'Access-Control-Allow-Methods': 'GET, POST, PATCH',
-      'Access-Control-Allow-Headers': 'Content-Type, X-Recaptcha-Token, X-CSRF-Token',
-      'Access-Control-Allow-Credentials': 'true',
-    }),
-    ...(origin === 'null' && referer && {
-      'Access-Control-Allow-Origin': new URL(referer).origin,
-      'Access-Control-Allow-Methods': 'GET, POST, PATCH',
-      'Access-Control-Allow-Headers': 'Content-Type, X-Recaptcha-Token, X-CSRF-Token',
-      'Access-Control-Allow-Credentials': 'true',
-    }),
-  };
+    ...(origin &&
+      origin !== 'null' && {
+        'Access-Control-Allow-Origin': origin,
+        'Access-Control-Allow-Methods': 'GET, POST, PATCH',
+        'Access-Control-Allow-Headers': 'Content-Type, X-Recaptcha-Token, X-CSRF-Token',
+        'Access-Control-Allow-Credentials': 'true',
+      }),
+    ...(origin === 'null' &&
+      referer && {
+        'Access-Control-Allow-Origin': new URL(referer).origin,
+        'Access-Control-Allow-Methods': 'GET, POST, PATCH',
+        'Access-Control-Allow-Headers': 'Content-Type, X-Recaptcha-Token, X-CSRF-Token',
+        'Access-Control-Allow-Credentials': 'true',
+      }),
+  }
 
   try {
-    const session = await auth();
-    const userId = session?.user?.id || null;
+    const session = await auth()
+    const userId = session?.user?.id || null
 
     if (!session || !userId) {
-      await trackViolation(ip, 'Unauthenticated request');
-      return NextResponse.json({ detail: 'Not authenticated' }, { status: 401, headers });
+      await trackViolation(ip, 'Unauthenticated request')
+      return NextResponse.json({ detail: 'Not authenticated' }, { status: 401, headers })
     }
 
     try {
-      await checkRateLimit(ip, userId);
+      await checkRateLimit(ip, userId)
     } catch (err) {
-      await trackViolation(ip, err.message);
-      return NextResponse.json({ detail: 'Too many requests' }, { status: 429, headers });
+      await trackViolation(ip, err.message)
+      return NextResponse.json({ detail: 'Too many requests' }, { status: 429, headers })
     }
 
-    let newCsrfToken;
-    const csrfOk = await checkDoubleSubmitCSRF(request, ip, userId);
+    let newCsrfToken
+    const csrfOk = await checkDoubleSubmitCSRF(request, ip, userId)
     if (!csrfOk) {
-      newCsrfToken = await setCSRFToken(ip, userId);
-      return NextResponse.json({ detail: 'Invalid CSRF token. Please try again.' }, { status: 403, headers: securityHeaders(newCsrfToken) });
+      newCsrfToken = await setCSRFToken(ip, userId)
+      return NextResponse.json(
+        { detail: 'Invalid CSRF token. Please try again.' },
+        { status: 403, headers: securityHeaders(newCsrfToken) },
+      )
     }
 
     // FIXED: Make reCAPTCHA optional for disconnect (walletAddress: null)
-    const recaptchaToken = request.headers.get('x-recaptcha-token');
-    let body;
+    const recaptchaToken = request.headers.get('x-recaptcha-token')
+    let body
     try {
-      body = await request.json();
+      body = await request.json()
     } catch {
-      newCsrfToken = newCsrfToken || await setCSRFToken(ip, userId);
-      await trackViolation(ip, 'Invalid JSON body');
-      return NextResponse.json({ detail: 'Invalid JSON body' }, { status: 400, headers: securityHeaders(newCsrfToken) });
+      newCsrfToken = newCsrfToken || (await setCSRFToken(ip, userId))
+      await trackViolation(ip, 'Invalid JSON body')
+      return NextResponse.json(
+        { detail: 'Invalid JSON body' },
+        { status: 400, headers: securityHeaders(newCsrfToken) },
+      )
     }
 
-    let parsedBody;
+    let parsedBody
     const patchSchema = z.object({
       uid: z.string().max(100),
       walletAddress: z.string().nullable(),
-    });
+    })
     try {
-      parsedBody = patchSchema.parse(body);
+      parsedBody = patchSchema.parse(body)
     } catch {
-      newCsrfToken = newCsrfToken || await setCSRFToken(ip, userId);
-      await trackViolation(ip, 'Invalid input data');
-      return NextResponse.json({ detail: 'Invalid input data' }, { status: 400, headers: securityHeaders(newCsrfToken) });
+      newCsrfToken = newCsrfToken || (await setCSRFToken(ip, userId))
+      await trackViolation(ip, 'Invalid input data')
+      return NextResponse.json(
+        { detail: 'Invalid input data' },
+        { status: 400, headers: securityHeaders(newCsrfToken) },
+      )
     }
 
-    const { uid, walletAddress } = parsedBody;
+    const { uid, walletAddress } = parsedBody
 
     if (session.user.id !== uid) {
-      newCsrfToken = newCsrfToken || await setCSRFToken(ip, userId);
-      await trackViolation(ip, 'Unauthorized user update');
-      return NextResponse.json({ detail: 'Not authorized' }, { status: 401, headers: securityHeaders(newCsrfToken) });
+      newCsrfToken = newCsrfToken || (await setCSRFToken(ip, userId))
+      await trackViolation(ip, 'Unauthorized user update')
+      return NextResponse.json(
+        { detail: 'Not authorized' },
+        { status: 401, headers: securityHeaders(newCsrfToken) },
+      )
     }
 
     // FIXED: Skip reCAPTCHA if disconnecting (walletAddress === null)
     if (process.env.NODE_ENV !== 'development' && walletAddress !== null && !recaptchaToken) {
-      newCsrfToken = newCsrfToken || await setCSRFToken(ip, userId);
-      await trackViolation(ip, 'Missing reCAPTCHA token');
-      return NextResponse.json({ detail: 'Missing reCAPTCHA token' }, { status: 400, headers: securityHeaders(newCsrfToken) });
+      newCsrfToken = newCsrfToken || (await setCSRFToken(ip, userId))
+      await trackViolation(ip, 'Missing reCAPTCHA token')
+      return NextResponse.json(
+        { detail: 'Missing reCAPTCHA token' },
+        { status: 400, headers: securityHeaders(newCsrfToken) },
+      )
     }
     if (process.env.NODE_ENV !== 'development' && walletAddress !== null) {
       try {
-        const recaptchaResponse = await verifyRecaptcha(recaptchaToken, 'update_user', ip);
+        const recaptchaResponse = await verifyRecaptcha(recaptchaToken, 'update_user', ip)
         if (!recaptchaResponse.success) {
-          newCsrfToken = newCsrfToken || await setCSRFToken(ip, userId);
+          newCsrfToken = newCsrfToken || (await setCSRFToken(ip, userId))
           if (recaptchaResponse.needsFallback) {
-            return NextResponse.json({ detail: 'low_score_fallback' }, { status: 403, headers: securityHeaders(newCsrfToken) });
+            return NextResponse.json(
+              { detail: 'low_score_fallback' },
+              { status: 403, headers: securityHeaders(newCsrfToken) },
+            )
           }
-          await trackViolation(ip, `reCAPTCHA verification failed: ${recaptchaResponse.error}`);
-          return NextResponse.json({ detail: `reCAPTCHA verification failed: ${recaptchaResponse.error}` }, { status: 403, headers: securityHeaders(newCsrfToken) });
+          await trackViolation(ip, `reCAPTCHA verification failed: ${recaptchaResponse.error}`)
+          return NextResponse.json(
+            { detail: `reCAPTCHA verification failed: ${recaptchaResponse.error}` },
+            { status: 403, headers: securityHeaders(newCsrfToken) },
+          )
         }
         if (process.env.NODE_ENV !== 'production') {
-          logger.info('reCAPTCHA OK', { ip, score: recaptchaResponse.score });
+          logger.info('reCAPTCHA OK', { ip, score: recaptchaResponse.score })
         }
       } catch (error) {
-        newCsrfToken = newCsrfToken || await setCSRFToken(ip, userId);
-        await trackViolation(ip, `reCAPTCHA verification error: ${error.message}`);
-        return NextResponse.json({ detail: `reCAPTCHA verification failed: ${error.message}` }, { status: 403, headers: securityHeaders(newCsrfToken) });
+        newCsrfToken = newCsrfToken || (await setCSRFToken(ip, userId))
+        await trackViolation(ip, `reCAPTCHA verification error: ${error.message}`)
+        return NextResponse.json(
+          { detail: `reCAPTCHA verification failed: ${error.message}` },
+          { status: 403, headers: securityHeaders(newCsrfToken) },
+        )
       }
     }
 
@@ -862,22 +1017,32 @@ export async function PATCH(request) {
         prisma.users.update({
           where: { id: uid },
           data: { wallet_address: walletAddress },
-        })
-      );
+        }),
+      )
 
-      const cacheKey = `user:${uid}`;
-      const client = await getRedisClient();
-      await client.del(cacheKey);
+      const cacheKey = `user:${uid}`
+      const client = await getRedisClient()
+      await client.del(cacheKey)
 
-      newCsrfToken = newCsrfToken || await setCSRFToken(ip, userId);
-      return NextResponse.json({ success: true }, { headers: securityHeaders(newCsrfToken) });
+      newCsrfToken = newCsrfToken || (await setCSRFToken(ip, userId))
+      return NextResponse.json({ success: true }, { headers: securityHeaders(newCsrfToken) })
     } catch (error) {
-      logger.error('Error updating wallet', { error: error.message, stack: error.stack });
-      newCsrfToken = newCsrfToken || await setCSRFToken(ip, userId);
-      return NextResponse.json({ detail: 'Server error' }, { status: 500, headers: securityHeaders(newCsrfToken) });
+      logger.error('Error updating wallet', { error: error.message, stack: error.stack })
+      newCsrfToken = newCsrfToken || (await setCSRFToken(ip, userId))
+      return NextResponse.json(
+        { detail: 'Server error' },
+        { status: 500, headers: securityHeaders(newCsrfToken) },
+      )
     }
   } catch (error) {
-    logger.error('Unexpected error in PATCH /api/user', { error: error.message, stack: error.stack, ip });
-    return NextResponse.json({ detail: 'Server error' }, { status: 500, headers: securityHeaders() });
+    logger.error('Unexpected error in PATCH /api/user', {
+      error: error.message,
+      stack: error.stack,
+      ip,
+    })
+    return NextResponse.json(
+      { detail: 'Server error' },
+      { status: 500, headers: securityHeaders() },
+    )
   }
 }

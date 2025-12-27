@@ -141,48 +141,54 @@ model twitter_handles {
 }
 
 model users {
-  id                 String              @id
-  email              String              @unique(map: "unique_email")
-  google_id          String?             @unique(map: "unique_google_id")
-  profile_picture    String?
-  email_verified     Boolean?            @default(false)
-  google_name        String?
-  wallet_address     String?             @unique(map: "unique_wallet_address")
-  points             BigInt?             @default(0)
-  task_points        BigInt?             @default(0)
-  tier               String?             @default("Basic")
-  is_premium         Boolean?            @default(false)
-  api_key            String?             @unique
-  created_at         DateTime?           @default(now())
-  updated_at         DateTime?           @updatedAt
-  last_connected     DateTime?
-  connected          Boolean?            @default(false)
-  ai_points          BigInt?             @default(0)
-  is_ai_rank         Boolean?            @default(false)
-  is_creator         Boolean?            @default(false)
-  is_plus            Boolean?            @default(false)
-  premium_expires_at DateTime?
-  tweet_points       BigInt?             @default(0)
-  twitter_handle     String?             @db.VarChar(255)
-  api_key_hash       String?
-  api_key_salt       String?
-  days_active        Int                 @default(0)
-  farcaster_fid      BigInt?             @unique // Added @unique here to fix reference error
-  accounts           Account[]           @relation("UserToAccount")
-  payments           Payment[]           @relation("UserPayments")
-  sessions           Session[]           @relation("UserToSession")
-  verificationTokens VerificationToken[] @relation("UserToVerificationToken")
-  legacyAccounts     accounts[]
-  task_completions   task_completions[]
-  twitter_handles    twitter_handles?
-  has_minted_nft     Boolean             @default(false)
-  miniAppNotifications MiniAppNotification[] @relation("MiniAppNotificationToUser") // Added opposite relation field
+  id                   String                @id
+  email                String                @unique(map: "unique_email")
+  google_id            String?               @unique(map: "unique_google_id")
+  profile_picture      String?
+  email_verified       Boolean?              @default(false)
+  google_name          String?
+  wallet_address       String?               @unique(map: "unique_wallet_address")
+  points               BigInt?               @default(0)
+  task_points          BigInt?               @default(0)
+  tier                 String?               @default("Basic")
+  is_premium           Boolean?              @default(false)
+  api_key              String?               @unique
+  created_at           DateTime?             @default(now())
+  updated_at           DateTime?             @updatedAt
+  last_connected       DateTime?
+  connected            Boolean?              @default(false)
+  ai_points            BigInt?               @default(0)
+  is_ai_rank           Boolean?              @default(false)
+  is_creator           Boolean?              @default(false)
+  is_plus              Boolean?              @default(false)
+  premium_expires_at   DateTime?
+  tweet_points         BigInt?               @default(0)
+  twitter_handle       String?               @db.VarChar(255)
+  api_key_hash         String?
+  api_key_salt         String?
+  days_active          Int                   @default(0)
+  farcaster_fid        BigInt?               @unique
+  has_minted_nft       Boolean               @default(false)
+  accounts             Account[]             @relation("UserToAccount")
+  miniAppNotifications MiniAppNotification[] @relation("MiniAppNotificationToUser")
+  payments             Payment[]             @relation("UserPayments")
+  sessions             Session[]             @relation("UserToSession")
+  verificationTokens   VerificationToken[]   @relation("UserToVerificationToken")
+  legacyAccounts       accounts[]
+  task_completions     task_completions[]
+  twitter_handles      twitter_handles?
+  invite_code  String?   @unique @db.VarChar(20)
+  invited_by   String?
+  invitedUsers users[]   @relation("UserInvites")
+  inviter      users?    @relation("UserInvites", fields: [invited_by], references: [id])
 
   @@index([ai_points], map: "idx_users_ai_points")
   @@index([email], map: "idx_users_email")
   @@index([points], map: "idx_users_points")
   @@index([task_points], map: "idx_users_task_points")
   @@index([tweet_points], map: "idx_users_tweet_points")
+  @@index([invite_code])
+  @@index([invited_by])
 }
 
 model wallet_analysis {
@@ -477,16 +483,14 @@ model ibit_wallets {
 }
 
 model MiniAppNotification {
-  id         Int      @id @default(autoincrement())
-  fid        BigInt
-  appFid     BigInt
-  url        String   @db.VarChar(255)
-  token      String   @unique @db.VarChar(255)
-  createdAt  DateTime @default(now()) @db.Timestamp(6)
-  updatedAt  DateTime @updatedAt
-
-  // Optional relation to users (if fid matches farcaster_fid)
-  user       users?   @relation("MiniAppNotificationToUser", fields: [fid], references: [farcaster_fid], onDelete: SetNull, onUpdate: Cascade)
+  id        Int      @id @default(autoincrement())
+  fid       BigInt
+  appFid    BigInt
+  url       String   @db.VarChar(255)
+  token     String   @unique @db.VarChar(255)
+  createdAt DateTime @default(now()) @db.Timestamp(6)
+  updatedAt DateTime @updatedAt
+  user      users    @relation("MiniAppNotificationToUser", fields: [fid], references: [farcaster_fid], onDelete: SetNull)
 
   @@unique([fid, appFid])
   @@index([fid])
@@ -496,12 +500,20 @@ model MiniAppNotification {
 model EtfFlows {
   id         Int      @id @default(autoincrement())
   chain      String
-  date       String   // e.g., "Dec 04, 2025"
-  symbol     String   // e.g., "IBIT"
-  flow       Float    // Positive: Inflow, Negative: Outflow ($M USD)
-  is_summary Boolean  @default(false)  // True for Total/Avg/Max/Min rows
+  date       String
+  symbol     String
+  flow       Float
+  is_summary Boolean  @default(false)
   created_at DateTime @default(now())
   updated_at DateTime @updatedAt
 
   @@unique([chain, date, symbol], name: "chain_date_symbol")
+}
+
+model verification_tokens {
+  identifier String
+  token      String   @unique
+  expires    DateTime @db.Timestamptz(6)
+
+  @@id([identifier, token])
 }
