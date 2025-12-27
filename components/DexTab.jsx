@@ -1,6 +1,6 @@
 // components\DexTab.jsx
 'use client'
-import { useState, useEffect, useRef , useMemo  } from 'react'
+import { useState, useEffect, useRef, useMemo } from 'react'
 import {
     AreaChart,
     Area,
@@ -153,6 +153,10 @@ export default function DexTab() {
     const [error, setError] = useState(null)
     const [isAssetMenuOpen, setIsAssetMenuOpen] = useState(false)
     const [recentWhaleTrades, setRecentWhaleTrades] = useState([])
+    const [activityPage, setActivityPage] = useState(1)
+    const tradesPerPage = 50
+    const totalDisplayTrades = 500
+    const totalPages = Math.ceil(totalDisplayTrades / tradesPerPage)
     const [toastMessage, setToastMessage] = useState(null)
     // Pagination for large trades
     const largeTrades = fills
@@ -163,7 +167,6 @@ export default function DexTab() {
         )
         .sort((a, b) => b.time - a.time)
     const [largePage, setLargePage] = useState(1)
-    const tradesPerPage = 10
     const largeTotalPages = Math.ceil(largeTrades.length / tradesPerPage)
     const displayedLargeTrades = largeTrades.slice(
         (largePage - 1) * tradesPerPage,
@@ -218,17 +221,22 @@ export default function DexTab() {
             try {
                 const newData = JSON.parse(event.data);
 
+                // Nếu là full list (500 trades) – dùng để khởi tạo hoặc refresh page 1
                 if (Array.isArray(newData) && newData.length > 10) {
                     setRecentWhaleTrades(newData);
+                    setActivityPage(1); // Luôn về trang 1 khi có full update
                 } else {
+                    // Là update realtime (trade mới)
                     setRecentWhaleTrades(prev => {
                         const existingIds = new Set(prev.map(t => t.id));
                         const tradesToAdd = Array.isArray(newData) ? newData : [newData];
                         const uniqueNew = tradesToAdd.filter(t => !existingIds.has(t.id));
-                        return [...uniqueNew, ...prev]
+                        const updated = [...uniqueNew, ...prev]
                             .sort((a, b) => b.time - a.time)
-                            .slice(0, 100);
+                            .slice(0, totalDisplayTrades); // Giới hạn 500
+                        return updated;
                     });
+                    setActivityPage(1); // Trade mới → tự động về trang 1
                 }
             } catch (err) {
                 console.error('SSE parse error:', err);
@@ -933,163 +941,136 @@ export default function DexTab() {
                                     </div>
                                 </div>
                             </div>
-                            <span className="text-[10px] text-gray-400">
+                            {/* <span className="text-[10px] text-gray-400">
                                 {recentWhaleTrades.length > 0
                                     ? `${recentWhaleTrades.length} trade${recentWhaleTrades.length > 1 ? 's' : ''}`
                                     : 'Waiting for data...'}
-                            </span>
+                            </span> */}
                         </div>
                         <div className="overflow-auto max-h-[450px] custom-scrollbar">
-                            <table className="w-full text-xs min-w-[1000px]">
+                            <table className="w-full text-xs md:text-sm">
                                 <thead className="text-gray-400 border-b border-white/10 sticky top-0 bg-[#0A0A0A]/90 z-10">
                                     <tr>
-                                        <th className="text-left py-3 px-4">DEX</th>
-                                        <th className="text-left py-3 px-4">Time</th>
-                                        <th className="text-left py-3 px-4">Symbol</th>
-                                        <th className="text-left py-3 px-4">Side</th>
-                                        <th className="text-right py-3 px-6">Price</th>
-                                        <th className="text-right py-3 px-6">Size (USD)</th>
-                                        <th className="text-left py-3 px-6">Buyer Address</th>
-                                        <th className="text-left py-3 px-6">Seller Address</th>
-                                        <th className="text-left py-3 px-4">Status</th>
+                                        <th className="text-left py-3 px-2 md:px-4">DEX</th>
+                                        <th className="text-left py-3 px-2 md:px-4">Time</th>
+                                        <th className="text-left py-3 px-2 md:px-4">Symbol</th>
+                                        <th className="text-left py-3 px-2 md:px-4">Side</th>
+                                        <th className="hidden md:table-cell text-right py-3 px-3 md:px-6">Price</th>
+                                        <th className="text-right py-3 px-3 md:px-6">Size (USD)</th>
+                                        <th className="text-left py-3 px-3 md:px-6">Buyer Address</th>
+                                        <th className="text-left py-3 px-3 md:px-6">Seller Address</th>
+                                        <th className="hidden md:table-cell text-left py-3 px-2 md:px-4">Status</th>
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-white/5">
                                     {recentWhaleTrades.length === 0 ? (
                                         <tr>
-                                            <td
-                                                colSpan="9"
-                                                className="py-12 text-center text-gray-500"
-                                            >
+                                            <td colSpan="9" className="py-12 text-center text-gray-500">
                                                 No whale trades yet — waiting for real-time data...
                                             </td>
                                         </tr>
                                     ) : (
                                         <AnimatePresence>
-                                            {recentWhaleTrades.map((trade) => (
-                                                <motion.tr
-                                                    key={trade.id}
-                                                    initial={{ opacity: 0, y: 10 }}
-                                                    animate={{ opacity: 1, y: 0 }}
-                                                    exit={{ opacity: 0, height: 0 }}
-                                                    transition={{ duration: 0.3 }}
-                                                    className="hover:bg-white/5 transition-colors"
-                                                >
-                                                    <td className="py-3 px-4">
-                                                        <div className="flex items-center gap-1">
-                                                            <img
-                                                                src={
-                                                                    trade.dex === 'hyperliquid'
-                                                                        ? '/hyperliquid.webp'
-                                                                        : '/lighter.webp'
-                                                                }
-                                                                alt={trade.dex}
-                                                                className="w-4 h-4 rounded"
-                                                            />
-                                                        </div>
-                                                    </td>
-                                                    <td className="py-3 px-4 text-gray-300">
-                                                        {new Date(trade.time).toLocaleString(
-                                                            'en-US',
-                                                            {
+                                            {recentWhaleTrades
+                                                .slice((activityPage - 1) * tradesPerPage, activityPage * tradesPerPage)
+                                                .map((trade) => (
+                                                    <motion.tr
+                                                        key={trade.id}
+                                                        initial={{ opacity: 0, y: 10 }}
+                                                        animate={{ opacity: 1, y: 0 }}
+                                                        exit={{ opacity: 0, height: 0 }}
+                                                        transition={{ duration: 0.3 }}
+                                                        className="hover:bg-white/5 transition-colors"
+                                                    >
+                                                        <td className="py-3 px-2 md:px-4">
+                                                            <div className="flex items-center gap-1">
+                                                                <img
+                                                                    src={trade.dex === 'hyperliquid' ? '/hyperliquid.webp' : '/lighter.webp'}
+                                                                    alt={trade.dex}
+                                                                    className="w-4 h-4 rounded"
+                                                                />
+                                                            </div>
+                                                        </td>
+                                                        <td className="py-3 px-2 md:px-4 text-gray-300 text-[10px] md:text-xs">
+                                                            {new Date(trade.time).toLocaleString('en-US', {
                                                                 hour: '2-digit',
                                                                 minute: '2-digit',
                                                                 second: '2-digit',
                                                                 hour12: false,
-                                                            },
-                                                        )}
-                                                    </td>
-                                                    <td className="py-3 px-4 font-medium text-white">
-                                                        {trade.symbol}-PERP
-                                                    </td>
-                                                    <td className="py-3 px-4">
-                                                        <span
-                                                            className={`font-bold text-xs px-3 py-1 rounded-md border inline-block min-w-[40px] text-center ${trade.side &&
-                                                                (trade.side.toLowerCase() ===
-                                                                    'buy' ||
-                                                                    trade.side === 'Buy')
-                                                                ? 'border-emerald-400 bg-emerald-400/20 text-emerald-400'
-                                                                : 'border-red-400 bg-red-400/20 text-red-400'
-                                                                }`}
-                                                        >
-                                                            {trade.side &&
-                                                                (trade.side.toLowerCase() === 'buy' ||
-                                                                    trade.side === 'Buy')
-                                                                ? 'Buy'
-                                                                : 'Sell'}
-                                                        </span>
-                                                    </td>
-                                                    <td className="py-3 px-6 text-right font-mono text-gray-200">
-                                                        $
-                                                        {parseFloat(trade.price).toLocaleString(
-                                                            'en-US',
-                                                            {
-                                                                minimumFractionDigits: 2,
-                                                                maximumFractionDigits: 4,
-                                                            },
-                                                        )}
-                                                    </td>
-                                                    <td className="py-3 px-6 text-right font-mono text-emerald-400">
-                                                        {formatCompactNumber(trade.sizeUsd)}
-                                                    </td>
-                                                    <td className="py-3 px-6 font-mono text-[10px] text-white">
-                                                        <div className="flex items-center gap-2">
-                                                            <span
-                                                                className={
-                                                                    trade.dex === 'lighter'
-                                                                        ? 'break-all'
-                                                                        : ''
-                                                                }
-                                                            >
-                                                                {trade.dex === 'lighter'
-                                                                    ? String(trade.buyer)
-                                                                    : `${String(trade.buyer).slice(0, 8)}...${String(trade.buyer).slice(-6)}`}
+                                                            })}
+                                                        </td>
+                                                        <td className="py-3 px-2 md:px-4 font-medium text-white text-[10px] md:text-xs">
+                                                            {trade.symbol}-PERP
+                                                        </td>
+                                                        <td className="py-3 px-2 md:px-4">
+                                                            <span className={`font-bold text-[10px] md:text-[11px] px-3 py-1 rounded-md border inline-block min-w-[40px] text-center ${trade.side.toLowerCase() === 'buy'
+                                                                    ? 'border-emerald-400 bg-emerald-400/20 text-emerald-400'
+                                                                    : 'border-red-400 bg-red-400/20 text-red-400'
+                                                                }`}>
+                                                                {trade.side}
                                                             </span>
-                                                            <Copy
-                                                                size={12}
-                                                                className="cursor-pointer hover:text-emerald-400 transition flex-shrink-0"
-                                                                onClick={() =>
-                                                                    copyToClipboard(
-                                                                        String(trade.buyer),
-                                                                    )
-                                                                }
-                                                            />
-                                                        </div>
-                                                    </td>
-                                                    <td className="py-3 px-6 font-mono text-[10px] text-white">
-                                                        <div className="flex items-center gap-2">
-                                                            <span
-                                                                className={
-                                                                    trade.dex === 'lighter'
-                                                                        ? 'break-all'
-                                                                        : ''
-                                                                }
-                                                            >
-                                                                {trade.dex === 'lighter'
-                                                                    ? String(trade.seller)
-                                                                    : `${String(trade.seller).slice(0, 8)}...${String(trade.seller).slice(-6)}`}
-                                                            </span>
-                                                            <Copy
-                                                                size={12}
-                                                                className="cursor-pointer hover:text-emerald-400 transition flex-shrink-0"
-                                                                onClick={() =>
-                                                                    copyToClipboard(
-                                                                        String(trade.seller),
-                                                                    )
-                                                                }
-                                                            />
-                                                        </div>
-                                                    </td>
-                                                    <td className="py-3 px-4 text-gray-400">
-                                                        {trade.status}
-                                                    </td>
-                                                </motion.tr>
-                                            ))}
+                                                        </td>
+                                                        <td className="hidden md:table-cell py-3 px-3 md:px-6 text-right font-mono text-gray-200 text-xs md:text-sm">
+                                                            ${parseFloat(trade.price).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 4 })}
+                                                        </td>
+                                                        <td className="py-3 px-3 md:px-6 text-right font-mono text-emerald-400">
+                                                            {formatCompactNumber(trade.sizeUsd)}
+                                                        </td>
+                                                        <td className="py-3 px-3 md:px-6 font-mono text-[11px] md:text-xs text-white">
+                                                            <div className="flex items-center gap-2">
+                                                                <span className={trade.dex === 'lighter' ? 'break-all' : ''}>
+                                                                    {trade.dex === 'lighter'
+                                                                        ? String(trade.buyer)
+                                                                        : `${String(trade.buyer).slice(0, 8)}...${String(trade.buyer).slice(-6)}`}
+                                                                </span>
+                                                                <Copy size={12} className="cursor-pointer hover:text-emerald-400 transition flex-shrink-0"
+                                                                    onClick={() => copyToClipboard(String(trade.buyer))} />
+                                                            </div>
+                                                        </td>
+                                                        <td className="py-3 px-3 md:px-6 font-mono text-[11px] md:text-xs text-white">
+                                                            <div className="flex items-center gap-2">
+                                                                <span className={trade.dex === 'lighter' ? 'break-all' : ''}>
+                                                                    {trade.dex === 'lighter'
+                                                                        ? String(trade.seller)
+                                                                        : `${String(trade.seller).slice(0, 8)}...${String(trade.seller).slice(-6)}`}
+                                                                </span>
+                                                                <Copy size={12} className="cursor-pointer hover:text-emerald-400 transition flex-shrink-0"
+                                                                    onClick={() => copyToClipboard(String(trade.seller))} />
+                                                            </div>
+                                                        </td>
+                                                        <td className="hidden md:table-cell py-3 px-2 md:px-4 text-gray-400 text-[10px] md:text-xs">
+                                                            {trade.status}
+                                                        </td>
+                                                    </motion.tr>
+                                                ))}
                                         </AnimatePresence>
                                     )}
                                 </tbody>
                             </table>
                         </div>
+
+                        {/* Pagination cho Activity */}
+                        {recentWhaleTrades.length > tradesPerPage && (
+                            <div className="flex items-center justify-center gap-4 mt-4">
+                                <button
+                                    onClick={() => setActivityPage(p => Math.max(1, p - 1))}
+                                    disabled={activityPage === 1}
+                                    className="p-2 rounded-lg bg-white/5 hover:bg-white/10 disabled:opacity-50 disabled:cursor-not-allowed transition"
+                                >
+                                    <ChevronLeft size={15} />
+                                </button>
+                                <span className="text-[10px] sm:text-[11px] text-gray-300">
+                                    Page {activityPage} / {totalPages}
+                                </span>
+                                <button
+                                    onClick={() => setActivityPage(p => Math.min(totalPages, p + 1))}
+                                    disabled={activityPage === totalPages}
+                                    className="p-2 rounded-lg bg-white/5 hover:bg-white/10 disabled:opacity-50 disabled:cursor-not-allowed transition"
+                                >
+                                    <ChevronRight size={15} />
+                                </button>
+                            </div>
+                        )}
                     </div>
                 </div>
             </div>
@@ -1164,31 +1145,29 @@ export default function DexTab() {
                                         </div>
                                     </div>
                                 </div>
-                                <div className="grid grid-cols-4 gap-4">
+                                <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
                                     <div className="bg-[#FFFFFF]/5 p-4 rounded-lg text-center">
                                         <p className="text-xs text-gray-400 mb-1">Total PnL</p>
-                                        <p
-                                            className={`text-xl font-bold ${analytics.totalPnl >= 0 ? 'text-emerald-400' : 'text-red-500'}`}
-                                        >
+                                        <p className={`text-lg sm:text-xl font-bold ${analytics.totalPnl >= 0 ? 'text-emerald-400' : 'text-red-500'}`}>
                                             {analytics.totalPnl >= 0 ? '+' : ''}
                                             {formatCompactNumber(analytics.totalPnl)}
                                         </p>
                                     </div>
                                     <div className="bg-[#FFFFFF]/5 p-4 rounded-lg text-center">
                                         <p className="text-xs text-gray-400 mb-1">Win Rate</p>
-                                        <p className="text-xl font-bold text-blue-400">
+                                        <p className="text-lg sm:text-xl font-bold text-blue-400">
                                             {safeFixed(analytics.winRate)}%
                                         </p>
                                     </div>
                                     <div className="bg-[#FFFFFF]/5 p-4 rounded-lg text-center">
                                         <p className="text-xs text-gray-400 mb-1">Total Trades</p>
-                                        <p className="text-xl font-bold text-white">
-                                            {analytics.numTrades}
+                                        <p className="text-lg sm:text-xl font-bold text-white">
+                                            {formatStandardNumber(analytics.numTrades)}
                                         </p>
                                     </div>
                                     <div className="bg-[#FFFFFF]/5 p-4 rounded-lg text-center">
                                         <p className="text-xs text-gray-400 mb-1">Total Balance</p>
-                                        <p className="text-xl font-bold text-white">
+                                        <p className="text-lg sm:text-xl font-bold text-white">
                                             {formatCompactNumber(analytics.totalBalance)}
                                         </p>
                                     </div>
@@ -1359,13 +1338,13 @@ export default function DexTab() {
                             </div>
                             <div>
                                 <h3 className="text-sm font-bold text-[#FFF] mb-3">
-                                    Large Trades (This Wallet)
+                                    Large Trades
                                 </h3>
                                 {displayedLargeTrades.length === 0 ? (
                                     <p className="text-xs text-gray-500">No large trades found.</p>
                                 ) : (
                                     <>
-                                        <div className="overflow-x-auto">
+                                        <div className="overflow-x-auto custom-scrollbar">
                                             <table className="w-full text-xs">
                                                 <thead className="text-gray-400 border-b border-white/10">
                                                     <tr>

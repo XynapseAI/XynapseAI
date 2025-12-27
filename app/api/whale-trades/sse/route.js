@@ -31,23 +31,35 @@ export async function GET(request) {
     const stream = new ReadableStream({
         async start(controller) {
             clients.add(controller);
-
-            // Send initial data (last 100 trades)
-            const trades = await redis.lRange('all:whale_trades', 0, -1);
-            const allTrades = trades.map(t => JSON.parse(t)).sort((a, b) => b.time - a.time);
+            let trades = await redis.lRange('all:whale_trades', 0, 499);
+            const allTrades = trades
+                .map(t => JSON.parse(t))
+                .sort((a, b) => b.time - a.time);
 
             controller.enqueue(`data: ${JSON.stringify(allTrades)}\n\n`);
 
             // Listen for Redis Pub/Sub updates
             const pubsub = redis.duplicate();
             await pubsub.connect();
-            await pubsub.subscribe('whale_trades_update', (message) => {
-                for (const client of clients) {
-                    try {
-                        client.enqueue(`data: ${message}\n\n`);
-                    } catch (err) {
-                        clients.delete(client);
+            await pubsub.subscribe('whale_trades_update', async (message) => {
+                try {
+                    let latestTrades = await redis.lRange('all:whale_trades', 0, 499);
+                    const parsedTrades = latestTrades
+                        .map(t => JSON.parse(t))
+                        .sort((a, b) => b.time - a.time)
+                        .slice(0, 500);
+
+                    const fullMessage = JSON.stringify(parsedTrades);
+
+                    for (const client of clients) {
+                        try {
+                            client.enqueue(`data: ${fullMessage}\n\n`);
+                        } catch (err) {
+                            clients.delete(client);
+                        }
                     }
+                } catch (err) {
+                    console.error('Error fetching latest trades for broadcast:', err);
                 }
             });
 
