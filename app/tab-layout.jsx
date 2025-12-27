@@ -13,6 +13,7 @@ const tabMap = {
   explorer: 'explorer',
   profile: 'profile',
   watchlist: 'watchlist',
+  market: 'market',
 }
 
 export default function TabLayout({ children, initialTab }) {

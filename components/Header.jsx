@@ -300,11 +300,14 @@ export default function Header({ activeTab, setActiveTab, handleSignOut, selecte
               {tabs.map((tab) => {
                 const Icon = tab.icon
                 const isActive = activeTab === tab.id
-                const href = getTabHref(tab.id)
+                const cleanHref = getTabHref(tab.id).split('?')[0] // Chỉ lấy phần path, ví dụ: /dashboard hoặc /market
+                const queryParams = new URLSearchParams(getTabHref(tab.id).split('?')[1] || '')
+
                 return (
                   <Link
                     key={tab.id}
-                    href={href}
+                    href={cleanHref}
+                    searchParams={queryParams.toString() ? queryParams : undefined} // Nếu có params thì truyền, không thì undefined
                     className="group relative flex items-center gap-1 px-3 py-2 text-[11px] font-semibold uppercase rounded-lg transition-all duration-300 ease-out border border-transparent no-underline focus:outline-none"
                     onClick={() => handleTabNavigation(tab.id)}
                   >
@@ -390,11 +393,12 @@ export default function Header({ activeTab, setActiveTab, handleSignOut, selecte
                 {tabs.map((tab) => {
                   const Icon = tab.icon
                   const isActive = activeTab === tab.id
-                  const href = getTabHref(tab.id)
+                  const cleanHref = getTabHref(tab.id).split('?')[0] // Chỉ lấy phần path, ví dụ: /dashboard hoặc /market
+                  const queryParams = new URLSearchParams(getTabHref(tab.id).split('?')[1] || '')
                   return (
                     <Link
                       key={tab.id}
-                      href={href}
+                      searchParams={queryParams.toString() ? queryParams : undefined}
                       className={`relative w-full flex items-center gap-2 px-3 py-3 text-sm font-semibold transition-all duration-300 rounded-lg border border-transparent no-underline focus:outline-none ${
                         isActive
                           ? 'text-neon-blue'
