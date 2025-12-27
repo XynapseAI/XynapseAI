@@ -2,38 +2,47 @@
 'use client';
 
 import Header from '@/components/Header';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useSearchParams } from 'next/navigation';
 
 const tabMap = {
   dex: 'dex',
   etf: 'etf',
   cluster: 'cluster',
-  graph: 'graph',        // treemap
+  graph: 'graph',
   explorer: 'explorer',
-  // thêm các tab khác nếu cần
+  profile: 'profile',
+  watchlist: 'watchlist',
+  market: 'market',
 };
 
 export default function TabLayout({ children, initialTab }) {
   const searchParams = useSearchParams();
   const [activeTab, setActiveTab] = useState(initialTab);
 
-  // Cập nhật activeTab nếu URL thay đổi (ví dụ từ link ngoài)
-  // Không bắt buộc nhưng tốt cho consistency
-  // useEffect(() => {
-  //   const tab = tabMap[initialTab];
-  //   if (tab) setActiveTab(tab);
-  // }, [initialTab]);
+  useEffect(() => {
+    if (initialTab && tabMap[initialTab]) {
+      setActiveTab(initialTab);
+      return;
+    }
+
+    const tabFromUrl = searchParams.get('tab');
+    if (tabFromUrl && tabMap[tabFromUrl]) {
+      setActiveTab(tabFromUrl);
+    } else if (initialTab) {
+      setActiveTab(initialTab);
+    }
+  }, [initialTab, searchParams]);
 
   return (
     <div className="min-h-screen flex flex-col bg-gradient-to-br from-black to-gray-900 text-white">
       <Header
         activeTab={activeTab}
         setActiveTab={setActiveTab}
-        handleSignOut={() => {}} // không cần sign out ở standalone
+        handleSignOut={() => {}}
         selectedAddress={searchParams.get('address') || undefined}
       />
-      <main className="flex-1"> {/* Đẩy nội dung xuống đúng bằng chiều cao Header */}
+      <main className="flex-1">
         {children}
       </main>
     </div>

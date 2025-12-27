@@ -52,7 +52,6 @@ export async function generateMetadata({ searchParams }) {
     return {
       title: `${clusterName} Cluster | Xynapse`,
       description: `Explore ${clusterName} cluster details, track wallet balances, transactions, and market trends on Xynapse's advanced blockchain analytics platform.`,
-      // ... giữ nguyên phần fallback
     }
   }
 }

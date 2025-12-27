@@ -32,7 +32,7 @@ export async function generateMetadata({ searchParams }) {
       type: 'website',
       images: [
         {
-          url: 'https://xynapseai.net/og-watchlist.png', // khuyến khích tạo OG riêng
+          url: 'https://xynapseai.net/og-watchlist.png',
           width: 1200,
           height: 630,
           alt: 'Xynapse Watchlist Dashboard',
