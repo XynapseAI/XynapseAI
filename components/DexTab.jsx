@@ -17,7 +17,7 @@ import {
 } from 'recharts'
 import { motion, AnimatePresence } from 'framer-motion'
 import { LoadingOverlay } from '@/utils/helpers'
-import { ChevronDown, Copy, ChevronLeft, ChevronRight } from 'lucide-react'
+import { ChevronDown, Copy, ChevronLeft, ChevronRight, Search } from 'lucide-react'
 const hlColors = [
     '#00FF88',
     '#00E7FF',
@@ -133,6 +133,9 @@ export default function DexTab() {
     const [selectedAsset, setSelectedAsset] = useState('BTC')
     const [selectedDEX, setSelectedDEX] = useState('hyperliquid')
     const [isDexMenuOpen, setIsDexMenuOpen] = useState(false)
+    const [isAssetMenuOpen, setIsAssetMenuOpen] = useState(false)
+    const dexMenuRef = useRef(null)
+    const assetMenuRef = useRef(null)
     const [metaDataHyper, setMetaDataHyper] = useState({ universe: [], assetCtxs: [] })
     const [metaDataLighter, setMetaDataLighter] = useState({ universe: [], assetCtxs: [] })
     const [orderBooksLighter, setOrderBooksLighter] = useState([])
@@ -151,7 +154,6 @@ export default function DexTab() {
     const [activeAssetsLighter, setActiveAssetsLighter] = useState([])
     const [loading, setLoading] = useState(true)
     const [error, setError] = useState(null)
-    const [isAssetMenuOpen, setIsAssetMenuOpen] = useState(false)
     const [recentWhaleTrades, setRecentWhaleTrades] = useState([])
     const [activityPage, setActivityPage] = useState(1)
     const tradesPerPage = 50
@@ -299,6 +301,25 @@ export default function DexTab() {
             fetchUserData(currentWallet)
         }
     }, [selectedDEX])
+
+    useEffect(() => {
+        const handleClickOutside = (event) => {
+            if (
+                dexMenuRef.current &&
+                !dexMenuRef.current.contains(event.target) &&
+                assetMenuRef.current &&
+                !assetMenuRef.current.contains(event.target)
+            ) {
+                setIsDexMenuOpen(false)
+                setIsAssetMenuOpen(false)
+            }
+        }
+
+        document.addEventListener('mousedown', handleClickOutside)
+        return () => {
+            document.removeEventListener('mousedown', handleClickOutside)
+        }
+    }, [])
 
     const fetchGlobalDataHyper = async () => {
         setLoading(true)
@@ -706,6 +727,7 @@ export default function DexTab() {
                 {/* DEX Selector */}
                 <div className="relative mb-6">
                     <button
+                        ref={dexMenuRef}
                         onClick={() => setIsDexMenuOpen(!isDexMenuOpen)}
                         className="flex items-center gap-2 px-3 py-1.5 bg-[#FFFFFF08] border border-[#FFFFFF15] rounded-lg text-white hover:border-white/30 transition"
                     >
@@ -727,11 +749,11 @@ export default function DexTab() {
                                 initial={{ opacity: 0, y: -10 }}
                                 animate={{ opacity: 1, y: 0 }}
                                 exit={{ opacity: 0, y: -10 }}
-                                className="absolute z-10 mt-2 w-52 sm:48 bg-black/90 border border-white/15 rounded-lg shadow-2xl"
+                                className="absolute z-10 mt-2 w-38 sm:w-46 bg-black/90 border border-white/15 rounded-lg shadow-2xl"
                             >
                                 <li
                                     onClick={() => handleDEXChange('hyperliquid')}
-                                    className="flex items-center gap-3 px-4 py-2.5 text-sm cursor-pointer hover:bg-white/10 transition"
+                                    className="flex items-center gap-3 px-4 py-2.5 text-xs cursor-pointer hover:bg-white/10 transition"
                                 >
                                     <img
                                         src="/hyperliquid.webp"
@@ -789,7 +811,7 @@ export default function DexTab() {
                         </div>
                     ) : (
                         <div className="h-[250px] md:h-[320px] flex items-center justify-center">
-                            <p className="text-gray-500 text-sm">No Open Interest data available</p>
+                            <p className="text-gray-500 text-xs">No Open Interest data available</p>
                         </div>
                     )}
                     {/* Top Assets by Volume */}
@@ -823,7 +845,7 @@ export default function DexTab() {
                                                 {asset.name}
                                             </span>
                                         </div>
-                                        <span className="text-emerald-400 font-mono">
+                                        <span className="text-emerald-400 font-mono font-bold">
                                             {formatCompactNumber(asset.volume)}
                                         </span>
                                     </div>
@@ -838,8 +860,9 @@ export default function DexTab() {
                             </h3>
                             <div className="relative">
                                 <button
+                                    ref={assetMenuRef}
                                     onClick={() => setIsAssetMenuOpen(!isAssetMenuOpen)}
-                                    className="text-xs sm:text-sm flex items-center gap-2 px-4 py-2 bg-black/60 border border-white/15 rounded-lg text-white hover:border-white/30 transition"
+                                    className="text-xs sm:text-sm flex items-center gap-2 px-4 py-2 ..."
                                 >
                                     {assetToImage[selectedAsset] && (
                                         <img
@@ -857,19 +880,19 @@ export default function DexTab() {
                                             initial={{ opacity: 0, y: -10 }}
                                             animate={{ opacity: 1, y: 0 }}
                                             exit={{ opacity: 0, y: -10 }}
-                                            className="absolute z-10 mt-2 w-48 bg-black/90 border border-white/15 rounded-lg shadow-2xl max-h-60 overflow-y-auto custom-scrollbar"
+                                            className="absolute z-10 mt-2 w-26 sm:w-32 bg-black/90 border border-white/15 rounded-lg shadow-2xl max-h-60 overflow-y-auto custom-scrollbar"
                                         >
                                             {metaData.universe.map((u) => (
                                                 <li
                                                     key={u.name}
                                                     onClick={() => handleAssetChange(u.name)}
-                                                    className="text-xs sm:text-sm flex items-center gap-3 px-4 py-2.5 text-sm cursor-pointer hover:bg-white/10 transition"
+                                                    className="text-[10px] sm:text-sm flex items-center gap-3 px-4 py-2.5 text-sm cursor-pointer hover:bg-white/10 transition"
                                                 >
                                                     {u.image && (
                                                         <img
                                                             src={u.image}
                                                             alt={u.name}
-                                                            className="w-3 h-3 sm:w-5 sm:h-5 rounded-full"
+                                                            className="w-4 h-4 sm:w-5 sm:h-5 rounded-full"
                                                         />
                                                     )}
                                                     <span>{u.name}</span>
@@ -1185,7 +1208,7 @@ export default function DexTab() {
                             type="submit"
                             className="px-6 py-2 bg-white text-black rounded-lg text-sm font-bold hover:bg-gray-200 transition"
                         >
-                            Scan
+                            <Search className="w-5 h-5 text-black" />
                         </button>
                     </div>
                 </form>

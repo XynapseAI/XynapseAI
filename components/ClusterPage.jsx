@@ -1,31 +1,24 @@
-'use client';
+'use client'
 
-import { Suspense, useState } from 'react';
-import ClusterTab from './ClusterTab';
-import Header from './Header';
-import { CurrencyProvider } from './CurrencyContext';
-import { ToastContainer } from 'react-toastify';
-import { useRef } from 'react';
-import { useSearchParams } from 'next/navigation';
+import { Suspense, useState } from 'react'
+import ClusterTab from './ClusterTab'
+import { CurrencyProvider } from './CurrencyContext'
+import { ToastContainer } from 'react-toastify'
+import { useRef } from 'react'
+import { useSearchParams } from 'next/navigation'
 
 export default function ClusterPage({ initialClusterId }) {
   const [activeTab, setActiveTab] = useState(() => {
-    const params = new URLSearchParams(window.location.search);
-    return params.get('subtab') || "portfolio";  // Preserve subtab từ URL
-  });
-  const searchParams = useSearchParams();
-  const recaptchaRef = useRef(null);
-  const finalClusterId = searchParams.get('clusterId') || initialClusterId;
+    const params = new URLSearchParams(window.location.search)
+    return params.get('subtab') || 'portfolio' // Preserve subtab từ URL
+  })
+  const searchParams = useSearchParams()
+  const recaptchaRef = useRef(null)
+  const finalClusterId = searchParams.get('clusterId') || initialClusterId
 
   return (
     <div className="min-h-screen bg-black">
       <CurrencyProvider>
-        <Header
-          activeTab={activeTab}
-          setActiveTab={setActiveTab}
-          handleSignOut={() => { /* Sign out */ }}
-          selectedAddress={null}
-        />
         <Suspense
           fallback={
             <div className="flex justify-center items-center h-screen bg-black/80 text-white">
@@ -54,5 +47,5 @@ export default function ClusterPage({ initialClusterId }) {
         />
       </CurrencyProvider>
     </div>
-  );
+  )
 }

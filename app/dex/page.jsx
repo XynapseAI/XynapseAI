@@ -1,6 +1,6 @@
 // app/dex/page.jsx
 import DexTab from '@/components/DexTab'
-import Image from 'next/image'
+import TabLayout from '../tab-layout'
 
 // Disable static generation if needed, but for this static page, it's optional
 export const dynamic = 'force-dynamic'
@@ -9,7 +9,7 @@ export const dynamic = 'force-dynamic'
 export async function generateMetadata() {
   return {
     title:
-      'DEX Tracker 2025: Live Whale Trades, Open Interest & Volume on Hyperliquid & Lighter | Xynapse',
+      'DEX Tracker: Live Whale Trades, Open Interest & Volume on Hyperliquid & Lighter | Xynapse',
     description:
       'Real-time DEX perpetual futures tracker for Hyperliquid and Lighter: whale trades over $100k, open interest distribution, 24h volume ranking, price charts, and wallet analytics. Live data for BTC, ETH and all major pairs as of December 26, 2025. Support for more DEXes coming soon.',
     keywords:
@@ -19,7 +19,7 @@ export async function generateMetadata() {
       canonical: 'https://xynapseai.net/dex',
     },
     openGraph: {
-      title: 'DEX Tracker 2025 | Live Whale Trades, OI & Volume on Hyperliquid & Lighter',
+      title: 'DEX Tracker | Live Whale Trades, OI & Volume on Hyperliquid & Lighter',
       description:
         'Track real-time whale trades (> $100k), open interest by asset, 24h volume rankings, and detailed wallet PnL analytics on Hyperliquid and Lighter perpetual futures exchanges. More DEXes to be added in the future.',
       url: 'https://xynapseai.net/dex',
@@ -35,7 +35,7 @@ export async function generateMetadata() {
     },
     twitter: {
       card: 'summary_large_image',
-      title: 'DEX Live Tracker 2025 | Whale Trades & OI on Hyperliquid & Lighter',
+      title: 'DEX Live Tracker| Whale Trades & OI on Hyperliquid & Lighter',
       description: 'Real-time DEX data: whale trades, open interest, volume, wallet PnL.',
       images: ['https://xynapseai.net/og-dex.png'],
     },
@@ -44,5 +44,9 @@ export async function generateMetadata() {
 
 // Server Component
 export default async function DexPage() {
-  return <DexTab />
+  return (
+    <TabLayout initialTab="dex">
+      <DexTab />
+    </TabLayout>
+  )
 }

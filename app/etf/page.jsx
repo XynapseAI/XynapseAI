@@ -1,6 +1,6 @@
 // app/etf/page.jsx
 import EtfTab from '@/components/EtfTab'
-import Image from 'next/image'
+import TabLayout from '../tab-layout'
 
 // Disable static generation if needed, but for this static page, it's optional
 export const dynamic = 'force-dynamic'
@@ -8,7 +8,7 @@ export const dynamic = 'force-dynamic'
 // Server-side metadata for SEO
 export async function generateMetadata() {
   return {
-    title: 'Bitcoin ETF Tracker 2025: Live Inflows, Outflows & Holdings | Xynapse',
+    title: 'Bitcoin ETF Tracker Live Inflows, Outflows & Holdings | Xynapse',
     description:
       'Real-time tracking of daily inflows/outflows for top Spot Bitcoin ETFs (IBIT, FBTC, GBTC, ARKB, BITB, HODL...). Latest holdings in BTC, net flows in USD millions, and historical charts. Updated as of December 26, 2025.',
     keywords:
@@ -18,7 +18,7 @@ export async function generateMetadata() {
       canonical: 'https://xynapseai.net/etf',
     },
     openGraph: {
-      title: 'Bitcoin ETF Tracker 2025: Live Inflows, Outflows & Holdings',
+      title: 'Bitcoin ETF Tracker: Live Inflows, Outflows & Holdings',
       description:
         'Real-time data on top Spot Bitcoin ETFs: IBIT (BlackRock), FBTC (Fidelity), GBTC (Grayscale), ARKB (Ark), BITB (Bitwise)... View daily net flows, BTC holdings, and historical charts.',
       url: 'https://xynapseai.net/etf',
@@ -34,7 +34,7 @@ export async function generateMetadata() {
     },
     twitter: {
       card: 'summary_large_image',
-      title: 'Bitcoin ETF Tracker 2025 | Live Flows & Holdings',
+      title: 'Bitcoin ETF Tracker| Live Flows & Holdings',
       description: 'Real-time inflows/outflows for Spot Bitcoin ETFs.',
       images: ['https://xynapseai.net/og-etf.png'],
     },
@@ -43,5 +43,9 @@ export async function generateMetadata() {
 
 // Server Component
 export default async function EtfPage() {
-  return <EtfTab />
+  return (
+    <TabLayout initialTab="etf">
+      <EtfTab />
+    </TabLayout>
+  )
 }

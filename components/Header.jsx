@@ -50,7 +50,7 @@ export default function Header({ activeTab, setActiveTab, handleSignOut, selecte
     { id: 'etf', label: 'ETFs', icon: BadgeDollarSign }, // Internal for now; add href: '/etf' if external
     { id: 'cluster', label: 'Cluster', icon: Network },
     { id: 'graph', label: 'Graph', icon: Activity },
-    { id: 'watchlists', label: 'Watchlists', icon: List },
+    { id: 'watchlist', label: 'Watchlist', icon: List },
     { id: 'explorer', label: 'Explorer', icon: SearchIcon }, // Added Explorer tab with Search icon
     { id: 'dex', label: 'Dex', icon: AudioLines },
     { id: 'profile', label: 'Profile', icon: User },
@@ -59,27 +59,44 @@ export default function Header({ activeTab, setActiveTab, handleSignOut, selecte
   // Memoized dynamic href builder for better performance
   const getTabHref = useMemo(() => {
     return (tabId) => {
-      const tab = tabs.find((t) => t.id === tabId)
-      if (tab?.href) return tab.href // External if defined
-
-      let queryStr = `tab=${tabId}`
-      // Preserve params based on tab
-      if (tabId === 'explorer') {
-        const currentQuery = searchParams.get('query') || ''
-        const currentChain = searchParams.get('chain') || ''
-        if (currentQuery) queryStr += `&query=${encodeURIComponent(currentQuery)}`
-        if (currentChain) queryStr += `&chain=${currentChain}`
-      } else if (tabId === 'watchlists' && selectedAddress) {
-        queryStr += `&address=${encodeURIComponent(selectedAddress)}`
-      } else if (tabId === 'cluster') {
-        const clusterId =
-          new URLSearchParams(window.location.search).get('clusterId') ||
-          searchParams.get('clusterId')
-        if (clusterId) queryStr += `&clusterId=${encodeURIComponent(clusterId)}`
+      const cleanUrlTabs = {
+        market: '/market',
+        etf: '/etf',
+        dex: '/dex',
+        cluster: '/cluster',
+        explorer: '/explorer',
+        graph: '/graph',
+        watchlist: '/watchlist',
+        profile: '/profile',
+        ai: '/ai',
       }
-      return `/dashboard?${queryStr}`
+
+      // Nếu tab có URL sạch → dùng nó
+      if (cleanUrlTabs[tabId]) {
+        let url = cleanUrlTabs[tabId]
+
+        // Bảo toàn query params cần thiết
+        if (tabId === 'explorer') {
+          const currentQuery = searchParams.get('query')
+          const currentChain = searchParams.get('chain')
+          const params = new URLSearchParams()
+          if (currentQuery) params.set('query', currentQuery)
+          if (currentChain) params.set('chain', currentChain)
+          if (params.toString()) url += `?${params.toString()}`
+        } else if (tabId === 'cluster') {
+          const clusterId = searchParams.get('clusterId')
+          if (clusterId) url += `?clusterId=${encodeURIComponent(clusterId)}`
+        } else if (tabId === 'watchlists' && selectedAddress) {
+          url += `?address=${encodeURIComponent(selectedAddress)}`
+        }
+
+        return url
+      }
+
+      // Fallback: các tab chưa có trang riêng (nếu có)
+      return `/dashboard?tab=${tabId}`
     }
-  }, [tabs, searchParams, selectedAddress])
+  }, [searchParams, selectedAddress])
 
   useEffect(() => {
     const handleClickOutside = (event) => {
