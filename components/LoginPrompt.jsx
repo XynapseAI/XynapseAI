@@ -1,15 +1,15 @@
-'use client'
+"use client";
 
-import { motion } from 'framer-motion'
-import Image from 'next/image'
-import Link from 'next/link'
+import { motion } from "framer-motion";
+import Image from "next/image";
+import Link from "next/link";
 
 export default function LoginPrompt() {
   return (
     <motion.div
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.5, ease: 'easeOut' }}
+      transition={{ duration: 0.5, ease: "easeOut" }}
       className="flex flex-col items-center justify-center w-full h-full min-h-[200px] bg-transparent text-white p-4 sm:p-6"
     >
       <motion.div
@@ -30,12 +30,12 @@ export default function LoginPrompt() {
           Please sign in to access this feature.
         </p>
         <Link
-          href="/profile"
+          href="/dashboard?tab=profile"
           className="px-4 py-2 bg-gray-800 text-white rounded-xl text-sm font-medium uppercase transition-all duration-300 hover:bg-gray-700 border border-white/20"
         >
           Sign In
         </Link>
       </motion.div>
     </motion.div>
-  )
+  );
 }

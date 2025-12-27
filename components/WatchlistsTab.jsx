@@ -341,18 +341,20 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
   const updateUrl = useCallback(
     debounce((address) => {
       if (!address) {
-        router.replace('/watchlist', { scroll: false })
+        router.replace('/dashboard?tab=watchlists', { scroll: false })
         return
       }
-
-      const newParams = new URLSearchParams()
-      newParams.set('address', address)
-      const url = `/watchlist?${newParams.toString()}`
-
-      logger.log('Updating URL:', { url })
-      router.replace(url, { scroll: false })
+      const currentAddress = searchParams.get('address')
+      if (address.toLowerCase() !== currentAddress?.toLowerCase()) {
+        const newParams = new URLSearchParams()
+        newParams.set('tab', 'watchlists')
+        newParams.set('address', address)
+        const url = `/dashboard?${newParams.toString()}`
+        logger.log('Updating URL:', { url })
+        router.replace(url, { scroll: false })
+      }
     }, 300),
-    [router],
+    [router, searchParams],
   )
   const handleTabClick = useCallback((tab) => {
     logger.log('Tab clicked:', { tab })

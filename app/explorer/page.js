@@ -1,7 +1,6 @@
 // app/explorer/page.js - Updated to pass isStandalone prop
 import ExplorerTab from '../../components/ExplorerTab';
 import { auth } from '@/lib/auth';
-import TabLayout from '../tab-layout';
 
 // Disable static generation for dynamic routes with searchParams
 export const dynamic = 'force-dynamic';
@@ -28,7 +27,7 @@ export async function generateMetadata({ searchParams }) {
     const validChain = supportedChains.includes(chain) ? chain : 'ethereum';
     const capitalizedChain = validChain.charAt(0).toUpperCase() + validChain.slice(1);
     const truncatedQuery = query.length > 10 ? `${query.slice(0, 8)}...${query.slice(-6)}` : query;
-
+    
     // Use name, email, or fallback for user personalization
     const userName = session?.user?.name || '';
     const title = `${userName ? userName + ' - ' : ''}Transaction ${truncatedQuery} on ${capitalizedChain} | Xynapse Explorer`;
@@ -129,13 +128,5 @@ export default async function ExplorerPage({ searchParams }) {
   console.log('ExplorerPage props:', { params }); // Debug log
   const initialQuery = params?.query || '';
   const initialChain = (params?.chain || 'ethereum').toLowerCase();
-  return (
-    <TabLayout initialTab="explorer">
-      <ExplorerTab
-        initialQuery={initialQuery}
-        initialChain={initialChain}
-        isStandalone={true}
-      />
-    </TabLayout>
-  );
+  return <ExplorerTab initialQuery={initialQuery} initialChain={initialChain} isStandalone={true} />;
 }

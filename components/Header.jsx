@@ -50,7 +50,7 @@ export default function Header({ activeTab, setActiveTab, handleSignOut, selecte
     { id: 'etf', label: 'ETFs', icon: BadgeDollarSign }, // Internal for now; add href: '/etf' if external
     { id: 'cluster', label: 'Cluster', icon: Network },
     { id: 'graph', label: 'Graph', icon: Activity },
-    { id: 'watchlist', label: 'Watchlist', icon: List },
+    { id: 'watchlists', label: 'Watchlists', icon: List },
     { id: 'explorer', label: 'Explorer', icon: SearchIcon }, // Added Explorer tab with Search icon
     { id: 'dex', label: 'Dex', icon: AudioLines },
     { id: 'profile', label: 'Profile', icon: User },
@@ -59,44 +59,27 @@ export default function Header({ activeTab, setActiveTab, handleSignOut, selecte
   // Memoized dynamic href builder for better performance
   const getTabHref = useMemo(() => {
     return (tabId) => {
-      const cleanUrlTabs = {
-        market: '/market',
-        etf: '/etf',
-        dex: '/dex',
-        cluster: '/cluster',
-        explorer: '/explorer',
-        graph: '/graph',
-        watchlist: '/watchlist',
-        profile: '/profile',
-        ai: '/ai',
+      const tab = tabs.find((t) => t.id === tabId)
+      if (tab?.href) return tab.href // External if defined
+
+      let queryStr = `tab=${tabId}`
+      // Preserve params based on tab
+      if (tabId === 'explorer') {
+        const currentQuery = searchParams.get('query') || ''
+        const currentChain = searchParams.get('chain') || ''
+        if (currentQuery) queryStr += `&query=${encodeURIComponent(currentQuery)}`
+        if (currentChain) queryStr += `&chain=${currentChain}`
+      } else if (tabId === 'watchlists' && selectedAddress) {
+        queryStr += `&address=${encodeURIComponent(selectedAddress)}`
+      } else if (tabId === 'cluster') {
+        const clusterId =
+          new URLSearchParams(window.location.search).get('clusterId') ||
+          searchParams.get('clusterId')
+        if (clusterId) queryStr += `&clusterId=${encodeURIComponent(clusterId)}`
       }
-
-      // Nếu tab có URL sạch → dùng nó
-      if (cleanUrlTabs[tabId]) {
-        let url = cleanUrlTabs[tabId]
-
-        // Bảo toàn query params cần thiết
-        if (tabId === 'explorer') {
-          const currentQuery = searchParams.get('query')
-          const currentChain = searchParams.get('chain')
-          const params = new URLSearchParams()
-          if (currentQuery) params.set('query', currentQuery)
-          if (currentChain) params.set('chain', currentChain)
-          if (params.toString()) url += `?${params.toString()}`
-        } else if (tabId === 'cluster') {
-          const clusterId = searchParams.get('clusterId')
-          if (clusterId) url += `?clusterId=${encodeURIComponent(clusterId)}`
-        } else if (tabId === 'watchlists' && selectedAddress) {
-          url += `?address=${encodeURIComponent(selectedAddress)}`
-        }
-
-        return url
-      }
-
-      // Fallback: các tab chưa có trang riêng (nếu có)
-      return `/dashboard?tab=${tabId}`
+      return `/dashboard?${queryStr}`
     }
-  }, [searchParams, selectedAddress])
+  }, [tabs, searchParams, selectedAddress])
 
   useEffect(() => {
     const handleClickOutside = (event) => {
@@ -300,14 +283,11 @@ export default function Header({ activeTab, setActiveTab, handleSignOut, selecte
               {tabs.map((tab) => {
                 const Icon = tab.icon
                 const isActive = activeTab === tab.id
-                const cleanHref = getTabHref(tab.id).split('?')[0] // Chỉ lấy phần path, ví dụ: /dashboard hoặc /market
-                const queryParams = new URLSearchParams(getTabHref(tab.id).split('?')[1] || '')
-
+                const href = getTabHref(tab.id)
                 return (
                   <Link
                     key={tab.id}
-                    href={cleanHref}
-                    searchParams={queryParams.toString() ? queryParams : undefined} // Nếu có params thì truyền, không thì undefined
+                    href={href}
                     className="group relative flex items-center gap-1 px-3 py-2 text-[11px] font-semibold uppercase rounded-lg transition-all duration-300 ease-out border border-transparent no-underline focus:outline-none"
                     onClick={() => handleTabNavigation(tab.id)}
                   >
@@ -393,12 +373,11 @@ export default function Header({ activeTab, setActiveTab, handleSignOut, selecte
                 {tabs.map((tab) => {
                   const Icon = tab.icon
                   const isActive = activeTab === tab.id
-                  const cleanHref = getTabHref(tab.id).split('?')[0] // Chỉ lấy phần path, ví dụ: /dashboard hoặc /market
-                  const queryParams = new URLSearchParams(getTabHref(tab.id).split('?')[1] || '')
+                  const href = getTabHref(tab.id)
                   return (
                     <Link
                       key={tab.id}
-                      searchParams={queryParams.toString() ? queryParams : undefined}
+                      href={href}
                       className={`relative w-full flex items-center gap-2 px-3 py-3 text-sm font-semibold transition-all duration-300 rounded-lg border border-transparent no-underline focus:outline-none ${
                         isActive
                           ? 'text-neon-blue'

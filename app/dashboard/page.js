@@ -7,7 +7,7 @@ import Header from '../../components/Header'
 import AITab from '../../components/AITab'
 import ProfileTab from '../../components/ProfileTab'
 import MarketTab from '../../components/MarketTab'
-import GraphTab from '../../components/GraphTab'
+import TreemapTab from '../../components/TreemapTab'
 import WatchlistsTab from '../../components/WatchlistsTab'
 import ClusterTab from '../../components/ClusterTab'
 import ExplorerTab from '../../components/ExplorerTab'
@@ -541,12 +541,10 @@ function DashboardInner() {
       }
       const { token } = tokenResponse
       safeLog('Mini App quickauth token preview:', token.substring(0, 50) + '...')
-      const callbackUrl = pendingInviteCode ? `/profile?invite=${pendingInviteCode}` : '/profile'
-
       const result = await signIn('farcaster', {
         redirect: false,
-        token,
-        callbackUrl,
+        token, // Pass token for Credentials (need to update options.js to handle token)
+        callbackUrl: '/dashboard',
       })
       if (result?.error) {
         throw new Error(result.error || 'Auth failed')
@@ -669,13 +667,11 @@ function DashboardInner() {
         throw new Error(verifyData.message || 'SIWE verification failed')
       }
       // If verify OK, proceed NextAuth
-      const callbackUrl = pendingInviteCode ? `/profile?invite=${pendingInviteCode}` : '/profile'
-
       const result = await signIn('world', {
         redirect: false,
         message,
         signature,
-        callbackUrl,
+        callbackUrl: '/dashboard',
       })
       if (result?.error) {
         throw new Error(result.error || 'Auth failed')
@@ -756,15 +752,7 @@ function DashboardInner() {
       const cleanUrl = window.location.pathname + window.location.hash
       window.history.replaceState({}, '', cleanUrl)
     }
-  }, [])
-
-  useEffect(() => {
-    if (status === 'authenticated' && authSuccess) {
-      const targetUrl = pendingInviteCode ? `/profile?invite=${pendingInviteCode}` : '/profile'
-
-      router.replace(targetUrl)
-    }
-  }, [status, authSuccess, pendingInviteCode, router])
+  }, []) // Chỉ chạy 1 lần khi mount
 
   // useEffect(() => {
   // if (activeTab === 'etf' && router) {
@@ -860,7 +848,9 @@ function DashboardInner() {
   // FIXED: Merge old handleFarcasterSuccess with new (add authSuccess + shallow push). REMOVED: csrfToken (let NextAuth add automatically to avoid duplicate/mismatch)
   const handleFarcasterSuccess = async (result) => {
     try {
-      const callbackUrl = pendingInviteCode ? `/profile?invite=${pendingInviteCode}` : '/profile'
+      const callbackUrl = pendingInviteCode
+        ? `/dashboard?invite=${pendingInviteCode}`
+        : '/dashboard'
       const res = await signIn('farcaster', {
         message: result.message,
         signature: result.signature,
@@ -892,7 +882,9 @@ function DashboardInner() {
   const handleEmailSignIn = async (e) => {
     e.preventDefault()
     try {
-      const callbackUrl = pendingInviteCode ? `/profile?invite=${pendingInviteCode}` : '/profile'
+      const callbackUrl = pendingInviteCode
+        ? `/dashboard?invite=${pendingInviteCode}`
+        : '/dashboard'
       await signIn('email', { email, callbackUrl, redirect: false })
     } catch (err) {
       safeError('Error signing in with email:', err)
@@ -901,7 +893,9 @@ function DashboardInner() {
   }
   const handleGoogleSignIn = async () => {
     try {
-      const callbackUrl = pendingInviteCode ? `/profile?invite=${pendingInviteCode}` : '/profile'
+      const callbackUrl = pendingInviteCode
+        ? `/dashboard?invite=${pendingInviteCode}`
+        : '/dashboard'
       const result = await signIn('google', { callbackUrl, redirect: false })
       if (result?.error) {
         if (result.error.includes('Rate limit exceeded')) {
@@ -1383,7 +1377,9 @@ function DashboardInner() {
                           initialClusterId={searchParams.get('clusterId') || 'binance'} // Fixed from initialExchangeId
                         />
                       )}
-                      {activeTab === 'graph' && <GraphTab onTokenSelect={handleNavigateToToken} />}
+                      {activeTab === 'graph' && (
+                        <TreemapTab onTokenSelect={handleNavigateToToken} />
+                      )}
                       {activeTab === 'ai' && <AITab recaptchaRef={recaptchaRef} />}
                       {activeTab === 'explorer' && (
                         <ExplorerTab
