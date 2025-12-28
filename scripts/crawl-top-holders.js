@@ -532,7 +532,6 @@ async function crawlBitboTopHolders(url, chainName, chainLabel) {
       return;
     }
 
-    // Lưu vào database và JSON
     await saveHoldersToDatabase(holders, chainName, chainLabel);
     await saveHoldersToJson(holders, chainLabel);
     console.log(`[${new Date().toISOString()}] ✅ [${chainName}] Saved ${holders.length} addresses to database and JSON`);

@@ -223,22 +223,20 @@ export default function DexTab() {
             try {
                 const newData = JSON.parse(event.data)
 
-                // Nếu là full list (500 trades) – dùng để khởi tạo hoặc refresh page 1
                 if (Array.isArray(newData) && newData.length > 10) {
                     setRecentWhaleTrades(newData)
-                    setActivityPage(1) // Luôn về trang 1 khi có full update
+                    setActivityPage(1)
                 } else {
-                    // Là update realtime (trade mới)
                     setRecentWhaleTrades((prev) => {
                         const existingIds = new Set(prev.map((t) => t.id))
                         const tradesToAdd = Array.isArray(newData) ? newData : [newData]
                         const uniqueNew = tradesToAdd.filter((t) => !existingIds.has(t.id))
                         const updated = [...uniqueNew, ...prev]
                             .sort((a, b) => b.time - a.time)
-                            .slice(0, totalDisplayTrades) // Giới hạn 500
+                            .slice(0, totalDisplayTrades) 
                         return updated
                     })
-                    setActivityPage(1) // Trade mới → tự động về trang 1
+                    setActivityPage(1) 
                 }
             } catch (err) {
                 console.error('SSE parse error:', err)
@@ -1155,7 +1153,6 @@ export default function DexTab() {
                             </table>
                         </div>
 
-                        {/* Pagination cho Activity */}
                         {recentWhaleTrades.length > tradesPerPage && (
                             <div className="flex items-center justify-center gap-4 mt-4">
                                 <button

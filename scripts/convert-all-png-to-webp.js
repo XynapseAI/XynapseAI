@@ -13,7 +13,6 @@ async function convertDir(dir) {
     const stat = fs.statSync(filePath);
 
     if (stat.isDirectory()) {
-      // 🔁 Đệ quy vào thư mục con
       await convertDir(filePath);
     } else {
       const ext = path.extname(file).toLowerCase();
@@ -28,7 +27,6 @@ async function convertDir(dir) {
 
           console.log(`✅ Converted: ${filePath} → ${outputPath}`);
 
-          // ❌ Xóa file gốc
           fs.unlinkSync(filePath);
           console.log(`🗑️ Deleted original: ${filePath}`);
         } catch (err) {

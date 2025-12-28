@@ -7,7 +7,6 @@ import os
 NUM_TOKENS = 10000
 BASE_DIR = "metadata"
 
-# 👉 Image đã upload IPFS (Pinata hoặc bất kỳ pinning service nào)
 IMAGE_CID = "QmTofP7etC2SNP4dfGz3aposQCHAtkLSHB9VqNNyWo4Mim" 
 IMAGE_URL = f"ipfs://{IMAGE_CID}"
 

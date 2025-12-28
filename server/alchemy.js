@@ -1,7 +1,7 @@
 import 'dotenv/config';
 import { Redis } from '@upstash/redis';
 import fetch from 'node-fetch';
-import process from 'process'; // FIXED: Import để log memory
+import process from 'process'; 
 
 const redis = new Redis({
     url: process.env.UPSTASH_REDIS_REST_URL,
@@ -41,14 +41,14 @@ const PRICE_ID = {
     hyperevm: 'hyperevm',
 };
 
-const MAX_BLOCKS = 100; // FIXED: Giảm từ 500 → 100 (đủ dashboard, giảm memory 80%)
-const MAX_TXS = 1000; // FIXED: Giảm từ 2000 → 1000 (ít tx hơn)
-const INITIAL_FETCH_COUNT = 20; // FIXED: Tăng initial để cover dashboard ngay, nhưng sequential nếu busy chain
-const MAX_NEW_FETCH_PER_UPDATE = 5; // Giữ nguyên
-const CACHE_EXPIRE_SECONDS = 600; // Giữ nguyên
-const CONCURRENCY_LIMIT = 2; // FIXED: Giảm từ 3 → 2 để low peak memory
+const MAX_BLOCKS = 100; 
+const MAX_TXS = 1000; 
+const INITIAL_FETCH_COUNT = 20;
+const MAX_NEW_FETCH_PER_UPDATE = 5; 
+const CACHE_EXPIRE_SECONDS = 600; 
+const CONCURRENCY_LIMIT = 2; 
 
-// FIXED: Proper semaphore với release call
+// FIXED: Proper semaphore
 function createSemaphore(limit) {
     let active = 0;
     let queue = [];
@@ -64,7 +64,7 @@ function createSemaphore(limit) {
                             next();
                         }
                     };
-                    resolve({ release, run: release }); // FIXED: Trả release và run wrapper
+                    resolve({ release, run: release }); 
                 };
                 if (active < limit) task();
                 else queue.push(task);
@@ -79,7 +79,6 @@ function logMemory(chain = '') {
     console.log(`[${chain}] Memory - RSS: ${(usage.rss / 1024 / 1024).toFixed(2)}MB, Heap: ${(usage.heapUsed / 1024 / 1024).toFixed(2)}MB`);
 }
 
-// Hàm gọi RPC (giữ nguyên)
 async function fetchRPC(url, method, params = []) {
     const res = await fetch(url, {
         method: 'POST',
@@ -92,7 +91,7 @@ async function fetchRPC(url, method, params = []) {
     return data.result;
 }
 
-// updateAllPrices (giữ nguyên, đã fix body)
+// updateAllPrices
 async function updateAllPrices() {
     const uniqueIds = [...new Set(Object.values(PRICE_ID))];
     const idsStr = uniqueIds.join(',');
@@ -122,13 +121,13 @@ async function updateAllPrices() {
         pipeline.set(`price:${chain}`, price, { EX: 3600 });
     }
     await pipeline.exec();
-    logMemory('PRICES'); // FIXED: Log memory sau prices
+    logMemory('PRICES'); // FIXED: Log memory prices
 }
 
 async function processEVMChain(chain, rpcUrl) {
     try {
         console.log(`[${chain}] Updating...`);
-        logMemory(chain); // FIXED: Log trước update
+        logMemory(chain); 
 
         const latestHex = await fetchRPC(rpcUrl, 'eth_blockNumber');
         const latest = parseInt(latestHex, 16);
@@ -146,7 +145,6 @@ async function processEVMChain(chain, rpcUrl) {
         const semaphore = createSemaphore(CONCURRENCY_LIMIT);
 
         if (existingBlocks.length === 0) {
-            // FIXED: Sequential fetch cho initial nếu chain busy (như bsc), parallel nếu small
             const isBusyChain = ['ethereum', 'bsc'].includes(chain);
             const results = [];
             for (let i = 0; i < INITIAL_FETCH_COUNT; i++) {
@@ -169,7 +167,6 @@ async function processEVMChain(chain, rpcUrl) {
                 baseFeePerGas: b.baseFeePerGas ? { type: 'BigNumber', hex: b.baseFeePerGas } : null,
             }));
 
-            // FIXED: Limit txs/block=30 cho busy chains
             const txPerBlock = isBusyChain ? 30 : 50;
             results.forEach(block => {
                 if (block?.transactions) {
@@ -208,7 +205,6 @@ async function processEVMChain(chain, rpcUrl) {
 
             existingBlocks = [...newBlocks, ...existingBlocks].slice(0, MAX_BLOCKS);
 
-            // FIXED: Txs từ 2 blocks, limit tx/block
             const isBusyChain = ['ethereum', 'bsc'].includes(chain);
             const txPerBlock = isBusyChain ? 30 : 50;
             results.slice(0, 2).forEach(block => {
@@ -239,14 +235,13 @@ async function processEVMChain(chain, rpcUrl) {
         await pipeline.exec();
 
         console.log(`[${chain}] Updated. Block: ${latest}, Blocks: ${existingBlocks.length}, Txs: ${existingTxs.length}`);
-        logMemory(chain); // FIXED: Log sau
+        logMemory(chain);
     } catch (err) {
         console.error(`[${chain}] Error:`, err.message);
-        logMemory(chain + '-ERROR'); // FIXED: Log nếu error
+        logMemory(chain + '-ERROR');
     }
 }
 
-// FIXED: Bitcoin - Sequential + limit tx=20/block
 async function processBitcoin(chain, rpcUrl) {
     try {
         console.log(`[${chain}] Updating...`);
@@ -398,7 +393,6 @@ async function processBitcoin(chain, rpcUrl) {
     }
 }
 
-// FIXED: Solana - Giữ nguyên nhưng sequential
 async function processSolana(chain, rpcUrl) {
     try {
         console.log(`[${chain}] Updating...`);
@@ -443,7 +437,6 @@ async function processSolana(chain, rpcUrl) {
                 transactions: b.transactions ? b.transactions.map(t => t.transaction.signatures[0]) : [],
             }));
 
-            // FIXED: Limit txs = 50/block cho Solana (high volume)
             validResults.forEach(b => {
                 if (b.transactions) {
                     const limitedTxs = b.transactions.slice(0, 50);
@@ -511,7 +504,7 @@ async function processSolana(chain, rpcUrl) {
 
             existingBlocks = [...newBlocks, ...existingBlocks].slice(0, MAX_BLOCKS);
 
-            // FIXED: Txs từ 1 block, limit 50
+            // FIXED: Txs 1 block, limit 50
             newValidResults.slice(0, 1).forEach(b => {
                 if (b.transactions) {
                     const limitedTxs = b.transactions.slice(0, 50);

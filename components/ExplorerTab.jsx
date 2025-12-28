@@ -204,7 +204,7 @@ export default function ExplorerTab({ initialQuery, initialChain, isStandalone =
         const miners = latestBlocks
             .map((b) => b.miner?.toLowerCase())
             .filter(Boolean)
-            .slice(0, 20) // Ít miners
+            .slice(0, 20)
         const all = [...froms, ...tos, ...miners].filter((a) => a)
         return [...new Set(all)].slice(0, 100)
     }

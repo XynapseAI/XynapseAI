@@ -27,13 +27,11 @@ export async function braveSearch({ query, count = 5, freshness = 'pm' }) {
 
     const results = response.data.web?.results || [];
 
-    // Kết hợp description và extra_snippets
     const snippets = results
       .map((result) => {
         const description = result.description || '';
         const extra = result.extra_snippets ? result.extra_snippets.join(' ').trim() : '';
         const combined = [description, extra].filter(Boolean).join(' ').trim();
-        // Làm sạch HTML và entities
         return sanitizeHtml(combined, {
           allowedTags: [],
           allowedAttributes: {},
@@ -47,7 +45,6 @@ export async function braveSearch({ query, count = 5, freshness = 'pm' }) {
       .filter(Boolean)
       .join('\n\n');
 
-    // Tạo links với fallback chặt chẽ
     const links = results
       .map((result) => {
         const title = result.title && result.title !== 'undefined' && result.title !== '' ? result.title : result.url || 'Untitled';

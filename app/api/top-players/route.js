@@ -40,55 +40,55 @@ function isAllowedOrigin(origin, referer) {
   try {
     if (origin) {
       if (allowedOrigins.includes(origin)) {
-        logger.info('Origin được phép', { origin });
+        logger.info('Origin allowed', { origin });
         return true;
       }
       const hostname = new URL(origin).hostname;
       if (hostname.endsWith('.vercel.app') || hostname.endsWith('xynapseai.net')) {
-        logger.info('Domain động được phép', { origin, hostname });
+        logger.info('Dynamic domain allowed', { origin, hostname });
         return true;
       }
     }
     if (!origin && referer) {
       const refOrigin = new URL(referer).origin;
       if (allowedOrigins.includes(refOrigin)) {
-        logger.info('Referer origin được phép', { referer, refOrigin });
+        logger.info('Referer origin allowed', { referer, refOrigin });
         return true;
       }
       const hostname = new URL(refOrigin).hostname;
       if (hostname.endsWith('.vercel.app') || hostname.endsWith('xynapseai.net')) {
-        logger.info('Referer domain động được phép', { referer, hostname });
+        logger.info('Referer dynamic domain allowed', { referer, hostname });
         return true;
       }
     }
     if (!origin && !referer) {
-      logger.info('Cho phép yêu cầu nội bộ/SSR');
+      logger.info('Allowing internal/SSR request');
       return true;
     }
     if (!origin && process.env.NODE_ENV === 'development') {
-      logger.warn('Origin là null, cho phép trong chế độ phát triển');
+      logger.warn('Origin is null, allowing in development mode');
       return true;
     }
-    logger.error('Bị chặn bởi CORS', { origin, referer });
+    logger.error('Blocked by CORS', { origin, referer });
     return false;
   } catch (error) {
-    logger.error('Lỗi trong isAllowedOrigin', { error: error.message, origin, referer });
+    logger.error('Error in isAllowedOrigin', { error: error.message, origin, referer });
     return false;
   }
 }
 
 async function checkCSRF(request, session) {
   const csrfToken = request.headers.get('x-csrf-token');
-  logger.info('Kiểm tra CSRF', {
+  logger.info('Checking CSRF token', {
     receivedToken: csrfToken,
     sessionToken: session?.csrfToken,
   });
   if (process.env.NODE_ENV === 'development') {
-    logger.info('Bỏ qua kiểm tra CSRF trong chế độ phát triển');
+    logger.info('Skipping CSRF check in development mode');
     return true;
   }
   if (!csrfToken || !session?.csrfToken || csrfToken !== session.csrfToken) {
-    logger.warn(`Kiểm tra CSRF thất bại: Token CSRF không hợp lệ: ${csrfToken || 'none'}`, {
+    logger.warn(`CSRF check failed: Invalid CSRF token: ${csrfToken || 'none'}`, {
       ip: request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown',
     });
     return false;
@@ -103,14 +103,14 @@ export async function GET(request) {
   logger.info(`Request to /api/top-players from IP ${ip}`, { origin, referer });
 
   if (!isAllowedOrigin(origin, referer)) {
-    logger.error(`CORS error: Origin ${origin || 'null'} not allowed`, { allowedOrigins });
+    logger.error(`CORS error: Origin ${origin || 'null'} not allowed`);
     return NextResponse.json({ detail: 'Not allowed by CORS' }, { status: 403 });
   }
 
   try {
     await checkRateLimit(ip);
   } catch (err) {
-    logger.error(`Rate limit error: ${err.message}`, { ip });
+    logger.error(`Rate limit exceeded: ${err.message}`, { ip });
     return NextResponse.json({ detail: err.message }, { status: 429 });
   }
 

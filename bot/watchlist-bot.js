@@ -197,7 +197,7 @@ async function fetchTransactions(address) {
   const startTime = Date.now();
   try {
     const now = new Date();
-    const startTimeFilter = new Date(now.getTime() - 2.5 * 60 * 60 * 1000).toISOString(); // 2.5h trước (2h + buffer 30p)
+    const startTimeFilter = new Date(now.getTime() - 2.5 * 60 * 60 * 1000).toISOString();
     const response = await axios.post(
       `${process.env.API_BASE_URL}/api/sim`,
       {
@@ -437,7 +437,7 @@ async function postTweet(transaction, fromName, toName) {
       });
       const tweetResponse = await v2Client.tweet(tweetText);
       const tweetId = tweetResponse.data.id;
-      const tweetUrl = `https://x.com/i/status/${tweetId}`; // URL để kiểm tra tweet
+      const tweetUrl = `https://x.com/i/status/${tweetId}`;
       logger.info(`Successfully posted tweet for transaction ${hash} in ${Date.now() - startTime}ms`, {
         tweetText,
         tweetResponse: tweetResponse.data,

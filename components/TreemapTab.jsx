@@ -113,7 +113,6 @@ const VirtuosoTable = memo(
       })
     }
 
-    // Helper: Internal explorer URL (ưu tiên internal, fallback cũ nếu cần)
     const getInternalExplorerUrl = (chain, txHash = '', address = '', type = '') => {
       const normalizedChain = String(chain || 'ethereum').toLowerCase()
       const SUPPORTED_INTERNAL_CHAINS = [
@@ -1507,14 +1506,11 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
       }
       setSelectedEntity({ type: 'cluster', data: rootCluster || clusterData })
       // Preload images with reduced scope (only essential)
-      // Preload images - ưu tiên walletInfo.image trước tiên
       const imageCache = {}
       const imagesToPreload = new Set()
-      // Luôn preload image của wallet gốc trước
       if (walletInfo.image && isValidNametagImage(walletInfo.image)) {
         imagesToPreload.add(walletInfo.image)
       }
-      // Thêm các image khác từ nodes
       positionedNodesData.forEach((n) => {
         if (n.image && isValidNametagImage(n.image)) {
           imagesToPreload.add(n.image)
@@ -1659,7 +1655,6 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
           ctx.strokeStyle = '#fff'
           ctx.lineWidth = 1 / globalScale
           ctx.stroke()
-          // Ưu tiên walletInfo.image cho root node
           const isRoot = node.id.toLowerCase() === walletInfo.address?.toLowerCase()
           let displayImage = '/icons/default.webp'
           if (isRoot && walletInfo.image) {
@@ -1671,7 +1666,6 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
           if (!imageCache[displayImage]) {
             finalDisplayImage = '/icons/default.webp'
           }
-          // Image đã được preload → chắc chắn có trong cache
           if (imageCache[finalDisplayImage]) {
             const img = imageCache[finalDisplayImage]
             ctx.save()

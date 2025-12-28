@@ -537,7 +537,7 @@ export async function GET(request) {
             twitter_handle: true,
             days_active: true,
             farcaster_fid: true,
-            invite_code: true, // Thêm invite_code
+            invite_code: true,
             twitter_handles: {
               select: {
                 profile_picture: true,

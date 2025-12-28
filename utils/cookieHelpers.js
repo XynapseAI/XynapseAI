@@ -6,10 +6,10 @@ const isProd = process.env.NODE_ENV === 'production';
 
 export function getCookieOptions(name) {
   return {
-    httpOnly: false,  // Luôn false để client đọc
+    httpOnly: false, 
     secure: isProd,
-    sameSite: isProd ? 'none' : 'lax',  // FIX: 'lax' cho local, 'none' cho cross-origin prod
-    domain: isProd ? (process.env.COOKIE_DOMAIN || '.xynapseai.net') : undefined,  // FIX: undefined cho local
+    sameSite: isProd ? 'none' : 'lax', 
+    domain: isProd ? (process.env.COOKIE_DOMAIN || '.xynapseai.net') : undefined,
     maxAge: 15 * 60,
     path: '/',
   };

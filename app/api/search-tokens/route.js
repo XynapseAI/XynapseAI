@@ -345,8 +345,6 @@ export async function GET(request) {
         const searchTerm = `%${searchQuery.trim().toLowerCase()}%`;
         const exactMatch = searchQuery.trim().toLowerCase();
         const startMatch = `${searchQuery.trim().toLowerCase()}%`;
-
-        // Query cho tokens: Search trên symbol, name, và addresses trong platforms/detail_platforms
         const searchSql = `
       SELECT coingecko_id, symbol, name, image, platforms, detail_platforms, decimals
       FROM tokens 
@@ -393,7 +391,7 @@ export async function GET(request) {
 
                 if (!selectedPlatformKey) {
                     selectedPlatformKey = platformKeys[0];
-                    selectedShort = platformKeys.length > 1 ? 'multi' : platformKeys[0]; // nếu nhiều chain → đánh dấu multi
+                    selectedShort = platformKeys.length > 1 ? 'multi' : platformKeys[0];
                 }
             }
 

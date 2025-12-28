@@ -231,11 +231,11 @@ export default function Docs() {
                         <p className="text-sm text-gray-500">
                             Integrate Xynapse’s real-time on-chain data into your applications with our developer-friendly API. Access wallet data, name tags, and transaction histories programmatically.
                         </p>
-                        <Link href="https://x.ai/api" target="_blank" className="text-neon-blue text-sm hover:underline">
+                        {/* <Link href="https://x.ai/api" target="_blank" className="text-neon-blue text-sm hover:underline">
                             Explore API Docs
-                        </Link>
+                        </Link> */}
                     </div>
-                    <div>
+                    {/* <div>
                         <h3 className="text-lg font-semibold text-white mb-2">Tutorials</h3>
                         <p className="text-sm text-gray-500">
                             Learn how to set up watchlists, analyze whale movements, and create custom visualizations with our in-depth tutorials.
@@ -252,7 +252,7 @@ export default function Docs() {
                         <Link href="/docs/data-guide" target="_blank" className="text-neon-blue text-sm hover:underline">
                             Read Data Guide
                         </Link>
-                    </div>
+                    </div> */}
                 </div>
             </motion.div>
         ),

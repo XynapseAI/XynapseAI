@@ -237,7 +237,6 @@ async function verifyRecaptchaWithRetry(token, action, ip, retries = 2) {
     if (response.needsFallback) {
       return response;
     }
-    // Fail khác, retry
     logger.warn(`reCAPTCHA attempt ${i + 1} failed: ${response.error}`, { action, ip });
     if (i === retries - 1) {
       throw new Error(response.error || 'reCAPTCHA verification failed');

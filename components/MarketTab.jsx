@@ -209,7 +209,6 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
   const getExplorerInfo = (chain, txHash, address) => {
     const normalizedChain = (chain || 'ethereum').toLowerCase()
 
-    // Danh sách các chain mà Explorer nội bộ hỗ trợ (dựa trên ExplorerTab của bạn)
     const SUPPORTED_INTERNAL_CHAINS = [
       'bitcoin',
       'ethereum',
@@ -766,7 +765,6 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
     return { left, width, transition: 'left 0.3s ease-in-out' }
   }, [activeMarketTab])
 
-  // Tối ưu name tags: Chỉ fetch khi tab Holders mở và có data
   useEffect(() => {
     if (activeMarketTab === 'holders' && onChainData.topHolders.length > 0) {
       const visibleHolders = onChainData.topHolders.slice(0, 50)
@@ -780,7 +778,6 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
     }
   }, [activeMarketTab, onChainData.topHolders, nameTags, fetchNameTagsForAddresses])
 
-  // Tối ưu name tags: Chỉ fetch khi tab DEX mở và có trades
   useEffect(() => {
     if (activeMarketTab === 'dex' && sortedTrades.length > 0) {
       const visibleTrades = sortedTrades.slice(0, 30)

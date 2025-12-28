@@ -53,7 +53,7 @@ async function verifyWorldSiwe(messageStr, signature) {
       messagePreview: messageStr.substring(0, 50) + '...'
     });
 
-    // Bước 1: standard ECDSA verify
+    //standard ECDSA verify
     let valid = false;
     try {
       valid = await message.verify({ signature });
@@ -72,7 +72,7 @@ async function verifyWorldSiwe(messageStr, signature) {
       return address;
     }
 
-    // Bước 2: Fallback EIP-1271 smart wallet
+    // Fallback EIP-1271 smart wallet
     logger.info('Fallback to EIP-1271 verification...');
     const chainId = Number(message.chainId);
     let chainConfig;
@@ -560,7 +560,7 @@ export const authOptions = {
   callbacks: {
     async signIn({ user, account, profile }) {
       try {
-        logger.info("Sign-in attempt", { provider: account.provider, providerId: account.providerId || account.id, email: user.email });  // THÊM: Log account.id cho debug
+        logger.info("Sign-in attempt", { provider: account.provider, providerId: account.providerId || account.id, email: user.email });
         let email = user.email || "";
         let googleId = null, googleName = null, profilePic = "", verified = false, userId = null;
 
@@ -609,7 +609,6 @@ export const authOptions = {
               );
             }
           } else {
-            // Tạo mới (như cũ)
             const plainApiKey = randomBytes(32).toString("hex");
             const { api_key_hash, api_key_salt } = await hashApiKey(plainApiKey);
 
@@ -645,7 +644,7 @@ export const authOptions = {
           logger.info("Google user merged/created", { userId, email });
           return true;
         }
-        // FIXED: account.providerId -> account.provider (Auth.js v5 set provider = id cho credentials)
+        // FIXED: account.providerId -> account.provider (Auth.js v5 set provider = id credentials)
         else if (account.provider === "farcaster") {
           // FIXED: Đảm bảo user.id là string
           user.id = account.providerAccountId.toString();
@@ -769,7 +768,7 @@ export const authOptions = {
       sessionToken: {
         name: 'next-auth.session-token',
         options: {
-          httpOnly: false,  // FIX: false cho Mini App compatibility
+          httpOnly: false,  // FIX: false Mini App compatibility
           sameSite: 'none',  // CHANGED: 'none' to allow cross-site (iframe) requests
           path: '/',
           secure: true,
@@ -789,7 +788,7 @@ export const authOptions = {
       csrfToken: {
         name: 'next-auth.csrf-token',
         options: {
-          httpOnly: false,  // FIX: false để webview persist cookie
+          httpOnly: false,  // FIX: false webview persist cookie
           sameSite: 'none',  // CHANGED: 'none'
           path: '/',
           secure: true,

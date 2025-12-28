@@ -308,7 +308,6 @@ export async function GET(request) {
       );
     }
 
-    // Làm sạch searchQuery: chỉ giữ chữ, số, dấu cách, dấu chấm
     const cleanedQuery = searchQuery.trim().replace(/[^a-zA-Z0-9\s.]/g, '');
     if (!cleanedQuery) {
       await trackViolation(ip, 'Invalid characters in query', 'warn');

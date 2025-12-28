@@ -14,7 +14,6 @@ redis.on('error', (err) => {
     }
 })
 
-// Thêm retry logic
 async function connectRedis() {
     let connected = false
     for (let i = 0; i < 20; i++) {
@@ -200,7 +199,6 @@ function connectLighterWS() {
         ws.pong()
     })
 
-    // Chủ động gửi ping mỗi 20 giây để giữ connection (rất hiệu quả với các WS public)
     const pingInterval = setInterval(() => {
         if (ws.readyState === WebSocket.OPEN) {
             ws.ping()

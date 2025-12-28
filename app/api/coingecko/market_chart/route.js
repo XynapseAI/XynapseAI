@@ -44,7 +44,6 @@ export async function GET(request) {
 
   const { id, days = '1', currency = 'usd' } = Object.fromEntries(request.nextUrl.searchParams);
 
-  // Kiểm tra thủ công
   if (!id || typeof id !== 'string' || id.length > 100) {
     logger.warn(`Invalid token ID: ${id}`);
     return NextResponse.json({ detail: 'Invalid token ID' }, { status: 400 });

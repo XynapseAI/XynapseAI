@@ -110,7 +110,7 @@ async function checkRateLimit(ip) {
 }
 
 axiosRetry(axios, {
-  retries: 3,  // Giảm từ 8
+  retries: 3, 
   retryDelay: (retryCount) => {
     logger.info(`Retry attempt ${retryCount} for CoinGecko API`);
     return Math.pow(2, retryCount) * 1000 + Math.random() * 200;
@@ -169,7 +169,7 @@ async function isAllowedOrigin(origin, referer, pathname, ip) {
   try {
     if (!origin && !referer) {
       await trackViolation(ip, 'Missing origin and referer in production');
-      return false; // Không cho phép request không có origin/referer trong production
+      return false; 
     }
 
     if (origin && origin !== 'null') {

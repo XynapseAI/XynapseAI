@@ -127,7 +127,7 @@ async function trackViolation(ip, reason = 'Unknown', severity = 'severe') {
   logger.warn(`Violation recorded: ${ip}, reason: ${reason}, violations: ${violations + 1}`);
 }
 
-// CORS wrapper (nâng cấp với IP ban)
+// CORS wrapper
 const handlerWrapper = (handler) =>
   limiterBottleneck.wrap(async (req) => {
     const ip = req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown';
@@ -259,7 +259,7 @@ export const GET = handlerWrapper(async () => {
       .filter(f => f.date && typeof f.date === 'string' && f.date.match(/^[A-Z][a-z]{2} \d{1,2}, \d{4}$/))
       .sort((a, b) => new Date(b.date.replace(/(\w+) (\d+), (\d+)/, '$1 $2 $3')) - new Date(a.date.replace(/(\w+) (\d+), (\d+)/, '$1 $2 $3')));
 
-    // Top 6 ETFs cho chart
+    // Top 6 ETFs chart
     const topSymbols = ['IBIT', 'FBTC', 'ARKB', 'BTC', 'GBTC', 'HODL'];
 
     const chartData = validFlows

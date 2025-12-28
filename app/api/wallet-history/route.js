@@ -71,7 +71,7 @@ export async function POST(request) {
   }
 
   if (!(await checkCSRF(request, session))) {
-    return NextResponse.json({ detail: 'CSRF check không hợp lệ.' }, { status: 403 });
+    return NextResponse.json({ detail: 'Invalid CSRF token.' }, { status: 403 });
   }
 
   let body;

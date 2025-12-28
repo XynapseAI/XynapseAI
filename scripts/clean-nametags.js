@@ -1,10 +1,8 @@
 import fs from "fs";
 import path from "path";
 
-// Thư mục chứa JSON
 const dir = path.join(process.cwd(), "public", "nametags");
 
-// Danh sách địa chỉ cần giữ lại dù có uniswap.webp
 const whitelist = new Set([
   "0x1a9c8182c09f50c8318d769245bea52c32be35bc",
   "0x000000000004444c5dc75cb358380d2e3de08a90",
@@ -101,7 +99,7 @@ const whitelist = new Set([
   "0x7270233ccae676e776a659affc35219e6fcfbb10",
   "0xec2081ab72cf48a2e85283fd9ad4c411b2fc651d",
   "0xa947a05792148bb3ef478bad8d15b74d2058446a",
-  "0x64a078926ad9f9e88016c199017aea196e3899e1", // ví bạn check ban đầu
+  "0x64a078926ad9f9e88016c199017aea196e3899e1",
 ]);
 
 function cleanFile(filePath) {
@@ -124,7 +122,6 @@ function cleanFile(filePath) {
   console.log(`✅ Cleaned ${filePath}`);
 }
 
-// Quét toàn bộ file addresses-*.json
 fs.readdirSync(dir).forEach((file) => {
   if (file.startsWith("addresses-") && file.endsWith(".json")) {
     cleanFile(path.join(dir, file));

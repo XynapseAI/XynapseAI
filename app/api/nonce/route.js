@@ -16,7 +16,7 @@ export async function GET() {
     const expires = Date.now() + (ttlSeconds * 1000);
     await client.setEx(`siwe:nonce:${nonce}`, ttlSeconds, JSON.stringify({ expires }));
 
-    // NEW: Set HTTP-only cookie (secure cho prod, sameSite: 'none' cho cross-site World App)
+    // NEW: Set HTTP-only cookie (secure cho prod, sameSite: 'none' cross-site World App)
     const response = NextResponse.json({ nonce });
     response.cookies.set('siwe', nonce, {
       httpOnly: true,

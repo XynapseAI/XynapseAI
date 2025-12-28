@@ -110,8 +110,6 @@ async function checkDoubleSubmitCSRF(request, ip, userId) {
 
   // FIXED: Add debug log for lengths
   logger.info('CSRF token lengths', { header: headerToken.length, cookie: cookieToken.length, stored: storedToken.length });
-
-  // FIX: Check lengths trước để tránh throw RangeError
   if (headerToken.length !== cookieToken.length || cookieToken.length !== storedToken.length) {
     logger.warn('CSRF token length mismatch', {
       headerLength: headerToken.length,

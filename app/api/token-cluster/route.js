@@ -316,10 +316,8 @@ export async function GET(request) {
     try {
       const redisClient = await getRedisClient();
       const mappedExchange = mapExchangeName(exchange);
-      const cacheKey = isAuthenticated
-        ? `token_cluster:auth:${mappedExchange}:${currency}`
-        : `token_cluster:public:${mappedExchange}:${currency}`;
-      const cacheTTL = isAuthenticated ? 300 : 3600;
+      const cacheKey = `token_cluster:${mappedExchange}:${currency}`;
+      const cacheTTL = 300;
 
       const cachedData = await withRetry(async () => await redisClient.get(cacheKey));
       if (cachedData) {
@@ -585,25 +583,25 @@ export async function GET(request) {
         ],
         wallets: isAuthenticated
           ? [
-              ...processedSpecialWallets.map((row) => ({
-                cluster_name: capitalize(row.cluster_name),
-                chain: row.chain,
-                holder_address: row.holder_address || row.name_tag, // Fallback to nametag
-                total_value_usd: Number(row.total_value_usd) || 0,
-                token_count: row.token_count || 0,
-                name_tag: row.name_tag || 'N/A',
-                image: row.image || (row.chain === 'bitcoin' ? '/logos/bitcoin.webp' : row.chain === 'dogecoin' ? '/logos/dogecoin.webp' : row.chain === 'litecoin' ? '/logos/litecoin.webp' : '/fallback-image.webp'),
-              })),
-              ...walletResult.rows.map((row) => ({
-                cluster_name: capitalize(row.cluster_name),
-                chain: row.chain,
-                holder_address: row.holder_address || row.name_tag, // Fallback to nametag
-                total_value_usd: Number(row.total_value_usd) || 0,
-                token_count: row.token_count || 0,
-                name_tag: row.name_tag || 'N/A',
-                image: row.image || '/fallback-image.webp',
-              })),
-            ]
+            ...processedSpecialWallets.map((row) => ({
+              cluster_name: capitalize(row.cluster_name),
+              chain: row.chain,
+              holder_address: row.holder_address || row.name_tag, // Fallback to nametag
+              total_value_usd: Number(row.total_value_usd) || 0,
+              token_count: row.token_count || 0,
+              name_tag: row.name_tag || 'N/A',
+              image: row.image || (row.chain === 'bitcoin' ? '/logos/bitcoin.webp' : row.chain === 'dogecoin' ? '/logos/dogecoin.webp' : row.chain === 'litecoin' ? '/logos/litecoin.webp' : '/fallback-image.webp'),
+            })),
+            ...walletResult.rows.map((row) => ({
+              cluster_name: capitalize(row.cluster_name),
+              chain: row.chain,
+              holder_address: row.holder_address || row.name_tag, // Fallback to nametag
+              total_value_usd: Number(row.total_value_usd) || 0,
+              token_count: row.token_count || 0,
+              name_tag: row.name_tag || 'N/A',
+              image: row.image || '/fallback-image.webp',
+            })),
+          ]
           : [],
       };
 

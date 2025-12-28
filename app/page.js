@@ -639,8 +639,6 @@ export default function Home() {
     const handleResize = () => {
       setIsDesktop(window.innerWidth >= 768);
     };
-
-    // Kiểm tra kích thước ban đầu (tránh flash hoặc sai trên SSR/hydrate)
     handleResize();
 
     window.addEventListener("resize", handleResize);
@@ -656,9 +654,8 @@ export default function Home() {
       const isFromWorldApp = referrer.includes('worldcoin.org') ||
         referrer.includes('world.org') ||
         referrer.includes('worldapp') ||
-        referrer.includes('world app');  // Flexible matching cho user agent/referrer
+        referrer.includes('world app'); 
       if (isFromWorldApp) {
-        // Optional: Thêm delay nhỏ để tránh flash, hoặc log cho debug
         console.log('Detected from World App, redirecting to /dashboard');
         router.push('/dashboard');
       }
@@ -811,7 +808,6 @@ export default function Home() {
           />
         </div>
         <div className="flex items-center gap-4">
-          {/* Desktop menu: dùng JS để control hiển thị (bypass vấn đề Tailwind responsive nếu có) */}
           <div className={`items-center gap-10 m-2 ${isDesktop ? "flex" : "hidden"}`}>
             <div className="relative group">
               <button
@@ -821,7 +817,6 @@ export default function Home() {
               >
                 <MatrixHoverEffect text="PRODUCT" hoverColor="#00BFFF" />
               </button>
-              {/* Dropdown PRODUCT giữ nguyên như cũ */}
               <motion.div
                 initial={{ opacity: 0, y: -10 }}
                 animate={isProductOpen ? { opacity: 1, y: 0 } : { opacity: 0, y: -10 }}
@@ -855,7 +850,6 @@ export default function Home() {
               >
                 <MatrixHoverEffect text="RESOURCES" hoverColor="#00BFFF" />
               </button>
-              {/* Dropdown RESOURCES giữ nguyên như cũ */}
               <motion.div
                 initial={{ opacity: 0, y: -10 }}
                 animate={isResourcesOpen ? { opacity: 1, y: 0 } : { opacity: 0, y: -10 }}
@@ -881,7 +875,6 @@ export default function Home() {
               </motion.div>
             </div>
           </div>
-          {/* Mobile menu button: chỉ hiện khi KHÔNG phải desktop */}
           <div className={isDesktop ? "hidden" : "block"}>
             <button
               onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}

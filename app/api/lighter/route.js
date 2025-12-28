@@ -34,7 +34,7 @@ export async function GET() {
       return NextResponse.json(JSON.parse(cached))
     }
 
-    // Fetch từ Lighter API
+    // Fetch Lighter API
     const baseUrl = 'https://mainnet.zklighter.elliot.ai/api/v1'
     const orderBooksRes = await fetch(`${baseUrl}/orderBooks`)
     if (!orderBooksRes.ok) {

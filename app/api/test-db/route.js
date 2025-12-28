@@ -1,9 +1,8 @@
 import { NextResponse } from 'next/server';
-import { query } from '@/utils/postgres';  // Giả sử bạn có file này để query DB
+import { query } from '@/utils/postgres'; 
 
 export async function GET() {
   try {
-    // Test query đơn giản để kiểm tra kết nối DB
     const { rows } = await query('SELECT 1 as test;');
     return NextResponse.json({ 
       success: true, 
@@ -11,7 +10,7 @@ export async function GET() {
       result: rows[0] 
     });
   } catch (err) {
-    console.error('DB Test Error:', err);  // Log để xem trên Vercel
+    console.error('DB Test Error:', err);
     return NextResponse.json({ 
       error: err.message, 
       success: false 

@@ -164,7 +164,6 @@ export default function EtfTab() {
     );
     if (error) return <div className="flex justify-center items-center h-full text-red-500/80">Error: {error}</div>;
 
-    // Top 6 ETFs cho chart
     const topSymbols = ['IBIT', 'FBTC', 'GBTC', 'BTC', 'BITB', 'ARKB', 'HODL'];
 
     const symbolToColor = {};

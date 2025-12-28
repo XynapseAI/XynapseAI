@@ -205,7 +205,7 @@ export async function GET(request) {
 
     const url = new URL(request.url);
     let maxAgeSeconds = parseInt(url.searchParams.get('maxAge')) || (5 * 24 * 60 * 60);
-    const maxAllowedAge = 5 * 24 * 60 * 60; // Max 5 ngày
+    const maxAllowedAge = 5 * 24 * 60 * 60; // Max 5 
     if (maxAgeSeconds > maxAllowedAge) {
       maxAgeSeconds = maxAllowedAge;
     }

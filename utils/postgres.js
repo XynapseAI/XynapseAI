@@ -23,12 +23,12 @@ try {
     host: parsedUrl.hostname,
     port: parsedUrl.port || 5432,
     database: parsedUrl.pathname?.slice(1),
-    ssl: { rejectUnauthorized: false },  // Luôn dùng cho Vercel (Neon/Supabase)
-    max: 10,  // Giảm để tránh overload cold start
-    idleTimeoutMillis: 10000,  // Release idle nhanh
-    connectionTimeoutMillis: 45000,  // TĂNG 45s cho mobile latency
-    acquireTimeoutMillis: 60000,  // Thêm: timeout lấy connection từ pool
-    reapIntervalMillis: 5000,  // Check dead connections thường xuyên
+    ssl: { rejectUnauthorized: false }, 
+    max: 10,
+    idleTimeoutMillis: 10000,
+    connectionTimeoutMillis: 45000, 
+    acquireTimeoutMillis: 60000, 
+    reapIntervalMillis: 5000,
   };
 } catch (err) {
   logger.error(`Failed to parse DATABASE_URL: ${err.message}`);
@@ -37,7 +37,6 @@ try {
 
 const pool = new Pool(poolConfig);
 
-// Improved connectWithRetry: Exponential backoff, hơn retries cho cold start
 async function connectWithRetry(retries = 8, baseDelay = 1500) {
   for (let i = 0; i < retries; i++) {
     try {
@@ -57,18 +56,16 @@ async function connectWithRetry(retries = 8, baseDelay = 1500) {
     }
   }
   logger.error('PG connect failed after all retries');
-  return false;  // Không throw, để query retry riêng
+  return false;
 }
 
-// Init sớm, nhưng không block
 connectWithRetry().catch(err => logger.error('Initial PG fail:', { error: err.message }));
 
-// Query với retry (wrap cho adapter)
 export async function query(text, params, maxRetries = 5) {
   for (let i = 0; i < maxRetries; i++) {
     try {
       // Pre-check pool health
-      if (i > 0) await connectWithRetry(2, 1000);  // Quick retry trước query
+      if (i > 0) await connectWithRetry(2, 1000); 
       const res = await pool.query(text, params);
       return res;
     } catch (error) {

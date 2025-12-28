@@ -5,10 +5,10 @@ import { fileURLToPath } from "url";
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-// ✅ file input thật sự
+// ✅ file input 
 const inputFile = path.join(__dirname, "../public/nametags/coinbase_cluster0.json"); 
 
-// ✅ file output mong muốn
+// ✅ file output
 const outputFile = path.join(__dirname, "../public/nametags/coinbase-cluster.json");
 
 const iconMap = {
@@ -46,14 +46,12 @@ function transformData(data) {
 }
 
 async function main() {
-  // đọc file input
   const raw = fs.readFileSync(inputFile, "utf-8");
   const data = JSON.parse(raw);
 
   // transform
   const transformed = transformData(data);
 
-  // ghi ra output
   fs.writeFileSync(outputFile, JSON.stringify(transformed, null, 2), "utf-8");
 
   console.log(`✅ Done! Output saved to: ${outputFile}`);

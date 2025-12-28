@@ -1,13 +1,12 @@
 import { NFTStorage } from 'nft.storage'
-import { filesFromPaths } from 'files-from-path' // Thư viện giúp đọc file nhẹ hơn
+import { filesFromPaths } from 'files-from-path'
 import path from 'path'
 import dotenv from 'dotenv'
 
 dotenv.config()
 
-// Kiểm tra API Key
 if (!process.env.NFT_STORAGE_API_KEY) {
-  console.error("❌ Thiếu API Key trong file .env")
+  console.error("❌ Not found API Key")
   process.exit(1)
 }
 
@@ -18,16 +17,13 @@ const client = new NFTStorage({
 const METADATA_DIR = path.join(process.cwd(), 'metadata')
 
 async function uploadAllMetadata() {
-  console.log(`📂 Đang đọc thư mục: ${METADATA_DIR}`)
+  console.log(`📂 Reading folder: ${METADATA_DIR}`)
 
-  // 1. Lấy danh sách file nhưng KHÔNG đọc nội dung vào RAM ngay lập tức
-  // filesFromPaths sẽ tạo ra các luồng (streams) để upload hiệu quả
   const files = await filesFromPaths(METADATA_DIR, {
-    pathPrefix: path.resolve(METADATA_DIR), // Giữ nguyên tên file (1.json, 2.json...)
-    hidden: false, // Bỏ qua file ẩn
+    pathPrefix: path.resolve(METADATA_DIR), 
+    hidden: false,
   })
 
-  // Lọc chỉ lấy file .json (đề phòng file .DS_Store của Mac hoặc file rác)
   const jsonFiles = []
   for (const f of files) {
       if (f.name.endsWith('.json')) {
@@ -35,22 +31,21 @@ async function uploadAllMetadata() {
       }
   }
 
-  console.log(`📦 Tìm thấy: ${jsonFiles.length} file JSON.`)
-  console.log(`🚀 Bắt đầu upload lên IPFS (Quá trình này có thể mất vài phút)...`)
+  console.log(`📦 Founded : ${jsonFiles.length} file JSON.`)
+  console.log(`🚀 upload IPFS...`)
 
   try {
-    // 2. Upload toàn bộ thư mục 1 lần duy nhất để lấy 1 CID chung
     const cid = await client.storeDirectory(jsonFiles)
     
     console.log('==============================')
-    console.log('🎉 UPLOAD THÀNH CÔNG!')
+    console.log('🎉 UPLOAD Success!')
     console.log(`✅ Root CID: ${cid}`)
-    console.log(`🌐 Base URI cho Contract: ipfs://${cid}/`)
+    console.log(`🌐 Base URI for Contract: ipfs://${cid}/`)
     console.log(`🔍 Test Link: https://nftstorage.link/ipfs/${cid}/1.json`)
     console.log('==============================')
     
   } catch (err) {
-    console.error('❌ Upload thất bại:', err)
+    console.error('❌ Upload failed:', err)
   }
 }
 

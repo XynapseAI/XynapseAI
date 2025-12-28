@@ -171,7 +171,7 @@ async function getPendingWallets() {
 
 async function savePendingWallets(wallets) {
   try {
-    const batchSize = 200; // Tăng kích thước batch
+    const batchSize = 200;
     for (let i = 0; i < wallets.length; i += batchSize) {
       const batch = wallets.slice(i, i + batchSize);
       const values = batch.flatMap(wallet => [
@@ -391,11 +391,11 @@ async function runHighVolumeWalletAnalysis() {
             if (apiError.response) {
               logger.error(`Response error: ${JSON.stringify(apiError.response.data)}`);
             }
-            return null; // Tiếp tục với ví tiếp theo
+            return null;
           }
         });
         await Promise.all(promises);
-        await new Promise(resolve => setTimeout(resolve, 5000)); // Tăng độ trễ lên 5 giây
+        await new Promise(resolve => setTimeout(resolve, 5000)); 
       }
     } else {
       logger.info('No deposit wallets to analyze. Moving to high-volume wallets');
