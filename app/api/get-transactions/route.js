@@ -717,7 +717,7 @@ async function fetchLayer3Transactions(layer2Addresses, chain, limit, page) {
   const safeAddresses = (layer2Addresses || [])
     .filter((addr) => typeof addr === 'string' && addr.trim().length > 0)
     .map((addr) => addr.toLowerCase().trim())
-    .slice(0, 150)
+    .slice(0, 100)
   if (safeAddresses.length === 0) return transactions
   const layer2Nametags = await getNametagsBatch(safeAddresses)
   // const validLayer2Addresses = safeAddresses.filter(
@@ -727,7 +727,7 @@ async function fetchLayer3Transactions(layer2Addresses, chain, limit, page) {
     `Fetching Layer 3 transactions for ${safeAddresses.length} Layer 2 addresses (including unknown nametags)`,
   )
   if (safeAddresses.length === 0) return transactions
-  const layer3Limit = 150
+  const layer3Limit = 100
   let nativePrice = await getCurrentPrice(chainConfig.coingeckoId || 'bitcoin')
   const allRawTxs = []
   for (const address of safeAddresses) {
@@ -2007,13 +2007,42 @@ export async function POST(request) {
           ),
         ]
           .sort((a, b) => (addressVolume.get(b) || 0) - (addressVolume.get(a) || 0))
-          .slice(0, 300)
+          .slice(0, 100)
 
         logger.info(
           `Fetching Layer 3 for ${sortedLayer2.length} top-volume Layer 2 addresses (out of ${addressVolume.size} total counterparties)`,
         )
 
         layer3Transactions = await fetchLayer3Transactions(sortedLayer2, chain, limit, page)
+
+        if (layer3Transactions.length > 0) {
+          const layer2AddrsInL3 = [
+            ...new Set(
+              layer3Transactions
+                .map((tx) => (caseSensitive ? tx.layer2Address : tx.layer2Address?.toLowerCase()))
+                .filter(Boolean),
+            ),
+          ]
+
+          if (layer2AddrsInL3.length > 0) {
+            const l2Nametags = await getNametagsBatch(layer2AddrsInL3)
+            logger.info(
+              `Enriched nametags for ${layer2AddrsInL3.length} Layer 2 addresses in Layer 3`,
+            )
+
+            layer3Transactions.forEach((tx) => {
+              if (!tx.layer2Address) return
+              const l2Key = caseSensitive ? tx.layer2Address : tx.layer2Address.toLowerCase()
+              const ntagL2 = l2Nametags[l2Key]
+
+              if (ntagL2 && ntagL2.name !== 'Unknown') {
+                tx.nametagLayer2 = ntagL2.name
+                tx.imageLayer2 = ntagL2.image
+              }
+              // Không gán fallback → để client tự xử lý
+            })
+          }
+        }
       }
       const nametags = await getNametagsBatch([...addresses])
       walletNametag = nametags[caseSensitive ? address : address.toLowerCase()] || {

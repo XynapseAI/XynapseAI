@@ -1751,9 +1751,9 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
           'charge',
           d3.forceManyBody().strength((node) => {
             if (node.layer === 2 || node.layer === 3) {
-              return -1600 // Reduced repulsion by ~20% from -2000 for less strong push
+              return -900 // Reduced repulsion by ~20% from -2000 for less strong push
             }
-            return isTokenQuery ? -2560 : -1120 // Reduced by ~20% from -3200 and -1400
+            return isTokenQuery ? -1800 : -800 // Reduced by ~20% from -3200 and -1400
           }),
         )
         .d3Force(
@@ -1767,7 +1767,7 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
               }
               return link.layer === 3 ? 30 : 80 // Reduce non-root distances slightly for compactness
             })
-            .strength(1.0),
+            .strength(0.8),
         ) // Increase strength to better enforce distances
         .d3Force(
           'radial',
@@ -1791,12 +1791,12 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
           d3
             .forceCollide()
             .radius((node) => node.val * 1.44)
-            .strength(0.7),
+            .strength(0.5),
         ) // Add collision to prevent overlaps
-        .d3AlphaDecay(0.02) // Increased from 0.012 for faster simulation settling
-        .d3VelocityDecay(0.6) // Reduced from 0.7 for smoother drag (less friction)
-        .warmupTicks(0)
-        .cooldownTicks(1000) // Reduced from 2500 for faster cooldown
+        .d3AlphaDecay(0.028) // Increased from 0.012 for faster simulation settling
+        .d3VelocityDecay(0.82) // Reduced from 0.7 for smoother drag (less friction)
+        .warmupTicks(200)
+        .cooldownTicks(800) // Reduced from 2500 for faster cooldown
         .enablePointerInteraction(true)
         .enableNodeDrag(true)
         .enableZoomInteraction(true)

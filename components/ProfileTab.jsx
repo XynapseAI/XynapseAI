@@ -2060,7 +2060,7 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
           transition={{ duration: 0.5, delay: 0.2 }}
         >
           <div className="border-b border-white/15 bg-black/50 rounded-t-xl flex h-[32px] sm:h-[40px] overflow-hidden">
-            {['profile', 'genesis'].map((tab) => {
+            {['profile'].map((tab) => {
               const isActive = activeTab === tab
               return (
                 <motion.button
