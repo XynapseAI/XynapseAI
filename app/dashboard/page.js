@@ -1262,39 +1262,37 @@ function DashboardInner() {
                           </button>
                         )}
                       {/* FIXED: Always show SignInButton for Farcaster if not World (support deeplink in Base/PC, fallback if !isMiniApp) */}
-                      {!isWorldMiniApp &&
-                        !isBaseApp &&
-                        isMobile && ( // MODIFIED: Add isMobile condition to hide Farcaster button on PC (prevent "disabled" or ineffective deeplink/QR on desktop)
-                          <SignInButton
-                            onSuccess={handleFarcasterSuccess}
-                            onError={(error) => {
-                              safeError('AuthKit error:', error)
-                              toast.error(`Farcaster error: ${error.message}`)
-                            }}
-                            className="!w-full !px-4 !m-2 !py-2.5 !bg-black/20 !border !border-white/25 !rounded-2xl !text-white !text-sm !font-semibold !flex !items-center !justify-center !gap-3 !transition-all !duration-300 hover:!bg-gray-800/30 hover:!border-white/40 !bg-purple-600 hover:!bg-purple-700"
-                            style={{
-                              display: 'flex !important',
-                              alignItems: 'center',
-                              justifyContent: 'center',
-                              backgroundColor: 'rgba(0,0,0,0.2) !important',
-                              border: '1px solid rgba(255,255,255,0.25) !important',
-                              color: 'white !important',
-                              borderRadius: '1rem !important',
-                              transition: 'all 0.3s !important',
-                            }}
-                            buttonText="Sign in with Farcaster"
-                            showLogo={true}
-                          >
-                            <Image
-                              src="/logos/farcaster-logo.webp"
-                              alt="Farcaster Logo"
-                              width={20}
-                              height={20}
-                              className="w-6 h-6 rounded-xl object-contain mr-2"
-                            />
-                            Sign in with Farcaster
-                          </SignInButton>
-                        )}
+                      {!isWorldMiniApp && (isWarpcastMobile || (isBaseApp && fallbackToManual)) && (
+                        <SignInButton
+                          onSuccess={handleFarcasterSuccess}
+                          onError={(error) => {
+                            safeError('AuthKit error:', error)
+                            toast.error(`Farcaster error: ${error.message}`)
+                          }}
+                          className="!w-full !px-4 !m-2 !py-2.5 !bg-black/20 !border !border-white/25 !rounded-2xl !text-white !text-sm !font-semibold !flex !items-center !justify-center !gap-3 !transition-all !duration-300 hover:!bg-gray-800/30 hover:!border-white/40 !bg-purple-600 hover:!bg-purple-700"
+                          style={{
+                            display: 'flex !important',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            backgroundColor: 'rgba(0,0,0,0.2) !important',
+                            border: '1px solid rgba(255,255,255,0.25) !important',
+                            color: 'white !important',
+                            borderRadius: '1rem !important',
+                            transition: 'all 0.3s !important',
+                          }}
+                          buttonText="Sign in with Farcaster"
+                          showLogo={true}
+                        >
+                          <Image
+                            src="/logos/farcaster-logo.webp"
+                            alt="Farcaster Logo"
+                            width={20}
+                            height={20}
+                            className="w-6 h-6 rounded-xl object-contain mr-2"
+                          />
+                          Sign in with Farcaster
+                        </SignInButton>
+                      )}
                       {isWorldMiniApp && (
                         <button
                           onClick={handleWorldQuickAuth}

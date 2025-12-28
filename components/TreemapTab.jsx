@@ -1596,7 +1596,7 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
           nodes: positionedNodesData.map((n) => ({
             id: n.id,
             ...n,
-            val: n.layer === 1 ? 32.256 : n.layer === 2 ? 20.16 : 16.128, // Reduced layer 1 and 3 by 20% (40.32->32.256, 20.16->16.128)
+            val: n.layer === 1 ? 26.256 : n.layer === 2 ? 15.16 : 11.128, // Reduced layer 1 and 3 by 20% (40.32->32.256, 20.16->16.128)
             group: n.layer,
             color:
               n.layer === 1
@@ -1614,9 +1614,9 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
         .nodeVal((node) => {
           const tv = parseFloat(node.totalValue || 0)
           const baseVal = Math.sqrt(tv) + 1
-          if (node.layer === 1) return baseVal * 4.0 // Reduced 20% from 5.6
-          if (node.layer === 2) return baseVal * 3.6
-          if (node.layer === 3) return baseVal * 1.4 // Reduced 20% from 2.0
+          if (node.layer === 1) return baseVal * 3.6 // Reduced 20% from 5.6
+          if (node.layer === 2) return baseVal * 2.8
+          if (node.layer === 3) return baseVal * 1.0 // Reduced 20% from 2.0
           return baseVal * 1.8
         })
         .nodeLabel((node) => {
