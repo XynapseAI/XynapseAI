@@ -325,208 +325,241 @@ export default function DexTab() {
     const fetchGlobalDataHyper = async () => {
         setLoading(true)
         try {
-            const metaRes = await fetch('/api/hyperliquid')
-            const meta = await metaRes.json()
-            // Augment assetCtxs with more fields if needed, but assuming they already include midPx, funding, dayPxChg
-            setMetaDataHyper({ universe: meta.universe, assetCtxs: meta.assetCtxs })
-            const sortedAssets = meta.universe
+            const res = await fetch('/api/hyperliquid')
+            const data = await res.json()
+            setMetaDataHyper(data)
+            const sortedAssets = data.universe
                 .map((u, i) => ({
                     name: u.name,
-                    volume: parseFloat(meta.assetCtxs[i]?.dayNtlVlm || 0),
+                    volume: parseFloat(data.assetCtxs[i]?.dayNtlVlm || 0),
                 }))
                 .sort((a, b) => b.volume - a.volume)
                 .slice(0, 10)
                 .map((a) => a.name)
             setActiveAssetsHyper(sortedAssets)
         } catch (err) {
-            setError('Failed to fetch Hyperliquid global data.')
-            console.error(err)
+            setError('Failed to fetch Hyperliquid data')
         } finally {
             setLoading(false)
         }
     }
+
     const fetchGlobalDataLighter = async () => {
         setLoading(true)
         try {
-            const metaRes = await fetch('/api/lighter')
-            if (!metaRes.ok) throw new Error('Failed to fetch Lighter global data')
-            const meta = await metaRes.json()
+            const res = await fetch('/api/lighter')
+            const data = await res.json()
+            setMetaDataLighter(data)
+            setOrderBooksLighter(data.orderBooks)
+            assetToMarketIdLighter.current = data.assetToMarketId
+            marketIdToSymbolLighter.current = data.marketIdToSymbol
 
-            // No need to re-augment – use the pre-augmented assetCtxs from the route
-            setMetaDataLighter({ universe: meta.universe, assetCtxs: meta.assetCtxs })
-            setOrderBooksLighter(meta.orderBooks) // Already set, but confirm
-
-            // Populate assetToMarketId and marketIdToSymbol (already in your code)
-            assetToMarketIdLighter.current = meta.orderBooks.reduce((acc, o) => {
-                acc[o.symbol] = o.market_id
-                return acc
-            }, {})
-            marketIdToSymbolLighter.current = meta.orderBooks.reduce((acc, o) => {
-                acc[o.market_id] = o.symbol
-                return acc
-            }, {})
-
-            // Sort active assets by volume using the augmented assetCtxs
-            const sortedAssets = meta.universe
+            const sortedAssets = data.universe
                 .map((u, i) => ({
                     name: u.name,
-                    volume: parseFloat(meta.assetCtxs[i]?.dayNtlVlm || 0),
+                    volume: parseFloat(data.assetCtxs[i]?.dayNtlVlm || 0),
                 }))
                 .sort((a, b) => b.volume - a.volume)
                 .slice(0, 10)
                 .map((a) => a.name)
             setActiveAssetsLighter(sortedAssets)
         } catch (err) {
-            setError('Failed to fetch Lighter global data: ' + err.message)
-            console.error(err)
+            setError('Failed to fetch Lighter data')
         } finally {
             setLoading(false)
         }
     }
+
     const fetchCandles = async (asset) => {
-        let assetToUse = asset
         setCandleData([])
-        // Always use Hyperliquid for candles when in Lighter mode
-        const useDEX = selectedDEX === 'lighter' ? 'hyperliquid' : selectedDEX
-        if (useDEX === 'hyperliquid') {
-            if (!metaDataHyper.universe.some((u) => u.name === assetToUse)) {
-                assetToUse = 'BTC'
-            }
-            const now = Date.now()
-            const start = now - 30 * 24 * 60 * 60 * 1000
-            const res = await fetch('https://api.hyperliquid.xyz/info', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    type: 'candleSnapshot',
-                    req: { coin: assetToUse, interval: '1d', startTime: start, endTime: now },
-                }),
-            })
-            const rawData = await res.json()
-            const formatted = rawData.map((candle) => ({
-                t: candle.t,
-                c: parseFloat(candle.c),
-            }))
-            setCandleData(formatted)
-        } else {
-            // Lighter
-            const marketId = assetToMarketIdLighter.current[assetToUse]
-            if (marketId === undefined) {
-                assetToUse = activeAssetsLighter[0] || 'BTC'
-            }
-            const now = Date.now()
-            const start = now - 30 * 24 * 60 * 60 * 1000
-            const res = await fetch(
-                `https://mainnet.zklighter.elliot.ai/api/v1/candlesticks?market_id=${assetToMarketIdLighter.current[assetToUse]}&resolution=1d&start_timestamp=${start}&end_timestamp=${now}`,
-            )
-            const data = await res.json()
-            const candlesticks = data.candlesticks || []
-            const formatted = candlesticks.map((candle) => ({
-                t: candle.timestamp * 1000,
-                c: parseFloat(candle.close),
-            }))
-            setCandleData(formatted)
-        }
+        const dex = selectedDEX === 'lighter' ? 'hyperliquid' : selectedDEX
+        const res = await fetch(`/api/${dex}?type=candles&coin=${asset}`)
+        if (!res.ok) return
+        const rawData = await res.json()
+        const formatted = rawData.map((c) => ({
+            t: c.t || c.timestamp * 1000,
+            c: parseFloat(c.c || c.close),
+        }))
+        setCandleData(formatted)
     }
+
     const fetchL2Book = async (asset) => {
-        let assetToUse = asset
+        const res = await fetch(`/api/${selectedDEX}?type=l2book&coin=${asset}`)
+        if (!res.ok) return
+        const data = await res.json()
         if (selectedDEX === 'hyperliquid') {
-            if (!metaDataHyper.universe.some((u) => u.name === assetToUse)) {
-                assetToUse = 'BTC'
-            }
-            const res = await fetch('https://api.hyperliquid.xyz/info', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ type: 'l2Book', coin: assetToUse }),
-            })
-            const book = await res.json()
-            setL2Book({ bids: book.levels[0], asks: book.levels[1] })
+            setL2Book({ bids: data.levels[0], asks: data.levels[1] })
         } else {
-            const marketId = assetToMarketIdLighter.current[assetToUse]
-            if (marketId === undefined) {
-                assetToUse = activeAssetsLighter[0] || 'BTC'
-            }
-            const book = orderBooksLighter.find((o) => o.market_id === marketId)
-            setL2Book({ bids: book?.bids || [], asks: book?.asks || [] })
+            setL2Book({ bids: data.bids || [], asks: data.asks || [] })
         }
     }
-    const fetchUserData = async (address, forceDEX = null) => {
-        if (!address || !address.trim()) return
-        const trimmedAddress = address.trim()
+    const fetchUserData = async (inputAddress, forceDEX = null) => {
+        if (!inputAddress || !inputAddress.trim()) return
+
+        const address = inputAddress.trim()
         setLoading(true)
         setError(null)
-        let accountL1Address = ''
-        let targetDEX = forceDEX
+        setPortfolioData([])
+        setFills([])
+        setPnlChartData([])
+        setAnalytics({ totalPnl: 0, winRate: 0, numTrades: 0, totalBalance: 0 })
+
+        let targetDEX = forceDEX || selectedDEX
         let success = false
+        let accountL1Address = address
+
         try {
-            if (/^\d+$/.test(trimmedAddress)) {
-                // Numeric ID - Lighter index
+            if (/^\d+$/.test(address)) {
                 if (forceDEX && forceDEX !== 'lighter') {
-                    throw new Error('Numeric ID is only valid for Lighter DEX')
+                    throw new Error('Numeric Account ID is only valid on Lighter.')
                 }
                 targetDEX = 'lighter'
-                const baseUrl = 'https://mainnet.zklighter.elliot.ai/api/v1'
-                const queryParam = `by=index&value=${trimmedAddress}`
-                const res = await fetch(`${baseUrl}/account?${queryParam}`)
+
+                const res = await fetch(`/api/lighter?type=user&by=index&address=${address}`)
                 if (!res.ok) {
-                    const errData = await res.json().catch(() => ({}))
-                    throw new Error(errData.message || 'Account not found or invalid ID/address')
+                    const err = await res.json().catch(() => ({}))
+                    throw new Error(err.error || 'No Lighter account with this ID was found.')
                 }
-                const state = await res.json()
-                accountL1Address = state.accounts[0]?.l1_address || ''
-                setPortfolioData(
-                    (state.accounts[0]?.positions || []).filter(
-                        (p) => parseFloat(p.position) !== 0,
-                    ),
+
+                const { account, fills, pnlHistory } = await res.json()
+
+                // Positions
+                const positions = (account.positions || []).filter(
+                    (p) => parseFloat(p.position || 0) !== 0,
                 )
-                let totalPnl = (state.accounts[0]?.positions || []).reduce(
+                setPortfolioData(positions)
+
+                // Fills / Trades
+                setFills(fills)
+
+                // Analytics
+                const totalPnl = (account.positions || []).reduce(
                     (sum, p) =>
                         sum +
-                        (parseFloat(p.unrealized_pnl) || 0) +
-                        (parseFloat(p.realized_pnl) || 0),
+                        (parseFloat(p.unrealized_pnl || 0) || 0) +
+                        (parseFloat(p.realized_pnl || 0) || 0),
                     0,
                 )
-                let totalBalance = parseFloat(state.accounts[0]?.available_balance || 0)
-                // Fetch trades for fills
-                const baseId = state.accounts[0]?.account_index || trimmedAddress
-                const tradesRes = await fetch(
-                    `${baseUrl}/trades?account_index=${baseId}&limit=500&sort_by=timestamp&sort_dir=desc`,
-                )
-                let fillsData = []
-                if (tradesRes.ok) {
-                    const tradesData = await tradesRes.json()
-                    fillsData = tradesData.trades.map((t) => ({
-                        time: t.timestamp,
-                        coin: marketIdToSymbolLighter.current[t.market_id] || 'UNKNOWN',
-                        closedPnl: t.pnl || 0,
-                        sz: t.usd_amount / parseFloat(t.price) || t.amount || 0,
-                        px: t.price,
-                        dir: t.is_maker_ask ? 'Sell' : 'Buy',
-                        hash: t.trade_id,
-                    }))
-                    setFills(fillsData)
-                } else {
-                    setFills([])
-                }
-                let wins = 0
-                fillsData.forEach((fill) => {
-                    const pnl = parseFloat(fill.closedPnl) || 0
-                    if (pnl > 0) wins++
-                })
-                const numTrades = fillsData.length
+                const totalBalance = parseFloat(account.available_balance || 0)
+                const wins = fills.filter((f) => parseFloat(f.closedPnl || 0) > 0).length
+                const numTrades = fills.length
                 const winRate = numTrades > 0 ? (wins / numTrades) * 100 : 0
+
                 setAnalytics({ totalPnl, winRate, numTrades, totalBalance })
-                // Fetch PnL chart
-                const pnlRes = await fetch(
-                    `${baseUrl}/pnl?by=index&value=${baseId}&resolution=1d&count_back=30`,
-                )
-                let pnlData = []
-                if (pnlRes.ok) {
-                    const pnlDataApi = await pnlRes.json()
+
+                // Cumulative PnL chart
+                let cumulativePnl = 0
+                const pnlData = (pnlHistory || [])
+                    .sort((a, b) => a.timestamp - b.timestamp)
+                    .map((entry) => {
+                        cumulativePnl += parseFloat(entry.pnl || entry.value || 0)
+                        return {
+                            date: new Date(entry.timestamp).toLocaleDateString(),
+                            pnl: cumulativePnl,
+                            asset: entry.symbol || 'All',
+                        }
+                    })
+                setPnlChartData(pnlData)
+
+                success = true
+            }
+            // Case 2: Ethereum address (0x...)
+            else if (address.startsWith('0x') && address.length === 42) {
+                if (targetDEX === 'hyperliquid' || !forceDEX) {
+                    try {
+                        const res = await fetch(`/api/hyperliquid?type=user&address=${address}`)
+                        if (res.ok) {
+                            const { state, fills } = await res.json()
+
+                            // Positions
+                            const positions = state.assetPositions
+                                .map((pos) => pos.position)
+                                .filter((p) => parseFloat(p.szi || 0) !== 0)
+                            setPortfolioData(positions)
+
+                            // Fills
+                            setFills(fills)
+
+                            // Analytics
+                            let totalPnl = 0
+                            let wins = 0
+                            fills.forEach((fill) => {
+                                const pnl = parseFloat(fill.closedPnl || 0)
+                                totalPnl += pnl
+                                if (pnl > 0) wins++
+                            })
+                            const numTrades = fills.length
+                            const winRate = numTrades > 0 ? (wins / numTrades) * 100 : 0
+                            const totalBalance = parseFloat(state.marginSummary.accountValue || 0)
+
+                            setAnalytics({ totalPnl, winRate, numTrades, totalBalance })
+
+                            // Cumulative PnL chart
+                            let cumulativePnl = 0
+                            const sortedFills = [...fills].sort((a, b) => a.time - b.time)
+                            const pnlData = sortedFills.map((fill) => {
+                                cumulativePnl += parseFloat(fill.closedPnl || 0)
+                                return {
+                                    date: new Date(fill.time).toLocaleDateString(),
+                                    pnl: cumulativePnl,
+                                    asset: fill.coin,
+                                }
+                            })
+                            setPnlChartData(pnlData)
+
+                            targetDEX = 'hyperliquid'
+                            success = true
+                        }
+                    } catch (hyperErr) {
+                        console.warn(
+                            'Hyperliquid user fetch failed, trying Lighter fallback',
+                            hyperErr,
+                        )
+                        if (forceDEX) throw hyperErr
+                    }
+                }
+
+                if (!success && (targetDEX === 'lighter' || !forceDEX)) {
+                    targetDEX = 'lighter'
+                    const res = await fetch(
+                        `/api/lighter?type=user&by=l1_address&address=${address}`,
+                    )
+                    if (!res.ok) {
+                        const err = await res.json().catch(() => ({}))
+                        throw new Error(err.error || 'No Lighter account found with this address.')
+                    }
+
+                    const { account, fills, pnlHistory } = await res.json()
+
+                    // Positions
+                    const positions = (account.positions || []).filter(
+                        (p) => parseFloat(p.position || 0) !== 0,
+                    )
+                    setPortfolioData(positions)
+
+                    // Fills
+                    setFills(fills)
+
+                    // Analytics
+                    const totalPnl = (account.positions || []).reduce(
+                        (sum, p) =>
+                            sum +
+                            (parseFloat(p.unrealized_pnl || 0) || 0) +
+                            (parseFloat(p.realized_pnl || 0) || 0),
+                        0,
+                    )
+                    const totalBalance = parseFloat(account.available_balance || 0)
+                    const wins = fills.filter((f) => parseFloat(f.closedPnl || 0) > 0).length
+                    const numTrades = fills.length
+                    const winRate = numTrades > 0 ? (wins / numTrades) * 100 : 0
+
+                    setAnalytics({ totalPnl, winRate, numTrades, totalBalance })
+
+                    // Cumulative PnL chart
                     let cumulativePnl = 0
-                    if (pnlDataApi.pnl && Array.isArray(pnlDataApi.pnl)) {
-                        pnlDataApi.pnl.sort((a, b) => a.timestamp - b.timestamp)
-                        pnlData = pnlDataApi.pnl.map((entry) => {
+                    const pnlData = (pnlHistory || [])
+                        .sort((a, b) => a.timestamp - b.timestamp)
+                        .map((entry) => {
                             cumulativePnl += parseFloat(entry.pnl || entry.value || 0)
                             return {
                                 date: new Date(entry.timestamp).toLocaleDateString(),
@@ -534,167 +567,23 @@ export default function DexTab() {
                                 asset: entry.symbol || 'All',
                             }
                         })
-                    }
-                }
-                setPnlChartData(pnlData)
-                success = true
-            } else if (trimmedAddress.startsWith('0x') && trimmedAddress.length === 42) {
-                targetDEX = forceDEX || 'hyperliquid'
-                if (targetDEX === 'hyperliquid') {
-                    try {
-                        // Try Hyperliquid
-                        const stateRes = await fetch('https://api.hyperliquid.xyz/info', {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({
-                                type: 'clearinghouseState',
-                                user: trimmedAddress,
-                            }),
-                        })
-                        if (!stateRes.ok) {
-                            const errData = await stateRes.json().catch(() => ({}))
-                            throw new Error(errData.msg || 'Invalid wallet address')
-                        }
-                        const state = await stateRes.json()
-                        setPortfolioData(
-                            state.assetPositions
-                                .map((pos) => pos.position)
-                                .filter((p) => parseFloat(p.szi) !== 0),
-                        )
-                        const fillsRes = await fetch('https://api.hyperliquid.xyz/info', {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({ type: 'userFills', user: trimmedAddress }),
-                        })
-                        const fillsData = await fillsRes.json()
-                        setFills(fillsData)
-                        let totalPnl = 0
-                        let wins = 0
-                        fillsData.forEach((fill) => {
-                            const pnl = parseFloat(fill.closedPnl) || 0
-                            totalPnl += pnl
-                            if (pnl > 0) wins++
-                        })
-                        const numTrades = fillsData.length
-                        const winRate = numTrades > 0 ? (wins / numTrades) * 100 : 0
-                        let totalBalance = parseFloat(state.marginSummary.accountValue || 0)
-                        setAnalytics({ totalPnl, winRate, numTrades, totalBalance })
-                        const pnlData = []
-                        let cumulativePnl = 0
-                        fillsData.sort((a, b) => a.time - b.time)
-                        fillsData.forEach((fill) => {
-                            cumulativePnl += parseFloat(fill.closedPnl) || 0
-                            pnlData.push({
-                                date: new Date(fill.time).toLocaleDateString(),
-                                pnl: cumulativePnl,
-                                asset: fill.coin,
-                            })
-                        })
-                        setPnlChartData(pnlData)
-                        success = true
-                    } catch (hyperErr) {
-                        if (forceDEX) {
-                            throw hyperErr
-                        }
-                        // Fallback to Lighter if no forceDEX
-                        targetDEX = 'lighter'
-                    }
-                }
-                if (targetDEX === 'lighter') {
-                    // Lighter with l1_address
-                    const baseUrl = 'https://mainnet.zklighter.elliot.ai/api/v1'
-                    const queryParam = `by=l1_address&l1_address=${trimmedAddress}`
-                    const res = await fetch(`${baseUrl}/account?${queryParam}`)
-                    if (!res.ok) {
-                        const errData = await res.json().catch(() => ({}))
-                        throw new Error(
-                            errData.message || 'Account not found or invalid ID/address',
-                        )
-                    }
-                    const state = await res.json()
-                    accountL1Address = trimmedAddress
-                    setPortfolioData(
-                        (state.accounts[0]?.positions || []).filter(
-                            (p) => parseFloat(p.position) !== 0,
-                        ),
-                    )
-                    let totalPnl = (state.accounts[0]?.positions || []).reduce(
-                        (sum, p) =>
-                            sum +
-                            (parseFloat(p.unrealized_pnl) || 0) +
-                            (parseFloat(p.realized_pnl) || 0),
-                        0,
-                    )
-                    let totalBalance = parseFloat(state.accounts[0]?.available_balance || 0)
-                    // Fetch trades for fills
-                    const baseId = state.accounts[0]?.account_index
-                    const tradesRes = await fetch(
-                        `${baseUrl}/trades?account_index=${baseId}&limit=500&sort_by=timestamp&sort_dir=desc`,
-                    )
-                    let fillsData = []
-                    if (tradesRes.ok) {
-                        const tradesData = await tradesRes.json()
-                        fillsData = tradesData.trades.map((t) => ({
-                            time: t.timestamp,
-                            coin: marketIdToSymbolLighter.current[t.market_id] || 'UNKNOWN',
-                            closedPnl: t.pnl || 0,
-                            sz: t.usd_amount / parseFloat(t.price) || t.amount || 0,
-                            px: t.price,
-                            dir: t.is_maker_ask ? 'Sell' : 'Buy',
-                            hash: t.trade_id,
-                        }))
-                        setFills(fillsData)
-                    } else {
-                        setFills([])
-                    }
-                    let wins = 0
-                    fillsData.forEach((fill) => {
-                        const pnl = parseFloat(fill.closedPnl) || 0
-                        if (pnl > 0) wins++
-                    })
-                    const numTrades = fillsData.length
-                    const winRate = numTrades > 0 ? (wins / numTrades) * 100 : 0
-                    setAnalytics({ totalPnl, winRate, numTrades, totalBalance })
-                    // Fetch PnL chart
-                    const pnlRes = await fetch(
-                        `${baseUrl}/pnl?by=index&value=${baseId}&resolution=1d&count_back=30`,
-                    )
-                    let pnlData = []
-                    if (pnlRes.ok) {
-                        const pnlDataApi = await pnlRes.json()
-                        let cumulativePnl = 0
-                        if (pnlDataApi.pnl && Array.isArray(pnlDataApi.pnl)) {
-                            pnlDataApi.pnl.sort((a, b) => a.timestamp - b.timestamp)
-                            pnlData = pnlDataApi.pnl.map((entry) => {
-                                cumulativePnl += parseFloat(entry.pnl || entry.value || 0)
-                                return {
-                                    date: new Date(entry.timestamp).toLocaleDateString(),
-                                    pnl: cumulativePnl,
-                                    asset: entry.symbol || 'All',
-                                }
-                            })
-                        }
-                    }
                     setPnlChartData(pnlData)
+
                     success = true
                 }
             } else {
                 throw new Error(
-                    'Invalid format. Use Ethereum address (0x...) or numeric Account ID.',
+                    'Invalid format. Please enter your Ethereum address (0x...) or Account ID number (Lighter).',
                 )
             }
+
             if (success) {
                 setSelectedDEX(targetDEX)
+                setCurrentWallet(accountL1Address)
             }
-            setCurrentWallet(accountL1Address || trimmedAddress)
         } catch (err) {
-            setError(err.message || 'Failed to fetch user data. Check the address/ID again.')
-            console.error(err)
-            setPortfolioData([])
-            setFills([])
-            setAnalytics({ totalPnl: 0, winRate: 0, numTrades: 0, totalBalance: 0 })
-            setPnlChartData([])
-            // Do not setCurrentWallet('') here to prevent triggering random whale fetch and switching DEX back
+            console.error('fetchUserData error:', err)
+            setError(err.message || 'Unable to load user data. Please double check address/ID.')
         } finally {
             setLoading(false)
         }
