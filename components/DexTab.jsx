@@ -144,6 +144,7 @@ export default function DexTab() {
     const [pnlChartData, setPnlChartData] = useState([])
     const [portfolioData, setPortfolioData] = useState([])
     const [fills, setFills] = useState([])
+    const [assetSearchTerm, setAssetSearchTerm] = useState('')
     const [analytics, setAnalytics] = useState({
         totalPnl: 0,
         winRate: 0,
@@ -191,9 +192,7 @@ export default function DexTab() {
     }, {})
     const oiData = useMemo(() => {
         const currentMeta = selectedDEX === 'hyperliquid' ? metaDataHyper : metaDataLighter
-
         if (!currentMeta.universe || currentMeta.universe.length === 0) return []
-
         return currentMeta.universe
             .map((u, i) => ({
                 name: u.name,
@@ -207,7 +206,6 @@ export default function DexTab() {
         navigator.clipboard.writeText(text)
         setToastMessage('Copied to clipboard!')
     }
-
     useEffect(() => {
         if (randomWhaleWallet && portfolioData.length === 0 && currentWallet === '') {
             fetchUserData(randomWhaleWallet)
@@ -218,11 +216,9 @@ export default function DexTab() {
         fetchGlobalDataLighter()
         const es = new EventSource('/api/whale-trades/sse')
         setEventSource(es)
-
         es.onmessage = (event) => {
             try {
                 const newData = JSON.parse(event.data)
-
                 if (Array.isArray(newData) && newData.length > 10) {
                     setRecentWhaleTrades(newData)
                     setActivityPage(1)
@@ -233,16 +229,15 @@ export default function DexTab() {
                         const uniqueNew = tradesToAdd.filter((t) => !existingIds.has(t.id))
                         const updated = [...uniqueNew, ...prev]
                             .sort((a, b) => b.time - a.time)
-                            .slice(0, totalDisplayTrades) 
+                            .slice(0, totalDisplayTrades)
                         return updated
                     })
-                    setActivityPage(1) 
+                    setActivityPage(1)
                 }
             } catch (err) {
                 console.error('SSE parse error:', err)
             }
         }
-
         es.onerror = () => {
             console.error('SSE connection error, reconnecting in 3s...')
             es.close()
@@ -250,13 +245,11 @@ export default function DexTab() {
                 setEventSource(new EventSource('/api/whale-trades/sse'))
             }, 3000)
         }
-
         return () => {
             es.close()
             setEventSource(null)
         }
     }, [])
-
     useEffect(() => {
         if (
             recentWhaleTrades.length > 0 &&
@@ -268,23 +261,19 @@ export default function DexTab() {
                 recentWhaleTrades[
                     Math.floor(Math.random() * Math.min(50, recentWhaleTrades.length))
                 ]
-
             let address = ''
             let dex = randomTrade.dex
-
             if (dex === 'hyperliquid') {
                 address = Math.random() > 0.5 ? randomTrade.buyer : randomTrade.seller
             } else if (dex === 'lighter') {
                 address = Math.random() > 0.5 ? randomTrade.buyer : randomTrade.seller
             }
-
             if (address && address !== 'unknown') {
                 setRandomWhaleWallet(address)
                 console.log('Auto-selected random whale:', { dex, address })
             }
         }
     }, [recentWhaleTrades, currentWallet, portfolioData.length, randomWhaleWallet])
-
     useEffect(() => {
         fetchCandles(selectedAsset)
         fetchL2Book(selectedAsset)
@@ -296,10 +285,9 @@ export default function DexTab() {
     // Add this new useEffect after the existing useEffects
     useEffect(() => {
         if (currentWallet) {
-            fetchUserData(currentWallet)
+            fetchUserData(currentWallet, selectedDEX)
         }
     }, [selectedDEX])
-
     useEffect(() => {
         const handleClickOutside = (event) => {
             if (
@@ -312,13 +300,11 @@ export default function DexTab() {
                 setIsAssetMenuOpen(false)
             }
         }
-
         document.addEventListener('mousedown', handleClickOutside)
         return () => {
             document.removeEventListener('mousedown', handleClickOutside)
         }
     }, [])
-
     const fetchGlobalDataHyper = async () => {
         setLoading(true)
         try {
@@ -344,54 +330,30 @@ export default function DexTab() {
     const fetchGlobalDataLighter = async () => {
         setLoading(true)
         try {
-            const baseUrl = 'https://mainnet.zklighter.elliot.ai/api/v1'
-            const orderBooksRes = await fetch(`${baseUrl}/orderBooks`)
-            const orderBooksData = await orderBooksRes.json()
-            setOrderBooksLighter(orderBooksData.order_books)
-            const universe = orderBooksData.order_books
-                .filter((o) => o.market_type === 'perp' && o.status === 'active')
-                .map((o) => ({
-                    name: o.symbol,
-                    image:
-                        o.symbol === 'ETH'
-                            ? 'https://cryptologos.cc/logos/ethereum-eth-logo.png?v=032'
-                            : o.symbol === 'BTC'
-                              ? 'https://cryptologos.cc/logos/bitcoin-btc-logo.png?v=032'
-                              : null,
-                }))
-            const exchangeStatsRes = await fetch(`${baseUrl}/exchangeStats`)
-            const stats = await exchangeStatsRes.json()
-            const assetCtxs = universe.map((u) => {
-                const s = stats.order_book_stats.find((st) => st.symbol === u.name) || {
-                    daily_quote_token_volume: 0,
-                    open_interest: 0,
-                }
-                return { dayNtlVlm: s.daily_quote_token_volume, openInterest: s.open_interest || 0 }
-            })
-            setMetaDataLighter({ universe, assetCtxs })
-            assetToMarketIdLighter.current = orderBooksData.order_books.reduce((acc, o) => {
-                if (o.market_type === 'perp' && o.status === 'active') {
-                    acc[o.symbol] = o.market_id
-                }
+            const metaRes = await fetch('/api/lighter')
+            if (!metaRes.ok) throw new Error('Failed to fetch Lighter global data')
+            const meta = await metaRes.json()
+            setMetaDataLighter({ universe: meta.universe, assetCtxs: meta.assetCtxs })
+            setOrderBooksLighter(meta.orderBooks)
+            assetToMarketIdLighter.current = meta.orderBooks.reduce((acc, o) => {
+                acc[o.symbol] = o.market_id
                 return acc
             }, {})
-            marketIdToSymbolLighter.current = orderBooksData.order_books.reduce((acc, o) => {
-                if (o.market_type === 'perp' && o.status === 'active') {
-                    acc[o.market_id] = o.symbol
-                }
+            marketIdToSymbolLighter.current = meta.orderBooks.reduce((acc, o) => {
+                acc[o.market_id] = o.symbol
                 return acc
             }, {})
-            const sortedAssets = universe
+            const sortedAssets = meta.universe
                 .map((u, i) => ({
                     name: u.name,
-                    volume: parseFloat(assetCtxs[i]?.dayNtlVlm || 0),
+                    volume: parseFloat(meta.assetCtxs[i]?.dayNtlVlm || 0),
                 }))
                 .sort((a, b) => b.volume - a.volume)
                 .slice(0, 10)
                 .map((a) => a.name)
             setActiveAssetsLighter(sortedAssets)
         } catch (err) {
-            setError('Failed to fetch Lighter global data.')
+            setError('Failed to fetch Lighter global data: ' + err.message)
             console.error(err)
         } finally {
             setLoading(false)
@@ -400,8 +362,9 @@ export default function DexTab() {
     const fetchCandles = async (asset) => {
         let assetToUse = asset
         setCandleData([])
-
-        if (selectedDEX === 'hyperliquid') {
+        // Always use Hyperliquid for candles when in Lighter mode
+        const useDEX = selectedDEX === 'lighter' ? 'hyperliquid' : selectedDEX
+        if (useDEX === 'hyperliquid') {
             if (!metaDataHyper.universe.some((u) => u.name === assetToUse)) {
                 assetToUse = 'BTC'
             }
@@ -416,9 +379,8 @@ export default function DexTab() {
                 }),
             })
             const rawData = await res.json()
-
             const formatted = rawData.map((candle) => ({
-                t: candle.t, // timestamp (ms)
+                t: candle.t,
                 c: parseFloat(candle.c),
             }))
             setCandleData(formatted)
@@ -434,7 +396,6 @@ export default function DexTab() {
                 `https://mainnet.zklighter.elliot.ai/api/v1/candlesticks?market_id=${assetToMarketIdLighter.current[assetToUse]}&resolution=1d&start_timestamp=${start}&end_timestamp=${now}`,
             )
             const data = await res.json()
-
             const candlesticks = data.candlesticks || []
             const formatted = candlesticks.map((candle) => ({
                 t: candle.timestamp * 1000,
@@ -465,19 +426,21 @@ export default function DexTab() {
             setL2Book({ bids: book?.bids || [], asks: book?.asks || [] })
         }
     }
-
-    const fetchUserData = async (address) => {
+    const fetchUserData = async (address, forceDEX = null) => {
         if (!address || !address.trim()) return
         const trimmedAddress = address.trim()
         setLoading(true)
         setError(null)
-        let dex = ''
         let accountL1Address = ''
+        let targetDEX = forceDEX
+        let success = false
         try {
             if (/^\d+$/.test(trimmedAddress)) {
                 // Numeric ID - Lighter index
-                dex = 'lighter'
-                setSelectedDEX('lighter')
+                if (forceDEX && forceDEX !== 'lighter') {
+                    throw new Error('Numeric ID is only valid for Lighter DEX')
+                }
+                targetDEX = 'lighter'
                 const baseUrl = 'https://mainnet.zklighter.elliot.ai/api/v1'
                 const queryParam = `by=index&value=${trimmedAddress}`
                 const res = await fetch(`${baseUrl}/account?${queryParam}`)
@@ -550,60 +513,71 @@ export default function DexTab() {
                     }
                 }
                 setPnlChartData(pnlData)
+                success = true
             } else if (trimmedAddress.startsWith('0x') && trimmedAddress.length === 42) {
-                // Try Hyperliquid first
-                try {
-                    dex = 'hyperliquid'
-                    setSelectedDEX('hyperliquid')
-                    const stateRes = await fetch('https://api.hyperliquid.xyz/info', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ type: 'clearinghouseState', user: trimmedAddress }),
-                    })
-                    if (!stateRes.ok) {
-                        const errData = await stateRes.json().catch(() => ({}))
-                        throw new Error(errData.msg || 'Invalid wallet address')
-                    }
-                    const state = await stateRes.json()
-                    setPortfolioData(
-                        state.assetPositions
-                            .map((pos) => pos.position)
-                            .filter((p) => parseFloat(p.szi) !== 0),
-                    )
-                    const fillsRes = await fetch('https://api.hyperliquid.xyz/info', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ type: 'userFills', user: trimmedAddress }),
-                    })
-                    const fillsData = await fillsRes.json()
-                    setFills(fillsData)
-                    let totalPnl = 0
-                    let wins = 0
-                    fillsData.forEach((fill) => {
-                        const pnl = parseFloat(fill.closedPnl) || 0
-                        totalPnl += pnl
-                        if (pnl > 0) wins++
-                    })
-                    const numTrades = fillsData.length
-                    const winRate = numTrades > 0 ? (wins / numTrades) * 100 : 0
-                    let totalBalance = parseFloat(state.marginSummary.accountValue || 0)
-                    setAnalytics({ totalPnl, winRate, numTrades, totalBalance })
-                    const pnlData = []
-                    let cumulativePnl = 0
-                    fillsData.sort((a, b) => a.time - b.time)
-                    fillsData.forEach((fill) => {
-                        cumulativePnl += parseFloat(fill.closedPnl) || 0
-                        pnlData.push({
-                            date: new Date(fill.time).toLocaleDateString(),
-                            pnl: cumulativePnl,
-                            asset: fill.coin,
+                targetDEX = forceDEX || 'hyperliquid'
+                if (targetDEX === 'hyperliquid') {
+                    try {
+                        // Try Hyperliquid
+                        const stateRes = await fetch('https://api.hyperliquid.xyz/info', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                                type: 'clearinghouseState',
+                                user: trimmedAddress,
+                            }),
                         })
-                    })
-                    setPnlChartData(pnlData)
-                } catch (hyperErr) {
-                    // Fall back to Lighter l1_address
-                    dex = 'lighter'
-                    setSelectedDEX('lighter')
+                        if (!stateRes.ok) {
+                            const errData = await stateRes.json().catch(() => ({}))
+                            throw new Error(errData.msg || 'Invalid wallet address')
+                        }
+                        const state = await stateRes.json()
+                        setPortfolioData(
+                            state.assetPositions
+                                .map((pos) => pos.position)
+                                .filter((p) => parseFloat(p.szi) !== 0),
+                        )
+                        const fillsRes = await fetch('https://api.hyperliquid.xyz/info', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ type: 'userFills', user: trimmedAddress }),
+                        })
+                        const fillsData = await fillsRes.json()
+                        setFills(fillsData)
+                        let totalPnl = 0
+                        let wins = 0
+                        fillsData.forEach((fill) => {
+                            const pnl = parseFloat(fill.closedPnl) || 0
+                            totalPnl += pnl
+                            if (pnl > 0) wins++
+                        })
+                        const numTrades = fillsData.length
+                        const winRate = numTrades > 0 ? (wins / numTrades) * 100 : 0
+                        let totalBalance = parseFloat(state.marginSummary.accountValue || 0)
+                        setAnalytics({ totalPnl, winRate, numTrades, totalBalance })
+                        const pnlData = []
+                        let cumulativePnl = 0
+                        fillsData.sort((a, b) => a.time - b.time)
+                        fillsData.forEach((fill) => {
+                            cumulativePnl += parseFloat(fill.closedPnl) || 0
+                            pnlData.push({
+                                date: new Date(fill.time).toLocaleDateString(),
+                                pnl: cumulativePnl,
+                                asset: fill.coin,
+                            })
+                        })
+                        setPnlChartData(pnlData)
+                        success = true
+                    } catch (hyperErr) {
+                        if (forceDEX) {
+                            throw hyperErr
+                        }
+                        // Fallback to Lighter if no forceDEX
+                        targetDEX = 'lighter'
+                    }
+                }
+                if (targetDEX === 'lighter') {
+                    // Lighter with l1_address
                     const baseUrl = 'https://mainnet.zklighter.elliot.ai/api/v1'
                     const queryParam = `by=l1_address&l1_address=${trimmedAddress}`
                     const res = await fetch(`${baseUrl}/account?${queryParam}`)
@@ -678,11 +652,15 @@ export default function DexTab() {
                         }
                     }
                     setPnlChartData(pnlData)
+                    success = true
                 }
             } else {
                 throw new Error(
                     'Invalid format. Use Ethereum address (0x...) or numeric Account ID.',
                 )
+            }
+            if (success) {
+                setSelectedDEX(targetDEX)
             }
             setCurrentWallet(accountL1Address || trimmedAddress)
         } catch (err) {
@@ -692,12 +670,11 @@ export default function DexTab() {
             setFills([])
             setAnalytics({ totalPnl: 0, winRate: 0, numTrades: 0, totalBalance: 0 })
             setPnlChartData([])
-            setCurrentWallet('')
+            // Do not setCurrentWallet('') here to prevent triggering random whale fetch and switching DEX back
         } finally {
             setLoading(false)
         }
     }
-
     const handleAssetChange = (asset) => {
         setSelectedAsset(asset)
         setIsAssetMenuOpen(false)
@@ -809,7 +786,11 @@ export default function DexTab() {
                         </div>
                     ) : (
                         <div className="h-[250px] md:h-[320px] flex items-center justify-center">
-                            <p className="text-gray-500 text-xs">No Open Interest data available</p>
+                            <p className="text-gray-500 text-xs">
+                                {selectedDEX === 'lighter'
+                                    ? 'Open Interest not available for Lighter'
+                                    : 'No Open Interest data available'}
+                            </p>
                         </div>
                     )}
                     {/* Top Assets by Volume */}
@@ -856,11 +837,10 @@ export default function DexTab() {
                             <h3 className="text-sm font-bold text-[#FFF]">
                                 {selectedAsset} Price Action (30D)
                             </h3>
-                            <div className="relative">
+                            <div className="relative" ref={assetMenuRef}>
                                 <button
-                                    ref={assetMenuRef}
                                     onClick={() => setIsAssetMenuOpen(!isAssetMenuOpen)}
-                                    className="text-xs sm:text-sm flex items-center gap-2 px-4 py-2 ..."
+                                    className="text-xs sm:text-sm flex items-center gap-2 px-4 py-2 bg-[#FFFFFF08] border border-[#FFFFFF15] rounded-lg text-white hover:border-white/30 transition"
                                 >
                                     {assetToImage[selectedAsset] && (
                                         <img
@@ -870,7 +850,7 @@ export default function DexTab() {
                                         />
                                     )}
                                     <span className="font-medium">{selectedAsset}</span>
-                                    <ChevronDown className="w-4 h-4" />
+                                    <ChevronDown className="w-4 h-4 text-white/50" />
                                 </button>
                                 <AnimatePresence>
                                     {isAssetMenuOpen && (
@@ -878,24 +858,41 @@ export default function DexTab() {
                                             initial={{ opacity: 0, y: -10 }}
                                             animate={{ opacity: 1, y: 0 }}
                                             exit={{ opacity: 0, y: -10 }}
-                                            className="absolute z-10 mt-2 w-26 sm:w-32 bg-black/90 border border-white/15 rounded-lg shadow-2xl max-h-60 overflow-y-auto custom-scrollbar"
+                                            className="absolute z-10 right-0 w-28 sm:w-32 bg-black/90 border border-white/15 rounded-lg shadow-2xl max-h-60 overflow-y-auto custom-scrollbar"
                                         >
-                                            {metaData.universe.map((u) => (
-                                                <li
-                                                    key={u.name}
-                                                    onClick={() => handleAssetChange(u.name)}
-                                                    className="text-[10px] sm:text-sm flex items-center gap-3 px-4 py-2.5 text-sm cursor-pointer hover:bg-white/10 transition"
-                                                >
-                                                    {u.image && (
-                                                        <img
-                                                            src={u.image}
-                                                            alt={u.name}
-                                                            className="w-4 h-4 sm:w-5 sm:h-5 rounded-full"
-                                                        />
-                                                    )}
-                                                    <span>{u.name}</span>
-                                                </li>
-                                            ))}
+                                            <li className="p-2">
+                                                <input
+                                                    type="text"
+                                                    placeholder="Search asset..."
+                                                    value={assetSearchTerm}
+                                                    onChange={(e) =>
+                                                        setAssetSearchTerm(e.target.value)
+                                                    }
+                                                    className="w-full px-3 py-2 bg-[#0A0A0A]/80 border border-white/20 rounded-lg text-white text-xs placeholder-gray-500 focus:outline-none focus:border-emerald-500/50"
+                                                />
+                                            </li>
+                                            {metaData.universe
+                                                .filter((u) =>
+                                                    u.name
+                                                        .toLowerCase()
+                                                        .includes(assetSearchTerm.toLowerCase()),
+                                                )
+                                                .map((u) => (
+                                                    <li
+                                                        key={u.name}
+                                                        onClick={() => handleAssetChange(u.name)}
+                                                        className="text-[10px] sm:text-sm flex items-center gap-3 px-4 py-2.5 cursor-pointer hover:bg-white/10 transition"
+                                                    >
+                                                        {u.image && (
+                                                            <img
+                                                                src={u.image}
+                                                                alt={u.name}
+                                                                className="w-4 h-4 sm:w-5 sm:h-5 rounded-full"
+                                                            />
+                                                        )}
+                                                        <span>{u.name}</span>
+                                                    </li>
+                                                ))}
                                         </motion.ul>
                                     )}
                                 </AnimatePresence>
@@ -1152,7 +1149,6 @@ export default function DexTab() {
                                 </tbody>
                             </table>
                         </div>
-
                         {recentWhaleTrades.length > tradesPerPage && (
                             <div className="flex items-center justify-center gap-4 mt-4">
                                 <button
@@ -1209,6 +1205,7 @@ export default function DexTab() {
                         </button>
                     </div>
                 </form>
+                {error && <p className="text-red-500 mb-4">{error}</p>}
                 {currentWallet && (
                     <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
                         <div className="space-y-6">

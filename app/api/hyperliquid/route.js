@@ -2,10 +2,8 @@
 import { NextResponse } from 'next/server'
 import { PrismaClient } from '@prisma/client'
 import { createClient } from 'redis'
-
 const prisma = globalThis.prisma || new PrismaClient()
 if (process.env.NODE_ENV !== 'production') globalThis.prisma = prisma
-
 // Redis client singleton
 let redisClient
 async function getRedisClient() {
@@ -21,37 +19,30 @@ async function getRedisClient() {
   }
   return redisClient
 }
-
 export async function GET() {
   try {
     const redis = await getRedisClient()
     const cacheKey = 'hyperliquid:metaAndAssetCtxs'
     const ttl = 1800 // 30
-
     const cached = await redis.get(cacheKey)
     if (cached) {
       console.log('Cache hit for hyperliquid meta')
       return NextResponse.json(JSON.parse(cached))
     }
-
     const metaRes = await fetch('https://api.hyperliquid.xyz/info', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ type: 'metaAndAssetCtxs' }),
     })
-
     if (!metaRes.ok) {
       throw new Error(`Hyperliquid API error: ${metaRes.status}`)
     }
-
     const meta = await metaRes.json()
     const universe = meta[0].universe
-
     const assetCtxs = meta[1].map((ctx) => ({
       ...ctx,
       dayNtlVlm: ctx.dayNtlVlm || 0,
     }))
-
     const symbols = universe.map((u) => u.name.toUpperCase())
     const tokens = await prisma.tokens.findMany({
       where: {
@@ -67,12 +58,9 @@ export async function GET() {
       ...u,
       image: tokenMap.get(u.name) || null,
     }))
-
     const result = { universe: augmentedUniverse, assetCtxs }
-
     await redis.setEx(cacheKey, ttl, JSON.stringify(result))
     console.log('Cached hyperliquid meta for 30 minutes')
-
     return NextResponse.json(result)
   } catch (err) {
     console.error('Hyperliquid API error:', err)

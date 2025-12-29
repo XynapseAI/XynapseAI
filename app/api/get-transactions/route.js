@@ -720,24 +720,37 @@ async function fetchLayer3Transactions(layer2Addresses, chain, limit, page) {
     .slice(0, 100)
   if (safeAddresses.length === 0) return transactions
   const layer2Nametags = await getNametagsBatch(safeAddresses)
-  // const validLayer2Addresses = safeAddresses.filter(
-  //   addr => layer2Nametags[addr]?.name && layer2Nametags[addr].name !== 'Unknown'
-  // );
   logger.info(
     `Fetching Layer 3 transactions for ${safeAddresses.length} Layer 2 addresses (including unknown nametags)`,
   )
   if (safeAddresses.length === 0) return transactions
-  const layer3Limit = 100
+  const layer3Limit = 50
   let nativePrice = await getCurrentPrice(chainConfig.coingeckoId || 'bitcoin')
+  let baseUrl = null
+  if (alchemyNetworks[chain]) {
+    const network = alchemyNetworks[chain]
+    baseUrl = `https://${network}.g.alchemy.com/v2/${ALCHEMY_API_KEY}`
+  }
   const allRawTxs = []
-  for (const address of safeAddresses) {
+  // Parallel fetch for all addresses
+  const fetchPromises = safeAddresses.map(async (address) => {
     try {
-      let apiUrl
+      let txData = []
       if (chain === 'bitcoin') {
-        apiUrl = `${chainConfig.apiUrl}/address/${address}/txs?limit=${layer3Limit}`
+        const apiUrl = `${chainConfig.apiUrl}/address/${address}/txs?limit=${layer3Limit}`
+        const cacheKey = `layer3_tx_${chain}_${address}_${page}_${layer3Limit}`
+        const redisClient = await getRedisClient()
+        const cached = await redisClient.get(cacheKey)
+        if (cached) {
+          logger.info(`Layer3 cache hit for ${cacheKey}`)
+          txData = JSON.parse(cached)
+        } else {
+          const response = await fetchWithRateLimit(apiUrl, { timeout: 10000 })
+          txData = response.data || []
+          await redisClient.setEx(cacheKey, 3600, JSON.stringify(txData))
+        }
+        txData = txData.map((tx) => ({ ...tx, layer2Address: address }))
       } else if (alchemyNetworks[chain]) {
-        const network = alchemyNetworks[chain]
-        const baseUrl = `https://${network}.g.alchemy.com/v2/${ALCHEMY_API_KEY}`
         const [resOut, resIn] = await Promise.all([
           axios
             .post(baseUrl, {
@@ -778,63 +791,92 @@ async function fetchLayer3Transactions(layer2Addresses, chain, limit, page) {
             })
             .catch(() => ({ data: { result: { transfers: [] } } })),
         ])
-        const txData = []
         txData.push(
           ...(resOut.data.result.transfers || []).map((t) => ({
             ...t,
             type: 'outgoing',
-            fromAddress: address,
+            layer2Address: address,
           })),
         )
         txData.push(
           ...(resIn.data.result.transfers || []).map((t) => ({
             ...t,
             type: 'incoming',
-            fromAddress: address,
+            layer2Address: address,
           })),
         )
-        allRawTxs.push(...txData)
-        continue
-      } else {
-        continue
       }
-      const cacheKey = `layer3_tx_${chain}_${address}_${page}_${layer3Limit}`
-      const redisClient = await getRedisClient()
-      const cached = await redisClient.get(cacheKey)
-      let txData = []
-      if (cached) {
-        logger.info(`Layer3 cache hit for ${cacheKey}`)
-        txData = JSON.parse(cached)
-      } else {
-        const response = await fetchWithRateLimit(apiUrl, { timeout: 10000 })
-        txData = response.data || []
-        await redisClient.setEx(cacheKey, 3600, JSON.stringify(txData))
-      }
-      txData = txData.map((tx) => ({ ...tx, layer2Address: address }))
-      allRawTxs.push(...txData)
+      return txData
     } catch (error) {
       logger.error(`Failed to fetch Layer 3 for ${address}:`, error.message)
+      return []
     }
+  })
+  const allTxData = await Promise.all(fetchPromises)
+  allRawTxs.push(...allTxData.flat())
+  // Pre-batch all unique contracts for symbols, prices, images
+  const allContracts = [
+    ...new Set(
+      allRawTxs
+        .filter((tx) => tx.rawContract?.address && isAddress(tx.rawContract.address))
+        .map((tx) => tx.rawContract.address.toLowerCase()),
+    ),
+  ]
+  let tokenSymbols = {}
+  if (alchemyNetworks[chain] && allContracts.length > 0) {
+    tokenSymbols = await getTokenSymbolsBatch(baseUrl, allContracts)
   }
-  const bitcoinLayer3Promises = allRawTxs.map(async (tx) => {
-    if (chain !== 'bitcoin') return null
-    if (!tx.status?.confirmed) return null
-    const blockTime = tx.status.block_time
-      ? new Date(tx.status.block_time * 1000).toISOString()
-      : null
-    if (!blockTime) return null
-    let value = '0'
-    let usdValue = 0
-    // Incoming to layer2Address
-    const receivedVouts =
-      tx.vout?.filter((v) => v.scriptpubkey_address?.toLowerCase() === tx.layer2Address) || []
-    for (const vout of receivedVouts) {
-      if (vout.value > 546) {
-        value = (vout.value / 1e8).toString()
+  let tokenPricesBatch = {}
+  if (allContracts.length > 0) {
+    tokenPricesBatch = await getTokenCurrentPriceBatch(chainIdToName[chain], allContracts)
+  }
+  const tokenImagesBatch = Object.fromEntries(
+    await Promise.all(
+      allContracts.map(async (contract) => [contract, await getTokenImage(contract, chain)]),
+    ),
+  )
+  const allLayer3Promises = allRawTxs.map(async (tx) => {
+    if (chain === 'bitcoin') {
+      if (!tx.status?.confirmed) return null
+      const blockTime = tx.status.block_time
+        ? new Date(tx.status.block_time * 1000).toISOString()
+        : null
+      if (!blockTime) return null
+      let value = '0'
+      let usdValue = 0
+      // Incoming to layer2Address
+      const receivedVouts =
+        tx.vout?.filter((v) => v.scriptpubkey_address?.toLowerCase() === tx.layer2Address) || []
+      for (const vout of receivedVouts) {
+        if (vout.value > 546) {
+          value = (vout.value / 1e8).toString()
+          usdValue = Number(value) * nativePrice
+          const source = tx.vin?.[0]?.prevout?.scriptpubkey_address || 'unknown'
+          return {
+            address: source,
+            hash: tx.txid,
+            value,
+            usdValue: usdValue.toFixed(6),
+            tokenSymbol: 'BTC',
+            contractAddress: null,
+            tokenImage: '/logos/bitcoin.webp',
+            block_time: blockTime,
+            type: 'incoming',
+            layer2Address: tx.layer2Address,
+          }
+        }
+      }
+      // Outgoing from layer2Address
+      const spentVins =
+        tx.vin?.filter(
+          (v) => v.prevout?.scriptpubkey_address?.toLowerCase() === tx.layer2Address,
+        ) || []
+      for (const vin of spentVins) {
+        value = (vin.prevout.value / 1e8).toString()
         usdValue = Number(value) * nativePrice
-        const source = tx.vin?.[0]?.prevout?.scriptpubkey_address || 'unknown'
+        const target = tx.vout?.[0]?.scriptpubkey_address || 'unknown'
         return {
-          address: source,
+          address: target,
           hash: tx.txid,
           value,
           usdValue: usdValue.toFixed(6),
@@ -842,37 +884,57 @@ async function fetchLayer3Transactions(layer2Addresses, chain, limit, page) {
           contractAddress: null,
           tokenImage: '/logos/bitcoin.webp',
           block_time: blockTime,
-          type: 'incoming',
+          type: 'outgoing',
           layer2Address: tx.layer2Address,
         }
       }
-    }
-    // Outgoing from layer2Address
-    const spentVins =
-      tx.vin?.filter((v) => v.prevout?.scriptpubkey_address?.toLowerCase() === tx.layer2Address) ||
-      []
-    for (const vin of spentVins) {
-      value = (vin.prevout.value / 1e8).toString()
-      usdValue = Number(value) * nativePrice
-      const target = tx.vout?.[0]?.scriptpubkey_address || 'unknown'
+      return null
+    } else {
+      let value,
+        tokenSymbolLocal,
+        contractAddressLocal,
+        decimalsLocal = 18
+      if (tx.category === 'erc20' || tx.category === 'erc721' || tx.category === 'erc1155') {
+        decimalsLocal = tx.rawContract?.decimal ? parseInt(tx.rawContract.decimal, 16) : 18
+        value = safeFormatUnits(tx.rawContract?.value, decimalsLocal)
+        contractAddressLocal = tx.rawContract?.address?.toLowerCase()
+        tokenSymbolLocal = tx.asset || tokenSymbols[contractAddressLocal] || 'UNKNOWN'
+      } else {
+        value = safeFormatEther(tx.value)
+        tokenSymbolLocal = chain === '1' ? 'ETH' : chainConfig.name.toUpperCase()
+        contractAddressLocal = null
+      }
+      if (parseFloat(value) === 0 && contractAddressLocal) return null
+      let tokenImageLocal = contractAddressLocal
+        ? tokenImagesBatch[contractAddressLocal] || '/icons/default.webp'
+        : '/icons/default.webp'
+      let usdValue = 0
+      if (contractAddressLocal) {
+        const price = tokenPricesBatch[contractAddressLocal]?.usd || 0
+        usdValue = parseFloat(value) * price
+      } else {
+        usdValue = parseFloat(value) * nativePrice
+      }
+      const block_time = tx.metadata.blockTimestamp
+      if (!block_time) return null
+      const counterpart = tx.type === 'outgoing' ? tx.to?.toLowerCase() : tx.from?.toLowerCase()
       return {
-        address: target,
-        hash: tx.txid,
+        address: counterpart,
+        hash: tx.hash,
         value,
         usdValue: usdValue.toFixed(6),
-        tokenSymbol: 'BTC',
-        contractAddress: null,
-        tokenImage: '/logos/bitcoin.webp',
-        block_time: blockTime,
-        type: 'outgoing',
+        tokenSymbol: tokenSymbolLocal,
+        contractAddress: contractAddressLocal,
+        tokenImage: tokenImageLocal,
+        block_time,
+        type: tx.type,
         layer2Address: tx.layer2Address,
       }
     }
-    return null
   })
-  const bitcoinResults = await Promise.allSettled(bitcoinLayer3Promises)
+  const layer3Results = await Promise.allSettled(allLayer3Promises)
   transactions.push(
-    ...bitcoinResults.filter((r) => r.status === 'fulfilled' && r.value).map((r) => r.value),
+    ...layer3Results.filter((r) => r.status === 'fulfilled' && r.value).map((r) => r.value),
   )
   // Nametags Layer 3
   const layer3Addrs = [
@@ -974,6 +1036,7 @@ async function fetchFromEtherscanFallback(address, chain, limit, page) {
   })
   // Process token txs
   const uniqueContracts = [...new Set(tokenTxs.map((tx) => tx.contractAddress).filter(isAddress))]
+  let tokenPrices = {}
   if (uniqueContracts.length > 0) {
     tokenPrices = await getTokenCurrentPriceBatch(chainIdToName[chain], uniqueContracts)
   }
@@ -1174,7 +1237,7 @@ export async function POST(request) {
       return NextResponse.json(JSON.parse(cached), { headers: securityHeaders })
     }
     let isTokenQuery = isToken
-    let fetchLayer3 = true
+    let fetchLayer3 = inputFetchLayer3
     let tokenSymbol = 'UNKNOWN'
     let tokenImage = '/icons/default.webp'
     if (alchemyNetworks[chain] && !isTokenQuery) {
@@ -1227,7 +1290,7 @@ export async function POST(request) {
     let nativePrice = await getCurrentPrice(chainConfig.coingeckoId)
     let tokenPrices = {}
     const addresses = new Set()
-    addresses.add(address) // Thêm address chính vào set để fetch nametag cho nó
+    addresses.add(address)
     let layer3Transactions = []
     let walletNametag
     let chainLogo = await getChainLogo(chainConfig.coingeckoId)
@@ -1372,7 +1435,7 @@ export async function POST(request) {
       let nativePrice = await getCurrentPrice(chainConfig.coingeckoId)
       let tokenPrices = {}
       const addresses = new Set()
-      addresses.add(address) // Thêm address chính vào set để fetch nametag cho nó
+      addresses.add(address)
       let layer3Transactions = []
       let walletNametag
       let chainLogo = await getChainLogo(chainConfig.coingeckoId)
@@ -1453,8 +1516,9 @@ export async function POST(request) {
         if (symbolsNeedingFetch.length > 0) {
           tokenSymbols = await getTokenSymbolsBatch(baseUrl, symbolsNeedingFetch)
         }
+        let tokenPricesBatch = {}
         if (uniqueContracts.length > 0) {
-          tokenPrices = await getTokenCurrentPriceBatch(chainIdToName[chain], uniqueContracts)
+          tokenPricesBatch = await getTokenCurrentPriceBatch(chainIdToName[chain], uniqueContracts)
         }
         const imagePromises = uniqueContracts.map(async (contract) => {
           const image = await getTokenImage(contract, chain)
@@ -1464,6 +1528,7 @@ export async function POST(request) {
           (await Promise.all(imagePromises)).map(({ contract, image }) => [contract, image]),
         )
         // Process outgoing
+        const missingPricesOut = new Set()
         for (const transfer of transfersOut) {
           let value,
             tokenSymbolLocal,
@@ -1500,10 +1565,15 @@ export async function POST(request) {
             : '/icons/default.webp'
           let usdValue = 0
           if (contractAddressLocal) {
-            const price =
-              tokenPrices[caseSensitive ? contractAddressLocal : contractAddressLocal.toLowerCase()]
-                ?.usd || (await getTokenCurrentPrice(chainIdToName[chain], contractAddressLocal))
-            usdValue = parseFloat(value) * price
+            const priceKey = caseSensitive
+              ? contractAddressLocal
+              : contractAddressLocal.toLowerCase()
+            let price = tokenPricesBatch[priceKey]?.usd
+            if (!price) {
+              missingPricesOut.add(contractAddressLocal)
+            } else {
+              usdValue = parseFloat(value) * price
+            }
           } else {
             usdValue = parseFloat(value) * nativePrice
           }
@@ -1522,7 +1592,26 @@ export async function POST(request) {
           })
           addresses.add(caseSensitive ? transfer.to : transfer.to.toLowerCase())
         }
+        // Fetch missing prices in batch
+        if (missingPricesOut.size > 0) {
+          const missingPricesBatch = await getTokenCurrentPriceBatch(
+            chainIdToName[chain],
+            Array.from(missingPricesOut),
+          )
+          // Update usdValue for outgoing with missing prices
+          outgoing = outgoing.map((tx) => {
+            if (tx.contractAddress) {
+              const priceKey = caseSensitive ? tx.contractAddress : tx.contractAddress.toLowerCase()
+              const price = missingPricesBatch[priceKey]?.usd || 0
+              if (price > 0) {
+                tx.usdValue = (parseFloat(tx.value) * price).toFixed(6)
+              }
+            }
+            return tx
+          })
+        }
         // Process incoming
+        const missingPricesIn = new Set()
         for (const transfer of transfersIn) {
           let value,
             tokenSymbolLocal,
@@ -1559,10 +1648,15 @@ export async function POST(request) {
             : '/icons/default.webp'
           let usdValue = 0
           if (contractAddressLocal) {
-            const price =
-              tokenPrices[caseSensitive ? contractAddressLocal : contractAddressLocal.toLowerCase()]
-                ?.usd || (await getTokenCurrentPrice(chainIdToName[chain], contractAddressLocal))
-            usdValue = parseFloat(value) * price
+            const priceKey = caseSensitive
+              ? contractAddressLocal
+              : contractAddressLocal.toLowerCase()
+            let price = tokenPricesBatch[priceKey]?.usd
+            if (!price) {
+              missingPricesIn.add(contractAddressLocal)
+            } else {
+              usdValue = parseFloat(value) * price
+            }
           } else {
             usdValue = parseFloat(value) * nativePrice
           }
@@ -1580,6 +1674,24 @@ export async function POST(request) {
             method: transfer.category === 'erc20' ? 'Transfer' : undefined,
           })
           addresses.add(caseSensitive ? transfer.from : transfer.from.toLowerCase())
+        }
+        // Fetch missing prices in batch
+        if (missingPricesIn.size > 0) {
+          const missingPricesBatch = await getTokenCurrentPriceBatch(
+            chainIdToName[chain],
+            Array.from(missingPricesIn),
+          )
+          // Update usdValue for incoming with missing prices
+          incoming = incoming.map((tx) => {
+            if (tx.contractAddress) {
+              const priceKey = caseSensitive ? tx.contractAddress : tx.contractAddress.toLowerCase()
+              const price = missingPricesBatch[priceKey]?.usd || 0
+              if (price > 0) {
+                tx.usdValue = (parseFloat(tx.value) * price).toFixed(6)
+              }
+            }
+            return tx
+          })
         }
       } else {
         // Original fetching logic for non-Alchemy chains
@@ -1898,11 +2010,10 @@ export async function POST(request) {
               }
               const from = caseSensitive ? itx.from : itx.from.toLowerCase()
               const to = caseSensitive ? itx.to : itx.to.toLowerCase()
-              const isOutgoing = from === address
-              const addressLocal = isOutgoing ? to : from
-              const type = isOutgoing ? 'outgoing' : 'incoming'
+              const type = from === address ? 'outgoing' : 'incoming'
+              const counterpart = type === 'outgoing' ? to : from
               return {
-                address: addressLocal,
+                address: counterpart,
                 hash: itx.hash,
                 value,
                 usdValue: usdValue.toFixed(6),
@@ -1934,9 +2045,8 @@ export async function POST(request) {
                 caseSensitive ? tx.contractAddress : tx.contractAddress.toLowerCase(),
               ) ||
               !isValidTokenSymbol(tx.tokenSymbol)
-            ) {
+            )
               return null
-            }
             let value = (
               parseInt(tx.value) / Math.pow(10, parseInt(tx.tokenDecimal || 18))
             ).toString()
@@ -2006,8 +2116,9 @@ export async function POST(request) {
             ),
           ),
         ]
+          .filter((addr) => (addressVolume.get(addr) || 0) > 50)
           .sort((a, b) => (addressVolume.get(b) || 0) - (addressVolume.get(a) || 0))
-          .slice(0, 100)
+          .slice(0, 50)
 
         logger.info(
           `Fetching Layer 3 for ${sortedLayer2.length} top-volume Layer 2 addresses (out of ${addressVolume.size} total counterparties)`,
@@ -2039,7 +2150,6 @@ export async function POST(request) {
                 tx.nametagLayer2 = ntagL2.name
                 tx.imageLayer2 = ntagL2.image
               }
-              // Không gán fallback → để client tự xử lý
             })
           }
         }
