@@ -1,4 +1,3 @@
-// components\TreemapTab.jsx
 'use client'
 import { useState, useEffect, useRef, memo, useCallback, useMemo } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
@@ -83,7 +82,6 @@ const getExplorerLogo = (selectedChain) => {
   }
   return '/logos/etherscan-logo.webp'
 }
-
 const VirtuosoTable = memo(
   ({ transactions, isMobile, selectedChain, tokenImages, nametags, filterType, rootAddress }) => {
     if (!transactions || !Array.isArray(transactions)) {
@@ -99,7 +97,6 @@ const VirtuosoTable = memo(
         </div>
       )
     }
-
     const handleCopyAddress = (address) => {
       navigator.clipboard.writeText(address)
       toast.success('Address copied to clipboard!', {
@@ -112,7 +109,6 @@ const VirtuosoTable = memo(
         theme: 'dark',
       })
     }
-
     const getInternalExplorerUrl = (chain, txHash = '', address = '', type = '') => {
       const normalizedChain = String(chain || 'ethereum').toLowerCase()
       const SUPPORTED_INTERNAL_CHAINS = [
@@ -130,18 +126,15 @@ const VirtuosoTable = memo(
         'hyperevm',
         'eclipse',
       ]
-
       if (SUPPORTED_INTERNAL_CHAINS.includes(normalizedChain)) {
         let query = txHash || address
         let extra = type ? `&type=${type}` : ''
         return `/explorer?query=${query}&chain=${normalizedChain}${extra}`
       }
-
       // Fallback (giữ lại để an toàn nếu chain chưa hỗ trợ)
       const { txUrl } = getExplorerUrls(normalizedChain, txHash, address)
       return txUrl || '#'
     }
-
     const filteredTransactions = useMemo(() => {
       const filtered = transactions.filter((tx) => {
         if (filterType === 'all') return true
@@ -156,7 +149,6 @@ const VirtuosoTable = memo(
       logger.log('Filtered transactions in VirtuosoTable:', filtered)
       return filtered
     }, [transactions, filterType, rootAddress])
-
     if (filteredTransactions.length === 0) {
       return (
         <div
@@ -173,7 +165,6 @@ const VirtuosoTable = memo(
         </div>
       )
     }
-
     const fixedHeaderContent = () => (
       <tr className="grid grid-cols-[2fr_1fr_1fr] gap-2">
         <th className="px-2 py-1 text-white font-medium text-left overflow-hidden border-r border-white/5">
@@ -185,13 +176,10 @@ const VirtuosoTable = memo(
         <th className="px-2 py-1 text-white font-medium text-center overflow-hidden">Details</th>
       </tr>
     )
-
     const Row = (index, tx) => {
       if (!tx) return null
-
       let tokenLogo = '/icons/default.webp'
       let displaySymbol = tx.tokenSymbol || 'N/A'
-
       if (selectedChain === 'bitcoin' && displaySymbol.toLowerCase() === 'btc') {
         tokenLogo = '/logos/bitcoin.webp'
         displaySymbol = 'BTC'
@@ -201,7 +189,6 @@ const VirtuosoTable = memo(
         tokenLogo = tokenInfoItem?.image || '/icons/default.webp'
         displaySymbol = tokenInfoItem?.symbol || tx.tokenSymbol || 'N/A'
       }
-
       const fromNtag = nametags[tx.source?.toLowerCase()] || {
         name: 'Unknown',
         image: '/icons/default.webp',
@@ -210,9 +197,7 @@ const VirtuosoTable = memo(
         name: 'Unknown',
         image: '/icons/default.webp',
       }
-
       const displayValue = formatLargeNumber(Number(tx.value) || 0, 1)
-
       let formattedTime = 'N/A'
       if (tx.block_time) {
         const blockTime = typeof tx.block_time === 'number' ? tx.block_time * 1000 : tx.block_time
@@ -221,7 +206,6 @@ const VirtuosoTable = memo(
           formattedTime = formatDistanceToNow(date, { addSuffix: true })
         }
       }
-
       return (
         <tr
           key={`${tx.hash}-${index}`}
@@ -299,7 +283,6 @@ const VirtuosoTable = memo(
                   </svg>
                 </button>
               </div>
-
               {/* To */}
               <div className="flex items-center gap-1 group relative">
                 <div className="w-3 h-3 flex-shrink-0" />
@@ -350,7 +333,6 @@ const VirtuosoTable = memo(
               </div>
             </div>
           </td>
-
           {/* Value + Token */}
           <td className="px-2 py-1 text-white/80 text-[9px] sm:text-[11px] text-center overflow-hidden border-r border-white/5 align-middle">
             <div className="flex flex-col items-center justify-center gap-1">
@@ -368,7 +350,6 @@ const VirtuosoTable = memo(
               </span>
             </div>
           </td>
-
           {/* Details: Tx Hash + Time - ĐÃ SỬA ĐỂ DÙNG INTERNAL EXPLORER */}
           <td className="px-2 py-1 text-white/80 text-[9px] sm:text-[11px] text-center overflow-hidden align-middle">
             <div className="flex flex-col items-center justify-center gap-1">
@@ -398,9 +379,7 @@ const VirtuosoTable = memo(
         </tr>
       )
     }
-
     const tableHeight = isMobile ? 'auto' : 'calc(100vh - 8rem)'
-
     return (
       <div
         className={`bg-black/10 backdrop-blur-md border border-white/10 rounded-xl p-3 hide-scrollbar ${isMobile ? 'w-full mt-2 overflow-auto max-h-[50vh]' : 'w-96 fixed right-4 top-32'}`}
@@ -471,7 +450,6 @@ const VirtuosoTable = memo(
     )
   },
 )
-
 const TrendChart = memo(({ transactions, velocity }) => {
   const getTimeInterval = useCallback((timestamps) => {
     const minTime = Math.min(...timestamps)
@@ -863,7 +841,6 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
           walletInfo.nametag || 'Unknown',
           walletInfo.image || '/icons/default.webp',
         )
-
         const updatedNodes = newNodes.map((node) => {
           if (node.data.id.toLowerCase() === walletAddress.toLowerCase()) {
             return {
@@ -873,7 +850,6 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
           }
           return node
         })
-
         // Enforce max nodes for scalability
         const limitedNodes = newNodes.slice(0, MAX_NODES)
         const limitedEdges = newEdges.filter(
@@ -1402,7 +1378,6 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
       setClusters(fallbackClusters)
     }
   }
-
   const initializeForceGraph = useCallback(async () => {
     if (!containerRef.current || !nodes.length || !walletInfo.address) {
       logger.warn('Cannot initialize ForceGraph: missing container, nodes, or walletInfo.address')
@@ -1420,6 +1395,101 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
         nodes.map((n) => ({ ...n.data })),
         edges.map((e) => ({ ...e.data })),
       )
+      // NEW: Adjust positions for wallet queries (non-token queries) as per user request
+      const isTokenQuery = fullIncomingData.length === 0 && fullOutgoingData.length === 0
+      if (!isTokenQuery) {
+        // Build adjacency list
+        const adj = new Map()
+        positionedNodesData.forEach((n) => adj.set(n.id.toLowerCase(), []))
+        edges.forEach((e) => {
+          const s = (
+            typeof e.data.source === 'string' ? e.data.source : e.data.source.id
+          ).toLowerCase()
+          const t = (
+            typeof e.data.target === 'string' ? e.data.target : e.data.target.id
+          ).toLowerCase()
+          adj.get(s).push(t)
+          adj.get(t).push(s)
+        })
+
+        // Set root at (0,0)
+        const rootNode = positionedNodesData.find((n) => n.id.toLowerCase() === rootId)
+        if (rootNode) {
+          rootNode.x = 0
+          rootNode.y = 0
+        }
+
+        // Find layer 2 nodes (direct neighbors of root)
+        const layer2Ids = adj.get(rootId) || []
+
+        // Classify layer 2: with L3 or without
+        const layer2WithL3 = []
+        const layer2WithoutL3 = []
+        layer2Ids.forEach((l2) => {
+          const neighbors = adj.get(l2)
+          const l3 = neighbors.filter(
+            (id) =>
+              id !== rootId &&
+              positionedNodesData.find((n) => n.id.toLowerCase() === id)?.layer === 3,
+          )
+          if (l3.length > 0) {
+            layer2WithL3.push({ l2, l3 })
+          } else {
+            layer2WithoutL3.push(l2)
+          }
+        })
+
+        // Position layer2 without L3: top and bottom
+        const numWithout = layer2WithoutL3.length
+        const radiusWithout = 250 // Increased distance for clarity
+        const halfWithout = Math.floor(numWithout / 2)
+        layer2WithoutL3.forEach((l2, i) => {
+          const node = positionedNodesData.find((n) => n.id.toLowerCase() === l2)
+          if (node) {
+            const isTop = i < halfWithout
+            const localI = i % halfWithout
+            const angle = (localI / halfWithout) * Math.PI
+            node.x = Math.cos(angle) * radiusWithout * 0.3 // Slight x spread
+            node.y = (isTop ? -1 : 1) * (radiusWithout + Math.sin(angle) * radiusWithout * 0.4)
+          }
+        })
+
+        // Position layer2 with L3: left and right
+        const numWith = layer2WithL3.length
+        const radiusWith = 350 // Increased distance for clarity
+        const halfWith = Math.floor(numWith / 2)
+        layer2WithL3.forEach((item, i) => {
+          const node = positionedNodesData.find((n) => n.id.toLowerCase() === item.l2)
+          if (node) {
+            const isLeft = i < halfWith
+            const localI = i % halfWith
+            const angle = ((localI / halfWith) * Math.PI) / 2
+            node.x = (isLeft ? -1 : 1) * (radiusWith + Math.sin(angle) * radiusWith * 0.3)
+            node.y = Math.cos(angle) * radiusWith * 0.5 // Slight y spread
+          }
+
+          // Position associated L3 around the L2
+          const l3Radius = 120 // Distance from L2
+          const numL3 = item.l3.length
+          item.l3.forEach((l3Id, j) => {
+            const l3Node = positionedNodesData.find((n) => n.id.toLowerCase() === l3Id)
+            if (l3Node) {
+              const angle = (j / numL3) * Math.PI * 2
+              l3Node.x = node.x + Math.cos(angle) * l3Radius
+              l3Node.y = node.y + Math.sin(angle) * l3Radius
+            }
+          })
+        })
+      } else {
+        // Original scaling for token queries
+        positionedNodesData.forEach((n) => {
+          if (!n.isRoot) {
+            n.x *= 0.25
+            n.y *= 0.25
+          }
+        })
+      }
+
       let clusterData
       const rootCluster = detectedClusters.find((c) =>
         c.wallets.some((w) => w.id.toLowerCase() === rootId),
@@ -1550,7 +1620,6 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
             }),
         ),
       )
-      const isTokenQuery = fullIncomingData.length === 0 && fullOutgoingData.length === 0
       if (isTokenQuery) {
         // Scale down initial positions for token query to bring clusters closer
         positionedNodesData.forEach((n) => {
@@ -1563,7 +1632,7 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
         // For non-token queries, slightly compress initial positions to bring clusters closer
         positionedNodesData.forEach((n) => {
           if (!n.isRoot) {
-            n.x *= 0.6 // Compress by 60% for closer distribution
+            n.x *= 0.6
             n.y *= 0.6
           }
         })
@@ -1751,7 +1820,7 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
           'charge',
           d3.forceManyBody().strength((node) => {
             if (node.layer === 2 || node.layer === 3) {
-              return -900 // Reduced repulsion by ~20% from -2000 for less strong push
+              return -1200 // Increased repulsion for more spread
             }
             return isTokenQuery ? -1800 : -800 // Reduced by ~20% from -3200 and -1400
           }),
@@ -1763,9 +1832,9 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
             .id((d) => d.id)
             .distance((link) => {
               if (link.source.id === rootId || link.target.id === rootId) {
-                return isTokenQuery ? 3 : 50 // Further reduce distance to root to pull clusters closer
+                return isTokenQuery ? 3 : 100 // Increased distance to root
               }
-              return link.layer === 3 ? 30 : 80 // Reduce non-root distances slightly for compactness
+              return link.layer === 3 ? 50 : 120 // Increased non-root distances
             })
             .strength(0.8),
         ) // Increase strength to better enforce distances
@@ -1790,8 +1859,8 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
           'collide',
           d3
             .forceCollide()
-            .radius((node) => node.val * 1.44)
-            .strength(0.5),
+            .radius((node) => node.val * 1.8) // Increased radius for better separation
+            .strength(0.7), // Increased strength
         ) // Add collision to prevent overlaps
         .d3AlphaDecay(0.028) // Increased from 0.012 for faster simulation settling
         .d3VelocityDecay(0.82) // Reduced from 0.7 for smoother drag (less friction)
@@ -1836,11 +1905,11 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
           node.fx = node.x
           node.fy = node.y
         })
-        .onEngineStop(() => {
-          graphRef.current.zoomToFit(1200, 200) // Increase padding for better fit without crowding
-        })
+      // .onEngineStop(() => {
+      //   graphRef.current.zoomToFit(1200, 200)
+      // })
       graphRef.current.centerAt(0, 0, 1500)
-      graphRef.current.zoom(isTokenQuery ? 0.35 : 0.7, 1500) // Adjust initial zoom: higher for non-token to show spacing better
+      graphRef.current.zoom(isTokenQuery ? 0.35 : 0.5, 1500) // Zoom out a bit for non-token queries
     } catch (err) {
       logger.error('Error initializing ForceGraph:', err)
       toast.error('Graph visualization failed. Please refresh.', {
@@ -1860,7 +1929,6 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
     clusters,
     filterTransactions,
   ])
-
   useEffect(() => {
     initializeForceGraph().catch(console.error)
     return () => {
@@ -1968,14 +2036,12 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
   const handleSearch = useCallback(() => {
     validateAndFetch(walletAddress, isTokenSearch)
   }, [walletAddress, isTokenSearch, validateAndFetch])
-
   const handleSearchSelect = useCallback(
     (result) => {
       if (!result.address) {
         toast.error('No address provided.', { theme: 'dark' })
         return
       }
-
       // Normalize address
       let normalizedAddress = result.address.trim() // Preserve case by default, just trim whitespace
       if (result.address.startsWith('0x')) {
@@ -1985,16 +2051,13 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
           normalizedAddress = result.address.toLowerCase() // Fallback lower if checksum fails
         }
       }
-
       console.log('Selected result:', {
         type: result.type,
         originalAddr: result.address,
         normalized: normalizedAddress,
       })
-
       setIsTokenSearch(result.type === 'token')
       setWalletAddress(normalizedAddress)
-
       if (result.type === 'nametag') {
         setWalletInfo({
           address: normalizedAddress,
@@ -2010,12 +2073,10 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
           chainLogo: '/icons/default.webp',
         })
       }
-
       validateAndFetch(normalizedAddress, result.type === 'token')
     },
     [validateAndFetch],
   )
-
   const handleFilterChange = useCallback(() => {
     setFilterType((prev) => {
       if (prev === 'all') {
