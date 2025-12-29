@@ -1716,7 +1716,7 @@ export async function POST(request) {
             })),
           )
         } else if (chain === 'bitcoin') {
-          addresses.add(address) // Thêm address chính vào set để fetch nametag cho nó
+          addresses.add(address)
           let allTxs = []
           let afterTxid = null
           const targetLimit = Math.min(200, limit)

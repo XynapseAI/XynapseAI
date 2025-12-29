@@ -202,6 +202,23 @@ export default function DexTab() {
             .sort((a, b) => b.value - a.value)
             .slice(0, 10)
     }, [selectedDEX, metaDataHyper, metaDataLighter])
+    // New state for asset table filter
+    const [assetTableFilter, setAssetTableFilter] = useState('')
+    // Computed filtered assets for the new table
+    const filteredAssets = useMemo(() => {
+        return metaData.universe
+            .map((u, i) => ({
+                name: u.name,
+                image: u.image,
+                volume: parseFloat(metaData.assetCtxs[i]?.dayNtlVlm || 0),
+                oi: parseFloat(metaData.assetCtxs[i]?.openInterest || 0),
+                midPx: parseFloat(metaData.assetCtxs[i]?.midPx || 0),
+                funding: parseFloat(metaData.assetCtxs[i]?.funding || 0),
+                dayPxChg: parseFloat(metaData.assetCtxs[i]?.dayPxChg || 0),
+            }))
+            .filter((asset) => asset.name.toLowerCase().includes(assetTableFilter.toLowerCase()))
+            .sort((a, b) => b.volume - a.volume)
+    }, [metaData, assetTableFilter])
     const copyToClipboard = (text) => {
         navigator.clipboard.writeText(text)
         setToastMessage('Copied to clipboard!')
@@ -310,6 +327,7 @@ export default function DexTab() {
         try {
             const metaRes = await fetch('/api/hyperliquid')
             const meta = await metaRes.json()
+            // Augment assetCtxs with more fields if needed, but assuming they already include midPx, funding, dayPxChg
             setMetaDataHyper({ universe: meta.universe, assetCtxs: meta.assetCtxs })
             const sortedAssets = meta.universe
                 .map((u, i) => ({
@@ -333,8 +351,12 @@ export default function DexTab() {
             const metaRes = await fetch('/api/lighter')
             if (!metaRes.ok) throw new Error('Failed to fetch Lighter global data')
             const meta = await metaRes.json()
+
+            // No need to re-augment – use the pre-augmented assetCtxs from the route
             setMetaDataLighter({ universe: meta.universe, assetCtxs: meta.assetCtxs })
-            setOrderBooksLighter(meta.orderBooks)
+            setOrderBooksLighter(meta.orderBooks) // Already set, but confirm
+
+            // Populate assetToMarketId and marketIdToSymbol (already in your code)
             assetToMarketIdLighter.current = meta.orderBooks.reduce((acc, o) => {
                 acc[o.symbol] = o.market_id
                 return acc
@@ -343,6 +365,8 @@ export default function DexTab() {
                 acc[o.market_id] = o.symbol
                 return acc
             }, {})
+
+            // Sort active assets by volume using the augmented assetCtxs
             const sortedAssets = meta.universe
                 .map((u, i) => ({
                     name: u.name,
@@ -689,6 +713,22 @@ export default function DexTab() {
     const shortWallet = currentWallet
         ? `${currentWallet.slice(0, 8)}...${currentWallet.slice(-6)}`
         : ''
+    // New computed for position distribution pie
+    const positionData = useMemo(() => {
+        return portfolioData
+            .map((pos) => {
+                const midPx =
+                    metaData.assetCtxs.find(
+                        (ctx, i) => metaData.universe[i].name === (pos.symbol || pos.coin),
+                    )?.midPx || 0
+                const value = Math.abs(parseFloat(pos.position || pos.szi)) * midPx
+                return {
+                    name: pos.symbol || pos.coin,
+                    value: value > 0 ? value : 0,
+                }
+            })
+            .filter((item) => item.value > 0)
+    }, [portfolioData, metaData])
     return (
         <motion.div
             initial={{ opacity: 0, y: 20 }}
@@ -829,6 +869,93 @@ export default function DexTab() {
                                         </span>
                                     </div>
                                 ))}
+                        </div>
+                    </div>
+                    {/* New All Assets Table */}
+                    <div className="col-span-2 bg-[#0A0A0A]/90 border border-[#FFFFFF20] rounded-2xl p-6">
+                        <h3 className="text-lg font-bold text-[#FFF] mb-4">Assets Metrics</h3>
+                        <div className="mb-4">
+                            <input
+                                type="text"
+                                placeholder="Search asset..."
+                                value={assetTableFilter}
+                                onChange={(e) => setAssetTableFilter(e.target.value)}
+                                className="w-full px-4 py-2 bg-[#0A0A0A]/80 border border-white/20 rounded-lg text-white text-sm placeholder-gray-500 focus:outline-none focus:border-emerald-500/50"
+                            />
+                        </div>
+                        <div className="overflow-auto max-h-[400px] custom-scrollbar">
+                            <table className="w-full text-xs md:text-sm">
+                                <thead className="text-gray-400 border-b border-white/10 sticky top-0 bg-[#0A0A0A]/90 z-10">
+                                    <tr>
+                                        <th className="text-left py-3 px-4">Asset</th>
+                                        <th className="text-right py-3 px-4">24h Volume</th>
+                                        <th className="text-right py-3 px-4">Open Interest</th>
+                                        <th className="text-right py-3 px-4">Mid Price</th>
+                                        <th className="text-right py-3 px-4">Funding Rate</th>
+                                        <th className="text-right py-3 px-4">24h Change (%)</th>
+                                    </tr>
+                                </thead>
+                                <tbody className="divide-y divide-white/5">
+                                    {filteredAssets.length === 0 ? (
+                                        <tr>
+                                            <td
+                                                colSpan="6"
+                                                className="py-4 text-center text-gray-500"
+                                            >
+                                                No assets found
+                                            </td>
+                                        </tr>
+                                    ) : (
+                                        filteredAssets.map((asset, i) => (
+                                            <tr key={i} className="hover:bg-white/5 transition">
+                                                <td className="py-3 px-4 flex items-center gap-2">
+                                                    {asset.image && (
+                                                        <img
+                                                            src={asset.image}
+                                                            alt={asset.name}
+                                                            className="w-5 h-5 rounded-full"
+                                                        />
+                                                    )}
+                                                    <span className="font-medium text-white">
+                                                        {asset.name}
+                                                    </span>
+                                                </td>
+                                                <td className="py-3 px-4 text-right font-mono text-emerald-400">
+                                                    {formatCompactNumber(asset.volume)}
+                                                </td>
+                                                <td className="py-3 px-4 text-right font-mono text-white">
+                                                    {formatCompactNumber(asset.oi)}
+                                                </td>
+                                                <td className="py-3 px-4 text-right font-mono text-white">
+                                                    ${formatStandardNumber(asset.midPx)}
+                                                </td>
+                                                <td className="py-3 px-4 text-right font-mono">
+                                                    <span
+                                                        className={
+                                                            asset.funding >= 0
+                                                                ? 'text-emerald-400'
+                                                                : 'text-red-400'
+                                                        }
+                                                    >
+                                                        {safeFixed(asset.funding * 100, 4)}%
+                                                    </span>
+                                                </td>
+                                                <td className="py-3 px-4 text-right font-mono">
+                                                    <span
+                                                        className={
+                                                            asset.dayPxChg >= 0
+                                                                ? 'text-emerald-400'
+                                                                : 'text-red-400'
+                                                        }
+                                                    >
+                                                        {safeFixed(asset.dayPxChg * 100, 2)}%
+                                                    </span>
+                                                </td>
+                                            </tr>
+                                        ))
+                                    )}
+                                </tbody>
+                            </table>
                         </div>
                     </div>
                     {/* Price Chart + Selector */}
@@ -1207,151 +1334,200 @@ export default function DexTab() {
                 </form>
                 {error && <p className="text-red-500 mb-4">{error}</p>}
                 {currentWallet && (
-                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-                        <div className="space-y-6">
-                            <div>
-                                <h3 className="text-sm font-bold text-[#FFF] mb-4">
-                                    Key Analytics
-                                </h3>
-                                <div className="mb-6 flex items-center gap-4">
-                                    <div className="w-16 h-16 bg-gray-700 rounded-lg flex items-center justify-center text-2xl font-bold text-gray-400">
-                                        ?
-                                    </div>
-                                    <div>
-                                        <p className="text-xs text-gray-400 flex items-center gap-1 pb-1">
-                                            Source:
-                                            <img
-                                                src={
-                                                    selectedDEX === 'hyperliquid'
-                                                        ? '/hyperliquid.webp'
-                                                        : '/lighter.webp'
-                                                }
-                                                alt={selectedDEX}
-                                                className="w-4 h-4 rounded ml-2"
-                                            />
-                                            <span className="capitalize">{selectedDEX}</span>
-                                        </p>
-                                        <div className="flex items-center gap-2">
-                                            <p className="font-mono text-sm text-blue-400">
-                                                {shortWallet}
-                                            </p>
-                                            {currentWallet && (
-                                                <Copy
-                                                    size={14}
-                                                    className="cursor-pointer text-gray-500 hover:text-emerald-400 transition"
-                                                    onClick={() =>
-                                                        copyToClipboard(String(currentWallet))
+                    <div className="space-y-8">
+                        {/* Hàng trên: 3 khối ngang bằng nhau */}
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                            {/* Khối 1: Key Analytics + Cumulative PnL - giảm chiều ngang */}
+                            <div className="space-y-6">
+                                <div>
+                                    <h3 className="text-sm font-bold text-[#FFF] mb-4">
+                                        Key Analytics
+                                    </h3>
+                                    <div className="mb-6 flex items-center gap-4">
+                                        <div className="w-16 h-16 bg-gray-700 rounded-lg flex items-center justify-center text-2xl font-bold text-gray-400">
+                                            ?
+                                        </div>
+                                        <div>
+                                            <p className="text-xs text-gray-400 flex items-center gap-1 pb-1">
+                                                Source:
+                                                <img
+                                                    src={
+                                                        selectedDEX === 'hyperliquid'
+                                                            ? '/hyperliquid.webp'
+                                                            : '/lighter.webp'
                                                     }
+                                                    alt={selectedDEX}
+                                                    className="w-4 h-4 rounded ml-2"
                                                 />
-                                            )}
+                                                <span className="capitalize">{selectedDEX}</span>
+                                            </p>
+                                            <div className="flex items-center gap-2">
+                                                <p className="font-mono text-sm text-blue-400">
+                                                    {shortWallet}
+                                                </p>
+                                                {currentWallet && (
+                                                    <Copy
+                                                        size={14}
+                                                        className="cursor-pointer text-gray-500 hover:text-emerald-400 transition"
+                                                        onClick={() =>
+                                                            copyToClipboard(String(currentWallet))
+                                                        }
+                                                    />
+                                                )}
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div className="grid grid-cols-2 gap-3">
+                                        <div className="bg-[#FFFFFF]/5 p-3 rounded-lg text-center">
+                                            <p className="text-xs text-gray-400 mb-1">Total PnL</p>
+                                            <p
+                                                className={`text-base font-bold ${analytics.totalPnl >= 0 ? 'text-emerald-400' : 'text-red-500'}`}
+                                            >
+                                                {analytics.totalPnl >= 0 ? '+' : ''}
+                                                {formatCompactNumber(analytics.totalPnl)}
+                                            </p>
+                                        </div>
+                                        <div className="bg-[#FFFFFF]/5 p-3 rounded-lg text-center">
+                                            <p className="text-xs text-gray-400 mb-1">Win Rate</p>
+                                            <p className="text-base font-bold text-blue-400">
+                                                {safeFixed(analytics.winRate)}%
+                                            </p>
+                                        </div>
+                                        <div className="bg-[#FFFFFF]/5 p-3 rounded-lg text-center">
+                                            <p className="text-xs text-gray-400 mb-1">
+                                                Total Trades
+                                            </p>
+                                            <p className="text-base font-bold text-white">
+                                                {formatStandardNumber(analytics.numTrades)}
+                                            </p>
+                                        </div>
+                                        <div className="bg-[#FFFFFF]/5 p-3 rounded-lg text-center">
+                                            <p className="text-xs text-gray-400 mb-1">
+                                                Total Balance
+                                            </p>
+                                            <p className="text-base font-bold text-white">
+                                                {formatCompactNumber(analytics.totalBalance)}
+                                            </p>
                                         </div>
                                     </div>
                                 </div>
-                                <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-                                    <div className="bg-[#FFFFFF]/5 p-4 rounded-lg text-center">
-                                        <p className="text-xs text-gray-400 mb-1">Total PnL</p>
-                                        <p
-                                            className={`text-lg sm:text-xl font-bold ${analytics.totalPnl >= 0 ? 'text-emerald-400' : 'text-red-500'}`}
-                                        >
-                                            {analytics.totalPnl >= 0 ? '+' : ''}
-                                            {formatCompactNumber(analytics.totalPnl)}
-                                        </p>
-                                    </div>
-                                    <div className="bg-[#FFFFFF]/5 p-4 rounded-lg text-center">
-                                        <p className="text-xs text-gray-400 mb-1">Win Rate</p>
-                                        <p className="text-lg sm:text-xl font-bold text-blue-400">
-                                            {safeFixed(analytics.winRate)}%
-                                        </p>
-                                    </div>
-                                    <div className="bg-[#FFFFFF]/5 p-4 rounded-lg text-center">
-                                        <p className="text-xs text-gray-400 mb-1">Total Trades</p>
-                                        <p className="text-lg sm:text-xl font-bold text-white">
-                                            {formatStandardNumber(analytics.numTrades)}
-                                        </p>
-                                    </div>
-                                    <div className="bg-[#FFFFFF]/5 p-4 rounded-lg text-center">
-                                        <p className="text-xs text-gray-400 mb-1">Total Balance</p>
-                                        <p className="text-lg sm:text-xl font-bold text-white">
-                                            {formatCompactNumber(analytics.totalBalance)}
-                                        </p>
+
+                                <div>
+                                    <h3 className="text-sm font-bold text-[#FFF] mb-3">
+                                        Cumulative PnL
+                                    </h3>
+                                    <div className="h-[220px]">
+                                        <ResponsiveContainer>
+                                            <LineChart data={filteredPnlData}>
+                                                <CartesianGrid
+                                                    stroke="#333"
+                                                    strokeDasharray="4 4"
+                                                    vertical={false}
+                                                />
+                                                <XAxis
+                                                    dataKey="date"
+                                                    stroke="#666"
+                                                    tick={{ fontSize: 10 }}
+                                                />
+                                                <YAxis
+                                                    stroke="#666"
+                                                    tickFormatter={(v) => formatCompactNumber(v)}
+                                                    tick={{ fontSize: 10 }}
+                                                />
+                                                <Tooltip content={<CustomTooltip isPnl={true} />} />
+                                                <Line
+                                                    type="monotone"
+                                                    dataKey="pnl"
+                                                    stroke="#00E7FF"
+                                                    strokeWidth={2}
+                                                    dot={false}
+                                                />
+                                            </LineChart>
+                                        </ResponsiveContainer>
                                     </div>
                                 </div>
                             </div>
+
+                            {/* Khối 2: Position Distribution by Value */}
                             <div>
-                                <h3 className="text-sm font-bold text-[#FFF] mb-3">
-                                    Cumulative PnL
-                                </h3>
-                                <div className="h-[300px]">
-                                    <ResponsiveContainer>
-                                        <LineChart data={filteredPnlData}>
-                                            <CartesianGrid
-                                                stroke="#333"
-                                                strokeDasharray="4 4"
-                                                vertical={false}
-                                            />
-                                            <XAxis
-                                                dataKey="date"
-                                                stroke="#666"
-                                                tick={{ fontSize: 10 }}
-                                            />
-                                            <YAxis
-                                                stroke="#666"
-                                                tickFormatter={(v) => formatCompactNumber(v)}
-                                            />
-                                            <Tooltip content={<CustomTooltip isPnl={true} />} />
-                                            <Line
-                                                type="monotone"
-                                                dataKey="pnl"
-                                                stroke="#00E7FF"
-                                                strokeWidth={3}
-                                                dot={false}
-                                            />
-                                        </LineChart>
-                                    </ResponsiveContainer>
-                                </div>
+                                {positionData.length > 0 && (
+                                    <div>
+                                        <h3 className="text-sm font-bold text-[#FFF] mb-3">
+                                            Position Distribution by Value
+                                        </h3>
+                                        <div className="h-[320px]">
+                                            <ResponsiveContainer>
+                                                <PieChart>
+                                                    <Pie
+                                                        data={positionData}
+                                                        dataKey="value"
+                                                        nameKey="name"
+                                                        cx="50%"
+                                                        cy="50%"
+                                                        innerRadius={60}
+                                                        outerRadius={120}
+                                                        paddingAngle={2}
+                                                        labelLine={false}
+                                                        label={renderCustomizedLabel}
+                                                    >
+                                                        {positionData.map((entry, i) => (
+                                                            <Cell
+                                                                key={`cell-${i}`}
+                                                                fill={hlColors[i % hlColors.length]}
+                                                            />
+                                                        ))}
+                                                    </Pie>
+                                                    <Tooltip content={<CustomTooltip />} />
+                                                </PieChart>
+                                            </ResponsiveContainer>
+                                        </div>
+                                    </div>
+                                )}
                             </div>
-                        </div>
-                        <div className="space-y-6">
+
+                            {/* Khối 3: Current Positions */}
                             <div>
                                 <h3 className="text-sm font-bold text-[#FFF] mb-3">
                                     Current Positions
                                 </h3>
                                 {portfolioData.length === 0 ? (
-                                    <p className="text-xs text-gray-500">No positions found.</p>
+                                    <p className="text-xs text-gray-500 py-8 text-center bg-[#0A0A0A]/50 rounded-lg">
+                                        No positions found.
+                                    </p>
                                 ) : (
-                                    <div className="overflow-x-auto">
+                                    <div className="overflow-auto max-h-[320px] custom-scrollbar">
                                         <table className="w-full text-xs">
-                                            <thead className="text-gray-400 border-b border-white/10">
+                                            <thead className="text-gray-400 border-b border-white/10 sticky top-0 bg-[#0A0A0A]/90">
                                                 <tr>
-                                                    <th className="text-left py-2 px-4">Asset</th>
-                                                    <th className="text-right py-2 px-4">
+                                                    <th className="text-left py-2 px-3">Asset</th>
+                                                    <th className="text-right py-2 px-3">
                                                         Position
                                                     </th>
-                                                    <th className="text-right py-2 px-4">
-                                                        Entry Price
-                                                    </th>
-                                                    <th className="text-right py-2 px-4">
-                                                        Unrealized PnL
+                                                    <th className="text-right py-2 px-3">Entry</th>
+                                                    <th className="text-right py-2 px-3">
+                                                        Unreal. PnL
                                                     </th>
                                                 </tr>
                                             </thead>
                                             <tbody className="divide-y divide-white/5">
                                                 {portfolioData.map((pos, i) => (
                                                     <tr key={i} className="hover:bg-white/5">
-                                                        <td className="py-2 px-4 font-medium">
+                                                        <td className="py-2 px-3 font-medium">
                                                             {pos.symbol || pos.coin}
                                                         </td>
-                                                        <td className="py-2 px-4 text-right font-mono">
+                                                        <td className="py-2 px-3 text-right font-mono text-xs">
                                                             {parseFloat(pos.position || pos.szi) *
                                                                 (pos.sign || 1)}
                                                         </td>
-                                                        <td className="py-2 px-4 text-right font-mono">
+                                                        <td className="py-2 px-3 text-right font-mono text-xs">
                                                             $
-                                                            {pos.avg_entry_price ||
-                                                                pos.entryPx ||
-                                                                0}
+                                                            {formatStandardNumber(
+                                                                pos.avg_entry_price ||
+                                                                    pos.entryPx ||
+                                                                    0,
+                                                            )}
                                                         </td>
-                                                        <td className="py-2 px-4 text-right">
+                                                        <td className="py-2 px-3 text-right text-xs">
                                                             <span
                                                                 className={
                                                                     parseFloat(
@@ -1377,189 +1553,182 @@ export default function DexTab() {
                                     </div>
                                 )}
                             </div>
+                        </div>
+
+                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                            {/* Major Losses / Liquidations */}
                             <div>
                                 <h3 className="text-sm font-bold text-[#FFF] mb-3">
                                     Major Losses / Liquidations
                                 </h3>
-                                <div className="space-y-2 max-h-[200px] overflow-y-auto text-xs custom-scrollbar">
-                                    {fills.filter(
-                                        (f) =>
-                                            Math.abs(parseFloat(f.closedPnl || 0)) > 500 &&
-                                            parseFloat(f.closedPnl) < 0,
-                                    ).length === 0 ? (
-                                        <p className="text-gray-500">No major losses detected.</p>
-                                    ) : (
-                                        fills
-                                            .filter(
-                                                (f) =>
-                                                    Math.abs(parseFloat(f.closedPnl || 0)) > 500 &&
-                                                    parseFloat(f.closedPnl) < 0,
-                                            )
-                                            .sort((a, b) => b.time - a.time)
-                                            .map((liq, i) => (
-                                                <div
-                                                    key={`liq-${i}`}
-                                                    className="p-3 bg-red-500/10 border border-red-500/20 rounded-lg flex items-center justify-between"
-                                                >
-                                                    <div className="flex items-center gap-3">
-                                                        <img
-                                                            src={
-                                                                selectedDEX === 'hyperliquid'
-                                                                    ? '/hyperliquid.webp'
-                                                                    : '/lighter.webp'
-                                                            }
-                                                            alt={selectedDEX}
-                                                            className="w-4 h-4 rounded"
-                                                        />
-                                                        {assetToImage[liq.coin] && (
+                                <div className="overflow-auto max-h-[450px] custom-scrollbar bg-[#0A0A0A]/50 rounded-lg">
+                                    <div className="space-y-2 p-4 text-xs">
+                                        {fills.filter(
+                                            (f) =>
+                                                Math.abs(parseFloat(f.closedPnl || 0)) > 500 &&
+                                                parseFloat(f.closedPnl) < 0,
+                                        ).length === 0 ? (
+                                            <p className="text-gray-500 py-8 text-center">
+                                                No major losses detected.
+                                            </p>
+                                        ) : (
+                                            fills
+                                                .filter(
+                                                    (f) =>
+                                                        Math.abs(parseFloat(f.closedPnl || 0)) >
+                                                            500 && parseFloat(f.closedPnl) < 0,
+                                                )
+                                                .sort((a, b) => b.time - a.time)
+                                                .map((liq, i) => (
+                                                    <div
+                                                        key={`liq-${i}`}
+                                                        className="p-3 bg-red-500/10 border border-red-500/20 rounded-lg flex items-center justify-between"
+                                                    >
+                                                        <div className="flex items-center gap-3">
                                                             <img
-                                                                src={assetToImage[liq.coin]}
-                                                                alt={liq.coin}
-                                                                className="w-5 h-5 rounded-full"
+                                                                src={
+                                                                    selectedDEX === 'hyperliquid'
+                                                                        ? '/hyperliquid.webp'
+                                                                        : '/lighter.webp'
+                                                                }
+                                                                alt={selectedDEX}
+                                                                className="w-4 h-4 rounded"
                                                             />
-                                                        )}
-                                                        <div>
-                                                            <span className="font-medium text-white text-sm">
-                                                                {liq.coin}
-                                                            </span>
-                                                            <span className="text-red-400 ml-2">
-                                                                -
-                                                                {formatCompactNumber(
-                                                                    Math.abs(
-                                                                        parseFloat(liq.closedPnl),
-                                                                    ),
-                                                                )}
-                                                            </span>
+                                                            {assetToImage[liq.coin] && (
+                                                                <img
+                                                                    src={assetToImage[liq.coin]}
+                                                                    alt={liq.coin}
+                                                                    className="w-5 h-5 rounded-full"
+                                                                />
+                                                            )}
+                                                            <div>
+                                                                <span className="font-medium text-white text-sm">
+                                                                    {liq.coin}
+                                                                </span>
+                                                                <span className="text-red-400 ml-2">
+                                                                    -
+                                                                    {formatCompactNumber(
+                                                                        Math.abs(
+                                                                            parseFloat(
+                                                                                liq.closedPnl,
+                                                                            ),
+                                                                        ),
+                                                                    )}
+                                                                </span>
+                                                            </div>
                                                         </div>
+                                                        <span className="text-gray-500 text-xs">
+                                                            {new Date(
+                                                                liq.time,
+                                                            ).toLocaleDateString()}
+                                                        </span>
                                                     </div>
-                                                    <span className="text-gray-500 text-xs">
-                                                        {new Date(liq.time).toLocaleDateString()}
-                                                    </span>
-                                                </div>
-                                            ))
-                                    )}
+                                                ))
+                                        )}
+                                    </div>
                                 </div>
                             </div>
+
+                            {/* Large Trades */}
                             <div>
                                 <h3 className="text-sm font-bold text-[#FFF] mb-3">Large Trades</h3>
                                 {displayedLargeTrades.length === 0 ? (
-                                    <p className="text-xs text-gray-500">No large trades found.</p>
+                                    <p className="text-xs text-gray-500 py-8 text-center bg-[#0A0A0A]/50 rounded-lg">
+                                        No large trades found.
+                                    </p>
                                 ) : (
-                                    <>
-                                        <div className="overflow-x-auto custom-scrollbar">
-                                            <table className="w-full text-xs">
-                                                <thead className="text-gray-400 border-b border-white/10">
-                                                    <tr>
-                                                        <th className="text-left py-2 px-4">DEX</th>
-                                                        <th className="text-left py-2 px-4">
-                                                            Asset
-                                                        </th>
-                                                        <th className="text-left py-2 px-4">
-                                                            Side
-                                                        </th>
-                                                        <th className="text-right py-2 px-6">
-                                                            Size
-                                                        </th>
-                                                        <th className="text-right py-2 px-6">
-                                                            Price
-                                                        </th>
-                                                        <th className="text-right py-2 px-6">
-                                                            PnL
-                                                        </th>
-                                                        <th className="text-left py-2 px-4">
-                                                            Time
-                                                        </th>
-                                                    </tr>
-                                                </thead>
-                                                <tbody className="divide-y divide-white/5">
-                                                    {displayedLargeTrades.map((trade, i) => (
-                                                        <tr
-                                                            key={`large-trade-${i}`}
-                                                            className="hover:bg-white/5"
-                                                        >
-                                                            <td className="py-2 px-4">
-                                                                <div className="flex items-center gap-1">
-                                                                    <img
-                                                                        src={
-                                                                            selectedDEX ===
-                                                                            'hyperliquid'
-                                                                                ? '/hyperliquid.webp'
-                                                                                : '/lighter.webp'
-                                                                        }
-                                                                        alt={selectedDEX}
-                                                                        className="w-4 h-4 rounded"
-                                                                    />
-                                                                </div>
-                                                            </td>
-                                                            <td className="py-2 px-4 flex items-center gap-2">
-                                                                {assetToImage[trade.coin] && (
-                                                                    <img
-                                                                        src={
-                                                                            assetToImage[trade.coin]
-                                                                        }
-                                                                        alt={trade.coin}
-                                                                        className="w-5 h-5 rounded-full"
-                                                                    />
-                                                                )}
-                                                                <span className="font-medium">
-                                                                    {trade.coin}
-                                                                </span>
-                                                            </td>
-                                                            <td className="py-2 px-4">
-                                                                <span
-                                                                    className={`font-bold ${
-                                                                        trade.closedPnl != null &&
-                                                                        parseFloat(
-                                                                            trade.closedPnl,
-                                                                        ) !== 0
-                                                                            ? 'text-red-500'
-                                                                            : 'text-emerald-400'
-                                                                    }`}
-                                                                >
-                                                                    {trade.dir}
-                                                                </span>
-                                                            </td>
-                                                            <td className="py-2 px-6 text-right font-mono">
-                                                                {trade.sz}
-                                                            </td>
-                                                            <td className="py-2 px-6 text-right font-mono">
-                                                                ${trade.px}
-                                                            </td>
-                                                            <td className="py-2 px-6 text-right">
-                                                                <span
-                                                                    className={
-                                                                        parseFloat(
-                                                                            trade.closedPnl || 0,
-                                                                        ) >= 0
-                                                                            ? 'text-emerald-400'
-                                                                            : 'text-red-400'
+                                    <div className="overflow-auto max-h-[450px] custom-scrollbar bg-[#0A0A0A]/50 rounded-lg">
+                                        <table className="w-full text-xs">
+                                            <thead className="text-gray-400 border-b border-white/10 sticky top-0 bg-[#0A0A0A]/90">
+                                                <tr>
+                                                    <th className="text-left py-2 px-4">DEX</th>
+                                                    <th className="text-left py-2 px-4">Asset</th>
+                                                    <th className="text-left py-2 px-4">Side</th>
+                                                    <th className="text-right py-2 px-6">Size</th>
+                                                    <th className="text-right py-2 px-6">Price</th>
+                                                    <th className="text-right py-2 px-6">PnL</th>
+                                                    <th className="text-left py-2 px-4">Time</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody className="divide-y divide-white/5">
+                                                {displayedLargeTrades.map((trade, i) => (
+                                                    <tr
+                                                        key={`large-trade-${i}`}
+                                                        className="hover:bg-white/5"
+                                                    >
+                                                        <td className="py-2 px-4">
+                                                            <div className="flex items-center gap-1">
+                                                                <img
+                                                                    src={
+                                                                        selectedDEX ===
+                                                                        'hyperliquid'
+                                                                            ? '/hyperliquid.webp'
+                                                                            : '/lighter.webp'
                                                                     }
-                                                                >
-                                                                    {trade.closedPnl
-                                                                        ? formatCompactNumber(
-                                                                              trade.closedPnl,
-                                                                          )
-                                                                        : '-'}
-                                                                </span>
-                                                            </td>
-                                                            <td className="py-2 px-4 text-gray-400 text-xs">
-                                                                {new Date(
-                                                                    trade.time,
-                                                                ).toLocaleDateString()}
-                                                            </td>
-                                                        </tr>
-                                                    ))}
-                                                </tbody>
-                                            </table>
-                                        </div>
+                                                                    alt={selectedDEX}
+                                                                    className="w-4 h-4 rounded"
+                                                                />
+                                                            </div>
+                                                        </td>
+                                                        <td className="py-2 px-4 flex items-center gap-2">
+                                                            {assetToImage[trade.coin] && (
+                                                                <img
+                                                                    src={assetToImage[trade.coin]}
+                                                                    alt={trade.coin}
+                                                                    className="w-5 h-5 rounded-full"
+                                                                />
+                                                            )}
+                                                            <span className="font-medium">
+                                                                {trade.coin}
+                                                            </span>
+                                                        </td>
+                                                        <td className="py-2 px-4">
+                                                            <span
+                                                                className={`font-bold ${trade.dir === 'Buy' ? 'text-emerald-400' : 'text-red-500'}`}
+                                                            >
+                                                                {trade.dir}
+                                                            </span>
+                                                        </td>
+                                                        <td className="py-2 px-6 text-right font-mono">
+                                                            {trade.sz}
+                                                        </td>
+                                                        <td className="py-2 px-6 text-right font-mono">
+                                                            ${trade.px}
+                                                        </td>
+                                                        <td className="py-2 px-6 text-right">
+                                                            <span
+                                                                className={
+                                                                    parseFloat(
+                                                                        trade.closedPnl || 0,
+                                                                    ) >= 0
+                                                                        ? 'text-emerald-400'
+                                                                        : 'text-red-400'
+                                                                }
+                                                            >
+                                                                {trade.closedPnl
+                                                                    ? formatCompactNumber(
+                                                                          trade.closedPnl,
+                                                                      )
+                                                                    : '-'}
+                                                            </span>
+                                                        </td>
+                                                        <td className="py-2 px-4 text-gray-400 text-xs">
+                                                            {new Date(
+                                                                trade.time,
+                                                            ).toLocaleDateString()}
+                                                        </td>
+                                                    </tr>
+                                                ))}
+                                            </tbody>
+                                        </table>
                                         {largeTotalPages > 1 && (
-                                            <div className="flex items-center justify-center gap-6 mt-4 text-sm">
+                                            <div className="flex items-center justify-center gap-6 mt-4 pb-4 text-sm">
                                                 <button
                                                     onClick={() =>
                                                         setLargePage((p) => Math.max(1, p - 1))
                                                     }
                                                     disabled={largePage === 1}
-                                                    className="p-1 disabled:opacity-50 hover:text-emerald-400 transition"
+                                                    className="p-1 disabled:opacity-50 hover:text-emerald-400"
                                                 >
                                                     <ChevronLeft size={20} />
                                                 </button>
@@ -1573,13 +1742,13 @@ export default function DexTab() {
                                                         )
                                                     }
                                                     disabled={largePage === largeTotalPages}
-                                                    className="p-1 disabled:opacity-50 hover:text-emerald-400 transition"
+                                                    className="p-1 disabled:opacity-50 hover:text-emerald-400"
                                                 >
                                                     <ChevronRight size={20} />
                                                 </button>
                                             </div>
                                         )}
-                                    </>
+                                    </div>
                                 )}
                             </div>
                         </div>
