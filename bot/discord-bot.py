@@ -77,7 +77,8 @@ You can earn Points through:
 - Genesis NFT :  This proprietary NFT is proof-of-concept for early adopters, granting early access to advanced tools, early feature launches within the XynapseAI ecosystem, and several other future benefits.
 - Roadmap: No roadmap
 - Tokenomics (if applicable): No Tokenomics
-- Links: Official website : xynapseai.net 
+- Links: Official website : xynapseai.net
+- Where did the project come from? - Singapore
 Only use this information when relevant. If the question is unrelated, politely say you can only help with project-related topics.
 """
 
