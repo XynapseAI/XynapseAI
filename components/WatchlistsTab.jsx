@@ -1722,7 +1722,7 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.5, ease: 'easeInOut' }}
-        className="font-inter w-full max-w-7xl mx-auto mt-2 p-4 sm:p-6 bg-[#FFFFFF]/5 backdrop-blur-md border border-[#FFFFFF20] shadow-[0_4px_12px_rgba(0,0,0,0.3)] glow-[#FFFFFF15] rounded-xl flex items-center justify-center min-h-[calc(100vh-6rem)]"
+        className="w-full max-w-7xl mx-auto mt-2 p-4 sm:p-6 bg-[#FFFFFF]/5 backdrop-blur-md border border-[#FFFFFF20] shadow-[0_4px_12px_rgba(0,0,0,0.3)] glow-[#FFFFFF15] rounded-xl flex items-center justify-center min-h-[calc(100vh-6rem)]"
       >
         <div className="text-center">
           <h3 className="text-[12px] sm:text-[14px] font-bold text-[#FFF] mb-3 uppercase tracking-wider">
@@ -1748,9 +1748,8 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.5, ease: 'easeInOut' }}
-      className="font-inter w-full max-w-9xl bg-[#0A0A0A]/80 backdrop-blur-md mx-auto mt-2 p-4 sm:p-6 flex flex-row h-[calc(100vh-3rem)] rounded-xl overflow-hidden"
+      className="w-full max-w-9xl bg-[#0A0A0A]/80 backdrop-blur-md mx-auto mt-2 p-4 sm:p-6 flex flex-row h-[calc(100vh-3rem)] rounded-xl overflow-hidden"
     >
-      <ToastContainer position="top-center" autoClose={5000} theme="dark" />
       {/* Toggle Button for Mobile */}
       {!showWatchlistSidebar && (
         <motion.button

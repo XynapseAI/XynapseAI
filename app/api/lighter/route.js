@@ -19,6 +19,8 @@ const allowedOrigins = [
   'https://xynapseai.net',
   'https://www.xynapseai.net',
   'https://base.xynapseai.net',
+  'https://farcaster.xynapseai.net',
+  'https://xynapse-ai-xynapse-projects.vercel.app',
 ].filter(Boolean)
 
 let redisClient
@@ -37,10 +39,23 @@ async function getRedisClient() {
 }
 
 function isAllowedOrigin(origin, referer) {
-  const currentOrigin = origin || (referer ? new URL(referer).origin : null)
-  if (!currentOrigin) return process.env.NODE_ENV === 'development'
+  const check = (url) => {
+    if (!url) return false
+    try {
+      const parsed = new URL(url)
+      const originUrl = parsed.origin
+      if (allowedOrigins.includes(originUrl)) return true
+      const hostname = parsed.hostname
+      return hostname === 'xynapseai.net' || hostname.endsWith('.xynapseai.net')
+    } catch {
+      return false
+    }
+  }
 
-  return allowedOrigins.includes(currentOrigin)
+  if (!origin && !referer) return true // Internal/SSR
+  if (!origin && process.env.NODE_ENV === 'development') return true
+
+  return check(origin) || check(referer)
 }
 
 function securityHeaders(origin) {
@@ -61,18 +76,47 @@ function securityHeaders(origin) {
   return headers
 }
 
-async function checkAndTrackIP(ip) {
+async function banIP(ip, durationSeconds = 1800) {
+  if (ip === 'unknown') return
   const redis = await getRedisClient()
-  const banKey = `banned_ip:${ip}`
-  const banned = await redis.get(banKey)
-  if (banned) throw new Error('Too many requests')
+  await redis.setEx(`banned_ip:${ip}`, durationSeconds, 'banned')
+  console.info(`IP banned: ${ip} for ${durationSeconds} seconds`)
+}
 
-  const violationKey = `violations:${ip}`
-  const violations = Number(await redis.get(violationKey)) || 0
-  if (violations > 15) {
-    await redis.setEx(banKey, 1800, 'banned')
+async function checkIPBan(ip) {
+  if (ip === 'unknown') return
+  const redis = await getRedisClient()
+  const isBanned = await redis.get(`banned_ip:${ip}`)
+  if (isBanned) {
+    console.warn(`IP ban detected: ${ip}`)
     throw new Error('Too many requests')
   }
+}
+
+async function trackViolation(ip, reason = 'Unknown', severity = 'severe') {
+  if (ip === 'unknown') return
+  const nonCriticalReasons = ['Not allowed by CORS']
+  if (nonCriticalReasons.includes(reason) || severity === 'warn') {
+    console.warn(`Non-critical violation ignored: ${ip}, reason: ${reason}`)
+    return
+  }
+
+  const redis = await getRedisClient()
+  const key = `violations:${ip}`
+  const maxViolations = 15
+  const windowSeconds = 1800 // 30 minutes
+
+  const violations = Number(await redis.get(key)) || 0
+  if (violations >= maxViolations) {
+    await banIP(ip)
+    console.error(`IP banned due to repeated violations: ${ip}, reason: ${reason}`)
+    throw new Error('Too many requests')
+  }
+
+  await redis.multi().incr(key).expire(key, windowSeconds).exec()
+  console.warn(
+    `Violation recorded: ${ip}, reason: ${reason}, count: ${violations + 1}/${maxViolations}`,
+  )
 }
 
 const secureHandler = limiter.wrap(async (request) => {
@@ -80,18 +124,56 @@ const secureHandler = limiter.wrap(async (request) => {
   const origin = request.headers.get('origin')
   const referer = request.headers.get('referer')
 
+  console.info(
+    `Request to /api/lighter from IP ${ip}, Origin: ${origin || 'null'}, Referer: ${referer || 'null'}`,
+  )
+
   if (!isAllowedOrigin(origin, referer)) {
-    await checkAndTrackIP(ip)
+    await trackViolation(ip, 'Not allowed by CORS', 'warn')
     return NextResponse.json({ detail: 'Not allowed by CORS' }, { status: 403 })
   }
 
   try {
-    await checkAndTrackIP(ip)
-  } catch (err) {
-    return NextResponse.json({ detail: err.message }, { status: 429 })
+    await checkIPBan(ip)
+  } catch (e) {
+    await trackViolation(ip, 'Attempted access while banned', 'severe')
+    return NextResponse.json({ detail: 'Too many requests' }, { status: 429 })
   }
 
-  return await handler(request, origin)
+  // Per-IP rate limit: 50 requests per minute
+  if (ip !== 'unknown') {
+    const redis = await getRedisClient()
+    const rateKey = `lighter_rate:${ip}`
+    let count = await redis.incr(rateKey)
+    if (count === 1) await redis.expire(rateKey, 60)
+    if (count > 30) {
+      try {
+        await trackViolation(ip, 'Rate limit exceeded', 'severe')
+      } catch {
+        // Already banned, still return 429
+      }
+      return NextResponse.json({ detail: 'Too many requests' }, { status: 429 })
+    }
+  }
+
+  const res = await handler(request)
+
+  let safeAllowOrigin = process.env.NEXT_PUBLIC_APP_URL || 'https://xynapseai.net'
+  if (origin && isAllowedOrigin(origin, null)) {
+    safeAllowOrigin = origin
+  } else if (referer) {
+    try {
+      const refOrigin = new URL(referer).origin
+      if (isAllowedOrigin(refOrigin, null)) {
+        safeAllowOrigin = refOrigin
+      }
+    } catch {}
+  }
+
+  const headers = securityHeaders(safeAllowOrigin)
+  Object.entries(headers).forEach(([k, v]) => res.headers.set(k, v))
+
+  return res
 })
 
 const BASE_URL = 'https://mainnet.zklighter.elliot.ai/api/v1'
@@ -186,6 +268,24 @@ async function handler(request) {
       return NextResponse.json(result)
     }
 
+    // Fetch global data when needed (fixes bug + uses cache)
+    let marketIdToSymbol = {}
+    let orderBooks = []
+    if (type === 'user' || type === 'l2book') {
+      const baseUrl = new URL(request.url)
+      baseUrl.search = ''
+      const globalRes = await fetch(baseUrl.toString())
+      if (!globalRes.ok) throw new Error('Failed to fetch global lighter data')
+      const globalData = await globalRes.json()
+      marketIdToSymbol = globalData.marketIdToSymbol || {}
+      orderBooks = globalData.orderBooks || []
+
+      if (type === 'l2book' && coin) {
+        const book = orderBooks.find((o) => o.symbol === coin) || { bids: [], asks: [] }
+        return NextResponse.json(book)
+      }
+    }
+
     if (type === 'user' && address && by) {
       const query =
         by === 'index' ? `by=index&value=${address}` : `by=l1_address&l1_address=${address}`
@@ -230,13 +330,6 @@ async function handler(request) {
       )
     }
 
-    if (type === 'l2book' && coin) {
-      const globalRes = await fetch(new URL('/api/lighter', request.url))
-      const globalData = await globalRes.json()
-      const book = globalData.orderBooks.find((o) => o.symbol === coin)
-      return NextResponse.json(book || { bids: [], asks: [] })
-    }
-
     return NextResponse.json({ error: 'Invalid request' }, { status: 400 })
   } catch (err) {
     console.error('Lighter API error:', err)
@@ -247,17 +340,17 @@ async function handler(request) {
 }
 
 export async function GET(request) {
-  const response = await secureHandler(request)
-  const origin =
-    request.headers.get('origin') || process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'
-  Object.entries(securityHeaders(origin)).forEach(([k, v]) => response.headers.set(k, v))
-  return response
+  return await secureHandler(request)
 }
 
 export async function OPTIONS(request) {
   const origin = request.headers.get('origin')
-  if (!isAllowedOrigin(origin, request.headers.get('referer'))) {
-    return NextResponse.json({ detail: 'Not allowed by CORS' }, { status: 403 })
+  const referer = request.headers.get('referer')
+  if (!isAllowedOrigin(origin, referer)) {
+    return NextResponse.json(
+      { detail: 'Not allowed by CORS' },
+      { status: 403, headers: securityHeaders(origin) },
+    )
   }
   return new NextResponse(null, { status: 204, headers: securityHeaders(origin) })
 }

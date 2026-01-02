@@ -7,13 +7,11 @@ import Bottleneck from 'bottleneck'
 const prisma = globalThis.prisma || new PrismaClient()
 if (process.env.NODE_ENV !== 'production') globalThis.prisma = prisma
 
-// Rate limiter
 const limiter = new Bottleneck({
   maxConcurrent: 3,
   minTime: 200,
 })
 
-// Allowed origins
 const allowedOrigins = [
   process.env.NEXT_PUBLIC_APP_URL,
   'http://localhost:3000',
@@ -21,9 +19,10 @@ const allowedOrigins = [
   'https://xynapseai.net',
   'https://www.xynapseai.net',
   'https://base.xynapseai.net',
+  'https://farcaster.xynapseai.net',
+  'https://xynapse-ai-xynapse-projects.vercel.app',
 ].filter(Boolean)
 
-// Redis client
 let redisClient
 async function getRedisClient() {
   if (!redisClient) {
@@ -39,12 +38,24 @@ async function getRedisClient() {
   return redisClient
 }
 
-// Security functions
 function isAllowedOrigin(origin, referer) {
-  const currentOrigin = origin || (referer ? new URL(referer).origin : null)
-  if (!currentOrigin) return process.env.NODE_ENV === 'development'
+  const check = (url) => {
+    if (!url) return false
+    try {
+      const parsed = new URL(url)
+      const originUrl = parsed.origin
+      if (allowedOrigins.includes(originUrl)) return true
+      const hostname = parsed.hostname
+      return hostname === 'xynapseai.net' || hostname.endsWith('.xynapseai.net')
+    } catch {
+      return false
+    }
+  }
 
-  return allowedOrigins.includes(currentOrigin)
+  if (!origin && !referer) return true // Internal/SSR
+  if (!origin && process.env.NODE_ENV === 'development') return true
+
+  return check(origin) || check(referer)
 }
 
 function securityHeaders(origin) {
@@ -65,52 +76,113 @@ function securityHeaders(origin) {
   return headers
 }
 
-async function checkAndTrackIP(ip) {
+async function banIP(ip, durationSeconds = 1800) {
+  if (ip === 'unknown') return
   const redis = await getRedisClient()
-  const banKey = `banned_ip:${ip}`
-  const banned = await redis.get(banKey)
-  if (banned) {
-    console.warn(`IP blocked: ${ip}`)
-    throw new Error('Too many requests')
-  }
+  await redis.setEx(`banned_ip:${ip}`, durationSeconds, 'banned')
+  console.info(`IP banned: ${ip} for ${durationSeconds} seconds`)
+}
 
-  const violationKey = `violations:${ip}`
-  const violations = Number(await redis.get(violationKey)) || 0
-  if (violations > 15) {
-    await redis.setEx(banKey, 1800, 'banned')
-    console.error(`IP banned: ${ip}`)
+async function checkIPBan(ip) {
+  if (ip === 'unknown') return
+  const redis = await getRedisClient()
+  const isBanned = await redis.get(`banned_ip:${ip}`)
+  if (isBanned) {
+    console.warn(`IP ban detected: ${ip}`)
     throw new Error('Too many requests')
   }
 }
 
-// Handler wrapper
+async function trackViolation(ip, reason = 'Unknown', severity = 'severe') {
+  if (ip === 'unknown') return
+  const nonCriticalReasons = ['Not allowed by CORS']
+  if (nonCriticalReasons.includes(reason) || severity === 'warn') {
+    console.warn(`Non-critical violation ignored: ${ip}, reason: ${reason}`)
+    return
+  }
+
+  const redis = await getRedisClient()
+  const key = `violations:${ip}`
+  const maxViolations = 15
+  const windowSeconds = 1800 // 30 minutes
+
+  const violations = Number(await redis.get(key)) || 0
+  if (violations >= maxViolations) {
+    await banIP(ip)
+    console.error(`IP banned due to repeated violations: ${ip}, reason: ${reason}`)
+    throw new Error('Too many requests')
+  }
+
+  await redis.multi().incr(key).expire(key, windowSeconds).exec()
+  console.warn(
+    `Violation recorded: ${ip}, reason: ${reason}, count: ${violations + 1}/${maxViolations}`,
+  )
+}
+
 const secureHandler = limiter.wrap(async (request) => {
   const ip = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown'
   const origin = request.headers.get('origin')
   const referer = request.headers.get('referer')
 
+  console.info(
+    `Request to /api/hyperliquid from IP ${ip}, Origin: ${origin || 'null'}, Referer: ${referer || 'null'}`,
+  )
+
   if (!isAllowedOrigin(origin, referer)) {
-    await checkAndTrackIP(ip)
+    await trackViolation(ip, 'Not allowed by CORS', 'warn')
     return NextResponse.json({ detail: 'Not allowed by CORS' }, { status: 403 })
   }
 
   try {
-    await checkAndTrackIP(ip)
-  } catch (err) {
-    return NextResponse.json({ detail: err.message }, { status: 429 })
+    await checkIPBan(ip)
+  } catch (e) {
+    await trackViolation(ip, 'Attempted access while banned', 'severe')
+    return NextResponse.json({ detail: 'Too many requests' }, { status: 429 })
   }
 
-  return await handler(request, origin)
+  // Per-IP rate limit: 50 requests per minute
+  if (ip !== 'unknown') {
+    const redis = await getRedisClient()
+    const rateKey = `hyperliquid_rate:${ip}`
+    let count = await redis.incr(rateKey)
+    if (count === 1) await redis.expire(rateKey, 60)
+    if (count > 30) {
+      try {
+        await trackViolation(ip, 'Rate limit exceeded', 'severe')
+      } catch {
+        // Already banned, still return 429
+      }
+      return NextResponse.json({ detail: 'Too many requests' }, { status: 429 })
+    }
+  }
+
+  const res = await handler(request)
+
+  let safeAllowOrigin = process.env.NEXT_PUBLIC_APP_URL || 'https://xynapseai.net'
+  if (origin && isAllowedOrigin(origin, null)) {
+    safeAllowOrigin = origin
+  } else if (referer) {
+    try {
+      const refOrigin = new URL(referer).origin
+      if (isAllowedOrigin(refOrigin, null)) {
+        safeAllowOrigin = refOrigin
+      }
+    } catch {}
+  }
+
+  const headers = securityHeaders(safeAllowOrigin)
+  Object.entries(headers).forEach(([k, v]) => res.headers.set(k, v))
+
+  return res
 })
 
-// Main handler
-async function handler(request, origin) {
+const CACHE_TTL = 1800
+
+async function handler(request) {
   const { searchParams } = new URL(request.url)
   const type = searchParams.get('type')
   const address = searchParams.get('address')
   const coin = searchParams.get('coin')
-
-  const CACHE_TTL = 1800
 
   try {
     const redis = await getRedisClient()
@@ -211,19 +283,18 @@ async function handler(request, origin) {
   }
 }
 
-// Export handlers
 export async function GET(request) {
-  const response = await secureHandler(request)
-  const origin =
-    request.headers.get('origin') || process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'
-  Object.entries(securityHeaders(origin)).forEach(([k, v]) => response.headers.set(k, v))
-  return response
+  return await secureHandler(request)
 }
 
 export async function OPTIONS(request) {
   const origin = request.headers.get('origin')
-  if (!isAllowedOrigin(origin, request.headers.get('referer'))) {
-    return NextResponse.json({ detail: 'Not allowed by CORS' }, { status: 403 })
+  const referer = request.headers.get('referer')
+  if (!isAllowedOrigin(origin, referer)) {
+    return NextResponse.json(
+      { detail: 'Not allowed by CORS' },
+      { status: 403, headers: securityHeaders(origin) },
+    )
   }
   return new NextResponse(null, { status: 204, headers: securityHeaders(origin) })
 }

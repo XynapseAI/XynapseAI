@@ -1,6 +1,6 @@
-'use client';
+'use client'
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react'
 
 export default function TypingEffect({
   text = '',
@@ -10,38 +10,38 @@ export default function TypingEffect({
   cursorHeight = '1rem',
   cursorColor = '#fff',
 }) {
-  const [displayedText, setDisplayedText] = useState('');
-  const [showCursor, setShowCursor] = useState(true);
+  const [displayedText, setDisplayedText] = useState('')
+  const [showCursor, setShowCursor] = useState(true)
 
   useEffect(() => {
-    if (!text) return;
+    if (!text) return
 
-    let index = 0;
+    let index = 0
     const typingInterval = setInterval(() => {
       if (index < text.length) {
-        setDisplayedText(text.slice(0, index + 1));
-        index++;
+        setDisplayedText(text.slice(0, index + 1))
+        index++
       } else {
-        clearInterval(typingInterval);
+        clearInterval(typingInterval)
         if (loop) {
           setTimeout(() => {
-            setDisplayedText('');
-            index = 0;
-          }, 2000);
+            setDisplayedText('')
+            index = 0
+          }, 2000)
         }
       }
-    }, speed);
+    }, speed)
 
-    return () => clearInterval(typingInterval);
-  }, [text, speed, loop]);
+    return () => clearInterval(typingInterval)
+  }, [text, speed, loop])
 
   useEffect(() => {
     const cursorInterval = setInterval(() => {
-      setShowCursor((prev) => !prev);
-    }, 500);
+      setShowCursor((prev) => !prev)
+    }, 500)
 
-    return () => clearInterval(cursorInterval);
-  }, []);
+    return () => clearInterval(cursorInterval)
+  }, [])
 
   return (
     <span>
@@ -57,5 +57,5 @@ export default function TypingEffect({
         }}
       />
     </span>
-  );
+  )
 }

@@ -538,6 +538,8 @@ export async function GET(request) {
             days_active: true,
             farcaster_fid: true,
             invite_code: true,
+            invited_by: true,
+            invited_count: true,
             twitter_handles: {
               select: {
                 profile_picture: true,
@@ -546,6 +548,28 @@ export async function GET(request) {
           },
         }),
       )
+
+      let inviteCode = user.invite_code
+
+      if (!inviteCode) {
+        let isUnique = false
+        while (!isUnique) {
+          inviteCode = crypto.randomBytes(8).toString('hex').toUpperCase()
+          const conflict = await prisma.users.findUnique({
+            where: { invite_code: inviteCode },
+          })
+          if (!conflict) isUnique = true
+        }
+
+        await prisma.users.update({
+          where: { id: uid },
+          data: { invite_code: inviteCode },
+        })
+
+        logger.info('Auto-generated invite_code for new user', { userId: uid, inviteCode })
+      }
+
+      const invitedCount = user.invited_count || 0
 
       if (!user) {
         newCsrfToken = newCsrfToken || (await setCSRFToken(ip, userId))
@@ -584,6 +608,8 @@ export async function GET(request) {
           last7Days,
           farcaster_fid: user.farcaster_fid || null, // NEW: For auto-connect check
           inviteCode: user.invite_code || '',
+          invitedCount: invitedCount,
+          invited_by: user.invited_by || null,
         },
       }
 
@@ -616,6 +642,7 @@ export async function POST(request) {
   const origin = request.headers.get('origin')
   const referer = request.headers.get('referer')
   const pathname = new URL(request.url).pathname
+
   if (process.env.NODE_ENV !== 'production') {
     logger.info('POST /api/user requested', { ip, pathname })
   }
@@ -628,7 +655,6 @@ export async function POST(request) {
     )
   }
 
-  // FIXED: Handle null origin in CORS headers
   const headers = {
     ...securityHeaders(),
     ...(origin &&
@@ -638,7 +664,6 @@ export async function POST(request) {
         'Access-Control-Allow-Headers': 'Content-Type, X-Recaptcha-Token, X-CSRF-Token',
         'Access-Control-Allow-Credentials': 'true',
       }),
-    // CHANGED: Explicit for null origin – use referer if available
     ...(origin === 'null' &&
       referer && {
         'Access-Control-Allow-Origin': new URL(referer).origin,
@@ -651,7 +676,6 @@ export async function POST(request) {
   try {
     const session = await auth()
     const userId = session?.user?.id || null
-
     if (!session || !userId) {
       await trackViolation(ip, 'Unauthenticated request')
       return NextResponse.json({ detail: 'Not authenticated' }, { status: 401, headers })
@@ -683,6 +707,7 @@ export async function POST(request) {
         { status: 400, headers: securityHeaders(newCsrfToken) },
       )
     }
+
     if (process.env.NODE_ENV !== 'development') {
       try {
         const recaptchaResponse = await verifyRecaptcha(recaptchaToken, 'post_user', ip)
@@ -749,123 +774,132 @@ export async function POST(request) {
       )
     }
 
-    try {
-      const url = new URL(request.url)
-      const inviteParam = url.searchParams.get('invite') // Lấy ?invite=code từ URL signup (nếu có)
+    const url = new URL(request.url)
+    const inviteParam = url.searchParams.get('invite')
 
-      const userData = {
-        email,
-        google_id: googleId || null,
-        profile_picture: profilePicture || '',
-        google_name: googleName || '',
-        email_verified: emailVerified || false,
-        wallet_address: walletAddress || null,
-        connected: true,
-        last_connected: new Date(),
-        points: 0,
-        tweet_points: 0,
-        ai_points: 0,
-        task_points: 0,
-        is_creator: false,
-        is_ai_rank: false,
-        tier: 'Basic',
-        is_plus: false,
-        is_premium: false,
-        twitter_handle: null,
-        days_active: 0,
-      }
+    const plainApiKey = crypto.randomBytes(32).toString('hex')
+    const { api_key_hash, api_key_salt } = await hashApiKey(plainApiKey)
 
-      const plainApiKey = crypto.randomBytes(32).toString('hex')
-      const { api_key_hash, api_key_salt } = await hashApiKey(plainApiKey)
+    const baseUserData = {
+      email,
+      google_id: googleId || null,
+      profile_picture: profilePicture || '',
+      google_name: googleName || '',
+      email_verified: emailVerified || false,
+      wallet_address: walletAddress || null,
+      connected: true,
+      last_connected: new Date(),
+      points: 0n, 
+      tweet_points: 0n,
+      ai_points: 0n,
+      task_points: 0n,
+      is_creator: false,
+      is_ai_rank: false,
+      tier: 'Basic',
+      is_plus: false,
+      is_premium: false,
+      twitter_handle: null,
+      days_active: 0,
+    }
 
-      let inviterId = null
-      if (inviteParam) {
-        const inviter = await prisma.users.findUnique({
-          where: { invite_code: inviteParam },
-          select: { id: true },
+    let inviterId = null
+
+    const updatedUser = await prisma.$transaction(async (tx) => {
+      const existingUser = await tx.users.findUnique({ where: { id } })
+      if (inviteParam && !existingUser?.invited_by) {
+        const inviter = await tx.users.findUnique({
+          where: { invite_code: inviteParam.toUpperCase() },
+          select: { id: true, invited_count: true },
         })
+
         if (inviter) {
+          if (inviter.id === id) {
+            throw new Error('Cannot use your own invite code')
+          }
+          if (inviter.invited_count >= 50) {
+            throw new Error('Inviter has reached maximum invites')
+          }
           inviterId = inviter.id
         }
       }
 
-      let inviteCode = null
-      const existingUser = await prisma.users.findUnique({
-        where: { id },
-        select: { invite_code: true },
-      })
-
-      if (!existingUser?.invite_code) {
-        let isUnique = false
-        while (!isUnique) {
-          inviteCode = crypto.randomBytes(8).toString('hex').toUpperCase()
-          const conflict = await prisma.users.findUnique({ where: { invite_code: inviteCode } })
-          if (!conflict) isUnique = true
-        }
-      }
-
-      const updatedUser = await withRetry(() =>
-        prisma.users.upsert({
+      // Upsert user
+      if (existingUser) {
+        // Update existing
+        await tx.users.update({
           where: { id },
-          update: {
-            ...userData,
+          data: {
+            ...baseUserData,
             api_key_hash,
             api_key_salt,
             api_key_updated_at: new Date(),
             invited_by: inviterId,
-            ...(inviteCode && { invite_code: inviteCode }),
+            ...(inviterId && { points: { increment: 50n } }),
           },
-          create: {
-            ...userData,
+        })
+      } else {
+        // Create new
+        await tx.users.create({
+          data: {
+            ...baseUserData,
             id,
             created_at: new Date(),
             api_key_hash,
             api_key_salt,
             api_key_updated_at: new Date(),
-            invite_code: inviteCode || crypto.randomBytes(8).toString('hex').toUpperCase(),
+            invite_code: crypto.randomBytes(8).toString('hex').toUpperCase(),
             invited_by: inviterId,
+            ...(inviterId && { points: 50n }), 
           },
-        }),
-      )
-
-      try {
-        const client = await getRedisClient()
-        await client.del(`user:${id}`)
-        if (inviterId) await client.del(`user:${inviterId}`)
-      } catch (err) {
-        logger.warn('Failed to clear cache after creating/updating invite code', {
-          err: err?.message,
         })
       }
 
-      newCsrfToken = newCsrfToken || (await setCSRFToken(ip, userId))
-      headers['X-API-Key'] = plainApiKey
-      return NextResponse.json(
-        {
-          success: true,
-          user: serializeBigInt({
-            id: updatedUser.id,
-            email: updatedUser.email,
-            profile_picture: updatedUser.profile_picture,
-            google_name: updatedUser.google_name,
-            wallet_address: updatedUser.wallet_address,
-            email_verified: updatedUser.email_verified,
-          }),
-        },
-        { headers: { ...headers, ...securityHeaders(newCsrfToken) } },
-      )
-    } catch (error) {
-      logger.error('Error in POST /api/user', { error: error.message, stack: error.stack })
-      newCsrfToken = newCsrfToken || (await setCSRFToken(ip, userId))
-      return NextResponse.json(
-        { detail: 'Server error' },
-        { status: 500, headers: securityHeaders(newCsrfToken) },
-      )
+      if (inviterId) {
+        await tx.users.update({
+          where: { id: inviterId },
+          data: {
+            points: { increment: 20n },
+            invited_count: { increment: 1 },
+          },
+        })
+        logger.info('Referral applied on signup', { newUser: id, inviter: inviterId })
+      }
+
+      return await tx.users.findUnique({ where: { id } })
+    })
+
+    // Clear cache
+    try {
+      const client = await getRedisClient()
+      await client.del(`user:${id}`)
+      if (inviterId) await client.del(`user:${inviterId}`)
+    } catch (err) {
+      logger.warn('Failed to clear cache after user POST', { err: err?.message })
     }
-  } catch {
+
+    newCsrfToken = newCsrfToken || (await setCSRFToken(ip, userId))
+    headers['X-API-Key'] = plainApiKey
+
     return NextResponse.json(
-      { detail: 'Server error' },
-      { status: 500, headers: securityHeaders() },
+      {
+        success: true,
+        user: serializeBigInt({
+          id: updatedUser.id,
+          email: updatedUser.email,
+          profile_picture: updatedUser.profile_picture,
+          google_name: updatedUser.google_name,
+          wallet_address: updatedUser.wallet_address,
+          email_verified: updatedUser.email_verified,
+        }),
+      },
+      { headers: { ...headers, ...securityHeaders(newCsrfToken) } },
+    )
+  } catch (error) {
+    logger.error('Error in POST /api/user', { error: error.message, stack: error.stack })
+    const newCsrfToken = await setCSRFToken(ip, userId)
+    return NextResponse.json(
+      { detail: error.message || 'Server error' },
+      { status: error.message ? 400 : 500, headers: securityHeaders(newCsrfToken) },
     )
   }
 }

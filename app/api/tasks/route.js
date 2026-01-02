@@ -1,4 +1,3 @@
-// app/api/tasks/route.js
 import { NextResponse } from 'next/server'
 import { auth } from '@/lib/auth'
 import { logger } from '@/utils/serverLogger'
@@ -7,7 +6,6 @@ import cookie from 'cookie'
 import crypto from 'crypto'
 
 let redisClient
-
 async function getRedisClient() {
   if (!redisClient) {
     redisClient = createClient({ url: process.env.REDIS_URL || 'redis://localhost:6379' })
@@ -26,6 +24,7 @@ function isAllowedOrigin(origin, referer) {
     'https://farcaster.xynapseai.net',
     'https://xynapse-ai-xynapse-projects.vercel.app',
     'https://xynapse-ai.vercel.app',
+    'https://base.xynapseai.net',
   ]
   try {
     if (
@@ -73,70 +72,24 @@ async function checkDoubleSubmitCSRF(request, ip, userId) {
   const headerToken = request.headers.get('x-csrf-token') || ''
   const cookies = parseCookies(request)
   const cookieToken = cookies['csrf_token'] || ''
-
-  if (process.env.NODE_ENV !== 'production') {
-    logger.info('Checking CSRF tokens', {
-      headerToken: headerToken ? 'provided' : 'missing',
-      cookieToken: cookieToken ? 'provided' : 'missing',
-    })
-  }
-
   if (
     process.env.NODE_ENV === 'development' &&
     headerToken === 'dev-csrf' &&
     cookieToken === 'dev-csrf'
   ) {
-    if (process.env.NODE_ENV !== 'production') {
-      logger.info('Development CSRF bypass used')
-    }
     return true
   }
-
   if (!headerToken || !cookieToken) {
-    if (process.env.NODE_ENV !== 'production') {
-      logger.warn('CSRF tokens missing', {
-        headerProvided: !!headerToken,
-        cookieProvided: !!cookieToken,
-      })
-    }
     return false
   }
-
   const client = await getRedisClient()
   const storedToken = await client.get(`csrf:${userId}`)
   if (!storedToken) {
-    if (process.env.NODE_ENV !== 'production') {
-      logger.warn('CSRF token not found in Redis', { key: `csrf:${userId}` })
-    }
     return false
   }
-
-  // FIXED: Add debug log for lengths
-  logger.info('CSRF token lengths', {
-    header: headerToken.length,
-    cookie: cookieToken.length,
-    stored: storedToken.length,
-  })
-
-  if (headerToken.length !== cookieToken.length || cookieToken.length !== storedToken.length) {
-    logger.warn('CSRF token length mismatch', {
-      headerLength: headerToken.length,
-      cookieLength: cookieToken.length,
-      storedLength: storedToken.length,
-    })
-    return false
-  }
-
   const valid =
     crypto.timingSafeEqual(Buffer.from(headerToken), Buffer.from(cookieToken)) &&
     crypto.timingSafeEqual(Buffer.from(cookieToken), Buffer.from(storedToken))
-  if (!valid && process.env.NODE_ENV !== 'production') {
-    logger.warn('CSRF token mismatch', {
-      headerToken: headerToken.slice(0, 6) + '••••',
-      cookieToken: cookieToken.slice(0, 6) + '••••',
-      storedToken: storedToken.slice(0, 6) + '••••',
-    })
-  }
   return valid
 }
 
@@ -169,8 +122,6 @@ export async function GET(request) {
     newCsrfToken = crypto.randomBytes(32).toString('hex')
     const client = await getRedisClient()
     await client.setEx(`csrf:${session.user.id}`, 15 * 60, newCsrfToken)
-    logger.warn('Invalid CSRF token, new token issued', { ip })
-    // FIXED: Conditional sameSite
     const sameSite = process.env.NODE_ENV === 'production' ? 'none' : 'lax'
     return NextResponse.json(
       { detail: 'Invalid CSRF check. Please refresh.' },
@@ -194,7 +145,6 @@ export async function GET(request) {
     const cached = await redisClient.get(cacheKey)
     if (cached) {
       logger.info(`Cache hit for tasks user ${session.user.id}`, { ip })
-      // FIXED: Handle null origin in response headers
       const corsOrigin = origin || process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'
       return NextResponse.json(JSON.parse(cached), {
         headers: {
@@ -208,8 +158,43 @@ export async function GET(request) {
       })
     }
 
-    // Hardcoded 2 simple tasks for production stability
     const tasks = [
+      {
+        id: 'invite',
+        description: 'Invite Friends',
+        points: 20,
+        is_daily: false,
+        max_completions: 50,
+        task_type: 'invite',
+        target_id: null,
+      },
+      {
+        id: 'genesis',
+        description: 'Mint Genesis NFT',
+        points: 500,
+        is_daily: false,
+        max_completions: 1,
+        task_type: 'genesis_mint',
+        target_id: null,
+      },
+      {
+        id: 'follow',
+        description: 'Follow @xynapseai_',
+        points: 20,
+        is_daily: false,
+        max_completions: 1,
+        task_type: 'follow',
+        target_id: '1927681051373305858',
+      },
+      {
+        id: 'tweet',
+        description: 'Tweet about Xynapse',
+        points: 20,
+        is_daily: false,
+        max_completions: 1,
+        task_type: 'tweet',
+        target_id: null,
+      },
       {
         id: 'daily_checkin',
         description: 'Daily Check-in',
@@ -219,29 +204,13 @@ export async function GET(request) {
         task_type: 'daily_checkin',
         target_id: null,
       },
-      {
-        id: 'follow',
-        description: 'Follow @XynapseAI on Twitter',
-        points: 20,
-        is_daily: false,
-        max_completions: 1,
-        task_type: 'follow',
-        target_id: '1927681051373305858',
-      },
-      {
-        id: 'invite',
-        description: 'Invite a friend',
-        points: 20,
-        is_daily: false,
-        max_completions: 50,
-        task_type: 'invite',
-        target_id: null,
-      },
     ]
 
     const data = { success: true, tasks }
     await redisClient.setEx(cacheKey, 600, JSON.stringify(data))
     logger.info('Fetched and cached tasks successfully', { userId: session.user.id, ip })
+
+    const corsOrigin = origin || process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'
     return NextResponse.json(data, {
       headers: {
         'Content-Type': 'application/json',

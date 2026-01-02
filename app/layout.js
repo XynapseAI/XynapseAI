@@ -1,27 +1,28 @@
-// app/layout.js - Fixed: Removed direct OnchainKitProvider usage in server component (moved to ClientProviders)
-// Import and usage of client components in server layouts causes ReferenceError
-export const dynamic = 'force-dynamic';
-import '../styles/globals.css';
-import ClientProviders from './ClientProviders';
+// app/layout.js
+
+export const dynamic = 'force-dynamic'
+import '../styles/globals.css'
+import ClientProviders from './ClientProviders'
+import { inter, roboto, jetbrains, plexmono, saira } from './fonts'
 
 export const metadata = {
   title: {
     default: 'Xynapse - Blockchain Transaction Search',
     template: '%s | Xynapse',
   },
-  description: 'Xynapse: Search and analyze transactions on Bitcoin, Ethereum, BSC, and Solana. Real-time blockchain data, nametags, token transfers, and insights for crypto enthusiasts.',
-  keywords: 'blockchain explorer, transaction search, Bitcoin tx, Ethereum tx, BSC tx, Solana tx, crypto analytics, Xynapse',
+  description:
+    'Xynapse: Search and analyze transactions on Bitcoin, Ethereum, BSC, and Solana. Real-time blockchain data, nametags, token transfers, and insights for crypto enthusiasts.',
+  keywords:
+    'blockchain explorer, transaction search, Bitcoin tx, Ethereum tx, BSC tx, Solana tx, crypto analytics, Xynapse',
   robots: 'index, follow',
   alternates: {
     canonical: 'https://xynapseai.net',
   },
   openGraph: {
     title: 'Xynapse',
-    description: 'Explore blockchain transactions with Xynapse. Fast, secure, and insightful crypto explorer.',
-    images: [
-      'https://xynapseai.net/og.png',
-      'https://xynapseai.net/base-wallet-og.png',  // Added for wallet connect OG
-    ],
+    description:
+      'Explore blockchain transactions with Xynapse. Fast, secure, and insightful crypto explorer.',
+    images: ['https://xynapseai.net/og.png', 'https://xynapseai.net/base-wallet-og.png'],
     url: 'https://xynapseai.net',
     siteName: 'Xynapse',
     type: 'website',
@@ -31,7 +32,8 @@ export const metadata = {
     site: '@xynapseai_',
     creator: '@xynapseai_',
     title: 'Xynapse - Blockchain Explorer',
-    description: 'Search and analyze transactions on Bitcoin, Ethereum, BSC, Solana. Real-time insights for crypto , ETF.',
+    description:
+      'Search and analyze transactions on Bitcoin, Ethereum, BSC, Solana. Real-time insights for crypto , ETF.',
     images: ['https://xynapseai.net/og.png'],
   },
   icons: {
@@ -60,51 +62,63 @@ export const metadata = {
     }),
     'base:app_id': '690858f0aa8286a3a56039d4',
   },
-};
+}
 
 function hasCircularReference(obj, seen = new WeakSet()) {
-  if (typeof obj !== 'object' || obj === null) return false;
-  if (seen.has(obj)) return true;
-  seen.add(obj);
+  if (typeof obj !== 'object' || obj === null) return false
+  if (seen.has(obj)) return true
+  seen.add(obj)
   for (const value of Object.values(obj)) {
     if (typeof value === 'object' && value !== null && hasCircularReference(value, seen)) {
-      return true;
+      return true
     }
   }
-  return false;
+  return false
 }
 
 export default function RootLayout({ children }) {
   if (hasCircularReference(children)) {
-    console.error('Circular reference detected in children:', children);
-    throw new Error('Circular reference in layout');
+    console.error('Circular reference detected in children:', children)
+    throw new Error('Circular reference in layout')
   }
 
   return (
-    <html lang="en">
+    <html
+      lang="en"
+      className={`
+        ${inter.variable}
+        ${roboto.variable}
+        ${jetbrains.variable}
+        ${plexmono.variable}
+        ${saira.variable}
+      `}
+    >
       <head>
         <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-        <script type="application/ld+json">
-    {JSON.stringify({
-      "@context": "https://schema.org",
-      "@type": "WebSite",
-      "name": "Xynapse",
-      "url": "https://xynapseai.net",
-      "sameAs": [
-        "https://x.com/xynapseai_"
-      ],
-      "description": "Blockchain transaction search , label , and analytics on Bitcoin, Ethereum, BSC, Solana and ETFs.",
-      "potentialAction": {
-        "@type": "SearchAction",
-        "target": "https://xynapseai.net/search?q={search_term_string}",
-        "query-input": "required name=search_term_string"
-      }
-    })}
-  </script>
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{
+            __html: JSON.stringify({
+              '@context': 'https://schema.org',
+              '@type': 'WebSite',
+              name: 'Xynapse',
+              url: 'https://xynapseai.net',
+              sameAs: ['https://x.com/xynapseai_'],
+              description:
+                'Blockchain transaction search , label , and analytics on Bitcoin, Ethereum, BSC, Solana and ETFs.',
+              potentialAction: {
+                '@type': 'SearchAction',
+                target: 'https://xynapseai.net/search?q={search_term_string}',
+                'query-input': 'required name=search_term_string',
+              },
+            }),
+          }}
+        />
       </head>
-      <body className={`bg-black text-white`}>
+      <body className="bg-black text-white font-inter !font-inter antialiased">
+        {' '}
         <ClientProviders>{children}</ClientProviders>
       </body>
     </html>
-  );
+  )
 }

@@ -1374,7 +1374,6 @@ export default function DexTab() {
                                 )}
                             </div>
 
-                            {/* Khối 3: Current Positions */}
                             <div>
                                 <h3 className="text-sm font-bold text-[#FFF] mb-3">
                                     Current Positions
@@ -1394,49 +1393,104 @@ export default function DexTab() {
                                                     </th>
                                                     <th className="text-right py-2 px-3">Entry</th>
                                                     <th className="text-right py-2 px-3">
+                                                        Mark Price
+                                                    </th>
+                                                    <th className="text-right py-2 px-3">
+                                                        Value (USD)
+                                                    </th>
+                                                    <th className="text-right py-2 px-3">
                                                         Unreal. PnL
                                                     </th>
                                                 </tr>
                                             </thead>
                                             <tbody className="divide-y divide-white/5">
-                                                {portfolioData.map((pos, i) => (
-                                                    <tr key={i} className="hover:bg-white/5">
-                                                        <td className="py-2 px-3 font-medium">
-                                                            {pos.symbol || pos.coin}
-                                                        </td>
-                                                        <td className="py-2 px-3 text-right font-mono text-xs">
-                                                            {parseFloat(pos.position || pos.szi) *
-                                                                (pos.sign || 1)}
-                                                        </td>
-                                                        <td className="py-2 px-3 text-right font-mono text-xs">
-                                                            $
-                                                            {formatStandardNumber(
-                                                                pos.avg_entry_price ||
-                                                                    pos.entryPx ||
-                                                                    0,
-                                                            )}
-                                                        </td>
-                                                        <td className="py-2 px-3 text-right text-xs">
-                                                            <span
-                                                                className={
-                                                                    parseFloat(
-                                                                        pos.unrealized_pnl ||
-                                                                            pos.unrealizedPnl ||
-                                                                            0,
-                                                                    ) >= 0
-                                                                        ? 'text-emerald-400'
-                                                                        : 'text-red-400'
-                                                                }
-                                                            >
-                                                                {formatCompactNumber(
-                                                                    pos.unrealized_pnl ||
-                                                                        pos.unrealizedPnl ||
-                                                                        0,
-                                                                )}
-                                                            </span>
-                                                        </td>
-                                                    </tr>
-                                                ))}
+                                                {portfolioData.map((pos, i) => {
+                                                    const coin = pos.symbol || pos.coin
+                                                    const size = parseFloat(
+                                                        pos.position || pos.szi || 0,
+                                                    )
+                                                    const signedSize = size * (pos.sign || 1)
+                                                    const isLong = signedSize > 0
+                                                    const absSize = Math.abs(signedSize)
+                                                    const entryPx = parseFloat(
+                                                        pos.avg_entry_price || pos.entryPx || 0,
+                                                    )
+
+                                                    const assetCtx = metaData.assetCtxs.find(
+                                                        (ctx, idx) =>
+                                                            metaData.universe[idx]?.name === coin,
+                                                    )
+                                                    const currentPx = parseFloat(
+                                                        assetCtx?.markPx || assetCtx?.midPx || 0,
+                                                    )
+
+                                                    // Position value USD
+                                                    const positionValue = absSize * currentPx
+
+                                                    // Unrealized PnL
+                                                    const unrealPnl = parseFloat(
+                                                        pos.unrealized_pnl ||
+                                                            pos.unrealizedPnl ||
+                                                            0,
+                                                    )
+
+                                                    return (
+                                                        <tr
+                                                            key={i}
+                                                            className="hover:bg-white/5 transition"
+                                                        >
+                                                            <td className="py-2 px-3">
+                                                                <div className="flex items-center gap-2">
+                                                                    {assetToImage[coin] && (
+                                                                        <img
+                                                                            src={assetToImage[coin]}
+                                                                            alt={coin}
+                                                                            className="w-5 h-5 rounded-full"
+                                                                        />
+                                                                    )}
+                                                                    <span className="font-medium text-white">
+                                                                        {coin}
+                                                                    </span>
+                                                                </div>
+                                                            </td>
+                                                            <td className="py-2 px-3 text-right font-mono text-xs">
+                                                                <span
+                                                                    className={
+                                                                        isLong
+                                                                            ? 'text-emerald-400'
+                                                                            : 'text-red-400'
+                                                                    }
+                                                                >
+                                                                    {formatStandardNumber(absSize)}
+                                                                    {isLong
+                                                                        ? ' (Long)'
+                                                                        : ' (Short)'}
+                                                                </span>
+                                                            </td>
+                                                            <td className="py-2 px-3 text-right font-mono text-xs text-gray-300">
+                                                                ${formatStandardNumber(entryPx)}
+                                                            </td>
+                                                            <td className="py-2 px-3 text-right font-mono text-xs text-gray-300">
+                                                                ${formatStandardNumber(currentPx)}
+                                                            </td>
+                                                            <td className="py-2 px-3 text-right font-mono text-xs text-white">
+                                                                {formatCompactNumber(positionValue)}
+                                                            </td>
+                                                            <td className="py-2 px-3 text-right text-xs">
+                                                                <span
+                                                                    className={
+                                                                        unrealPnl >= 0
+                                                                            ? 'text-emerald-400'
+                                                                            : 'text-red-400'
+                                                                    }
+                                                                >
+                                                                    {unrealPnl >= 0 ? '+' : ''}
+                                                                    {formatCompactNumber(unrealPnl)}
+                                                                </span>
+                                                            </td>
+                                                        </tr>
+                                                    )
+                                                })}
                                             </tbody>
                                         </table>
                                     </div>

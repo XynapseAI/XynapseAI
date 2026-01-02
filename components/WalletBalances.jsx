@@ -1,13 +1,13 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { motion } from 'framer-motion';
-import { createPortal } from 'react-dom';
-import { formatDistanceToNow } from 'date-fns';
-import { CHAIN_ID_TO_NAME } from '../utils/constants';
-import { getExplorerUrls, truncateAddress, isValidToken, LoadingOverlay } from '../utils/helpers';
-import '../styles/MarketTab.css';
-import { toast } from 'react-toastify';
-import { logger } from '../utils/clientLogger';
-import { Virtuoso } from 'react-virtuoso';
+import React, { useState, useEffect, useRef } from 'react'
+import { motion } from 'framer-motion'
+import { createPortal } from 'react-dom'
+import { formatDistanceToNow } from 'date-fns'
+import { CHAIN_ID_TO_NAME } from '../utils/constants'
+import { getExplorerUrls, truncateAddress, isValidToken, LoadingOverlay } from '../utils/helpers'
+import '../styles/MarketTab.css'
+import { toast } from 'react-toastify'
+import { logger } from '../utils/clientLogger'
+import { Virtuoso } from 'react-virtuoso'
 
 // Hardcoded fallback logos for common chains
 const FALLBACK_CHAIN_LOGOS = {
@@ -16,7 +16,7 @@ const FALLBACK_CHAIN_LOGOS = {
   bitcoin: '/logos/bitcoin.webp',
   bsc: '/logos/bnb-logo.webp',
   // Add other chains as needed
-};
+}
 
 const WalletBalances = ({
   balances,
@@ -41,20 +41,20 @@ const WalletBalances = ({
   setIsLoadingWalletBalances,
   chainLogos,
 }) => {
-  const walletBalancesRef = useRef(null);
-  const [activeTab, setActiveTab] = useState('portfolio');
+  const walletBalancesRef = useRef(null)
+  const [activeTab, setActiveTab] = useState('portfolio')
 
   // Log sorted balances to verify USDT position
   useEffect(() => {
-    if (!walletAddress || !balances) return;
+    if (!walletAddress || !balances) return
     const validBalances = balances.filter((balance) =>
-      isValidToken({ image: balance.logo, symbol: balance.symbol })
-    );
+      isValidToken({ image: balance.logo, symbol: balance.symbol }),
+    )
     const sortedBalances = [...validBalances].sort((a, b) => {
-      const valueA = Number(a.value_usd) || 0;
-      const valueB = Number(b.value_usd) || 0;
-      return valueB - valueA;
-    });
+      const valueA = Number(a.value_usd) || 0
+      const valueB = Number(b.value_usd) || 0
+      return valueB - valueA
+    })
     logger.log('Sorted wallet balances:', {
       walletAddress,
       topBalances: sortedBalances.slice(0, 5).map((b) => ({
@@ -67,24 +67,24 @@ const WalletBalances = ({
         (b) =>
           b.symbol === 'USDT' &&
           b.address.toLowerCase() === '0xdac17f958d2ee523a2206206994597c13d831ec7' &&
-          b.chain === 'ethereum'
+          b.chain === 'ethereum',
       ),
       totalBalances: sortedBalances.length,
-    });
-  }, [walletAddress, balances]);
+    })
+  }, [walletAddress, balances])
 
   useEffect(() => {
     const handleClickOutside = (event) => {
       if (walletBalancesRef.current && !walletBalancesRef.current.contains(event.target)) {
-        onClose();
+        onClose()
       }
-    };
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.addEventListener('mousedown', handleClickOutside);
-  }, [onClose]);
+    }
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => document.addEventListener('mousedown', handleClickOutside)
+  }, [onClose])
 
   useEffect(() => {
-    if (!walletAddress) return;
+    if (!walletAddress) return
 
     const fetchData = async () => {
       if (
@@ -95,17 +95,17 @@ const WalletBalances = ({
         !error &&
         fetchOnChainData
       ) {
-        logger.log('Fetching wallet balances for:', { walletAddress });
+        logger.log('Fetching wallet balances for:', { walletAddress })
         try {
-          setIsLoadingWalletBalances(true);
-          setWalletBalancesError(null);
-          await fetchOnChainData(null, null, 'wallet-balances', null, walletAddress);
+          setIsLoadingWalletBalances(true)
+          setWalletBalancesError(null)
+          await fetchOnChainData(null, null, 'wallet-balances', null, walletAddress)
         } catch (err) {
-          const errorMessage = err.message || 'Failed to fetch wallet balances';
-          logger.error('Failed to fetch wallet balances:', { walletAddress, error: errorMessage });
-          setWalletBalancesError(errorMessage);
+          const errorMessage = err.message || 'Failed to fetch wallet balances'
+          logger.error('Failed to fetch wallet balances:', { walletAddress, error: errorMessage })
+          setWalletBalancesError(errorMessage)
         } finally {
-          setIsLoadingWalletBalances(false);
+          setIsLoadingWalletBalances(false)
         }
       }
 
@@ -116,23 +116,23 @@ const WalletBalances = ({
         !isLoadingTransactions &&
         !transactionsError
       ) {
-        logger.log('Fetching transactions for wallet:', { walletAddress });
+        logger.log('Fetching transactions for wallet:', { walletAddress })
         fetchTransactions(walletAddress).catch((err) => {
-          const errorMessage = err.message || 'Failed to fetch transactions';
-          logger.error('Failed to fetch transactions:', { walletAddress, error: errorMessage });
-          setTransactionsError(errorMessage);
-        });
+          const errorMessage = err.message || 'Failed to fetch transactions'
+          logger.error('Failed to fetch transactions:', { walletAddress, error: errorMessage })
+          setTransactionsError(errorMessage)
+        })
       }
-    };
+    }
 
-    fetchData();
+    fetchData()
 
     return () => {
       if (fetchTransactions.cancel) {
-        logger.log('Canceling fetchTransactions');
-        fetchTransactions.cancel();
+        logger.log('Canceling fetchTransactions')
+        fetchTransactions.cancel()
       }
-    };
+    }
   }, [
     activeTab,
     walletAddress,
@@ -147,89 +147,96 @@ const WalletBalances = ({
     setWalletBalancesError,
     setIsLoadingWalletBalances,
     setTransactionsError,
-  ]);
+  ])
 
-  if (!walletAddress) return null;
+  if (!walletAddress) return null
 
   const getPlatformImage = (chainValue) => {
-    const normalizedChainValue = typeof chainValue === 'string' ? chainValue : 'ethereum';
-    const normalizedChain = normalizedChainValue.toLowerCase();
-    const chainName = CHAIN_ID_TO_NAME[normalizedChain] || normalizedChain;
+    const normalizedChainValue = typeof chainValue === 'string' ? chainValue : 'ethereum'
+    const normalizedChain = normalizedChainValue.toLowerCase()
+    const chainName = CHAIN_ID_TO_NAME[normalizedChain] || normalizedChain
 
     logger.log('getPlatformImage input:', {
       chainValue,
       type: typeof chainValue,
       normalizedChain,
       chainName,
-    });
+    })
 
-    const imageFromChainLogos = chainLogos?.[normalizedChain];
+    const imageFromChainLogos = chainLogos?.[normalizedChain]
     if (imageFromChainLogos && imageFromChainLogos !== '/fallback-image.webp') {
       logger.log('getPlatformImage: Found in chainLogos', {
         chainValue,
         chainName,
         imageUrl: imageFromChainLogos,
-      });
-      return imageFromChainLogos;
+      })
+      return imageFromChainLogos
     }
 
-    const chain = chains?.find((c) => c.value.toLowerCase() === normalizedChain);
-    const imageFromChains = chain?.image;
+    const chain = chains?.find((c) => c.value.toLowerCase() === normalizedChain)
+    const imageFromChains = chain?.image
     if (imageFromChains && imageFromChains !== '/fallback-image.webp') {
       logger.log('getPlatformImage: Found in chains', {
         chainValue,
         chainName,
         imageUrl: imageFromChains,
-      });
-      return imageFromChains;
+      })
+      return imageFromChains
     }
 
-    const fallbackImage = FALLBACK_CHAIN_LOGOS[normalizedChain] || '/fallback-image.webp';
+    const fallbackImage = FALLBACK_CHAIN_LOGOS[normalizedChain] || '/fallback-image.webp'
     logger.log('getPlatformImage: Using fallback', {
       chainValue,
       chainName,
       imageUrl: fallbackImage,
-    });
-    return fallbackImage;
-  };
+    })
+    return fallbackImage
+  }
 
   const getChainLabel = (chainValue) => {
-    const normalizedChainValue = typeof chainValue === 'string' ? chainValue : 'ethereum';
-    const normalizedChain = normalizedChainValue.toLowerCase();
-    const chainName = CHAIN_ID_TO_NAME[normalizedChain] || normalizedChain;
-    return chains?.find((c) => c.value.toLowerCase() === normalizedChain)?.label || chainName;
-  };
+    const normalizedChainValue = typeof chainValue === 'string' ? chainValue : 'ethereum'
+    const normalizedChain = normalizedChainValue.toLowerCase()
+    const chainName = CHAIN_ID_TO_NAME[normalizedChain] || normalizedChain
+    return chains?.find((c) => c.value.toLowerCase() === normalizedChain)?.label || chainName
+  }
 
   const handleAddressClick = (address) => {
-    setSelectedWallet(address);
-  };
+    setSelectedWallet(address)
+  }
 
-  const { text: displayWalletAddress, image: walletImage } = truncateAddress(walletAddress, nameTags);
+  const { text: displayWalletAddress, image: walletImage } = truncateAddress(
+    walletAddress,
+    nameTags,
+  )
 
   const formatNumber = (value) => {
-    if (value == null || isNaN(value)) return 'N/A';
-    return Math.floor(Number(value)).toLocaleString('en-US');
-  };
+    if (value == null || isNaN(value)) return 'N/A'
+    return Math.floor(Number(value)).toLocaleString('en-US')
+  }
 
-  const validBalances = balances?.filter((balance) =>
-    isValidToken({ image: balance.logo, symbol: balance.symbol })
-  ) || [];
+  const validBalances =
+    balances?.filter((balance) => isValidToken({ image: balance.logo, symbol: balance.symbol })) ||
+    []
 
   const sortedBalances = [...validBalances].sort((a, b) => {
-    const valueA = Number(a.value_usd) || 0;
-    const valueB = Number(b.value_usd) || 0;
-    return valueB - valueA;
-  });
+    const valueA = Number(a.value_usd) || 0
+    const valueB = Number(b.value_usd) || 0
+    return valueB - valueA
+  })
 
-  const totalValue = sortedBalances.reduce((sum, balance) => sum + (Number(balance.value_usd) || 0), 0);
+  const totalValue = sortedBalances.reduce(
+    (sum, balance) => sum + (Number(balance.value_usd) || 0),
+    0,
+  )
 
-  const validTransactions = transactions?.filter((tx) =>
-    isValidToken({ image: tx.token_metadata?.logo, symbol: tx.token })
-  ) || [];
+  const validTransactions =
+    transactions?.filter((tx) =>
+      isValidToken({ image: tx.token_metadata?.logo, symbol: tx.token }),
+    ) || []
 
   const renderPortfolioRow = (index, balance) => {
-    const value = Number(balance.value_usd) || 0;
-    const percentage = totalValue > 0 ? (value / totalValue) * 100 : 0;
+    const value = Number(balance.value_usd) || 0
+    const percentage = totalValue > 0 ? (value / totalValue) * 100 : 0
     return (
       <motion.div
         key={`${balance.chain}-${balance.address}-${index}`}
@@ -249,8 +256,8 @@ const WalletBalances = ({
                   logger.error('Token logo failed to load:', {
                     symbol: balance.symbol,
                     src: balance.logo,
-                  });
-                  e.target.src = '/fallback-image.webp';
+                  })
+                  e.target.src = '/fallback-image.webp'
                 }}
               />
               <img
@@ -262,8 +269,8 @@ const WalletBalances = ({
                     chain: balance.chain,
                     chainName: getChainLabel(balance.chain),
                     src: getPlatformImage(balance.chain),
-                  });
-                  e.target.src = '/fallback-image.webp';
+                  })
+                  e.target.src = '/fallback-image.webp'
                 }}
               />
             </div>
@@ -296,18 +303,24 @@ const WalletBalances = ({
           </div>
         </div>
       </motion.div>
-    );
-  };
+    )
+  }
 
   const renderTransactionRow = (index, tx) => {
-    const chainName = CHAIN_ID_TO_NAME[tx.chain] || tx.chain || 'ethereum';
-    const { txUrl, addressUrl } = getExplorerUrls(chainName, tx.hash, tx.type === 'receive' ? tx.from : tx.to);
+    const chainName = CHAIN_ID_TO_NAME[tx.chain] || tx.chain || 'ethereum'
+    const { txUrl, addressUrl } = getExplorerUrls(
+      chainName,
+      tx.hash,
+      tx.type === 'receive' ? tx.from : tx.to,
+    )
     const { text: displayAddress, image: addressImage } = truncateAddress(
       tx.type === 'receive' ? tx.from : tx.to,
-      nameTags
-    );
-    const isValidAddress = (tx.type === 'receive' ? tx.from : tx.to)?.match(/^(0x[a-fA-F0-9]{40}|(1|3|bc1)[a-zA-Z0-9]+)$/);
-    const isValidTxHash = tx.hash?.match(/^(0x)?[a-fA-F0-9]+$/);
+      nameTags,
+    )
+    const isValidAddress = (tx.type === 'receive' ? tx.from : tx.to)?.match(
+      /^(0x[a-fA-F0-9]{40}|(1|3|bc1)[a-zA-Z0-9]+)$/,
+    )
+    const isValidTxHash = tx.hash?.match(/^(0x)?[a-fA-F0-9]+$/)
 
     return (
       <motion.div
@@ -328,8 +341,8 @@ const WalletBalances = ({
                   logger.error('Token logo failed to load:', {
                     symbol: tx.token,
                     src: tx.token_metadata.logo,
-                  });
-                  e.target.src = '/fallback-image.webp';
+                  })
+                  e.target.src = '/fallback-image.webp'
                 }}
               />
               <img
@@ -341,8 +354,8 @@ const WalletBalances = ({
                     chain: tx.chain,
                     chainName,
                     src: getPlatformImage(tx.chain),
-                  });
-                  e.target.src = '/fallback-image.webp';
+                  })
+                  e.target.src = '/fallback-image.webp'
                 }}
               />
             </div>
@@ -365,8 +378,8 @@ const WalletBalances = ({
                   logger.error('Address name tag image failed to load:', {
                     address: tx.type === 'receive' ? tx.from : tx.to,
                     src: addressImage,
-                  });
-                  e.target.src = '/icons/default.webp';
+                  })
+                  e.target.src = '/icons/default.webp'
                 }}
               />
             )}
@@ -383,8 +396,8 @@ const WalletBalances = ({
             {isValidAddress && (
               <motion.button
                 onClick={() => {
-                  navigator.clipboard.writeText(tx.type === 'receive' ? tx.from : tx.to);
-                  toast.success('Address copied!', { autoClose: 2000 });
+                  navigator.clipboard.writeText(tx.type === 'receive' ? tx.from : tx.to)
+                  toast.success('Address copied!', { autoClose: 2000 })
                 }}
                 className="absolute right-0 p-1 bg-white/10 rounded-xl hover:bg-red-500/20 transition-all duration-300 flex-shrink-0 opacity-0 group-hover:opacity-100"
                 title="Copy address"
@@ -428,13 +441,15 @@ const WalletBalances = ({
             />
           </a>
           <span className="text-[7px] sm:text-[9px] text-white/60">
-            {tx.block_time ? formatDistanceToNow(new Date(tx.block_time), { addSuffix: true }) : 'N/A'}
+            {tx.block_time
+              ? formatDistanceToNow(new Date(tx.block_time), { addSuffix: true })
+              : 'N/A'}
           </span>
           {isValidTxHash && (
             <motion.button
               onClick={() => {
-                navigator.clipboard.writeText(tx.hash);
-                toast.success('Transaction hash copied!', { autoClose: 2000 });
+                navigator.clipboard.writeText(tx.hash)
+                toast.success('Transaction hash copied!', { autoClose: 2000 })
               }}
               className="absolute right-0 p-1 bg-white/10 rounded-xl hover:bg-red-500/20 transition-all duration-300 flex-shrink-0 opacity-0 group-hover:opacity-100"
               title="Copy transaction hash"
@@ -459,8 +474,8 @@ const WalletBalances = ({
           )}
         </div>
       </motion.div>
-    );
-  };
+    )
+  }
 
   const overlayContent = (
     <motion.div
@@ -468,7 +483,7 @@ const WalletBalances = ({
       animate={{ opacity: 1, scale: 1 }}
       exit={{ opacity: 0, scale: 0.9 }}
       transition={{ duration: 0.4, ease: 'easeInOut' }}
-      className="fixed inset-0 flex items-center justify-center z-50 font-inter bg-black/10 backdrop-blur-sm"
+      className="fixed inset-0 flex items-center justify-center z-50 bg-black/10 backdrop-blur-sm"
     >
       <div
         ref={walletBalancesRef}
@@ -500,18 +515,22 @@ const WalletBalances = ({
                     logger.error('Wallet name tag image failed to load:', {
                       address: walletAddress,
                       src: nameTags[walletAddress.toLowerCase()]?.image,
-                    });
-                    e.target.src = '/fallback-image.webp';
+                    })
+                    e.target.src = '/fallback-image.webp'
                   }}
                 />
                 <div className="flex flex-col">
-                  <span className="text-sm font-bold text-white tracking-tight">{nameTags[walletAddress.toLowerCase()]?.name || displayWalletAddress}</span>
+                  <span className="text-sm font-bold text-white tracking-tight">
+                    {nameTags[walletAddress.toLowerCase()]?.name || displayWalletAddress}
+                  </span>
                   <div className="relative flex items-center group">
-                    <span className="text-[9px] sm:text-[10px] text-white/60">{displayWalletAddress}</span>
+                    <span className="text-[9px] sm:text-[10px] text-white/60">
+                      {displayWalletAddress}
+                    </span>
                     <motion.button
                       onClick={() => {
-                        navigator.clipboard.writeText(walletAddress);
-                        toast.success('Address copied!', { autoClose: 2000 });
+                        navigator.clipboard.writeText(walletAddress)
+                        toast.success('Address copied!', { autoClose: 2000 })
                       }}
                       className="ml-2 p-1 bg-white/10 rounded-xl hover:bg-red-500/20 transition-all duration-300 flex-shrink-0 opacity-0 group-hover:opacity-100"
                       title="Copy address"
@@ -670,7 +689,9 @@ const WalletBalances = ({
 
         <style jsx>{`
           .shadow-neon-sm {
-            box-shadow: 0 0 8px rgba(0, 191, 255, 0.3), 0 0 16px rgba(0, 191, 255, 0.15);
+            box-shadow:
+              0 0 8px rgba(0, 191, 255, 0.3),
+              0 0 16px rgba(0, 191, 255, 0.15);
           }
           .custom-scrollbar::-webkit-scrollbar {
             width: 4px;
@@ -706,9 +727,9 @@ const WalletBalances = ({
         `}</style>
       </div>
     </motion.div>
-  );
+  )
 
-  return createPortal(overlayContent, document.body);
-};
+  return createPortal(overlayContent, document.body)
+}
 
-export default React.memo(WalletBalances);
+export default React.memo(WalletBalances)

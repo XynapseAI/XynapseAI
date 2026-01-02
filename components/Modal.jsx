@@ -1,50 +1,63 @@
 // components/Modal.jsx
-import React, { useEffect, useState, useRef } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
-import { X } from 'lucide-react';
-import ReactMarkdown from 'react-markdown';
-import remarkGfm from 'remark-gfm';
-import rehypeHighlight from 'rehype-highlight';
-import 'highlight.js/styles/github-dark.css';
-import sanitizeHtml from 'sanitize-html';
+import React, { useEffect, useState, useRef } from 'react'
+import { motion, AnimatePresence } from 'framer-motion'
+import { X } from 'lucide-react'
+import ReactMarkdown from 'react-markdown'
+import remarkGfm from 'remark-gfm'
+import rehypeHighlight from 'rehype-highlight'
+import 'highlight.js/styles/github-dark.css'
+import sanitizeHtml from 'sanitize-html'
 
-const Modal = ({ isOpen, onClose, title, content, links = [], isMobile, isLoading = false, logs = [], actionType = 'analyze' }) => {
-  const [logMessages, setLogMessages] = useState([]);
-  const prevLogsRef = useRef(logs);
-  const prevIsLoadingRef = useRef(isLoading);
+const Modal = ({
+  isOpen,
+  onClose,
+  title,
+  content,
+  links = [],
+  isMobile,
+  isLoading = false,
+  logs = [],
+  actionType = 'analyze',
+}) => {
+  const [logMessages, setLogMessages] = useState([])
+  const prevLogsRef = useRef(logs)
+  const prevIsLoadingRef = useRef(isLoading)
 
   useEffect(() => {
     if (isLoading !== prevIsLoadingRef.current || logs !== prevLogsRef.current) {
       if (logs.length > 0) {
-        setLogMessages(logs.map(text => ({ text, id: Date.now() + Math.random() })));
+        setLogMessages(logs.map((text) => ({ text, id: Date.now() + Math.random() })))
       } else if (isLoading) {
-        const sources = actionType === 'predict' ? [
-          'Generating predictions...',
-          'Processing market data...',
-          'Calculating trends...',
-          'Evaluating patterns...',
-          'Formulating insights...',
-        ] : [
-          'Analyzing data...',
-          'Processing information...',
-          'Examining trends...',
-          'Evaluating metrics...',
-          'Synthesizing results...',
-        ];
+        const sources =
+          actionType === 'predict'
+            ? [
+                'Generating predictions...',
+                'Processing market data...',
+                'Calculating trends...',
+                'Evaluating patterns...',
+                'Formulating insights...',
+              ]
+            : [
+                'Analyzing data...',
+                'Processing information...',
+                'Examining trends...',
+                'Evaluating metrics...',
+                'Synthesizing results...',
+              ]
         const interval = setInterval(() => {
           setLogMessages((prev) => {
-            const nextIndex = prev.length % sources.length;
-            return [...prev, { text: sources[nextIndex], id: Date.now() }].slice(-5);
-          });
-        }, 1500);
-        return () => clearInterval(interval);
+            const nextIndex = prev.length % sources.length
+            return [...prev, { text: sources[nextIndex], id: Date.now() }].slice(-5)
+          })
+        }, 1500)
+        return () => clearInterval(interval)
       } else if (logMessages.length > 0) {
-        setLogMessages([]);
+        setLogMessages([])
       }
     }
-    prevLogsRef.current = logs;
-    prevIsLoadingRef.current = isLoading;
-  }, [isLoading, logs, logMessages.length, actionType]);
+    prevLogsRef.current = logs
+    prevIsLoadingRef.current = isLoading
+  }, [isLoading, logs, logMessages.length, actionType])
 
   return (
     <AnimatePresence>
@@ -54,7 +67,7 @@ const Modal = ({ isOpen, onClose, title, content, links = [], isMobile, isLoadin
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
           transition={{ duration: 0.3 }}
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm font-inter"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm"
           onClick={onClose}
         >
           <motion.div
@@ -62,8 +75,9 @@ const Modal = ({ isOpen, onClose, title, content, links = [], isMobile, isLoadin
             animate={{ scale: 1, opacity: 1 }}
             exit={{ scale: 0.9, opacity: 0 }}
             transition={{ duration: 0.4, ease: 'easeInOut' }}
-            className={`relative bg-black/80 border border-white/20 rounded-2xl p-4 sm:p-6 w-full max-w-[90%] sm:max-w-3xl ${isMobile ? 'h-[80vh]' : 'max-h-[80vh]'
-              } overflow-y-auto custom-scrollbar`}
+            className={`relative bg-black/80 border border-white/20 rounded-2xl p-4 sm:p-6 w-full max-w-[90%] sm:max-w-3xl ${
+              isMobile ? 'h-[80vh]' : 'max-h-[80vh]'
+            } overflow-y-auto custom-scrollbar`}
             onClick={(e) => e.stopPropagation()}
           >
             {isLoading && (
@@ -74,7 +88,6 @@ const Modal = ({ isOpen, onClose, title, content, links = [], isMobile, isLoadin
                 exit={{ opacity: 0, y: 20 }}
                 transition={{ duration: 0.3 }}
               >
-
                 <div className="w-[90%] sm:w-[95%] h-[25%] sm:h-[80%] bg-black/10 backdrop-blur-xl border border-white/20 rounded-xl p-10 relative overflow-hidden shadow-2xl animate-pulse-slow">
                   <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-transparent via-emerald-400 to-transparent animate-scan" />
                   <div className="absolute inset-0 bg-black/10 backdrop-blur-sm animate-pulse opacity-50" />
@@ -89,10 +102,11 @@ const Modal = ({ isOpen, onClose, title, content, links = [], isMobile, isLoadin
                       {logMessages.map((log, index) => (
                         <motion.p
                           key={log.id}
-                          className={`text-white/80 text-[10px] sm:text-xs font-inter mb-2 ${index === logMessages.length - 1
+                          className={`text-white/80 text-[10px] sm:text-xs mb-2 ${
+                            index === logMessages.length - 1
                               ? 'text-blue-400 font-semibold animate-pulse'
                               : 'text-white/60'
-                            }`}
+                          }`}
                           initial={{ opacity: 0, y: 10 }}
                           animate={{ opacity: 1, y: 0 }}
                           exit={{ opacity: 0, y: -10 }}
@@ -128,7 +142,7 @@ const Modal = ({ isOpen, onClose, title, content, links = [], isMobile, isLoadin
                   rehypePlugins={[rehypeHighlight]}
                   components={{
                     a: (props) => {
-                      const { href, children } = props;
+                      const { href, children } = props
                       return (
                         <a
                           href={href}
@@ -138,7 +152,7 @@ const Modal = ({ isOpen, onClose, title, content, links = [], isMobile, isLoadin
                         >
                           {children}
                         </a>
-                      );
+                      )
                     },
                     table: (props) => (
                       <table className="border-collapse border border-white/10 w-full table-auto mb-4 bg-white/5 backdrop-blur-md">
@@ -151,23 +165,29 @@ const Modal = ({ isOpen, onClose, title, content, links = [], isMobile, isLoadin
                       </th>
                     ),
                     td: (props) => (
-                      <td className="border border-white/10 px-3 py-2 text-white/80 text-sm">{props.children}</td>
+                      <td className="border border-white/10 px-3 py-2 text-white/80 text-sm">
+                        {props.children}
+                      </td>
                     ),
                     code: (props) => {
-                      const { className, children } = props;
+                      const { className, children } = props
                       return (
                         <code
                           className={`${className || ''} rounded text-white/80 bg-white/5 backdrop-blur-md p-1 text-xs sm:text-sm`}
                         >
                           {children}
                         </code>
-                      );
+                      )
                     },
                     h1: (props) => (
-                      <h1 className="text-xl sm:text-2xl font-bold mt-4 mb-2 text-white">{props.children}</h1>
+                      <h1 className="text-xl sm:text-2xl font-bold mt-4 mb-2 text-white">
+                        {props.children}
+                      </h1>
                     ),
                     h2: (props) => (
-                      <h2 className="text-lg sm:text-xl font-semibold mt-3 mb-1 text-white">{props.children}</h2>
+                      <h2 className="text-lg sm:text-xl font-semibold mt-3 mb-1 text-white">
+                        {props.children}
+                      </h2>
                     ),
                     p: (props) => <p className="mb-2">{props.children}</p>,
                   }}
@@ -181,7 +201,9 @@ const Modal = ({ isOpen, onClose, title, content, links = [], isMobile, isLoadin
 
             {links && links.length > 0 && (
               <div>
-                <h5 className="text-sm sm:text-base font-bold text-white mb-2 uppercase tracking-wider">References:</h5>
+                <h5 className="text-sm sm:text-base font-bold text-white mb-2 uppercase tracking-wider">
+                  References:
+                </h5>
                 <ul className="list-none space-y-4">
                   {links.map((link, index) => {
                     const displayText =
@@ -191,24 +213,29 @@ const Modal = ({ isOpen, onClose, title, content, links = [], isMobile, isLoadin
                           : link
                         : link.text && link.text !== 'undefined'
                           ? link.text
-                          : link.url || 'Untitled';
-                    const displayUrl = typeof link === 'string' ? link : link.url;
+                          : link.url || 'Untitled'
+                    const displayUrl = typeof link === 'string' ? link : link.url
                     const displayDescription =
                       typeof link === 'string'
                         ? 'No description available'
                         : link.description && link.description !== 'undefined'
                           ? link.description
-                          : 'No description available';
-                    const displayImage = typeof link === 'string' ? null : link.image;
+                          : 'No description available'
+                    const displayImage = typeof link === 'string' ? null : link.image
 
                     return (
-                      <li key={index} className="bg-white/5 border border-white/10 rounded-lg p-3 flex items-start gap-3 hover:bg-white/10 transition-all">
+                      <li
+                        key={index}
+                        className="bg-white/5 border border-white/10 rounded-lg p-3 flex items-start gap-3 hover:bg-white/10 transition-all"
+                      >
                         {displayImage && (
                           <img
                             src={displayImage}
                             alt={displayText}
                             className="w-16 h-16 object-cover rounded-md flex-shrink-0"
-                            onError={(e) => { e.target.src = '/placeholder-image.png'; }}
+                            onError={(e) => {
+                              e.target.src = '/placeholder-image.png'
+                            }}
                           />
                         )}
                         <div className="flex-grow">
@@ -221,11 +248,14 @@ const Modal = ({ isOpen, onClose, title, content, links = [], isMobile, isLoadin
                             {sanitizeHtml(displayText, { allowedTags: [], allowedAttributes: {} })}
                           </a>
                           <p className="text-xs text-white/60 mt-1">
-                            {sanitizeHtml(displayDescription, { allowedTags: [], allowedAttributes: {} })}
+                            {sanitizeHtml(displayDescription, {
+                              allowedTags: [],
+                              allowedAttributes: {},
+                            })}
                           </p>
                         </div>
                       </li>
-                    );
+                    )
                   })}
                 </ul>
               </div>
@@ -247,8 +277,20 @@ const Modal = ({ isOpen, onClose, title, content, links = [], isMobile, isLoadin
                 background: rgba(255, 255, 255, 0.5);
               }
               .log-container {
-                -webkit-mask-image: linear-gradient(to bottom, transparent 0%, white 20%, white 80%, transparent 100%);
-                mask-image: linear-gradient(to bottom, transparent 0%, white 20%, white 80%, transparent 100%);
+                -webkit-mask-image: linear-gradient(
+                  to bottom,
+                  transparent 0%,
+                  white 20%,
+                  white 80%,
+                  transparent 100%
+                );
+                mask-image: linear-gradient(
+                  to bottom,
+                  transparent 0%,
+                  white 20%,
+                  white 80%,
+                  transparent 100%
+                );
               }
               @media (max-width: 640px) {
                 .max-w-3xl {
@@ -290,7 +332,7 @@ const Modal = ({ isOpen, onClose, title, content, links = [], isMobile, isLoadin
         </motion.div>
       )}
     </AnimatePresence>
-  );
-};
+  )
+}
 
-export default React.memo(Modal);
+export default React.memo(Modal)

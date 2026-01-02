@@ -10,7 +10,7 @@ import { useSearchParams } from 'next/navigation'
 export default function ClusterPage({ initialClusterId }) {
   const [activeTab, setActiveTab] = useState(() => {
     const params = new URLSearchParams(window.location.search)
-    return params.get('subtab') || 'portfolio' // Preserve subtab từ URL
+    return params.get('subtab') || 'portfolio' // Preserve subtab URL
   })
   const searchParams = useSearchParams()
   const recaptchaRef = useRef(null)
@@ -34,17 +34,6 @@ export default function ClusterPage({ initialClusterId }) {
             setActiveTab={setActiveTab}
           />
         </Suspense>
-        <ToastContainer
-          position="top-center"
-          autoClose={5000}
-          theme="dark"
-          toastStyle={{
-            backgroundColor: 'rgba(0, 0, 0, 0.9)',
-            backdropFilter: 'blur(20px)',
-            border: '1px solid rgba(255, 255, 255, 0.1)',
-            borderRadius: '16px',
-          }}
-        />
       </CurrencyProvider>
     </div>
   )

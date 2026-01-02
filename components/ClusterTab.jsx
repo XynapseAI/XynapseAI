@@ -1052,8 +1052,8 @@ const ClusterTab = ({
       selectedChain === 'all'
         ? grouped
         : grouped.filter((item) =>
-          item.chains.some((chain) => chain === selectedChain.toLowerCase()),
-        )
+            item.chains.some((chain) => chain === selectedChain.toLowerCase()),
+          )
     logger.log('Grouped portfolio after processing:', { filtered, selectedChain })
     return filtered
   }, [memoizedPortfolioData, selectedChain])
@@ -1063,12 +1063,12 @@ const ClusterTab = ({
   const chains = useMemo(() => {
     const chainSet = new Set(['all'])
     memoizedPortfolioData.forEach((item) => {
-      ; (item.chain_details || []).forEach((token) => {
+      ;(item.chain_details || []).forEach((token) => {
         if (token.chain) chainSet.add(token.chain.toLowerCase())
       })
     })
     memoizedWalletData.forEach((wallet) => {
-      ; (wallet.metadata || []).forEach((token) => {
+      ;(wallet.metadata || []).forEach((token) => {
         if (token.chain) chainSet.add(token.chain.toLowerCase())
       })
     })
@@ -1613,7 +1613,8 @@ const ClusterTab = ({
           <div className="w-[25%] sm:w-[25%] px-2 sm:px-3 text-[#FFF]/80 text-[9px] sm:text-[10px] text-center overflow-hidden text-ellipsis">
             <div className="flex flex-col items-center gap-1">
               <span
-                className={`inline-flex items-center px-2 py-0.5 rounded-full text-[7px] sm:text-[8px] font-bold uppercase tracking-wider ${tx.type === 'swap'
+                className={`inline-flex items-center px-2 py-0.5 rounded-full text-[7px] sm:text-[8px] font-bold uppercase tracking-wider ${
+                  tx.type === 'swap'
                     ? 'bg-neon-blue/20 text-neon-blue border border-neon-blue/20 shadow-lg shadow-neon-blue/20'
                     : tx.type === 'received' || isIncoming
                       ? 'bg-emerald-400/20 text-emerald-400 border border-emerald-400/20 shadow-lg shadow-emerald-400/20'
@@ -1622,7 +1623,7 @@ const ClusterTab = ({
                         : isInternal
                           ? 'bg-gray-500/30 text-white/80 border border-gray-500/30 shadow-lg shadow-gray-500/30'
                           : 'bg-gray-500/30 text-white/80 border border-gray-500/30'
-                  }`}
+                }`}
               >
                 {typeDisplay}
               </span>
@@ -1789,7 +1790,7 @@ const ClusterTab = ({
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.6, ease: 'easeOut' }}
-      className="font-inter w-full max-w-9xl mx-auto p-2 sm:p-3 bg-[#0A0A0A]/80 backdrop-blur-md flex flex-col h-[calc(100vh-3rem)] overflow-y-auto hide-scrollbar"
+      className="w-full max-w-9xl mx-auto p-2 sm:p-3 bg-[#0A0A0A]/80 backdrop-blur-md flex flex-col h-[calc(100vh-3rem)] overflow-y-auto hide-scrollbar"
     >
       <div className="w-full mb-2">
         <UniversalSearch
@@ -1937,10 +1938,10 @@ const ClusterTab = ({
                         <span className="text-[#FFF]">
                           {btcPrice && exchangeData.trade_volume_24h_btc
                             ? formatPrice(
-                              Number(exchangeData.trade_volume_24h_btc) * btcPrice,
-                              currency,
-                              2,
-                            )
+                                Number(exchangeData.trade_volume_24h_btc) * btcPrice,
+                                currency,
+                                2,
+                              )
                             : 'Not available'}
                         </span>
                       </div>
@@ -2185,22 +2186,11 @@ const ClusterTab = ({
           chainLogos={chainLogos}
         />
       )}
-      <ToastContainer
-        position="top-center"
-        autoClose={5000}
-        theme="dark"
-        toastStyle={{
-          backgroundColor: 'rgba(0, 0, 0, 0.9)',
-          backdropFilter: 'blur(20px)',
-          border: '1px solid rgba(255, 255, 255, 0.1)',
-          borderRadius: '16px',
-        }}
-      />
     </motion.div>
   )
 }
 export default React.memo(ClusterTab)
-  ; <style jsx global>{`
+;<style jsx global>{`
   /* Scrollbar mượt */
   .custom-scrollbar::-webkit-scrollbar {
     width: 5px;

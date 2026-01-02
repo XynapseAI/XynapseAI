@@ -179,6 +179,7 @@ model users {
   twitter_handles      twitter_handles?
   invite_code  String?   @unique @db.VarChar(20)
   invited_by   String?
+  invited_count   Int    @default(0)
   invitedUsers users[]   @relation("UserInvites")
   inviter      users?    @relation("UserInvites", fields: [invited_by], references: [id])
 

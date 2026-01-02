@@ -554,7 +554,6 @@ const ClusterDashboard = memo(({ entity, isMobile, tokenImages, walletInfo }) =>
     return null
   }
   const { data: cluster } = entity
-  // Tính toán metrics an toàn
   const totalValue =
     cluster.totalValue || cluster.wallets.reduce((sum, w) => sum + parseFloat(w.totalValue || 0), 0)
   const velocity = cluster.velocity || 0
@@ -562,8 +561,6 @@ const ClusterDashboard = memo(({ entity, isMobile, tokenImages, walletInfo }) =>
   const topTokensVolume = cluster.topTokensVolume || []
   const outstandingTxs = cluster.outstandingTxs || []
   const riskScore = cluster.riskScore || 0
-  // FIX CHẮC CHẮN: Đây là cluster đang hiển thị → nếu walletInfo có data → dùng nó làm hotspot
-  // Vì khi click vào root node hoặc cluster chứa root → selectedEntity luôn là cluster của root
   const displayNametag =
     walletInfo?.nametag && walletInfo.nametag !== 'Unknown'
       ? walletInfo.nametag
@@ -682,88 +679,243 @@ const ClusterDashboard = memo(({ entity, isMobile, tokenImages, walletInfo }) =>
 const CACHE_TTL = 7200000 // Increased to 2 hours for longer caching
 const NODES_PER_PAGE = 50
 const MAX_NODES = 1000 // Scalability limit
+
+// CLUTERING
 function simpleRuleBasedClustering(nodesData, edgesData) {
   const clusters = []
   const nodeMap = new Map(nodesData.map((n) => [n.id.toLowerCase(), n]))
+
+  // Adjacency list & txs per node
   const adjList = new Map()
-  nodesData.forEach((n) => adjList.set(n.id.toLowerCase(), new Set()))
-  edgesData.forEach((e) => {
-    adjList.get(e.source.toLowerCase())?.add(e.target.toLowerCase())
-    adjList.get(e.target.toLowerCase())?.add(e.source.toLowerCase())
+  const txMap = new Map()
+  nodesData.forEach((n) => {
+    const id = n.id.toLowerCase()
+    adjList.set(id, new Set())
+    txMap.set(id, [])
   })
-  // Compute per-node metrics for better labeling
+
+  edgesData.forEach((e) => {
+    const s = e.source.toLowerCase()
+    const t = e.target.toLowerCase()
+    if (nodeMap.has(s) && nodeMap.has(t)) {
+      adjList.get(s).add(t)
+      adjList.get(t).add(s)
+      txMap.get(s).push(e)
+      txMap.get(t).push(e)
+    }
+  })
+
+  // Compute basic per-node metrics
   nodesData.forEach((node) => {
-    const nodeTxs = edgesData.filter(
-      (e) =>
-        e.source.toLowerCase() === node.id.toLowerCase() ||
-        e.target.toLowerCase() === node.id.toLowerCase(),
-    )
-    node.degree = adjList.get(node.id.toLowerCase())?.size || 0
-    node.txCount = node.txCount || nodeTxs.length
+    const id = node.id.toLowerCase()
+    const nodeTxs = txMap.get(id) || []
+    node.degree = adjList.get(id)?.size || 0
+    node.txCount = nodeTxs.length
+
     const times = nodeTxs
       .map((e) =>
         typeof e.block_time === 'number' ? e.block_time * 1000 : new Date(e.block_time).getTime(),
       )
-      .filter((t) => t)
+      .filter((t) => !isNaN(t))
       .sort((a, b) => a - b)
+
     let velocity = 0
     if (times.length > 1) {
       const spanDays = (times[times.length - 1] - times[0]) / 86400000
       velocity = times.length / Math.max(spanDays, 1)
     }
     node.velocity = velocity
-    const uniqueTokens = new Set(nodeTxs.map((e) => e.tokenSymbol || 'unknown')).size
-    node.uniqueTokens = uniqueTokens
-    // Enhanced rule-based autoLabel - Only assign for Institution, Whale, Exchange, NFT Collector
+    node.uniqueTokens = new Set(nodeTxs.map((e) => e.tokenSymbol || 'unknown')).size
+
+    // Simple autoLabel
     let autoLabel = null
     const totalValue = parseFloat(node.totalValue || 0)
     const txCount = node.txCount || 0
     const degree = node.degree || 0
     if (degree > 20 || txCount > 500) autoLabel = 'Exchange'
-    else if (totalValue > 1000000) autoLabel = 'Whale'
-    else if (totalValue > 100000 && degree > 8 && velocity < 1.5) autoLabel = 'Institution'
-    else if (uniqueTokens >= 30) autoLabel = 'NFT Collector'
+    else if (totalValue > 10000000) autoLabel = 'Whale'
+    else if (totalValue > 1000000 && degree > 8 && velocity < 1.5) autoLabel = 'Institution'
+    else if (node.uniqueTokens >= 30) autoLabel = 'NFT Collector'
     node.autoLabel = autoLabel
   })
-  // Simple: Group by shared label (nametag) or high degree (>3), add auto-label preview only if applicable
-  const groups = new Map()
+
+  // Union-Find for merging
+  const parent = new Map()
+  const rank = new Map()
+  nodesData.forEach((n) => {
+    const id = n.id.toLowerCase()
+    parent.set(id, id)
+    rank.set(id, 0)
+  })
+
+  const find = (x) => {
+    if (parent.get(x) !== x) parent.set(x, find(parent.get(x)))
+    return parent.get(x)
+  }
+
+  const union = (x, y) => {
+    const px = find(x)
+    const py = find(y)
+    if (px === py) return
+    const rx = rank.get(px) || 0
+    const ry = rank.get(py) || 0
+    if (rx > ry) parent.set(py, px)
+    else if (rx < ry) parent.set(px, py)
+    else {
+      parent.set(py, px)
+      rank.set(px, rx + 1)
+    }
+  }
+
+  // 1. Group
   nodesData.forEach((node) => {
-    const key =
-      node.label !== 'Unknown'
-        ? node.label
-        : node.autoLabel
-          ? `auto_${node.autoLabel}_${node.degree > 3 ? 'hub' : 'solo'}`
-          : truncateAddress(node.id)
-    if (!groups.has(key))
-      groups.set(key, { wallets: [], transactions: [], autoLabel: node.autoLabel })
-    groups.get(key).wallets.push({ ...node, autoLabel: node.autoLabel }) // Add to node
-  })
-  // Assign tx (simple: all to group if connected)
-  edgesData.forEach((edge) => {
-    const sourceKey = [...groups.entries()].find(([k, g]) =>
-      g.wallets.some((w) => w.id.toLowerCase() === edge.source.toLowerCase()),
-    )?.[0]
-    if (sourceKey) groups.get(sourceKey).transactions.push({ ...edge })
-  })
-  groups.forEach((group, key) => {
-    if (
-      group.wallets.length >= 2 &&
-      group.wallets.some((w) => w.label !== 'Unknown' || w.autoLabel)
-    ) {
-      const cluster = {
-        clusterId: key,
-        nametag: key,
-        wallets: group.wallets,
-        transactions: [...new Set(group.transactions.map(JSON.stringify))].map(JSON.parse),
-        riskScore: 0.3, // Default low
-        autoLabel: group.autoLabel || null, // Preview only if applicable
-      }
-      const metrics = computeMetrics(cluster.transactions, cluster.wallets)
-      clusters.push({ ...cluster, ...metrics })
+    if (node.label && node.label !== 'Unknown') {
+      nodesData.forEach((other) => {
+        if (other.label === node.label && other.id.toLowerCase() !== node.id.toLowerCase()) {
+          union(node.id.toLowerCase(), other.id.toLowerCase())
+        }
+      })
     }
   })
+
+  // 2. Splitting heuristic
+  const SPLIT_TIME_WINDOW = 24 * 3600 * 1000 // 24h
+  nodesData.forEach((node) => {
+    const id = node.id.toLowerCase()
+    const myTxs = txMap.get(id) || []
+    const outgoing = myTxs.filter((tx) => tx.source.toLowerCase() === id)
+    const incoming = myTxs.filter((tx) => tx.target.toLowerCase() === id)
+
+    if (outgoing.length >= 5 && outgoing.length > incoming.length) {
+      const byToken = new Map()
+      outgoing.forEach((tx) => {
+        const token = tx.tokenSymbol || tx.contractAddress || 'native'
+        if (!byToken.has(token)) byToken.set(token, [])
+        byToken.get(token).push(tx)
+      })
+
+      byToken.forEach((txs) => {
+        const times = txs.map((tx) =>
+          typeof tx.block_time === 'number'
+            ? tx.block_time * 1000
+            : new Date(tx.block_time).getTime(),
+        )
+        if (times.length === 0) return
+        const minT = Math.min(...times)
+        const maxT = Math.max(...times)
+        if (maxT - minT <= SPLIT_TIME_WINDOW) {
+          const totalOut = txs.reduce((s, tx) => s + Number(tx.value || 0), 0)
+          const totalIn = incoming.reduce((s, tx) => s + Number(tx.value || 0), 0)
+          if (totalOut >= totalIn * 0.8 || totalIn === 0) {
+            txs.forEach((tx) => {
+              const target = tx.target.toLowerCase()
+              if (nodeMap.has(target)) union(id, target)
+            })
+          }
+        }
+      })
+    }
+  })
+
+  // 3. Relay / flow continuation heuristic
+  const RELAY_TIME_WINDOW = 2 * 3600 * 1000 // 2h
+  const RELAY_VALUE_TOLERANCE = 0.2
+  edgesData.forEach((e) => {
+    const source = e.source.toLowerCase()
+    const target = e.target.toLowerCase()
+    const token = e.tokenSymbol || e.contractAddress || 'native'
+    const value = Number(e.value || 0)
+    const time =
+      typeof e.block_time === 'number' ? e.block_time * 1000 : new Date(e.block_time).getTime()
+
+    const targetOutgoings = (txMap.get(target) || []).filter(
+      (tx) =>
+        tx.source.toLowerCase() === target &&
+        (tx.tokenSymbol || tx.contractAddress || 'native') === token,
+    )
+
+    const matchingOut = targetOutgoings.find((ot) => {
+      const otTime =
+        typeof ot.block_time === 'number' ? ot.block_time * 1000 : new Date(ot.block_time).getTime()
+      const otValue = Number(ot.value || 0)
+      return (
+        Math.abs(otTime - time) <= RELAY_TIME_WINDOW &&
+        Math.abs(otValue - value) / value <= RELAY_VALUE_TOLERANCE
+      )
+    })
+
+    if (matchingOut) {
+      const nextTarget = matchingOut.target.toLowerCase()
+      if (nodeMap.has(nextTarget)) union(target, nextTarget)
+    }
+  })
+
+  // Build groups
+  const groups = new Map()
+  nodesData.forEach((node) => {
+    const id = node.id.toLowerCase()
+    const root = find(id)
+    if (!groups.has(root)) groups.set(root, { wallets: [], transactions: new Set() })
+    groups.get(root).wallets.push(node)
+  })
+
+  edgesData.forEach((edge) => {
+    const s = edge.source.toLowerCase()
+    const t = edge.target.toLowerCase()
+    const rootS = find(s)
+    const rootT = find(t)
+    if (rootS === rootT && groups.has(rootS)) {
+      groups.get(rootS).transactions.add(JSON.stringify(edge))
+    }
+  })
+
+  for (const { wallets, transactions } of groups.values()) {
+    if (wallets.length < 2) continue
+
+    const uniqueTxs = Array.from(transactions).map(JSON.parse)
+
+    const totalValue = wallets.reduce((sum, w) => sum + parseFloat(w.totalValue || 0), 0)
+
+    const times = uniqueTxs
+      .map((tx) =>
+        typeof tx.block_time === 'number'
+          ? tx.block_time * 1000
+          : new Date(tx.block_time).getTime(),
+      )
+      .filter((t) => !isNaN(t))
+      .sort((a, b) => a - b)
+
+    const velocity =
+      times.length > 1
+        ? uniqueTxs.length / Math.max((times[times.length - 1] - times[0]) / 86400000, 1)
+        : 0
+
+    const uniqueTokens = new Set(uniqueTxs.map((t) => t.tokenSymbol || 'unknown')).size
+    const outstandingTxs = uniqueTxs.slice(0, 5)
+    const topTokensVolume = []
+
+    const nametag =
+      wallets.find((w) => w.label !== 'Unknown')?.label || wallets[0].autoLabel || 'Cluster'
+
+    clusters.push({
+      clusterId: nametag + '_' + wallets[0].id.slice(0, 8),
+      nametag,
+      image: wallets[0]?.image || null,
+      wallets,
+      transactions: uniqueTxs,
+      totalValue: totalValue.toString(),
+      riskScore: 0.3,
+      velocity,
+      uniqueTokens,
+      topTokensVolume,
+      outstandingTxs,
+      autoLabel: wallets.find((w) => w.autoLabel)?.autoLabel,
+    })
+  }
+
   return clusters
 }
+
 export default function TreemapTab({ initialChain = 'ethereum', initialAddress = '' }) {
   const { data: session, status } = useSession()
   const router = useRouter()
@@ -826,7 +978,7 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
   }, [fetchUserData])
   useEffect(() => {
     if (fullIncomingData.length > 0 || fullOutgoingData.length > 0 || fullLayer3Data.length > 0) {
-      ;(async () => {
+      ; (async () => {
         const {
           nodes: newNodes,
           edges: newEdges,
@@ -2099,32 +2251,14 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
   }, [coingeckoChains])
   if (status !== 'authenticated') {
     return (
-      <div className="font-inter w-full max-w-9xl mx-auto mt-4 sm:mt-5 p-2 sm:p-3 h-[calc(100vh)] rounded-xl bg-white/5 flex items-center justify-center">
-        <ToastContainer
-          position="top-center"
-          autoClose={5000}
-          hideProgressBar={false}
-          closeOnClick
-          pauseOnHover
-          draggable
-          theme="dark"
-        />
+      <div className="w-full max-w-9xl mx-auto mt-4 sm:mt-5 p-2 sm:p-3 h-[calc(100vh)] rounded-xl bg-white/5 flex items-center justify-center">
         <LoginPrompt />
       </div>
     )
   }
   if (isMobile && showMobileWarning) {
     return (
-      <div className="font-inter w-full max-w-9xl mx-auto mt-4 sm:mt-5 p-2 sm:p-3 h-[calc(100vh)] rounded-xl bg-white/5 flex items-center justify-center">
-        <ToastContainer
-          position="top-center"
-          autoClose={5000}
-          hideProgressBar={false}
-          closeOnClick
-          pauseOnHover
-          draggable
-          theme="dark"
-        />
+      <div className="w-full max-w-9xl mx-auto mt-4 sm:mt-5 p-2 sm:p-3 h-[calc(100vh)] rounded-xl bg-white/5 flex items-center justify-center">
         <div className="p-6 sm:p-8 text-center max-w-md w-full">
           <div className="mb-4">
             <svg
@@ -2163,17 +2297,8 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
   }
   return (
     <div
-      className={`font-inter w-full max-w-9xl mx-auto mt-2 sm:mt-3 p-2 sm:p-3 h-[calc(100vh)] rounded-xl bg-white/5 ${isMobile ? 'pb-8 overflow-y-auto hide-scrollbar' : 'flex'}`}
+      className={`w-full max-w-9xl mx-auto mt-2 sm:mt-3 p-2 sm:p-3 h-[calc(100vh)] rounded-xl bg-white/5 ${isMobile ? 'pb-8 overflow-y-auto hide-scrollbar' : 'flex'}`}
     >
-      <ToastContainer
-        position="top-center"
-        autoClose={5000}
-        hideProgressBar={false}
-        closeOnClick
-        pauseOnHover
-        draggable
-        theme="dark"
-      />
       <div className={`flex-1 ${isMobile ? '' : 'pr-4'}`}>
         <div className="mb-2 sm:mb-3 pb-2">
           <div className="flex items-center justify-between gap-2 sm:gap-3 flex-wrap">
@@ -2404,7 +2529,7 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
                             scale: 0.95,
                             transition: { duration: 0.2, ease: 'easeInOut' }, // Reduced
                           }}
-                          className={`text-white/80 text-xs font-inter ${index === logMessages.length - 1 ? 'text-neon-blue font-semibold animate-pulse' : 'text-white/60'}`}
+                          className={`text-white/80 text-xs ${index === logMessages.length - 1 ? 'text-neon-blue font-semibold animate-pulse' : 'text-white/60'}`}
                         >
                           <span className="text-neon-blue mr-2">•</span>
                           {log.text}

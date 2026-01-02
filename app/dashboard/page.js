@@ -15,6 +15,7 @@ import EtfTab from '../../components/EtfTab'
 import DexTab from '../../components/DexTab'
 import ReCAPTCHA from 'react-google-recaptcha'
 import { toast, ToastContainer } from 'react-toastify'
+import 'react-toastify/dist/ReactToastify.css'
 import MatrixHoverEffect from '../../components/MatrixHoverEffect'
 import { motion } from 'framer-motion'
 import Image from 'next/image'
@@ -486,12 +487,12 @@ function DashboardInner() {
       forceBase, // NEW: Log force flag
       isBaseAppDetected,
     }) // NEW: Debug log
-    const sdkAvailable = typeof sdk !== 'undefined' && !!sdk.quickAuth && !!sdk.actions.addMiniApp // THÊM: Check addMiniApp có sẵn
+    const sdkAvailable = typeof sdk !== 'undefined' && !!sdk.quickAuth && !!sdk.actions.addMiniApp
     const miniAppDetected =
       (isSDKLoaded && (context === 'miniapp' || !!miniAppUser)) ||
       isWarpcastDetected ||
       sdkAvailable ||
-      isBaseAppDetected // Giữ để support Neynar nếu cần cho khác
+      isBaseAppDetected
     setIsMiniApp(miniAppDetected)
     if (isBaseAppDetected) {
       setFallbackToManual(true)
@@ -752,7 +753,7 @@ function DashboardInner() {
       const cleanUrl = window.location.pathname + window.location.hash
       window.history.replaceState({}, '', cleanUrl)
     }
-  }, []) // Chỉ chạy 1 lần khi mount
+  }, [])
 
   // useEffect(() => {
   // if (activeTab === 'etf' && router) {
@@ -1012,7 +1013,7 @@ function DashboardInner() {
                   initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ duration: 0.8, ease: 'easeOut' }}
-                  className="w-full h-full p-4 md:p-0 flex items-center justify-center text-white font-saira relative"
+                  className="w-full h-full p-4 md:p-0 flex items-center justify-center text-white font-satoshi relative"
                 >
                   <motion.div
                     initial={{ opacity: 0, y: 20 }}
@@ -1049,7 +1050,7 @@ function DashboardInner() {
                   initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ duration: 0.8, ease: 'easeOut' }}
-                  className="w-full h-full p-4 md:p-0 flex items-center justify-center text-white font-saira relative"
+                  className="w-full h-full p-4 md:p-0 flex items-center justify-center text-white font-satoshi relative"
                 >
                   <motion.div
                     initial={{ opacity: 0, y: 20 }}
@@ -1089,7 +1090,7 @@ function DashboardInner() {
                   initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ duration: 0.8, ease: 'easeOut' }}
-                  className="w-full h-full p-4 md:p-0 flex items-center justify-center text-white font-saira relative"
+                  className="w-full h-full p-4 md:p-0 flex items-center justify-center text-white font-satoshi relative"
                 >
                   <motion.div
                     initial={{ opacity: 0, y: 20 }}
@@ -1126,7 +1127,7 @@ function DashboardInner() {
                   initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ duration: 0.8, ease: 'easeOut' }}
-                  className="w-full h-full p-4 md:p-0 flex items-center justify-center text-white font-saira relative"
+                  className="w-full h-full p-4 md:p-0 flex items-center justify-center text-white font-satoshi relative"
                 >
                   {isBaseApp ? (
                     // UPDATED: Special frame for Base App - Custom button calls handleMiniAppQuickAuth (trigger deeplink like old auto, but manual)
@@ -1157,7 +1158,7 @@ function DashboardInner() {
                       <button
                         onClick={handleMiniAppQuickAuth} // UPDATED: Call SDK quickAuth → Deeplink to Warpcast like old auto
                         disabled={miniAppAuthLoading || worldAuthLoading} // NEW: Disable during loading
-                        className="w-full px-4 py-2.5 border-2 border-white/15 bg-white/10 text-white rounded-2xl text-sm font-semibold transition-all duration-300 hover:border-white/30 hover:bg-white/20 flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed"
+                        className="w-full px-4 py-2.5 border-2 border-white/15 bg-white/10 text-white rounded-lg text-sm font-semibold transition-all duration-300 hover:border-white/30 hover:bg-white/20 flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed"
                       >
                         {miniAppAuthLoading ? (
                           <BlinkingDots />
@@ -1344,7 +1345,6 @@ function DashboardInner() {
                 </motion.div>
               ) : (
                 <>
-                  {/* FIX: Thêm teaser content cho tabs cần auth để Google crawl partial content (SEO) */}
                   {requiresAuth && status === 'unauthenticated' ? (
                     <motion.div
                       initial={{ opacity: 0, y: 20 }}
@@ -1356,7 +1356,6 @@ function DashboardInner() {
                         Sign in to access {activeTab} features. Xynapse offers advanced blockchain
                         analytics for crypto enthusiasts.
                       </p>
-                      {/* Có thể thêm CTA button login nếu cần */}
                     </motion.div>
                   ) : (
                     <>
@@ -1447,10 +1446,23 @@ function DashboardInner() {
           </p>
           <ToastContainer
             position="top-center"
-            autoClose={2000}
-            hideProgressBar
+            autoClose={3000}
+            hideProgressBar={false}
+            newestOnTop={false}
             closeOnClick
+            rtl={false}
+            pauseOnFocusLoss
+            draggable
             pauseOnHover
+            theme="dark"
+            limit={3}
+            toastStyle={{
+              backgroundColor: 'rgba(0, 0, 0, 0.9)',
+              backdropFilter: 'blur(20px)',
+              border: '1px solid rgba(255, 255, 255, 0.1)',
+              borderRadius: '16px',
+              color: '#FFF',
+            }}
           />
           {/* Modal for Terms and Privacy */}
           {isModalOpen && (

@@ -1,3 +1,4 @@
+// scripts\add-invite-codes.js
 import { PrismaClient } from '@prisma/client'
 import crypto from 'crypto'
 
@@ -7,31 +8,31 @@ async function generateUniqueInviteCode() {
   let code
   let exists = true
   while (exists) {
-    code = crypto.randomBytes(8).toString('hex') // 16 chars hex
+    // Tạo 16 ký tự hex và chuyển sang chữ hoa
+    code = crypto.randomBytes(8).toString('hex').toUpperCase()
     const user = await prisma.users.findUnique({ where: { invite_code: code } })
     exists = !!user
   }
   return code
 }
 
-async function addInviteCodes() {
+async function regenerateAllInviteCodes() {
   try {
-    const usersWithoutCode = await prisma.users.findMany({
-      where: { invite_code: null },
-    })
+    // Lấy TẤT CẢ users (không có điều kiện where)
+    const allUsers = await prisma.users.findMany({})
 
-    console.log(`Found ${usersWithoutCode.length} users without invite code.`)
+    console.log(`Found ${allUsers.length} users in total. Regenerating invite codes for all...`)
 
-    for (const user of usersWithoutCode) {
-      const inviteCode = await generateUniqueInviteCode()
+    for (const user of allUsers) {
+      const newInviteCode = await generateUniqueInviteCode()
       await prisma.users.update({
         where: { id: user.id },
-        data: { invite_code: inviteCode },
+        data: { invite_code: newInviteCode },
       })
-      console.log(`Added invite code ${inviteCode} to user ${user.id}`)
+      console.log(`Regenerated invite code ${newInviteCode} for user ${user.id} (old code was: ${user.invite_code || 'none'})`)
     }
 
-    console.log('Done adding invite codes.')
+    console.log('Done regenerating invite codes for all users.')
   } catch (error) {
     console.error('Error:', error)
   } finally {
@@ -39,4 +40,4 @@ async function addInviteCodes() {
   }
 }
 
-addInviteCodes()
+regenerateAllInviteCodes()

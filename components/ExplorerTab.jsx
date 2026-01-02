@@ -2082,8 +2082,7 @@ export default function ExplorerTab({ initialQuery, initialChain, isStandalone =
         </motion.div>
     )
     return (
-        <div className="font-inter w-full max-w-9xl mx-auto p-2 sm:p-3 bg-[#0A0A0A]/80 backdrop-blur-md flex flex-col h-full overflow-y-auto custom-scrollbar relative">
-            <ToastContainer position="top-right" autoClose={1500} theme="dark" />
+        <div className="w-full max-w-9xl mx-auto p-2 sm:p-3 bg-[#0A0A0A]/80 backdrop-blur-md flex flex-col h-full overflow-y-auto custom-scrollbar relative">
             <LoadingOverlay
                 isLoading={isOverallLoading}
                 isMobile={isMobile}

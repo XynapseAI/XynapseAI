@@ -1,178 +1,189 @@
-'use client';
-import { motion } from 'framer-motion';
-import { useState, useEffect, useRef } from 'react';
-import axios from 'axios';
-import { ClipboardIcon, MagnifyingGlassIcon, CheckIcon } from '@heroicons/react/24/outline';
-import { useSession } from 'next-auth/react';
-import ReactMarkdown from 'react-markdown';
-import remarkGfm from 'remark-gfm';
-import rehypeHighlight from 'rehype-highlight';
-import 'highlight.js/styles/github-dark.css';
-import { ToastContainer, toast } from 'react-toastify';
-import 'react-toastify/dist/ReactToastify.css';
-import Image from 'next/image';
+'use client'
+import { motion } from 'framer-motion'
+import { useState, useEffect, useRef } from 'react'
+import axios from 'axios'
+import { ClipboardIcon, MagnifyingGlassIcon, CheckIcon } from '@heroicons/react/24/outline'
+import { useSession } from 'next-auth/react'
+import ReactMarkdown from 'react-markdown'
+import remarkGfm from 'remark-gfm'
+import rehypeHighlight from 'rehype-highlight'
+import 'highlight.js/styles/github-dark.css'
+import { ToastContainer, toast } from 'react-toastify'
+import 'react-toastify/dist/ReactToastify.css'
+import Image from 'next/image'
 
 export default function AITab({ recaptchaRef }) {
-  const { data: session, status } = useSession();
-  const [isModelMenuOpen, setIsModelMenuOpen] = useState(false);
-  const [selectedModel, setSelectedModel] = useState('Grok 3');
-  const [prompt, setPrompt] = useState('');
-  const [chatHistory, setChatHistory] = useState([]);
-  const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState(null);
-  const [useDeepSearch, setUseDeepSearch] = useState(false);
-  const [typingText, setTypingText] = useState('');
-  const [searchLinks, setSearchLinks] = useState([]);
-  const [copiedStates, setCopiedStates] = useState({});
-  const [dailyInteractions, setDailyInteractions] = useState(0);
-  const [totalDailyChats, setTotalDailyChats] = useState(0);
-  const chatContainerRef = useRef(null);
-  const toggleButtonRef = useRef(null);
-  const textareaRef = useRef(null);
-  const menuRef = useRef(null);
-  const [isMobile, setIsMobile] = useState(false);
+  const { data: session, status } = useSession()
+  const [isModelMenuOpen, setIsModelMenuOpen] = useState(false)
+  const [selectedModel, setSelectedModel] = useState('Grok 3')
+  const [prompt, setPrompt] = useState('')
+  const [chatHistory, setChatHistory] = useState([])
+  const [isLoading, setIsLoading] = useState(false)
+  const [error, setError] = useState(null)
+  const [useDeepSearch, setUseDeepSearch] = useState(false)
+  const [typingText, setTypingText] = useState('')
+  const [searchLinks, setSearchLinks] = useState([])
+  const [copiedStates, setCopiedStates] = useState({})
+  const [dailyInteractions, setDailyInteractions] = useState(0)
+  const [totalDailyChats, setTotalDailyChats] = useState(0)
+  const chatContainerRef = useRef(null)
+  const toggleButtonRef = useRef(null)
+  const textareaRef = useRef(null)
+  const menuRef = useRef(null)
+  const [isMobile, setIsMobile] = useState(false)
 
-  const models = ['Grok 3', 'GPT 4o', 'Gemini-2.5'];
-  const maxDailyInteractions = 5;
-  const maxTotalDailyChats = 50;
+  const models = ['Grok 3', 'GPT 4o', 'Gemini-2.5']
+  const maxDailyInteractions = 5
+  const maxTotalDailyChats = 50
 
   useEffect(() => {
     async function fetchDailyInteractions() {
       if (session?.user?.id) {
         try {
-          const response = await axios.get(`/api/daily-ai-interactions?uid=${session.user.id}&interactionType=chat`, {
-            headers: {
-              'x-csrf-token': process.env.NEXT_PUBLIC_CSRF_TOKEN || '7b3a9f8c2d6e4b1a0c9d8e7f6a5b4c3d2e1f0a9b8c7d6e5f4a3a2c1d0e9f8a7',
+          const response = await axios.get(
+            `/api/daily-ai-interactions?uid=${session.user.id}&interactionType=chat`,
+            {
+              headers: {
+                'x-csrf-token':
+                  process.env.NEXT_PUBLIC_CSRF_TOKEN ||
+                  '7b3a9f8c2d6e4b1a0c9d8e7f6a5b4c3d2e1f0a9b8c7d6e5f4a3a2c1d0e9f8a7',
+              },
+              withCredentials: true,
             },
-            withCredentials: true,
-          });
+          )
           if (response.data.success) {
-            setDailyInteractions(Math.min(response.data.pointsCount, maxDailyInteractions));
-            setTotalDailyChats(response.data.totalCount);
+            setDailyInteractions(Math.min(response.data.pointsCount, maxDailyInteractions))
+            setTotalDailyChats(response.data.totalCount)
           }
         } catch (err) {
-          console.error('Error fetching daily interactions:', err.response?.data || err.message);
-          setError('Failed to fetch daily interaction count: ' + (err.response?.data?.detail || err.message));
+          console.error('Error fetching daily interactions:', err.response?.data || err.message)
+          setError(
+            'Failed to fetch daily interaction count: ' +
+              (err.response?.data?.detail || err.message),
+          )
         }
       }
     }
-    fetchDailyInteractions();
-  }, [session]);
+    fetchDailyInteractions()
+  }, [session])
 
   const executeRecaptcha = async (action = 'chat') => {
     if (!recaptchaRef.current) {
-      throw new Error('reCAPTCHA not initialized.');
+      throw new Error('reCAPTCHA not initialized.')
     }
     try {
-      const token = await recaptchaRef.current.executeAsync({ action });
-      console.log('reCAPTCHA token generated:', { action, token: token.substring(0, 8) + '...' });
-      return token;
+      const token = await recaptchaRef.current.executeAsync({ action })
+      console.log('reCAPTCHA token generated:', { action, token: token.substring(0, 8) + '...' })
+      return token
     } catch (error) {
-      console.error('reCAPTCHA execution error:', error);
-      throw new Error('Failed to execute reCAPTCHA.');
+      console.error('reCAPTCHA execution error:', error)
+      throw new Error('Failed to execute reCAPTCHA.')
     }
-  };
+  }
 
   const getFaviconUrl = (url) => {
     try {
-      const domain = new URL(url).hostname;
-      return `https://www.google.com/s2/favicons?domain=${domain}&sz=32`;
+      const domain = new URL(url).hostname
+      return `https://www.google.com/s2/favicons?domain=${domain}&sz=32`
     } catch {
-      return '/favicon.ico';
+      return '/favicon.ico'
     }
-  };
+  }
 
   const getCodeTitle = (prompt) => {
-    if (!prompt) return '@';
-    const cleanPrompt = prompt.replace(/[<>{}]/g, '').trim().slice(0, 30);
-    const keywords = ['code', 'script', 'program', 'function', 'program', 'analyze', 'build'];
+    if (!prompt) return '@'
+    const cleanPrompt = prompt
+      .replace(/[<>{}]/g, '')
+      .trim()
+      .slice(0, 30)
+    const keywords = ['code', 'script', 'program', 'function', 'program', 'analyze', 'build']
     const keyTerm = cleanPrompt
       .split(' ')
-      .find((word) => keywords.some((kw) => word.toLowerCase().includes(kw)));
-    return keyTerm ? keyTerm.charAt(0).toUpperCase() + keyTerm.slice(1) : '@';
-  };
+      .find((word) => keywords.some((kw) => word.toLowerCase().includes(kw)))
+    return keyTerm ? keyTerm.charAt(0).toUpperCase() + keyTerm.slice(1) : '@'
+  }
 
   const copyToClipboard = (codeRef, id) => {
     try {
       if (codeRef.current) {
-        const codeText = codeRef.current.innerText;
+        const codeText = codeRef.current.innerText
         navigator.clipboard.writeText(codeText).then(() => {
-          setCopiedStates((prev) => ({ ...prev, [id]: true }));
+          setCopiedStates((prev) => ({ ...prev, [id]: true }))
           toast.success('Code copied to clipboard!', {
             position: 'top-center',
             autoClose: 3000,
-          });
+          })
           setTimeout(() => {
-            setCopiedStates((prev) => ({ ...prev, [id]: false }));
-          }, 2000);
-        });
+            setCopiedStates((prev) => ({ ...prev, [id]: false }))
+          }, 2000)
+        })
       }
     } catch (err) {
-      console.error('Error copying text:', err);
-      setError('Failed to copy content.');
+      console.error('Error copying text:', err)
+      setError('Failed to copy content.')
       toast.error('Failed to copy code.', {
         position: 'top-center',
         autoClose: 3000,
-      });
+      })
     }
-  };
+  }
 
   const handleSendPrompt = async (e) => {
-    e.preventDefault();
+    e.preventDefault()
     if (!prompt.trim()) {
-      setError('Please enter a prompt.');
+      setError('Please enter a prompt.')
       toast.error('Please enter a prompt.', {
         position: 'top-center',
         autoClose: 3000,
-      });
-      return;
+      })
+      return
     }
 
     if (status !== 'authenticated') {
-      setError('Please log in to interact with the AI.');
+      setError('Please log in to interact with the AI.')
       toast.error('Please log in to interact with the AI.', {
         position: 'top-center',
         autoClose: 3000,
-      });
-      return;
+      })
+      return
     }
 
     if (totalDailyChats >= maxTotalDailyChats) {
       toast.error('You have reached the maximum of 50 daily chats. Try again tomorrow.', {
         position: 'top-center',
         autoClose: 3000,
-      });
-      return;
+      })
+      return
     }
 
-    const userMessage = { role: 'user', content: prompt };
-    setChatHistory((prev) => [...prev, userMessage]);
-    setPrompt('');
-    setIsLoading(true);
-    setError(null);
-    setTypingText('');
-    setSearchLinks([]);
+    const userMessage = { role: 'user', content: prompt }
+    setChatHistory((prev) => [...prev, userMessage])
+    setPrompt('')
+    setIsLoading(true)
+    setError(null)
+    setTypingText('')
+    setSearchLinks([])
 
     try {
-      console.log(`Sending prompt to ${selectedModel} API:`, { prompt, deepSearch: useDeepSearch });
+      console.log(`Sending prompt to ${selectedModel} API:`, { prompt, deepSearch: useDeepSearch })
 
-      let apiEndpoint;
+      let apiEndpoint
       switch (selectedModel.toLowerCase()) {
         case 'grok 3':
-          apiEndpoint = '/api/grok';
-          break;
+          apiEndpoint = '/api/grok'
+          break
         case 'gpt 4o':
-          apiEndpoint = '/api/openai';
-          break;
+          apiEndpoint = '/api/openai'
+          break
         case 'gemini-2.5':
-          apiEndpoint = '/api/gemini';
-          break;
+          apiEndpoint = '/api/gemini'
+          break
         default:
-          throw new Error('Unsupported model');
+          throw new Error('Unsupported model')
       }
 
-      const tokenSymbol = prompt.match(/bitcoin|eth|sol|ada|xrp|doge|crypto/i)?.[0]?.toUpperCase();
-      const recaptchaToken = await executeRecaptcha('chat');
+      const tokenSymbol = prompt.match(/bitcoin|eth|sol|ada|xrp|doge|crypto/i)?.[0]?.toUpperCase()
+      const recaptchaToken = await executeRecaptcha('chat')
 
       const response = await axios.post(
         apiEndpoint,
@@ -184,22 +195,29 @@ export default function AITab({ recaptchaRef }) {
         },
         {
           headers: {
-            'x-csrf-token': process.env.NEXT_PUBLIC_CSRF_TOKEN || '7b3a9f8c2d6e4b1a0c9d8e7f6a5b4c3d2e1f0a9b8c7d6e5f4a3a2c1d0e9f8a7',
+            'x-csrf-token':
+              process.env.NEXT_PUBLIC_CSRF_TOKEN ||
+              '7b3a9f8c2d6e4b1a0c9d8e7f6a5b4c3d2e1f0a9b8c7d6e5f4a3a2c1d0e9f8a7',
           },
           withCredentials: true,
-        }
-      );
-      console.log(`${selectedModel} API response:`, response.data);
-      const { answer, links } = response.data;
+        },
+      )
+      console.log(`${selectedModel} API response:`, response.data)
+      const { answer, links } = response.data
 
-      const assistantMessage = { role: 'assistant', content: answer, links: useDeepSearch ? links : [], prompt };
-      setChatHistory((prev) => [...prev, assistantMessage]);
-      setSearchLinks(useDeepSearch ? links : []);
+      const assistantMessage = {
+        role: 'assistant',
+        content: answer,
+        links: useDeepSearch ? links : [],
+        prompt,
+      }
+      setChatHistory((prev) => [...prev, assistantMessage])
+      setSearchLinks(useDeepSearch ? links : [])
 
       if (session?.user?.id) {
-        console.log('Saving AI interaction for user:', session.user.id);
+        console.log('Saving AI interaction for user:', session.user.id)
         try {
-          const interactionRecaptchaToken = await executeRecaptcha('ai_interaction');
+          const interactionRecaptchaToken = await executeRecaptcha('ai_interaction')
           const interactionRes = await axios.post(
             '/api/ai-interaction',
             {
@@ -210,108 +228,126 @@ export default function AITab({ recaptchaRef }) {
             },
             {
               headers: {
-                'x-csrf-token': process.env.NEXT_PUBLIC_CSRF_TOKEN || '7b3a9f8c2d6e4b1a0c9d8e7f6a5b4c3d2e1f0a9b8c7d6e5f4a3a2c1d0e9f8a7',
+                'x-csrf-token':
+                  process.env.NEXT_PUBLIC_CSRF_TOKEN ||
+                  '7b3a9f8c2d6e4b1a0c9d8e7f6a5b4c3d2e1f0a9b8c7d6e5f4a3a2c1d0e9f8a7',
                 'X-Recaptcha-Token': interactionRecaptchaToken,
               },
               withCredentials: true,
-            }
-          );
-          console.log('Saved AI interaction:', interactionRes.data);
+            },
+          )
+          console.log('Saved AI interaction:', interactionRes.data)
           if (interactionRes.data.pointsAwarded > 0) {
-            setDailyInteractions((prev) => Math.min(prev + 1, maxDailyInteractions));
+            setDailyInteractions((prev) => Math.min(prev + 1, maxDailyInteractions))
           }
-          setTotalDailyChats((prev) => prev + 1);
+          setTotalDailyChats((prev) => prev + 1)
         } catch (interactionError) {
-          console.error('Error saving AI interaction:', interactionError.response?.data || interactionError.message);
-          setError(`Failed to save AI interaction: ${interactionError.response?.data?.detail || interactionError.message}`);
+          console.error(
+            'Error saving AI interaction:',
+            interactionError.response?.data || interactionError.message,
+          )
+          setError(
+            `Failed to save AI interaction: ${interactionError.response?.data?.detail || interactionError.message}`,
+          )
         }
       }
     } catch (err) {
-      console.error(`Error calling ${selectedModel} API:`, err.response?.data || err.message);
+      console.error(`Error calling ${selectedModel} API:`, err.response?.data || err.message)
       if (err.response?.status === 429) {
-        setError('API rate limit exceeded. Please try again later.');
+        setError('API rate limit exceeded. Please try again later.')
         toast.error('API rate limit exceeded. Please try again later.', {
           position: 'top-center',
           autoClose: 3000,
-        });
+        })
       } else if (err.response?.status === 422 && err.response?.data?.error?.code === 'VALIDATION') {
-        console.warn('Brave Search API validation error:', err.response.data);
-        setError('Unable to fetch web information. Please try again.');
+        console.warn('Brave Search API validation error:', err.response.data)
+        setError('Unable to fetch web information. Please try again.')
         toast.error('Unable to fetch web information. Please try again.', {
           position: 'top-center',
           autoClose: 3000,
-        });
+        })
       } else if (err.response?.status === 400) {
-        setError(err.response?.data?.errors?.map((e) => e.msg).join(', ') || 'Invalid request. Please check your input.');
-        toast.error(err.response?.data?.errors?.map((e) => e.msg).join(', ') || 'Invalid request. Please check your input.', {
-          position: 'top-center',
-          autoClose: 3000,
-        });
+        setError(
+          err.response?.data?.errors?.map((e) => e.msg).join(', ') ||
+            'Invalid request. Please check your input.',
+        )
+        toast.error(
+          err.response?.data?.errors?.map((e) => e.msg).join(', ') ||
+            'Invalid request. Please check your input.',
+          {
+            position: 'top-center',
+            autoClose: 3000,
+          },
+        )
       } else {
-        setError(err.response?.data?.detail || `Unable to get response from ${selectedModel}.`);
+        setError(err.response?.data?.detail || `Unable to get response from ${selectedModel}.`)
         toast.error(err.response?.data?.detail || `Unable to get response from ${selectedModel}.`, {
           position: 'top-center',
           autoClose: 3000,
-        });
+        })
       }
     } finally {
-      setIsLoading(false);
+      setIsLoading(false)
       if (recaptchaRef.current) {
-        recaptchaRef.current.reset();
+        recaptchaRef.current.reset()
       }
     }
-  };
+  }
 
   const handleKeyDown = (e) => {
     if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault();
-      handleSendPrompt(e);
+      e.preventDefault()
+      handleSendPrompt(e)
     }
-  };
+  }
 
   useEffect(() => {
-    const checkMobile = () => setIsMobile(window.innerWidth <= 640);
-    checkMobile();
-    window.addEventListener('resize', checkMobile);
-    return () => window.removeEventListener('resize', checkMobile);
-  }, []);
+    const checkMobile = () => setIsMobile(window.innerWidth <= 640)
+    checkMobile()
+    window.addEventListener('resize', checkMobile)
+    return () => window.removeEventListener('resize', checkMobile)
+  }, [])
 
   useEffect(() => {
-    if (chatHistory.length > 0 && chatHistory[chatHistory.length - 1].role === 'assistant' && !isLoading) {
-      const lastMessage = chatHistory[chatHistory.length - 1].content;
-      let index = 0;
-      setTypingText('');
+    if (
+      chatHistory.length > 0 &&
+      chatHistory[chatHistory.length - 1].role === 'assistant' &&
+      !isLoading
+    ) {
+      const lastMessage = chatHistory[chatHistory.length - 1].content
+      let index = 0
+      setTypingText('')
 
       const typingInterval = setInterval(() => {
         if (index < lastMessage.length) {
-          setTypingText((prev) => prev + lastMessage[index]);
-          index++;
+          setTypingText((prev) => prev + lastMessage[index])
+          index++
         } else {
-          clearInterval(typingInterval);
-          setTypingText('');
+          clearInterval(typingInterval)
+          setTypingText('')
         }
-      }, 2);
+      }, 2)
 
-      return () => clearInterval(typingInterval);
+      return () => clearInterval(typingInterval)
     }
-  }, [chatHistory, isLoading]);
+  }, [chatHistory, isLoading])
 
   useEffect(() => {
     if (chatContainerRef.current) {
-      chatContainerRef.current.scrollTop = chatContainerRef.current.scrollHeight;
+      chatContainerRef.current.scrollTop = chatContainerRef.current.scrollHeight
     }
-  }, [chatHistory, typingText, isLoading]);
+  }, [chatHistory, typingText, isLoading])
 
   useEffect(() => {
     if (textareaRef.current) {
-      textareaRef.current.style.height = 'auto';
-      const scrollHeight = textareaRef.current.scrollHeight;
-      const minHeight = isMobile ? 24 : 24; // Adjusted to match Send button height
-      const newHeight = Math.min(Math.max(scrollHeight, minHeight), 120);
-      textareaRef.current.style.height = `${newHeight}px`;
-      textareaRef.current.style.overflowY = newHeight >= 120 ? 'auto' : 'hidden';
+      textareaRef.current.style.height = 'auto'
+      const scrollHeight = textareaRef.current.scrollHeight
+      const minHeight = isMobile ? 24 : 24 // Adjusted to match Send button height
+      const newHeight = Math.min(Math.max(scrollHeight, minHeight), 120)
+      textareaRef.current.style.height = `${newHeight}px`
+      textareaRef.current.style.overflowY = newHeight >= 120 ? 'auto' : 'hidden'
     }
-  }, [prompt, isMobile]);
+  }, [prompt, isMobile])
 
   useEffect(() => {
     const handleClickOutside = (event) => {
@@ -322,18 +358,25 @@ export default function AITab({ recaptchaRef }) {
         toggleButtonRef.current &&
         !toggleButtonRef.current.contains(event.target)
       ) {
-        setIsModelMenuOpen(false);
+        setIsModelMenuOpen(false)
       }
-    };
+    }
 
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, [isModelMenuOpen]);
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [isModelMenuOpen])
 
   const markdownComponents = {
-    p: ({ children }) => <div className="my-2 whitespace-pre-wrap text-[9px] md:text-[10px]">{children}</div>,
+    p: ({ children }) => (
+      <div className="my-2 whitespace-pre-wrap text-[9px] md:text-[10px]">{children}</div>
+    ),
     a: ({ href, children }) => (
-      <a href={href} target="_blank" rel="noopener noreferrer" className="text-neon-blue hover:underline">
+      <a
+        href={href}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="text-neon-blue hover:underline"
+      >
         {children}
       </a>
     ),
@@ -341,27 +384,36 @@ export default function AITab({ recaptchaRef }) {
       <table className="border-collapse border border-white/10 w-full my-2">{children}</table>
     ),
     th: ({ children }) => (
-      <th className="border border-white/10 px-2 py-1 bg-gray-900/50 backdrop-blur-lg text-white text-[9px] md:text-[10px]">{children}</th>
+      <th className="border border-white/10 px-2 py-1 bg-gray-900/50 backdrop-blur-lg text-white text-[9px] md:text-[10px]">
+        {children}
+      </th>
     ),
     td: ({ children }) => (
-      <td className="border border-white/10 px-2 py-1 text-white text-[9px] md:text-[10px]">{children}</td>
+      <td className="border border-white/10 px-2 py-1 text-white text-[9px] md:text-[10px]">
+        {children}
+      </td>
     ),
     code: ({ inline, className, children, ...props }) => {
-      const codeRef = useRef(null);
-      const codeId = `code-${Math.random().toString(36).substr(2, 9)}`;
+      const codeRef = useRef(null)
+      const codeId = `code-${Math.random().toString(36).substr(2, 9)}`
       if (inline) {
         return (
-          <code className={`${className || ''} bg-gray-900/80 p-0.5 rounded text-gray-200 backdrop-blur-lg text-[9px] md:text-[10px]`} {...props}>
+          <code
+            className={`${className || ''} bg-gray-900/80 p-0.5 rounded text-gray-200 backdrop-blur-lg text-[9px] md:text-[10px]`}
+            {...props}
+          >
             {children}
           </code>
-        );
+        )
       }
       return (
         <div className="my-2 border border-white/10 rounded-lg overflow-hidden shadow-glow-neon">
           <div className="flex items-center justify-between bg-gray-900/95 px-2 py-1">
             <div className="flex items-center">
               <span className="text-gray-400 mr-1 text-[9px] md:text-[10px]">&lt;/&gt;</span>
-              <span className="text-gray-400 text-[9px] md:text-[10px] font-medium">{getCodeTitle(prompt)}</span>
+              <span className="text-gray-400 text-[9px] md:text-[10px] font-medium">
+                {getCodeTitle(prompt)}
+              </span>
             </div>
             <motion.button
               onClick={() => copyToClipboard(codeRef, codeId)}
@@ -370,18 +422,26 @@ export default function AITab({ recaptchaRef }) {
               whileHover={{ scale: 1.1 }}
               whileTap={{ scale: 0.9 }}
             >
-              {copiedStates[codeId] ? <CheckIcon className="h-3 w-3 md:h-4 w-4" /> : <ClipboardIcon className="h-3 w-3 md:h-4 w-4" />}
+              {copiedStates[codeId] ? (
+                <CheckIcon className="h-3 w-3 md:h-4 w-4" />
+              ) : (
+                <ClipboardIcon className="h-3 w-3 md:h-4 w-4" />
+              )}
             </motion.button>
           </div>
           <pre className="bg-gray-900/95 p-2 overflow-x-auto whitespace-pre-wrap">
-            <code ref={codeRef} className={`${className || ''} text-gray-200 text-[9px] md:text-[10px]`} {...props}>
+            <code
+              ref={codeRef}
+              className={`${className || ''} text-gray-200 text-[9px] md:text-[10px]`}
+              {...props}
+            >
               {children}
             </code>
           </pre>
         </div>
-      );
+      )
     },
-  };
+  }
 
   return (
     <motion.div
@@ -422,13 +482,14 @@ export default function AITab({ recaptchaRef }) {
                   <motion.button
                     key={model}
                     onClick={() => {
-                      setSelectedModel(model);
-                      setIsModelMenuOpen(false);
+                      setSelectedModel(model)
+                      setIsModelMenuOpen(false)
                     }}
-                    className={`w-full text-center px-2 py-1 rounded-md text-[9px] md:text-[10px] transition-all duration-300 backdrop-blur-md ${selectedModel === model
-                      ? 'bg-neon-blue/20 text-white border border-neon-blue/50'
-                      : 'text-white'
-                      }`}
+                    className={`w-full text-center px-2 py-1 rounded-md text-[9px] md:text-[10px] transition-all duration-300 backdrop-blur-md ${
+                      selectedModel === model
+                        ? 'bg-neon-blue/20 text-white border border-neon-blue/50'
+                        : 'text-white'
+                    }`}
                     whileHover={{ scale: 1 }}
                     whileTap={{ scale: 0.95 }}
                   >
@@ -441,10 +502,11 @@ export default function AITab({ recaptchaRef }) {
         </div>
         <motion.button
           onClick={() => setUseDeepSearch(!useDeepSearch)}
-          className={`px-2 py-1 md:px-2 md:py-1 rounded-full text-[9px] md:text-[10px] font-medium transition-all duration-300 border border-white/20 backdrop-blur-md flex items-center ${useDeepSearch
-            ? 'bg-white text-black border-neon-blue/50'
-            : 'text-white hover:bg-gray-900/70 hover:shadow-glow-neon'
-            }`}
+          className={`px-2 py-1 md:px-2 md:py-1 rounded-full text-[9px] md:text-[10px] font-medium transition-all duration-300 border border-white/20 backdrop-blur-md flex items-center ${
+            useDeepSearch
+              ? 'bg-white text-black border-neon-blue/50'
+              : 'text-white hover:bg-gray-900/70 hover:shadow-glow-neon'
+          }`}
           title="Toggle real-time web search"
           whileHover={{ scale: 1.05 }}
           whileTap={{ scale: 0.95 }}
@@ -483,14 +545,16 @@ export default function AITab({ recaptchaRef }) {
             transition={{ duration: 0.3 }}
           >
             <div
-              className={`max-w-[85%] md:max-w-[70%] p-3 rounded-lg text-[9px] md:text-[10px] overflow-y-auto custom-scrollbar group ${message.role === 'user'
-                ? 'bg-neon-blue/20 text-white border border-neon-blue/50'
-                : 'bg-gray-900/50 text-white backdrop-blur-lg border border-white/10'
-                } relative`}
+              className={`max-w-[85%] md:max-w-[70%] p-3 rounded-lg text-[9px] md:text-[10px] overflow-y-auto custom-scrollbar group ${
+                message.role === 'user'
+                  ? 'bg-neon-blue/20 text-white border border-neon-blue/50'
+                  : 'bg-gray-900/50 text-white backdrop-blur-lg border border-white/10'
+              } relative`}
             >
               <span
-                className={`absolute bottom-0 left-0 w-full h-0.5 origin-left transition-transform duration-300 ${message.role === 'user' ? 'group-hover:scale-x-100' : ''
-                  }`}
+                className={`absolute bottom-0 left-0 w-full h-0.5 origin-left transition-transform duration-300 ${
+                  message.role === 'user' ? 'group-hover:scale-x-100' : ''
+                }`}
               />
               {message.role === 'assistant' && index === chatHistory.length - 1 && typingText ? (
                 <div className="max-h-[400px] md:max-h-[600px] overflow-y-auto custom-scrollbar">
@@ -518,7 +582,9 @@ export default function AITab({ recaptchaRef }) {
                   <div className="flex items-center overflow-y-auto custom-scrollbar">
                     {message.links?.length > 0 && (
                       <>
-                        <h5 className="text-[9px] md:text-[10px] font-bold text-white mr-1">Sources:</h5>
+                        <h5 className="text-[9px] md:text-[10px] font-bold text-white mr-1">
+                          Sources:
+                        </h5>
                         {message.links.map((link, idx) => (
                           <a
                             key={idx}
@@ -558,7 +624,9 @@ export default function AITab({ recaptchaRef }) {
                     width={24}
                     height={24}
                     className="absolute inset-0 w-4 h-4 m-1 object-contain animate-pulse"
-                    onError={() => console.log(`Failed to load loading logo: /logos/logo-scan.webp`)}
+                    onError={() =>
+                      console.log(`Failed to load loading logo: /logos/logo-scan.webp`)
+                    }
                   />
                 </div>
                 <span>Loading...</span>
@@ -590,10 +658,11 @@ export default function AITab({ recaptchaRef }) {
           />
           <motion.button
             type="submit"
-            className={`px-2 py-1 md:px-3 md:py-1 rounded-lg text-[9px] md:text-[10px] font-medium transition-all duration-300 border border-white/20 backdrop-blur-md flex items-center justify-center ${isLoading || totalDailyChats >= maxTotalDailyChats
-              ? 'bg-gray-900/50 text-white/50 cursor-not-allowed opacity-50'
-              : 'text-white hover:bg-gray-900/70 hover:shadow-glow-neon'
-              }`}
+            className={`px-2 py-1 md:px-3 md:py-1 rounded-lg text-[9px] md:text-[10px] font-medium transition-all duration-300 border border-white/20 backdrop-blur-md flex items-center justify-center ${
+              isLoading || totalDailyChats >= maxTotalDailyChats
+                ? 'bg-gray-900/50 text-white/50 cursor-not-allowed opacity-50'
+                : 'text-white hover:bg-gray-900/70 hover:shadow-glow-neon'
+            }`}
             disabled={isLoading || totalDailyChats >= maxTotalDailyChats}
             whileHover={{ scale: isLoading || totalDailyChats >= maxTotalDailyChats ? 1 : 1.05 }}
             whileTap={{ scale: isLoading || totalDailyChats >= maxTotalDailyChats ? 1 : 0.95 }}
@@ -603,7 +672,6 @@ export default function AITab({ recaptchaRef }) {
           </motion.button>
         </form>
       </div>
-      <ToastContainer position="top-center" autoClose={3000} />
 
       <style jsx>{`
         .custom-scrollbar::-webkit-scrollbar {
@@ -620,13 +688,19 @@ export default function AITab({ recaptchaRef }) {
           background: rgba(255, 255, 255, 0.3);
         }
         .shadow-glow-neon {
-          box-shadow: 0 0 8px rgba(255, 255, 255, 0.3), 0 0 16px rgba(255, 255, 255, 0.1);
+          box-shadow:
+            0 0 8px rgba(255, 255, 255, 0.3),
+            0 0 16px rgba(255, 255, 255, 0.1);
         }
         .shadow-glow-neon-red {
-          box-shadow: 0 0 8px rgba(239, 68, 68, 0.3), 0 0 16px rgba(239, 68, 68, 0.1);
+          box-shadow:
+            0 0 8px rgba(239, 68, 68, 0.3),
+            0 0 16px rgba(239, 68, 68, 0.1);
         }
         .shadow-glow-neon-blue {
-          box-shadow: 0 0 8px rgba(0, 191, 255, 0.3), 0 0 16px rgba(0, 191, 255, 0.1);
+          box-shadow:
+            0 0 8px rgba(0, 191, 255, 0.3),
+            0 0 16px rgba(0, 191, 255, 0.1);
         }
         .bg-tech {
           background: linear-gradient(145deg, #1a1a1a, #2a2a2a);
@@ -650,11 +724,12 @@ export default function AITab({ recaptchaRef }) {
           .h-2 {
             height: 12px;
           }
-          textarea.custom-scrollbar, .flex-1.custom-scrollbar {
+          textarea.custom-scrollbar,
+          .flex-1.custom-scrollbar {
             overflow-y: auto !important;
           }
         }
       `}</style>
     </motion.div>
-  );
+  )
 }
