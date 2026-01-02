@@ -106,6 +106,12 @@ export default function InviteTaskCard({ userData, task, csrfToken, index }) {
     toast.success('Invite link copied!')
   }
 
+  const handleCopyCode = () => {
+    if (!userData?.inviteCode) return
+    navigator.clipboard.writeText(userData.inviteCode)
+    toast.success('Invite code copied!')
+  }
+
   return (
     <motion.div
       className="h-[22vh] bg-[#0A0A0A]/80 backdrop-blur-md border border-[#FFFFFF20] rounded-2xl shadow-2xl p-4 flex flex-col overflow-hidden"
@@ -163,7 +169,7 @@ export default function InviteTaskCard({ userData, task, csrfToken, index }) {
               {userData?.inviteCode || 'Loading...'}
             </span>
             <button
-              onClick={handleCopyLink}
+              onClick={handleCopyCode}
               disabled={!userData?.inviteCode}
               className="p-1 sm:p-1.5 rounded-lg bg-[#FFFFFF]/10 hover:bg-[#FFFFFF]/20 transition-colors disabled:opacity-50 flex-shrink-0"
             >
@@ -172,7 +178,6 @@ export default function InviteTaskCard({ userData, task, csrfToken, index }) {
           </div>
         </div>
 
-        {/* Right: Nhập code */}
         <div className="flex-1 flex flex-col justify-center gap-1 sm:gap-2 min-w-0">
           {hasUsedInvite ? (
             <p className="text-[10px] sm:text-xs text-emerald-400 text-center flex items-center justify-center gap-1">
