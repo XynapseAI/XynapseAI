@@ -1183,6 +1183,8 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
       : null
     const leaderboardUsers = rankings?.filter((u) => u.id !== (session?.user?.id || '')) || []
     const getRankDisplay = (rank) => {
+      if (!rank || rank <= 0)
+        return <span className="text-xs sm:text-sm font-bold text-[#D4D4D4]">N/A</span>
       if (rank === 1) return <Trophy className="w-5 h-5 text-emerald-400" />
       if (rank === 2) return <Flame className="w-4 h-4 text-yellow-400" />
       if (rank === 3) return <Award className="w-4 h-4 text-[#D4D4D4]" />
@@ -1303,7 +1305,7 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
         </div>
 
         <div className="flex-1 overflow-y-auto hide-scrollbar px-4 pb-2 space-y-3">
-          {userData && currentUserRank && renderUserItem(userData, currentUserRank, true)}
+          {userData && renderUserItem(userData, currentUserRank || 0, true)}
           {getPaginatedData(leaderboardUsers, 'leaderboard').map((user, index) => {
             const rank = rankings?.findIndex((u) => u.id === user.id) + 1 || index + 1
             return renderUserItem(user, rank, false)
