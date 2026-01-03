@@ -201,117 +201,117 @@ const useUserData = (session, csrfToken, setIsAnalyzing, isWorldMiniApp) => {
   }, [fetchUserData])
   return { userData, loading, error, handleAnalyzeTweets, recaptchaRef }
 }
-function UniverseBackground() {
-  const groupRef = useRef(null)
-  useFrame((state) => {
-    if (groupRef.current) {
-      const time = state.clock.getElapsedTime()
-      groupRef.current.rotation.z = time * 0.003 // Reduced speed for lighter performance
-      groupRef.current.rotation.y = time * 0.001
-    }
-  })
-  // Simplified Galaxy with fewer points
-  const Galaxy = () => {
-    const pointsRef = useRef()
-    const count = 2000 // Reduced count for performance
-    const positions = useMemo(() => new Float32Array(count * 3), [])
-    const colors = useMemo(() => new Float32Array(count * 3), [])
-    useEffect(() => {
-      for (let i = 0; i < count; i++) {
-        const i3 = i * 3
-        const radius = Math.random() * 30 + 3 // Smaller radius
-        const arms = 3 // Fewer arms
-        const spin = radius * 0.15
-        const branchAngle = ((i % arms) / arms) * Math.PI * 2
-        const theta = branchAngle + spin + Math.random() * 0.3
-        const randomX = Math.pow(Math.random(), 3) * (Math.random() < 0.5 ? 1 : -1) * 1.5
-        const randomY = Math.pow(Math.random(), 3) * (Math.random() < 0.5 ? 1 : -1) * 0.3 // Flatter
-        const randomZ = Math.pow(Math.random(), 3) * (Math.random() < 0.5 ? 1 : -1) * 1.5
-        positions[i3] = Math.cos(theta) * radius + randomX
-        positions[i3 + 1] = randomY
-        positions[i3 + 2] = Math.sin(theta) * radius + randomZ
-        const r = Math.random() * 0.3 + 0.7
-        const g = Math.random() * 0.3 + 0.7
-        const b = Math.random() * 0.5 + 0.5 // Subtle blue
-        colors[i3] = r
-        colors[i3 + 1] = g
-        colors[i3 + 2] = b
-      }
-      pointsRef.current.geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3))
-      pointsRef.current.geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3))
-    }, [positions, colors]) // Fixed: Add positions and colors to deps (they are memoized, so no infinite loop)
-    return (
-      <points ref={pointsRef} position={[0, 0, -20]} rotation={[Math.PI / 6, 0, 0]}>
-        <bufferGeometry />
-        <pointsMaterial
-          size={0.05} // Smaller size
-          sizeAttenuation
-          vertexColors
-          transparent
-          opacity={0.6}
-          blending={THREE.AdditiveBlending}
-          depthWrite={false}
-        />
-      </points>
-    )
-  }
-  return (
-    <group ref={groupRef}>
-      <Stars radius={150} depth={60} count={1000} factor={4} saturation={0} fade speed={0.1} />{' '}
-      {/* Reduced count and speed */}
-      {/* Minimal moving stars */}
-      <group>
-        {Array.from({ length: 3 }).map((_, i) => (
-          <Float key={i} speed={0.1} rotationIntensity={0.02}>
-            <Sphere
-              args={[0.01 + Math.random() * 0.005, 6, 6]}
-              position={[
-                (Math.random() - 0.5) * 80,
-                (Math.random() - 0.5) * 80,
-                (Math.random() - 0.5) * 80,
-              ]}
-            >
-              <meshStandardMaterial
-                color="#FFFFFF"
-                emissive="#FFFFFF"
-                emissiveIntensity={0.3}
-                transparent
-                opacity={0.7}
-              />
-            </Sphere>
-          </Float>
-        ))}
-      </group>
-      <Galaxy />
-      {/* Subtle nebulae */}
-      {Array.from({ length: 2 }).map((_, i) => (
-        <Float key={`nebula-${i}`} speed={0.1} rotationIntensity={0.02}>
-          <Sphere
-            args={[5 + Math.random() * 4, 12, 12]}
-            position={[
-              (Math.random() - 0.5) * 80,
-              (Math.random() - 0.5) * 15,
-              (Math.random() - 0.5) * 80,
-            ]}
-          >
-            <meshStandardMaterial
-              color={Math.random() > 0.5 ? '#4B0082' : '#8A2BE2'}
-              transparent
-              opacity={0.08 + Math.random() * 0.06}
-              emissive={Math.random() > 0.5 ? '#4B0082' : '#8A2BE2'}
-              emissiveIntensity={0.1 + Math.random() * 0.08}
-              blending={THREE.AdditiveBlending}
-            />
-          </Sphere>
-        </Float>
-      ))}
-      <Environment preset="night" />
-      <ambientLight intensity={0.15} color="#000022" />
-      <pointLight position={[0, 0, 8]} intensity={0.3} color="#FFFFFF" />
-      <pointLight position={[-15, 0, -15]} intensity={0.2} color="#00BFFF" />
-    </group>
-  )
-}
+// function UniverseBackground() {
+//   const groupRef = useRef(null)
+//   useFrame((state) => {
+//     if (groupRef.current) {
+//       const time = state.clock.getElapsedTime()
+//       groupRef.current.rotation.z = time * 0.003 // Reduced speed for lighter performance
+//       groupRef.current.rotation.y = time * 0.001
+//     }
+//   })
+//   // Simplified Galaxy with fewer points
+//   const Galaxy = () => {
+//     const pointsRef = useRef()
+//     const count = 2000 // Reduced count for performance
+//     const positions = useMemo(() => new Float32Array(count * 3), [])
+//     const colors = useMemo(() => new Float32Array(count * 3), [])
+//     useEffect(() => {
+//       for (let i = 0; i < count; i++) {
+//         const i3 = i * 3
+//         const radius = Math.random() * 30 + 3 // Smaller radius
+//         const arms = 3 // Fewer arms
+//         const spin = radius * 0.15
+//         const branchAngle = ((i % arms) / arms) * Math.PI * 2
+//         const theta = branchAngle + spin + Math.random() * 0.3
+//         const randomX = Math.pow(Math.random(), 3) * (Math.random() < 0.5 ? 1 : -1) * 1.5
+//         const randomY = Math.pow(Math.random(), 3) * (Math.random() < 0.5 ? 1 : -1) * 0.3 // Flatter
+//         const randomZ = Math.pow(Math.random(), 3) * (Math.random() < 0.5 ? 1 : -1) * 1.5
+//         positions[i3] = Math.cos(theta) * radius + randomX
+//         positions[i3 + 1] = randomY
+//         positions[i3 + 2] = Math.sin(theta) * radius + randomZ
+//         const r = Math.random() * 0.3 + 0.7
+//         const g = Math.random() * 0.3 + 0.7
+//         const b = Math.random() * 0.5 + 0.5 // Subtle blue
+//         colors[i3] = r
+//         colors[i3 + 1] = g
+//         colors[i3 + 2] = b
+//       }
+//       pointsRef.current.geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3))
+//       pointsRef.current.geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3))
+//     }, [positions, colors]) // Fixed: Add positions and colors to deps (they are memoized, so no infinite loop)
+//     return (
+//       <points ref={pointsRef} position={[0, 0, -20]} rotation={[Math.PI / 6, 0, 0]}>
+//         <bufferGeometry />
+//         <pointsMaterial
+//           size={0.05} // Smaller size
+//           sizeAttenuation
+//           vertexColors
+//           transparent
+//           opacity={0.6}
+//           blending={THREE.AdditiveBlending}
+//           depthWrite={false}
+//         />
+//       </points>
+//     )
+//   }
+//   return (
+//     <group ref={groupRef}>
+//       <Stars radius={150} depth={60} count={1000} factor={4} saturation={0} fade speed={0.1} />{' '}
+//       {/* Reduced count and speed */}
+//       {/* Minimal moving stars */}
+//       <group>
+//         {Array.from({ length: 3 }).map((_, i) => (
+//           <Float key={i} speed={0.1} rotationIntensity={0.02}>
+//             <Sphere
+//               args={[0.01 + Math.random() * 0.005, 6, 6]}
+//               position={[
+//                 (Math.random() - 0.5) * 80,
+//                 (Math.random() - 0.5) * 80,
+//                 (Math.random() - 0.5) * 80,
+//               ]}
+//             >
+//               <meshStandardMaterial
+//                 color="#FFFFFF"
+//                 emissive="#FFFFFF"
+//                 emissiveIntensity={0.3}
+//                 transparent
+//                 opacity={0.7}
+//               />
+//             </Sphere>
+//           </Float>
+//         ))}
+//       </group>
+//       <Galaxy />
+//       {/* Subtle nebulae */}
+//       {Array.from({ length: 2 }).map((_, i) => (
+//         <Float key={`nebula-${i}`} speed={0.1} rotationIntensity={0.02}>
+//           <Sphere
+//             args={[5 + Math.random() * 4, 12, 12]}
+//             position={[
+//               (Math.random() - 0.5) * 80,
+//               (Math.random() - 0.5) * 15,
+//               (Math.random() - 0.5) * 80,
+//             ]}
+//           >
+//             <meshStandardMaterial
+//               color={Math.random() > 0.5 ? '#4B0082' : '#8A2BE2'}
+//               transparent
+//               opacity={0.08 + Math.random() * 0.06}
+//               emissive={Math.random() > 0.5 ? '#4B0082' : '#8A2BE2'}
+//               emissiveIntensity={0.1 + Math.random() * 0.08}
+//               blending={THREE.AdditiveBlending}
+//             />
+//           </Sphere>
+//         </Float>
+//       ))}
+//       <Environment preset="night" />
+//       <ambientLight intensity={0.15} color="#000022" />
+//       <pointLight position={[0, 0, 8]} intensity={0.3} color="#FFFFFF" />
+//       <pointLight position={[-15, 0, -15]} intensity={0.2} color="#00BFFF" />
+//     </group>
+//   )
+// }
 // NEW: Inner component wrapped by MiniAppProvider, containing useMiniApp hook
 function DashboardInner() {
   // FIXED: Move useEffect suppress unhandledrejection into this component
@@ -985,29 +985,8 @@ function DashboardInner() {
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               transition={{ duration: 0.5 }}
-              className="w-full h-full bg-black flex items-center justify-center" // FIXED: Solid black bg to prevent white flash
+              className="w-full h-full flex items-center justify-center" // FIXED: Solid black bg to prevent white flash
             >
-              {/* FIXED: Add bg-black to fixed div + motion wrapper around Canvas for smooth fade-in, remove Suspense */}
-              {showLoginForm && (
-                <div className="fixed inset-0 z-0 bg-black">
-                  {' '}
-                  {/* FIXED: Solid black to cover any initial render gap */}
-                  <motion.div
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    transition={{ duration: 0.5, ease: 'easeInOut' }} // FIXED: Smooth fade-in for Canvas
-                  >
-                    <Canvas
-                      camera={{ position: [0, 0, 5], fov: 75 }}
-                      dpr={[1, 1.5]}
-                      style={{ background: 'transparent' }}
-                      performance={{ min: 0.3 }}
-                    >
-                      <UniverseBackground />
-                    </Canvas>
-                  </motion.div>
-                </div>
-              )}
               {isMiniApp && miniAppAuthFailed && !fallbackToManual ? (
                 <motion.div
                   initial={{ opacity: 0, y: 20 }}
