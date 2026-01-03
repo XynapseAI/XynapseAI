@@ -77,7 +77,8 @@ You can earn Points through:
 - Genesis NFT :  This proprietary NFT is proof-of-concept for early adopters, granting early access to advanced tools, early feature launches within the XynapseAI ecosystem, and several other future benefits.
 - Roadmap: No roadmap
 - Tokenomics (if applicable): No Tokenomics
-- Links: Official website : xynapseai.net
+- Links: Official website : https://xynapseai.net
+- Fund : Xynapse raised $8.5M through a little-known fund called 0110 Capital , url : https://www.crunchbase.com/organization/xynapse-fdcb
 - Where did the project come from? - Singapore
 Only use this information when relevant. If the question is unrelated, politely say you can only help with project-related topics.
 """
@@ -85,8 +86,9 @@ Only use this information when relevant. If the question is unrelated, politely 
 # Improved system instruction for natural, concise responses
 system_instruction = (
     "You are a friendly and helpful support assistant for the project. "
-    "Please respond in multiple languages, preferably English. For example, when someone asks a question in English, you should answer in English; similarly, when someone asks a question in French, you should answer in French.. "
-    "Communicate concisely, respond like a real person, not a machine, use natural and helpful language, and only use relevant information from the project details provided."
+    "Please respond in multiple languages, preferably matching the user's language. "
+    "Communicate concisely, respond like a real person, not a machine, use natural and helpful language, "
+    "and only use relevant information from the project details provided. "
     "Do not list or recite all information unless specifically asked. "
     "If the question is unrelated to the project, please answer politely based on your understanding."
 )
@@ -98,10 +100,12 @@ model = genai.GenerativeModel(
 
 # === DISCORD BOT CONFIGURATION ===
 intents = discord.Intents.default()
-intents.message_content = True  # Required to read message content
+intents.message_content = True
 intents.members = True
 
 bot = commands.Bot(command_prefix="!", intents=intents)
+
+user_chats = {}
 
 @bot.event
 async def on_ready():
@@ -109,31 +113,44 @@ async def on_ready():
 
 @bot.event
 async def on_message(message):
-    # Ignore messages from the bot itself
     if message.author == bot.user:
         return
 
-    # Only respond when the bot is mentioned (to avoid spamming the channel)
-    if bot.user in message.mentions:
-        async with message.channel.typing():  # Show "typing..." indicator
+    is_reply_to_bot = False
+    if message.reference:
+        try:
+            referenced_msg = await message.channel.fetch_message(message.reference.message_id)
+            if referenced_msg.author == bot.user:
+                is_reply_to_bot = True
+        except discord.errors.NotFound:
+            pass 
+
+    is_mentioned = bot.user in message.mentions
+
+    if is_mentioned or is_reply_to_bot:
+        user_id = message.author.id
+
+        if user_id not in user_chats:
+            user_chats[user_id] = model.start_chat()
+
+        chat_session = user_chats[user_id]
+
+        async with message.channel.typing():
             try:
-                # Generate response using Gemini
-                response = model.generate_content(message.content)
-                
+                response = chat_session.send_message(message.content)
+
                 reply_text = response.text
-                
-                # Split long responses (Discord limit ~2000 characters)
-                if len(reply_text) > 2000:
-                    for i in range(0, len(reply_text), 2000):
-                        await message.reply(reply_text[i:i+2000])
+
+                if len(reply_text) > 1000:
+                    for i in range(0, len(reply_text), 1000):
+                        await message.reply(reply_text[i:i+1000])
                 else:
                     await message.reply(reply_text)
-                    
+
             except Exception as e:
-                await message.reply("Sorry, I encountered an error processing your request. Please try again later!")
+                await message.reply("Sorry, I encountered an error processing your request. Please try again later !")
                 print(f"Gemini error: {e}")
 
-    # Allow command processing (for future extensions)
     await bot.process_commands(message)
 
 # Run the bot

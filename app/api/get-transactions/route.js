@@ -251,7 +251,7 @@ const chainIdToName = Object.fromEntries(
 const bodySchema = z.object({
   wallet_address: z.string().nonempty('Wallet address is required'),
   chain: z.enum(Object.keys(SUPPORTED_CHAINS), { message: 'Invalid chain' }),
-  limit: z.number().int().min(200).max(1000, 'Limit must be between 200 and 1000'),
+  limit: z.number().int().min(10).max(2000, 'Limit must be between 100 and 2000'),
   page: z.number().int().min(1).default(1),
   fetchLayer3: z.boolean().optional().default(false),
   isToken: z.boolean().optional().default(false),
@@ -1196,11 +1196,23 @@ export async function POST(request) {
     const body = await request.json()
     const parsed = bodySchema.safeParse(body)
     if (!parsed.success) {
-      await trackViolation(ip, 'Invalid request body')
-      return NextResponse.json(
-        { error: parsed.error.errors[0].message },
-        { status: 400, headers: securityHeaders },
-      )
+      let errorMsg = 'Invalid request body'
+      if (
+        parsed.error?.errors &&
+        Array.isArray(parsed.error.errors) &&
+        parsed.error.errors.length > 0
+      ) {
+        errorMsg = parsed.error.errors[0].message
+      } else if (
+        parsed.error?.issues &&
+        Array.isArray(parsed.error.issues) &&
+        parsed.error.issues.length > 0
+      ) {
+        errorMsg = parsed.error.issues[0].message
+      }
+
+      await trackViolation(ip, `Invalid request body: ${errorMsg}`)
+      return NextResponse.json({ error: errorMsg }, { status: 400, headers: securityHeaders })
     }
     const {
       wallet_address,

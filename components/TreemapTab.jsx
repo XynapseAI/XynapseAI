@@ -59,6 +59,27 @@ const truncateAddress = (addr) => {
 const isValidNametagImage = (image) => {
   return image && image !== '/icons/default.webp'
 }
+const isValidBitcoinAddress = (addr) => {
+  if (typeof addr !== 'string') return false
+  addr = addr.trim()
+  if (/^[13][0-9A-Za-z]{25,35}$/.test(addr)) return true
+  if (/^bc1[a-z0-9]{39,59}$/i.test(addr)) return true
+  return false
+}
+
+const isValidAddressForChain = (addr, chain) => {
+  if (!addr || typeof addr !== 'string') return false
+  const trimmed = addr.trim()
+  if (trimmed.length === 0) return false
+
+  if (['solana', 'tron'].includes(chain)) {
+    return /^[A-Za-z0-9]{32,44}$/.test(trimmed)
+  }
+  if (chain === 'bitcoin') {
+    return isValidBitcoinAddress(trimmed)
+  }
+  return isAddress(trimmed)
+}
 const SUPPORTED_CHAINS = [
   '1',
   '56',
@@ -131,7 +152,6 @@ const VirtuosoTable = memo(
         let extra = type ? `&type=${type}` : ''
         return `/explorer?query=${query}&chain=${normalizedChain}${extra}`
       }
-      // Fallback (giữ lại để an toàn nếu chain chưa hỗ trợ)
       const { txUrl } = getExplorerUrls(normalizedChain, txHash, address)
       return txUrl || '#'
     }
@@ -350,7 +370,7 @@ const VirtuosoTable = memo(
               </span>
             </div>
           </td>
-          {/* Details: Tx Hash + Time - ĐÃ SỬA ĐỂ DÙNG INTERNAL EXPLORER */}
+          {/* Details: Tx Hash + Time */}
           <td className="px-2 py-1 text-white/80 text-[9px] sm:text-[11px] text-center overflow-hidden align-middle">
             <div className="flex flex-col items-center justify-center gap-1">
               <button
@@ -363,7 +383,7 @@ const VirtuosoTable = memo(
                 title="View in Internal Explorer"
               >
                 <img
-                  src="/logos/logo.png" // Logo của app bạn
+                  src="/logos/logo.png"
                   alt="Internal Explorer"
                   width={isMobile ? 12 : 14}
                   height={isMobile ? 12 : 14}
@@ -953,6 +973,9 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
   const [page, setPage] = useState(1)
   const [selectedEntity, setSelectedEntity] = useState({ type: null, data: { transactions: [] } })
   const [clusters, setClusters] = useState([])
+  // Cluter fetch
+  const [searchType, setSearchType] = useState('single')
+  const [clusterWallets, setClusterWallets] = useState([])
   const apiBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:3000'
   // Fetch user data to get accurate isPremium status
   const fetchUserData = useCallback(async () => {
@@ -976,6 +999,130 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
   useEffect(() => {
     fetchUserData()
   }, [fetchUserData])
+
+  // Cluster fetch
+
+  const fetchClusterData = useCallback(
+    async (wallets) => {
+      if (wallets.length === 0) return
+
+      setLoading(true)
+      setPage(1)
+      setNodes([])
+      setEdges([])
+      setNametags({})
+      setClusters([])
+      setSelectedEntity({ type: null, data: { transactions: [] } })
+
+      // Validate and clean wallets
+      let validWallets = wallets
+        .filter((addr) => addr && typeof addr === 'string' && addr.trim().length > 0)
+        .map((addr) => {
+          let normalized = addr.trim()
+          if (isAddress(normalized)) normalized = getAddress(normalized)
+          return normalized
+        })
+        .filter((addr) => isValidAddressForChain(addr, selectedChain))
+
+      if (validWallets.length === 0) {
+        setLoading(false)
+        return
+      }
+
+      // Prioritize fetching more wallets (target 5–20 depending on limit)
+      const MIN_PER_WALLET = 20 // Minimum transactions per wallet
+      const TARGET_WALLETS = 20 // Maximum target wallets to fetch
+
+      const MAX_WALLETS = Math.min(
+        TARGET_WALLETS,
+        Math.floor(selectedLimit / MIN_PER_WALLET),
+        validWallets.length,
+      )
+
+      const fetchWallets = validWallets.slice(0, MAX_WALLETS)
+
+      // Distribute total selectedLimit evenly across fetched wallets
+      const perWalletLimit = Math.max(
+        MIN_PER_WALLET,
+        Math.floor(selectedLimit / fetchWallets.length),
+      )
+
+      let allIncoming = []
+      let allOutgoing = []
+      let allLayer3 = []
+
+      // Sequential fetch to avoid overloading the server
+      for (const addr of fetchWallets) {
+        try {
+          const payload = {
+            wallet_address: addr,
+            chain: selectedChain,
+            limit: perWalletLimit,
+            page: 1,
+            fetchLayer3: true,
+            isToken: false,
+          }
+
+          const signature = generateHmacSignature(payload)
+
+          const response = await fetch(`${apiBaseUrl}/api/get-transactions`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'x-api-key': session?.user?.apiKey || 'default-api-key',
+              'x-hmac-signature': signature,
+            },
+            body: JSON.stringify(payload),
+          })
+
+          if (!response.ok) {
+            logger.warn(`Fetch failed for ${addr}: ${response.status}`)
+            continue
+          }
+
+          const reader = response.body.getReader()
+          let result = ''
+          while (true) {
+            const { done, value } = await reader.read()
+            if (done) break
+            result += new TextDecoder().decode(value)
+          }
+
+          let data
+          try {
+            data = JSON.parse(result)
+          } catch (parseErr) {
+            logger.error(`JSON parse error for wallet ${addr}:`, parseErr)
+            continue
+          }
+
+          if (data.error) {
+            logger.error(`API error for wallet ${addr}: ${data.error}`)
+            continue
+          }
+
+          allIncoming.push(...(data.incoming || []))
+          allOutgoing.push(...(data.outgoing || []))
+          allLayer3.push(...(data.layer3 || []))
+        } catch (err) {
+          logger.error(`Exception fetching cluster wallet ${addr}:`, err)
+        }
+      }
+
+      // Set aggregated data
+      setFullIncomingData(allIncoming)
+      setFullOutgoingData(allOutgoing)
+      setFullLayer3Data(allLayer3)
+
+      if (fetchWallets.length > 0) {
+        setWalletAddress(fetchWallets[0]) // Use first wallet as root
+      }
+
+      setLoading(false)
+    },
+    [selectedChain, selectedLimit, session, apiBaseUrl],
+  )
+
   useEffect(() => {
     if (fullIncomingData.length > 0 || fullOutgoingData.length > 0 || fullLayer3Data.length > 0) {
       ; (async () => {
@@ -1199,6 +1346,37 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
       fetchTokenImages()
     }
   }, [edges, selectedChain, apiBaseUrl])
+
+  // Cluster fetch
+  useEffect(() => {
+    if (searchType !== 'cluster' || clusters.length === 0 || selectedEntity.type === 'cluster')
+      return
+
+    const targetSet = new Set(clusterWallets.map((a) => a.toLowerCase()))
+    let bestCluster = null
+    let maxOverlap = 0
+
+    for (const c of clusters) {
+      const clusterSet = new Set(c.wallets.map((w) => w.id.toLowerCase()))
+      const overlap = [...clusterSet].filter((x) => targetSet.has(x)).length
+      if (overlap > maxOverlap) {
+        maxOverlap = overlap
+        bestCluster = c
+      }
+    }
+
+    if (bestCluster && maxOverlap > 0) {
+      setSelectedEntity({
+        type: 'cluster',
+        data: {
+          ...bestCluster,
+          nametag: walletInfo.nametag || bestCluster.nametag,
+          image: walletInfo.image || bestCluster.image,
+        },
+      })
+    }
+  }, [clusters, searchType, clusterWallets, selectedEntity.type, walletInfo])
+
   const updateUrl = (chain, address) => {
     const newParams = new URLSearchParams()
     newParams.set('tab', 'treemap')
@@ -2188,28 +2366,57 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
   const handleSearch = useCallback(() => {
     validateAndFetch(walletAddress, isTokenSearch)
   }, [walletAddress, isTokenSearch, validateAndFetch])
+
   const handleSearchSelect = useCallback(
     (result) => {
-      if (!result.address) {
+      if (!result.address && result.type !== 'cluster') {
         toast.error('No address provided.', { theme: 'dark' })
         return
       }
-      // Normalize address
-      let normalizedAddress = result.address.trim() // Preserve case by default, just trim whitespace
+
+      if (result.type === 'cluster') {
+        let wallets = (result.holder_addresses || [])
+          .filter((addr) => addr && typeof addr === 'string' && addr.trim().length > 0)
+          .slice(0, 10)
+
+        wallets = wallets.filter((addr) => isValidAddressForChain(addr, selectedChain))
+
+        if (wallets.length === 0) {
+          toast.error('Cluster này chưa có wallet address hợp lệ nào được biết đến.', {
+            theme: 'dark',
+            position: 'top-center',
+          })
+          fetchClusterData(wallets)
+          return
+        }
+
+        setSearchType('cluster')
+        setClusterWallets(wallets)
+        setWalletInfo({
+          address: wallets[0] || '',
+          nametag: result.name || 'Cluster',
+          image: result.image || '/icons/default.webp',
+          chainLogo: '/icons/default.webp',
+        })
+
+        fetchClusterData(wallets)
+        return
+      }
+
+      let normalizedAddress = result.address.trim()
       if (result.address.startsWith('0x')) {
         try {
-          normalizedAddress = getAddress(result.address).toLowerCase() // Only checksum + lower for EVM
-        } catch (err) {
-          normalizedAddress = result.address.toLowerCase() // Fallback lower if checksum fails
+          normalizedAddress = getAddress(result.address).toLowerCase()
+        } catch {
+          normalizedAddress = result.address.toLowerCase()
         }
       }
-      console.log('Selected result:', {
-        type: result.type,
-        originalAddr: result.address,
-        normalized: normalizedAddress,
-      })
+
       setIsTokenSearch(result.type === 'token')
       setWalletAddress(normalizedAddress)
+      setSearchType('single')
+      setClusterWallets([])
+
       if (result.type === 'nametag') {
         setWalletInfo({
           address: normalizedAddress,
@@ -2225,9 +2432,10 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
           chainLogo: '/icons/default.webp',
         })
       }
+
       validateAndFetch(normalizedAddress, result.type === 'token')
     },
-    [validateAndFetch],
+    [validateAndFetch, fetchClusterData],
   )
   const handleFilterChange = useCallback(() => {
     setFilterType((prev) => {
@@ -2245,7 +2453,6 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
     if (coingeckoChains.length > 0) {
       cgChains = mapCoinGeckoChains(coingeckoChains)
     }
-    // Always include static chains that are not in cgChains
     const staticOnly = chains.filter((c) => !cgChains.some((cg) => cg.value === c.value))
     return [...cgChains, ...staticOnly]
   }, [coingeckoChains])
