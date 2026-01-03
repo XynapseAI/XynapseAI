@@ -52,7 +52,7 @@ export default function Header({ activeTab, setActiveTab, handleSignOut, selecte
     { id: 'graph', label: 'Graph', icon: Activity },
     // { id: 'watchlists', label: 'Watchlists', icon: List },
     { id: 'explorer', label: 'Explorer', icon: SearchIcon }, // Added Explorer tab with Search icon
-    { id: 'dex', label: 'Dex', icon: AudioLines },
+    { id: 'dex', label: 'Dex-Data', icon: AudioLines },
     { id: 'profile', label: 'Profile', icon: User },
   ]
 
