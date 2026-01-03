@@ -433,7 +433,7 @@ async function getNametagsBatch(addresses, chain) {
     !isCaseSensitive &&
     chain === '1' &&
     addressesWithoutNametag.length > 0 &&
-    addressesWithoutNametag.length <= 20
+    addressesWithoutNametag.length <= 10
   ) {
     const ENS_REGISTRY = '0x00000000000C2E074eC69A0dFb2997BA6C7d2e1e'
     const REGISTRY_ABI = ['function resolver(bytes32 node) view returns (address)']
@@ -2128,9 +2128,9 @@ export async function POST(request) {
             ),
           ),
         ]
-          .filter((addr) => (addressVolume.get(addr) || 0) > 500)
+          .filter((addr) => (addressVolume.get(addr) || 0) > 5000)
           .sort((a, b) => (addressVolume.get(b) || 0) - (addressVolume.get(a) || 0))
-          .slice(0, 20)
+          .slice(0, 10)
 
         logger.info(
           `Fetching Layer 3 for ${sortedLayer2.length} top-volume Layer 2 addresses (out of ${addressVolume.size} total counterparties)`,
@@ -2217,7 +2217,7 @@ export async function POST(request) {
             !nametags[caseSensitive ? addr : addr.toLowerCase()] ||
             nametags[caseSensitive ? addr : addr.toLowerCase()].name === 'Unknown',
         )
-        .slice(0, 50)
+        .slice(0, 10)
       if (unknownAddresses.length > 0) {
         const mockNodes = unknownAddresses.map((addr) => {
           const addrTxs = [...incoming, ...outgoing, ...layer3Transactions].filter(

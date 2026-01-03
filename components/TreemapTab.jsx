@@ -1125,7 +1125,7 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
 
   useEffect(() => {
     if (fullIncomingData.length > 0 || fullOutgoingData.length > 0 || fullLayer3Data.length > 0) {
-      ; (async () => {
+      ;(async () => {
         const {
           nodes: newNodes,
           edges: newEdges,
@@ -2712,14 +2712,14 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
                   <div className="w-2 h-2 bg-neon-blue rounded-full animate-pulse" />
                   <h3 className="text-white text-sm sm:text-base font-semibold">Processing</h3>
                 </div>
-                <div className="h-22 sm:h-28 overflow-y-auto custom-scrollbar log-container relative">
+                <div className="h-22 sm:h-28 overflow-y-auto hide-scrollbar log-container relative">
                   <ul className="space-y-2">
                     <AnimatePresence mode="popLayout">
                       {logMessages.map((log, index) => (
                         <motion.li
                           key={log.id}
                           layout
-                          initial={{ opacity: 0, y: 20, scale: 0.95 }}
+                          initial={{ opacity: 0, y: 20 }}
                           animate={{
                             opacity: 1,
                             y: 0,
