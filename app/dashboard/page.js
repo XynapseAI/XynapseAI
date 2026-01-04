@@ -49,19 +49,43 @@ const safeConsole = {
 const safeLog = (...args) => safeConsole.log(...args)
 const safeWarn = (...args) => safeConsole.warn(...args)
 const safeError = (...args) => safeConsole.error(...args)
-const BlinkingDots = () => (
-  <div className="flex items-center gap-0.5">
-    <span className="w-1 h-1 bg-white rounded-full animate-bounce"></span>
-    <span
-      className="w-1 h-1 bg-white rounded-full animate-bounce"
-      style={{ animationDelay: '0.1s' }}
-    ></span>
-    <span
-      className="w-1 h-1 bg-white rounded-full animate-bounce"
-      style={{ animationDelay: '0.2s' }}
-    ></span>
-  </div>
-)
+
+const BlinkingDots = () => {
+  const dotVariants = {
+    rest: {
+      scale: 1,
+      opacity: 0.5,
+      boxShadow: '0 0 0px rgba(255, 255, 255, 0)',
+    },
+    pulse: {
+      scale: 1.3,
+      opacity: 1,
+      boxShadow: '0 0 12px rgba(255, 255, 255, 0.9)',
+    },
+  }
+
+  return (
+    <div className="flex items-center gap-1.5">
+      {[0, 1, 2].map((index) => (
+        <motion.div
+          key={index}
+          className="w-1 h-1 bg-white rounded-full"
+          variants={dotVariants}
+          initial="rest"
+          animate="pulse"
+          transition={{
+            duration: 0.6,
+            repeat: Infinity,
+            repeatType: 'reverse',
+            ease: 'easeInOut',
+            delay: index * 0.25,
+          }}
+        />
+      ))}
+    </div>
+  )
+}
+
 // Polyfill HMAC for browser (use Web Crypto API, as old uses createHmac - server only)
 async function hmacSha256(key, data) {
   if (typeof window !== 'undefined' && !crypto.subtle) {
@@ -1137,7 +1161,7 @@ function DashboardInner() {
                       <button
                         onClick={handleMiniAppQuickAuth} // UPDATED: Call SDK quickAuth → Deeplink to Warpcast like old auto
                         disabled={miniAppAuthLoading || worldAuthLoading} // NEW: Disable during loading
-                        className="w-full px-4 py-2.5 border-2 border-white/15 bg-white/10 text-white rounded-lg text-sm font-semibold transition-all duration-300 hover:border-white/30 hover:bg-white/20 flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed"
+                        className="w-full px-4 py-2.5 border-2 border-white bg-transparent text-white rounded-sm text-sm font-semibold transition-all duration-300 hover:border-white/30 hover:bg-white/20 flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed"
                       >
                         {miniAppAuthLoading ? (
                           <BlinkingDots />

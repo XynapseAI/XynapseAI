@@ -2130,7 +2130,7 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
                       >
                         {isMinting ? (
                           <>
-                            Minting <BlinkingDots />
+                            <BlinkingDots />
                           </>
                         ) : (
                           'Mint Now'
@@ -2413,7 +2413,7 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
               >
                 {isUpdatingWallet ? (
                   <>
-                    Saving <BlinkingDots />
+                    <BlinkingDots />
                   </>
                 ) : disconnectWalletMutation.isLoading ? (
                   <BlinkingDots />
