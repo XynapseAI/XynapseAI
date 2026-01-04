@@ -4,6 +4,8 @@ import google.generativeai as genai
 import os
 from dotenv import load_dotenv
 import asyncio
+import requests
+from bs4 import BeautifulSoup
 
 # Load environment variables from .env
 load_dotenv()
@@ -80,7 +82,8 @@ You can earn Points through:
 - Links: Official website : https://xynapseai.net
 - Fund : Xynapse raised $8.5M through a little-known fund called 0110 Capital , url : https://www.crunchbase.com/organization/xynapse-fdcb
 - Where did the project come from? - Singapore
-Only use this information when relevant. If the question is unrelated, politely say you can only help with project-related topics.
+- Only use this information when relevant. If the question is unrelated, politely say you can only help with project-related topics.
+- If asked about the plan or next steps of the Xynapse project, answer by waiting for the team's next announcements.
 """
 
 # Improved system instruction for natural, concise responses
@@ -90,13 +93,127 @@ system_instruction = (
     "Communicate concisely, respond like a real person, not a machine, use natural and helpful language, "
     "and only use relevant information from the project details provided. "
     "Do not list or recite all information unless specifically asked. "
-    "If the question is unrelated to the project, please answer politely based on your understanding."
+    "If the question is unrelated to the project or requires information beyond the provided project details or current knowledge, "
+    "immediately use the brave_search tool to search the web for the answer without asking for confirmation. "
+    "Always use the tool for any non-project questions to ensure up-to-date information. "
+    "Do not ask the user for permission or confirmation before using tools; provide the information directly. "
+    "If you need the full content of a specific webpage from search results, use the fetch_full_content tool."
 )
+
+# Define tools for function calling
+tools = [
+    genai.protos.Tool(
+        function_declarations=[
+            genai.protos.FunctionDeclaration(
+                name='brave_search',
+                description='Search the web using Brave Search API for current information or anything not in the provided project details. Always use this for questions outside the project info.',
+                parameters=genai.protos.Schema(
+                    type=genai.protos.Type.OBJECT,
+                    properties={
+                        'query': genai.protos.Schema(type=genai.protos.Type.STRING, description='The search query'),
+                        'count': genai.protos.Schema(type=genai.protos.Type.INTEGER, description='Number of results, default 5'),
+                    },
+                    required=['query']
+                )
+            ),
+            genai.protos.FunctionDeclaration(
+                name='fetch_full_content',
+                description='Fetch the full text content of a webpage URL if more details are needed beyond search snippets.',
+                parameters=genai.protos.Schema(
+                    type=genai.protos.Type.OBJECT,
+                    properties={
+                        'url': genai.protos.Schema(type=genai.protos.Type.STRING, description='The URL to fetch content from'),
+                    },
+                    required=['url']
+                )
+            )
+        ]
+    )
+]
 
 model = genai.GenerativeModel(
     model_name="gemini-2.5-flash",
     system_instruction=f"{system_instruction}\n\nProject details:\n{PROJECT_INFO}",
+    tools=tools
 )
+
+# === Brave Search Function (adapted from JS reference) ===
+def brave_search(query, count=5, freshness='pm'):
+    api_key = os.getenv('BRAVE_API_KEY')
+    if not api_key:
+        print('BRAVE_API_KEY is missing. Please set it in .env file.')
+        return {'snippets': '', 'links': []}
+
+    print(f'Executing Brave search for query: "{query}" with count: {count}')
+
+    try:
+        response = requests.get(
+            'https://api.search.brave.com/res/v1/web/search',
+            params={
+                'q': query,
+                'count': count,
+                'freshness': freshness,
+                'safesearch': 'strict',
+            },
+            headers={
+                'Accept': 'application/json',
+                'Accept-Encoding': 'gzip',
+                'X-Subscription-Token': api_key,
+            },
+            timeout=10
+        )
+        response.raise_for_status()
+        data = response.json()
+        results = data.get('web', {}).get('results', [])
+
+        snippets = []
+        links = []
+        for result in results:
+            description = result.get('description', '')
+            extra_snippets = result.get('extra_snippets', [])
+            combined = ' '.join([description] + extra_snippets).strip()
+            if combined:
+                snippets.append(combined)
+
+            title = result.get('title') or result.get('url') or 'Untitled'
+            desc = ' '.join([description] + extra_snippets)[:200].strip() or 'No description available'
+            image = result.get('thumbnail', {}).get('src')
+
+            if result.get('url'):
+                links.append({
+                    'text': title,
+                    'url': result['url'],
+                    'description': desc,
+                    'image': image
+                })
+
+        snippets_str = '\n\n'.join(snippets)
+        result = {
+            'snippets': f'### Latest Web Insights\n{snippets_str}\n' if snippets_str else '',
+            'links': links
+        }
+        print(f'Brave search result: {result}')
+        return result
+    except Exception as e:
+        print(f'Brave Search Error for query "{query}": {e}')
+        return {'snippets': '', 'links': []}
+
+# === Fetch Full Content Function (adapted from JS reference) ===
+def fetch_full_content(url):
+    print(f'Fetching full content from URL: {url}')
+    try:
+        res = requests.get(url, timeout=5)
+        res.raise_for_status()
+        soup = BeautifulSoup(res.text, 'html.parser')
+        for tag in soup(['script', 'style', 'noscript', 'iframe']):
+            tag.decompose()
+        text = soup.body.get_text(separator=' ', strip=True)[:3000]
+        content = {'content': text or 'No content available'}
+        print(f'Fetched content: {content}')
+        return content
+    except Exception as e:
+        print(f'Error fetching content from {url}: {e}')
+        return {'content': ''}
 
 # === DISCORD BOT CONFIGURATION ===
 intents = discord.Intents.default()
@@ -137,10 +254,47 @@ async def on_message(message):
 
         async with message.channel.typing():
             try:
-                response = chat_session.send_message(message.content)
+                # Initial send
+                print(f'Processing message: {message.content}')
+                response = await asyncio.to_thread(chat_session.send_message, message.content)
 
-                reply_text = response.text
+                while True:
+                    # Check for function calls
+                    function_calls = [part for part in response.parts if part.function_call]
+                    if not function_calls:
+                        # No more calls, get the text
+                        reply_text = response.text
+                        break
 
+                    # Collect function responses
+                    parts = []
+                    for part in function_calls:
+                        fc = part.function_call
+                        args = dict(fc.args)
+                        print(f'Function call: {fc.name} with args: {args}')
+                        if fc.name == 'brave_search':
+                            query = args['query']
+                            count = int(args.get('count', 5))
+                            result = brave_search(query, count)
+                        elif fc.name == 'fetch_full_content':
+                            url = args['url']
+                            result = fetch_full_content(url)
+                        else:
+                            continue  # Unknown tool
+
+                        parts.append(genai.protos.Part(
+                            function_response=genai.protos.FunctionResponse(
+                                name=fc.name,
+                                response=result
+                            )
+                        ))
+
+                    if parts:
+                        func_response_content = genai.protos.Content(parts=parts)
+                        response = await asyncio.to_thread(chat_session.send_message, func_response_content)
+
+                # Send the final reply
+                print(f'Final reply: {reply_text}')
                 if len(reply_text) > 1000:
                     for i in range(0, len(reply_text), 1000):
                         await message.reply(reply_text[i:i+1000])
@@ -148,8 +302,8 @@ async def on_message(message):
                     await message.reply(reply_text)
 
             except Exception as e:
-                await message.reply("Sorry, I encountered an error processing your request. Please try again later !")
-                print(f"Gemini error: {e}")
+                await message.reply("Sorry, I encountered an error processing your request. Please try again later!")
+                print(f"Error: {e}")
 
     await bot.process_commands(message)
 
