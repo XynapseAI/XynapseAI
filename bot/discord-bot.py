@@ -71,7 +71,7 @@ You can earn Points through:
 
 # How to join ?
 
-• Step 1: visit xynapseai.net/dashboard
+• Step 1: visit https://xynapseai.net/dashboard
 
 • Step 2: Create an account
 
@@ -141,7 +141,7 @@ TOOLS = [
     }
 ]
 
-# === Brave Search Function  ===
+# === Brave Search & Fetch functions ===
 def brave_search(query, count=5, freshness='pd'):  
     api_key = os.getenv('BRAVE_API_KEY')
     if not api_key:
@@ -196,13 +196,12 @@ def brave_search(query, count=5, freshness='pd'):
             'snippets': f'### Latest Web Insights\n{snippets_str}\n' if snippets_str else '',
             'links': links
         }
-        print(f'Brave search result: {result}')  # Debug print check results
+        print(f'Brave search result: {result}')
         return result
     except Exception as e:
-        print(f'Brave Search Error for query "{query}": {e}')  # Debug error
+        print(f'Brave Search Error for query "{query}": {e}')
         return {'snippets': '', 'links': []}
 
-# Fetch full content 
 def fetch_full_content(url):
     print(f'Fetching full content from URL: {url}')
     try:
@@ -268,16 +267,18 @@ async def on_message(message):
                         tools=TOOLS,
                         tool_choice="auto",
                         temperature=0.5,
-                        max_tokens=1524
+                        max_tokens=1024
                     )
 
                     resp_message = response.choices[0].message
                     tool_calls = resp_message.tool_calls
 
-                    history.append({
+                    assistant_message = {
                         "role": "assistant",
-                        "content": resp_message.content,
-                        "tool_calls": [
+                        "content": resp_message.content or "" 
+                    }
+                    if tool_calls:
+                        assistant_message["tool_calls"] = [
                             {
                                 "id": tc.id,
                                 "type": "function",
@@ -285,14 +286,16 @@ async def on_message(message):
                                     "name": tc.function.name,
                                     "arguments": tc.function.arguments
                                 }
-                            } for tc in tool_calls or []
-                        ] if tool_calls else None
-                    })
+                            } for tc in tool_calls
+                        ]
+
+                    history.append(assistant_message)
 
                     if not tool_calls:
                         reply_text = resp_message.content or "Sorry, no response."
                         break
 
+                    # Handle tool calls
                     for tool_call in tool_calls:
                         name = tool_call.function.name
                         args = json.loads(tool_call.function.arguments)
