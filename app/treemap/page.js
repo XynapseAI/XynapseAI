@@ -1,6 +1,5 @@
 import TreemapTab from '../../components/TreemapTab'
 import { auth } from '@/lib/auth'
-import TabLayout from '../tab-layout'
 
 // Disable static generation for dynamic routes with searchParams
 export const dynamic = 'force-dynamic'
@@ -110,9 +109,5 @@ export default async function TreemapPage({ searchParams }) {
   console.log('TreemapPage props:', { params }) // Debug log
   const initialChain = (params?.chain || 'ethereum').toLowerCase()
   const initialAddress = params?.address || ''
-  return (
-    <TabLayout initialTab="graph">
-      <TreemapTab initialChain={initialChain} initialAddress={initialAddress} />
-    </TabLayout>
-  )
+  return <TreemapTab initialChain={initialChain} initialAddress={initialAddress} />
 }
