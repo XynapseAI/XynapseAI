@@ -62,6 +62,13 @@ import {
   useReadContract,
   useSendCalls,
 } from 'wagmi'
+import {
+  Transaction,
+  TransactionButton,
+  TransactionStatus,
+  TransactionStatusLabel,
+  TransactionStatusAction,
+} from '@coinbase/onchainkit/transaction'
 import { encodeFunctionData } from 'viem'
 import { Attribution } from 'ox/erc8021'
 import InviteTaskCard from './InviteTaskCard'
@@ -1754,49 +1761,49 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
     }
   }
   // Updated: Handle Mint NFT - Use BASE_CHAIN_ID, fix max supply msg to 10000, integrate useSendCalls for Builder Code attribution, no record mint
-  const handleMint = async () => {
-    if (!isConnected || !address) {
-      toast.error('Please connect your wallet first.')
-      return
-    }
-    if (chainId !== BASE_CHAIN_ID) {
-      try {
-        await switchChainMutation.mutateAsync({ chainId: BASE_CHAIN_ID })
-        toast.info('Please switch to Base mainnet to mint.')
-      } catch (err) {
-        toast.error('Network switching failed. Please switch to Base manually.')
-      }
-      return
-    }
-    if (nftMinted) {
-      toast.info('You have already minted!')
-      return
-    }
-    setIsMinting(true)
-    try {
-      const hash = await writeContractAsync({
-        address: CONTRACT_ADDRESS,
-        abi: NFT_ABI,
-        functionName: 'mint',
-        value: parseEther('0.0002'),
-        dataSuffix,
-      })
-      setShowMintModal(false)
-      toast.success('Genesis NFT minted successfully!')
-    } catch (err) {
-      let errorMsg = 'Mint failed. Please try again.'
-      if (err.message?.includes('insufficient funds')) {
-        errorMsg = 'Insufficient ETH , make sure you have more than 0.0002 ETH for gas fees'
-      } else if (err.message?.includes('Max supply')) {
-        errorMsg = 'Max supply (10,000) reached!'
-      } else if (err.shortMessage) {
-        errorMsg = err.shortMessage
-      }
-      toast.error(errorMsg)
-    } finally {
-      setIsMinting(false)
-    }
-  }
+  // const handleMint = async () => {
+  //   if (!isConnected || !address) {
+  //     toast.error('Please connect your wallet first.')
+  //     return
+  //   }
+  //   if (chainId !== BASE_CHAIN_ID) {
+  //     try {
+  //       await switchChainMutation.mutateAsync({ chainId: BASE_CHAIN_ID })
+  //       toast.info('Please switch to Base mainnet to mint.')
+  //     } catch (err) {
+  //       toast.error('Network switching failed. Please switch to Base manually.')
+  //     }
+  //     return
+  //   }
+  //   if (nftMinted) {
+  //     toast.info('You have already minted!')
+  //     return
+  //   }
+  //   setIsMinting(true)
+  //   try {
+  //     const hash = await writeContractAsync({
+  //       address: CONTRACT_ADDRESS,
+  //       abi: NFT_ABI,
+  //       functionName: 'mint',
+  //       value: parseEther('0.0002'),
+  //       dataSuffix,
+  //     })
+  //     setShowMintModal(false)
+  //     toast.success('Genesis NFT minted successfully!')
+  //   } catch (err) {
+  //     let errorMsg = 'Mint failed. Please try again.'
+  //     if (err.message?.includes('insufficient funds')) {
+  //       errorMsg = 'Insufficient ETH , make sure you have more than 0.0002 ETH for gas fees'
+  //     } else if (err.message?.includes('Max supply')) {
+  //       errorMsg = 'Max supply (10,000) reached!'
+  //     } else if (err.shortMessage) {
+  //       errorMsg = err.shortMessage
+  //     }
+  //     toast.error(errorMsg)
+  //   } finally {
+  //     setIsMinting(false)
+  //   }
+  // }
   // NEW: Handle modal steps progression - Skip if already completed/minted (on-chain check)
   const handleNextStep = () => {
     if (mintStep === 'connectWallet' && walletConnected) {
@@ -2088,7 +2095,7 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
                 {mintStep === 'mintNFT' && (
                   <div className="w-full text-center space-y-8">
                     <p className={`text-[#CCCCCC] ${isMobile ? 'text-xs' : 'text-sm'}`}>
-                      All done! Mint your exclusive Genesis NFT
+                      All done! Mint your exclusive Genesis NFT.
                       <br />
                       Make sure you have switched to{' '}
                       <span className="text-blue-500">Base Mainnet</span>.
@@ -2113,29 +2120,74 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
                       )}
                     </div>
                     <div className="flex gap-4 justify-center">
-                      <button
+                      {/*<button
                         onClick={() => setShowMintModal(false)}
                         className="px-5 py-2 bg-[#FFFFFF10] text-white rounded-lg hover:bg-[#FFFFFF20] border border-[#FFFFFF30] transition text-sm min-w-[120px]"
                       >
                         Cancel
-                      </button>
-                      <button
-                        onClick={handleMint}
-                        disabled={!isConnected}
-                        className={`px-5 py-2 rounded-lg font-medium transition text-sm min-w-[120px] ${
-                          !isConnected
-                            ? 'bg-gray-600 text-gray-400 cursor-not-allowed'
-                            : 'bg-white text-black hover:bg-gray-200'
-                        }`}
-                      >
-                        {isMinting ? (
-                          <>
-                            <BlinkingDots />
-                          </>
-                        ) : (
-                          'Mint Now'
-                        )}
-                      </button>
+                      </button>*/}
+                      {chainId !== BASE_CHAIN_ID ? (
+                        <button
+                          onClick={() => switchChainMutation.mutate({ chainId: BASE_CHAIN_ID })}
+                          disabled={switchChainMutation.isPending}
+                          className="px-5 py-2 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 transition text-sm min-w-[120px] disabled:opacity-70"
+                        >
+                          {switchChainMutation.isPending
+                            ? 'Switching...'
+                            : 'Switch to Base Mainnet'}
+                        </button>
+                      ) : (
+                        <Transaction
+                          chainId={BASE_CHAIN_ID}
+                          calls={[
+                            {
+                              to: CONTRACT_ADDRESS,
+                              data: encodeFunctionData({
+                                abi: NFT_ABI,
+                                functionName: 'mint',
+                                args: [],
+                              }),
+                              value: parseEther('0.0002'),
+                              dataSuffix,
+                            },
+                          ]}
+                          onStatus={(status) => {
+                            console.log('Transaction LifecycleStatus:', status)
+                          }}
+                          onSuccess={(hash) => {
+                            toast.success('Genesis NFT minted successfully!')
+                            setShowMintModal(false)
+                            refetchNftBalance() // Update nftMinted
+                            refetchCounter() // Update preview image
+                          }}
+                          onError={(err) => {
+                            let errorMsg = 'Mint failed. Please try again.'
+                            if (err.message?.includes('insufficient funds')) {
+                              errorMsg = 'Insufficient ETH; ensure you have more ETH for gas fees.'
+                            } else if (err.message?.includes('Max supply')) {
+                              errorMsg = 'Max supply (10,000) reached!'
+                            } else if (err.shortMessage) {
+                              errorMsg = err.shortMessage
+                            }
+                            toast.error(errorMsg)
+                            console.error('Transaction error:', err) // Log error
+                          }}
+                        >
+                          <TransactionButton
+                            disabled={!isConnected}
+                            className={`px-5 py-2 rounded-lg font-medium transition text-sm min-w-[120px] ${
+                              !isConnected
+                                ? 'bg-gray-600 text-gray-400 cursor-not-allowed'
+                                : 'bg-white text-black hover:bg-gray-200'
+                            }`}
+                            text="Mint"
+                          />
+                          <TransactionStatus>
+                            <TransactionStatusLabel />
+                            <TransactionStatusAction />
+                          </TransactionStatus>
+                        </Transaction>
+                      )}
                     </div>
                   </div>
                 )}

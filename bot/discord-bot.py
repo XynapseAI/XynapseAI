@@ -13,7 +13,7 @@ load_dotenv()
 
 # === GROQ CONFIGURATION ===
 client = Groq(api_key=os.getenv("GROQ_API_KEY"))
-MODEL = "meta-llama/llama-4-maverick-17b-128e-instruct"
+MODEL = "llama-3.3-70b-versatile"
 
 # Project info
 PROJECT_INFO = """
@@ -56,7 +56,7 @@ You can earn Points through:
 • Step 1: visit https://xynapseai.net/dashboard
 • Step 2: Create an account
 • Step 3: Switch to the Tasks tab
-• Step 3: Complete tasks to earn Points (20 points for each successful invitation, Earn 50 points only when you enter the invitation code, 20 points for following Twitter (X), 500 points when minting Genesis NFT)
+• Step 3: Complete tasks to earn Points (20 points for each successful invitation, Earn 50 points only when you enter the invitation code, 20 points for following Twitter (X), 20 points for following Twitter (X), 500 points when minting Genesis NFT)
 - Genesis NFT: This proprietary NFT is proof-of-concept for early adopters, granting early access to advanced tools, early feature launches within the XynapseAI ecosystem, and several other future benefits.
 - Roadmap: No roadmap
 - Tokenomics (if applicable): No Tokenomics
@@ -71,19 +71,20 @@ You can earn Points through:
 system_instruction = (
     "You are a friendly and casual support assistant for the Xynapse project. "
     "Respond in multiple languages, preferably matching the user's language. "
-    "Always keep responses very short, natural, and concise – like a real person chatting casually. "
-    "Do NOT be verbose or promotional. "
-    "For simple greetings (e.g., 'Hello', 'Hi'), reply briefly and friendly, e.g., 'Hi! How can I help?' or 'Hello there!'. "
-    "Do NOT mention Genesis Phase, points program, NFT, joining steps, or project features unless the user explicitly asks about them. "
-    "Only use relevant project information when directly needed. "
-    "If the question is unrelated to the project or requires up-to-date information, immediately use the brave_search tool without explanation. "
-    "When using brave_search for news or current events, always include 'recent' or the current year (e.g., '2026') in the query to get the latest results. "
-    "Base your response strictly on the tool results – do not add your own knowledge, speculate, or judge accuracy (e.g., do not call something 'fictional'). Report info as is from sources. "
-    "If tool returns no results or empty snippets, reply 'Sorry, couldn't find recent info on that.' "
-    "Never ask for confirmation before using tools. "
-    "You are using structured tool calling. When you need to use a tool, provide the tool call in the correct structured format. "
-    "Do not put raw JSON in the message content. Only output normal text in the final response after receiving tool results. "
-    "Avoid repeating words or phrases unnecessarily."
+    "Keep responses natural and casual, like chatting with a friend.\n"
+    "For project-related questions: be concise and only use the provided project details when relevant.\n"
+    "For questions needing up-to-date info (news, crypto, events):\n"
+    "- Use the brave_search tool FIRST with a clear query including 'latest' or '2026'.\n"
+    "- If snippets are not enough for accurate details, then use fetch_full_content on 1-2 top URLs.\n"
+    "- Summarize key facts in bullet points, quoting exactly from results.\n"
+    "- At the end, list ONLY the top 2 most relevant sources as plain text:\n"
+    "- NEVER list more than 2 sources, even if there are more results.\n"
+    "- NEVER use markdown links or formatting that could break.\n"
+    "- STRICTLY use exact tool names: 'brave_search' and 'fetch_full_content'.\n"
+    "- Output valid tool calls only — no extra text or invented names.\n"
+    "- Base everything strictly on tool results. No speculation or added knowledge.\n"
+    "If no useful results, say 'Sorry, couldn't find recent info on that.'\n"
+    "Only output normal text in final response."
 )
 
 system_prompt = f"{system_instruction}\n\nProject details (use only when relevant):\n{PROJECT_INFO}"
@@ -94,12 +95,12 @@ TOOLS = [
         "type": "function",
         "function": {
             "name": "brave_search",
-            "description": "Search the web using Brave Search API for current information or anything not in the provided project details. Always use this for questions outside the project info.",
+            "description": "Search the web for current information.",
             "parameters": {
                 "type": "object",
                 "properties": {
-                    "query": {"type": "string", "description": "The search query"},
-                    "count": {"type": "integer", "description": "Number of results, default 5"}
+                    "query": {"type": "string"},
+                    "count": {"type": "integer"}
                 },
                 "required": ["query"]
             }
@@ -109,11 +110,11 @@ TOOLS = [
         "type": "function",
         "function": {
             "name": "fetch_full_content",
-            "description": "Fetch the full text content of a webpage URL if more details are needed beyond search snippets.",
+            "description": "Fetch full text of a webpage URL.",
             "parameters": {
                 "type": "object",
                 "properties": {
-                    "url": {"type": "string", "description": "The URL to fetch content from"}
+                    "url": {"type": "string"}
                 },
                 "required": ["url"]
             }
@@ -121,86 +122,62 @@ TOOLS = [
     }
 ]
 
-# === Brave Search & Fetch functions ===
+# Brave Search & Fetch
 def brave_search(query, count=5, freshness='pd'):
     api_key = os.getenv('BRAVE_API_KEY')
     if not api_key:
-        print('BRAVE_API_KEY is missing. Please set it in .env file.')
-        return {'snippets': '', 'links': []}
-    print(f'Executing Brave search for query: "{query}" with count: {count} and freshness: {freshness}')
+        return {'snippets': 'No API key', 'links': []}
+    
+    print(f'Searching: "{query}"')
     try:
         response = requests.get(
             'https://api.search.brave.com/res/v1/web/search',
-            params={
-                'q': query,
-                'count': count,
-                'freshness': freshness,
-                'safesearch': 'strict',
-            },
-            headers={
-                'Accept': 'application/json',
-                'Accept-Encoding': 'gzip',
-                'X-Subscription-Token': api_key,
-            },
+            params={'q': query, 'count': count, 'freshness': freshness, 'safesearch': 'strict'},
+            headers={'Accept': 'application/json', 'X-Subscription-Token': api_key},
             timeout=10
         )
         response.raise_for_status()
         data = response.json()
         results = data.get('web', {}).get('results', [])
-        snippets = []
-        links = []
-        for result in results:
-            description = result.get('description', '')
-            extra_snippets = result.get('extra_snippets', [])
-            combined = ' '.join([description] + extra_snippets).strip()
-            if combined:
-                snippets.append(combined)
-            title = result.get('title') or result.get('url') or 'Untitled'
-            desc = ' '.join([description] + extra_snippets)[:200].strip() or 'No description available'
-            image = result.get('thumbnail', {}).get('src')
-            if result.get('url'):
-                links.append({
-                    'text': title,
-                    'url': result['url'],
-                    'description': desc,
-                    'image': image
-                })
-        snippets_str = '\n\n'.join(snippets)
-        result = {
-            'snippets': f'### Latest Web Insights\n{snippets_str}\n' if snippets_str else '',
-            'links': links
-        }
-        print(f'Brave search result: {result}')
-        return result
+        
+        results_text = []
+        for i, result in enumerate(results, 1):
+            title = result.get('title', 'No title').strip()
+            url = result.get('url', '')
+            desc = ' '.join([result.get('description', ''), ' '.join(result.get('extra_snippets', []))]).strip()
+            results_text.append(f"{i}. Title: {title}\nURL: {url}\nSummary: {desc}\n")
+        
+        formatted = "### Search Results\n" + "\n".join(results_text) if results_text else "No results."
+        
+        return {'snippets': formatted, 'links': []}
     except Exception as e:
-        print(f'Brave Search Error for query "{query}": {e}')
+        print(f"Search error: {e}")
         return {'snippets': '', 'links': []}
 
 def fetch_full_content(url):
-    print(f'Fetching full content from URL: {url}')
+    print(f'Fetching: {url}')
     try:
-        res = requests.get(url, timeout=10)
+        res = requests.get(url, headers={'User-Agent': 'Mozilla/5.0'}, timeout=15)
         res.raise_for_status()
         soup = BeautifulSoup(res.text, 'html.parser')
-        for tag in soup(['script', 'style', 'noscript', 'iframe']):
+        for tag in soup(['script', 'style', 'header', 'footer', 'nav']):
             tag.decompose()
-        text = soup.body.get_text(separator=' ', strip=True)[:3000]
-        return {'content': text or 'No content available'}
+        text = soup.get_text(separator=' ', strip=True)[:5000]
+        return {'content': text or 'No content'}
     except Exception as e:
-        print(f'Error fetching content: {e}')
-        return {'content': ''}
+        return {'content': f'Error: {e}'}
 
-# === DISCORD BOT ===
+# DISCORD BOT
 intents = discord.Intents.default()
 intents.message_content = True
 intents.members = True
 bot = commands.Bot(command_prefix="!", intents=intents)
 
-user_chats = {}  # user_id: list of messages (history)
+user_chats = {}
 
 @bot.event
 async def on_ready():
-    print(f"Bot is ready and logged in as: {bot.user}")
+    print(f"Bot ready: {bot.user}")
 
 @bot.event
 async def on_message(message):
@@ -210,8 +187,8 @@ async def on_message(message):
     is_reply_to_bot = False
     if message.reference:
         try:
-            referenced_msg = await message.channel.fetch_message(message.reference.message_id)
-            if referenced_msg.author == bot.user:
+            ref = await message.channel.fetch_message(message.reference.message_id)
+            if ref.author == bot.user:
                 is_reply_to_bot = True
         except:
             pass
@@ -228,9 +205,7 @@ async def on_message(message):
 
         async with message.channel.typing():
             try:
-                print(f'Processing message: {message.content}')
                 reply_text = ""
-
                 while True:
                     response = await asyncio.to_thread(
                         client.chat.completions.create,
@@ -238,82 +213,47 @@ async def on_message(message):
                         messages=history,
                         tools=TOOLS,
                         tool_choice="auto",
-                        temperature=0.5,  # Reduced to minimize repetition
-                        max_tokens=2048
+                        temperature=0.4,
+                        max_tokens=3072
                     )
-
                     resp_message = response.choices[0].message
                     tool_calls = resp_message.tool_calls
                     content = (resp_message.content or "").strip()
 
-                    # Fallback: if model incorrectly puts JSON in content, treat it as tool call
+                    # Fallback for bad JSON
                     if not tool_calls and content.startswith("{"):
                         try:
                             parsed = json.loads(content)
-                            if isinstance(parsed, dict) and parsed.get("name") in ["brave_search", "fetch_full_content"]:
-                                # Create fake tool call
+                            if parsed.get("name") in ["brave_search", "fetch_full_content"]:
                                 from types import SimpleNamespace
-                                fake_tc = SimpleNamespace(
-                                    id="fallback",
-                                    function=SimpleNamespace(
-                                        name=parsed["name"],
-                                        arguments=json.dumps(parsed.get("parameters") or parsed.get("arguments", {}))
-                                    )
-                                )
+                                fake_tc = SimpleNamespace(id="fallback", function=SimpleNamespace(name=parsed["name"], arguments=json.dumps(parsed.get("parameters", {}))))
                                 tool_calls = [fake_tc]
-                                resp_message.content = None
                                 content = ""
-                                print("Fallback activated: Detected JSON in content, treating as tool call")
-                        except json.JSONDecodeError:
+                        except:
                             pass
 
-                    assistant_message = {
-                        "role": "assistant",
-                        "content": content
-                    }
-
+                    assistant_message = {"role": "assistant", "content": content}
                     if tool_calls:
-                        assistant_message["tool_calls"] = [
-                            {
-                                "id": tc.id,
-                                "type": "function",
-                                "function": {
-                                    "name": tc.function.name,
-                                    "arguments": tc.function.arguments
-                                }
-                            } for tc in tool_calls
-                        ]
-
+                        assistant_message["tool_calls"] = [{"id": tc.id, "type": "function", "function": {"name": tc.function.name, "arguments": tc.function.arguments}} for tc in tool_calls]
                     history.append(assistant_message)
 
                     if not tool_calls:
-                        reply_text = content or "Sorry, no response."
+                        reply_text = content or "No response."
                         break
 
-                    # Handle tool calls
                     for tool_call in tool_calls:
                         name = tool_call.function.name
-                        try:
-                            args = json.loads(tool_call.function.arguments)
-                        except json.JSONDecodeError:
-                            args = {}
-                        print(f'Function call: {name} with args: {args}')
+                        args = json.loads(tool_call.function.arguments or "{}")
+                        print(f"Tool: {name} - {args}")
 
                         if name == "brave_search":
-                            result = brave_search(args.get("query"), args.get("count", 5))
+                            result = brave_search(args.get("query", ""), args.get("count", 5))
                         elif name == "fetch_full_content":
-                            result = fetch_full_content(args.get("url"))
+                            result = fetch_full_content(args.get("url", ""))
                         else:
-                            result = {"error": "Unknown tool"}
+                            result = {"error": "Unknown"}
 
-                        history.append({
-                            "role": "tool",
-                            "tool_call_id": tool_call.id,
-                            "name": name,
-                            "content": json.dumps(result)
-                        })
-
-                print(f'Final reply: {reply_text}')
+                        history.append({"role": "tool", "tool_call_id": tool_call.id, "name": name, "content": json.dumps(result)})
 
                 if len(reply_text) > 2000:
                     for i in range(0, len(reply_text), 2000):
@@ -322,10 +262,9 @@ async def on_message(message):
                     await message.reply(reply_text.strip())
 
             except Exception as e:
-                await message.reply("Sorry, something went wrong. Try again in a bit!")
+                await message.reply("Sorry, error occurred. Try again!")
                 print(f"Error: {e}")
 
     await bot.process_commands(message)
 
-# Run the bot
 bot.run(os.getenv("DISCORD_TOKEN"))
