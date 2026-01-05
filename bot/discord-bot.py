@@ -5,17 +5,23 @@ from dotenv import load_dotenv
 import asyncio
 import requests
 from bs4 import BeautifulSoup
-from groq import Groq
+from openai import OpenAI
 import json
+import time
+import random
 
 # Load environment variables from .env
 load_dotenv()
 
-# === GROQ CONFIGURATION ===
-client = Groq(api_key=os.getenv("GROQ_API_KEY"))
-MODEL = "llama-3.3-70b-versatile"
+# === OPENROUTER CONFIGURATION ===
+client = OpenAI(
+    api_key=os.getenv("OPENROUTER_API_KEY"),
+    base_url="https://openrouter.ai/api/v1"
+)
 
-# Project info
+MODEL = "nvidia/nemotron-3-nano-30b-a3b:free"
+
+# Project info 
 PROJECT_INFO = """
 This is the detailed information about our project:
 - Project name: Xynapse
@@ -67,24 +73,20 @@ You can earn Points through:
 - If asked about the plan or next steps of the Xynapse project, answer by waiting for the team's next announcements.
 """
 
-# System instruction
+# System instruction 
 system_instruction = (
     "You are a friendly and casual support assistant for the Xynapse project. "
     "Respond in multiple languages, preferably matching the user's language. "
     "Keep responses natural and casual, like chatting with a friend.\n"
     "For project-related questions: be concise and only use the provided project details when relevant.\n"
-    "For questions needing up-to-date info (news, crypto, events):\n"
-    "- Use the brave_search tool FIRST with a clear query including 'latest' or '2026'.\n"
-    "- If snippets are not enough for accurate details, then use fetch_full_content on 1-2 top URLs.\n"
-    "- Summarize key facts in bullet points, quoting exactly from results.\n"
-    "- At the end, list ONLY the top 2 most relevant sources as plain text:\n"
-    "- NEVER list more than 2 sources, even if there are more results.\n"
-    "- NEVER use markdown links or formatting that could break.\n"
-    "- STRICTLY use exact tool names: 'brave_search' and 'fetch_full_content'.\n"
-    "- Output valid tool calls only — no extra text or invented names.\n"
-    "- Base everything strictly on tool results. No speculation or added knowledge.\n"
-    "If no useful results, say 'Sorry, couldn't find recent info on that.'\n"
-    "Only output normal text in final response."
+    "For questions needing up-to-date info (current prices, lastest news, events):\n"
+    "- ALWAYS use the provided tools to get current information.\n"
+    "- If snippets mention relevant URLs, ALWAYS fetch_full_content on 5-10 top ones.\n"
+    "- From results: Extract key facts in bullet points (price, market cap, volume, description, news, risks).\n"
+    "- If info limited (pre-launch token), still summarize what exists and note it.\n"
+    "- ONLY say 'Sorry, couldn't find recent info on that.' if tools return absolutely nothing.\n"
+    "- At the end, list ONLY the top 2 most relevant sources as plain text.\n"
+    "Never hallucinate. Base everything strictly on tool results."
 )
 
 system_prompt = f"{system_instruction}\n\nProject details (use only when relevant):\n{PROJECT_INFO}"
@@ -123,36 +125,37 @@ TOOLS = [
 ]
 
 # Brave Search & Fetch
-def brave_search(query, count=5, freshness='pd'):
+def brave_search(query, count=5):
     api_key = os.getenv('BRAVE_API_KEY')
     if not api_key:
-        return {'snippets': 'No API key', 'links': []}
-    
+        return {'snippets': 'No API key configured.', 'links': []}
+   
     print(f'Searching: "{query}"')
     try:
+        params = {'q': query, 'count': count, 'safesearch': 'strict'}
         response = requests.get(
             'https://api.search.brave.com/res/v1/web/search',
-            params={'q': query, 'count': count, 'freshness': freshness, 'safesearch': 'strict'},
+            params=params,
             headers={'Accept': 'application/json', 'X-Subscription-Token': api_key},
             timeout=10
         )
         response.raise_for_status()
         data = response.json()
         results = data.get('web', {}).get('results', [])
-        
+       
         results_text = []
         for i, result in enumerate(results, 1):
             title = result.get('title', 'No title').strip()
             url = result.get('url', '')
             desc = ' '.join([result.get('description', ''), ' '.join(result.get('extra_snippets', []))]).strip()
             results_text.append(f"{i}. Title: {title}\nURL: {url}\nSummary: {desc}\n")
-        
+       
         formatted = "### Search Results\n" + "\n".join(results_text) if results_text else "No results."
-        
-        return {'snippets': formatted, 'links': []}
+       
+        return {'snippets': formatted, 'links': [r.get('url', '') for r in results]}
     except Exception as e:
         print(f"Search error: {e}")
-        return {'snippets': '', 'links': []}
+        return {'snippets': f'Error: {str(e)}', 'links': []}
 
 def fetch_full_content(url):
     print(f'Fetching: {url}')
@@ -167,10 +170,24 @@ def fetch_full_content(url):
     except Exception as e:
         return {'content': f'Error: {e}'}
 
+# === RATE LIMITING (GLOBAL) ===
+recent_requests = []  # List of timestamps
+RATE_WINDOW = 30      # seconds
+MAX_REQUESTS = 10    
+
+funny_responses = [
+    "Whoa, slow down everyone! Too many questions at once — give me a second to catch my breath 😅",
+    "Hey, it's getting super busy in here! One at a time please, I'm doing my best 😂",
+    "Wow, you guys are flooding me! Hold on, I'll get to everyone soon 🐢",
+    "Too much excitement at once! Calm down a bit, I'm only one bot 🤖",
+    "Everyone's chatting at the same time! Queue up, I'll answer as fast as I can 🔥"
+]
+
 # DISCORD BOT
 intents = discord.Intents.default()
 intents.message_content = True
 intents.members = True
+
 bot = commands.Bot(command_prefix="!", intents=intents)
 
 user_chats = {}
@@ -195,17 +212,35 @@ async def on_message(message):
 
     is_mentioned = bot.user in message.mentions
 
-    if is_mentioned or is_reply_to_bot:
-        user_id = message.author.id
-        if user_id not in user_chats:
-            user_chats[user_id] = [{"role": "system", "content": system_prompt}]
+    if not (is_mentioned or is_reply_to_bot):
+        await bot.process_commands(message)
+        return
 
-        history = user_chats[user_id]
-        history.append({"role": "user", "content": message.content})
+    # === RATE LIMIT CHECK ===
+    current_time = time.time()
+    
+    # Clean old timestamps
+    global recent_requests
+    recent_requests = [t for t in recent_requests if current_time - t < RATE_WINDOW]
+    
+    if len(recent_requests) >= MAX_REQUESTS:
+        funny_reply = random.choice(funny_responses)
+        await message.reply(funny_reply)
+        return
+    
+    recent_requests.append(current_time)
 
-        async with message.channel.typing():
+    user_id = message.author.id
+    if user_id not in user_chats:
+        user_chats[user_id] = [{"role": "system", "content": system_prompt}]
+
+    history = user_chats[user_id]
+    history.append({"role": "user", "content": message.content})
+
+    async with message.channel.typing():
+        reply_text = ""
+        for attempt in range(3):
             try:
-                reply_text = ""
                 while True:
                     response = await asyncio.to_thread(
                         client.chat.completions.create,
@@ -214,27 +249,24 @@ async def on_message(message):
                         tools=TOOLS,
                         tool_choice="auto",
                         temperature=0.4,
-                        max_tokens=3072
+                        max_tokens=2048
                     )
                     resp_message = response.choices[0].message
-                    tool_calls = resp_message.tool_calls
                     content = (resp_message.content or "").strip()
-
-                    # Fallback for bad JSON
-                    if not tool_calls and content.startswith("{"):
-                        try:
-                            parsed = json.loads(content)
-                            if parsed.get("name") in ["brave_search", "fetch_full_content"]:
-                                from types import SimpleNamespace
-                                fake_tc = SimpleNamespace(id="fallback", function=SimpleNamespace(name=parsed["name"], arguments=json.dumps(parsed.get("parameters", {}))))
-                                tool_calls = [fake_tc]
-                                content = ""
-                        except:
-                            pass
+                    tool_calls = getattr(resp_message, "tool_calls", None)
 
                     assistant_message = {"role": "assistant", "content": content}
                     if tool_calls:
-                        assistant_message["tool_calls"] = [{"id": tc.id, "type": "function", "function": {"name": tc.function.name, "arguments": tc.function.arguments}} for tc in tool_calls]
+                        assistant_message["tool_calls"] = [
+                            {
+                                "id": tc.id,
+                                "type": "function",
+                                "function": {
+                                    "name": tc.function.name,
+                                    "arguments": tc.function.arguments
+                                }
+                            } for tc in tool_calls
+                        ]
                     history.append(assistant_message)
 
                     if not tool_calls:
@@ -251,19 +283,27 @@ async def on_message(message):
                         elif name == "fetch_full_content":
                             result = fetch_full_content(args.get("url", ""))
                         else:
-                            result = {"error": "Unknown"}
+                            result = {"error": "Unknown tool"}
 
-                        history.append({"role": "tool", "tool_call_id": tool_call.id, "name": name, "content": json.dumps(result)})
-
-                if len(reply_text) > 2000:
-                    for i in range(0, len(reply_text), 2000):
-                        await message.reply(reply_text[i:i+2000])
-                else:
-                    await message.reply(reply_text.strip())
-
+                        history.append({
+                            "role": "tool",
+                            "tool_call_id": tool_call.id,
+                            "name": name,
+                            "content": json.dumps(result)
+                        })
+                break
             except Exception as e:
-                await message.reply("Sorry, error occurred. Try again!")
-                print(f"Error: {e}")
+                print(f"Attempt {attempt + 1} error: {e}")
+                if attempt == 2:
+                    reply_text = "Sorry, temporary error. Try again later!"
+                else:
+                    await asyncio.sleep(3)
+
+        if len(reply_text) > 2000:
+            for i in range(0, len(reply_text), 2000):
+                await message.reply(reply_text[i:i+2000])
+        else:
+            await message.reply(reply_text.strip())
 
     await bot.process_commands(message)
 

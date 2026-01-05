@@ -1,5 +1,5 @@
-import { NextResponse } from 'next/server';
-import { detectClustersServer } from '../../../utils/serverClustering';
+import { NextResponse } from 'next/server'
+import { detectClustersServer } from '../../../utils/serverClustering'
 
 const allowedOrigins = [
   process.env.NEXT_PUBLIC_APP_URL,
@@ -10,7 +10,7 @@ const allowedOrigins = [
   'https://farcaster.xynapseai.net',
   'https://base.xynapseai.net',
   'https://xynapse-ai-xynapse-projects.vercel.app',
-].filter(Boolean);
+].filter(Boolean)
 
 /**
  * (Origin Check)
@@ -21,24 +21,29 @@ const allowedOrigins = [
 
 function isAllowedOrigin(origin, referer) {
   try {
-
-    if (origin && (allowedOrigins.includes(origin) || new URL(origin).hostname.endsWith('xynapseai.net'))) {
-      return true;
+    if (
+      origin &&
+      (allowedOrigins.includes(origin) || new URL(origin).hostname.endsWith('xynapseai.net'))
+    ) {
+      return true
     }
     if (!origin && referer) {
-      const refOrigin = new URL(referer).origin;
-      if (allowedOrigins.includes(refOrigin) || new URL(refOrigin).hostname.endsWith('xynapseai.net')) {
-        return true;
+      const refOrigin = new URL(referer).origin
+      if (
+        allowedOrigins.includes(refOrigin) ||
+        new URL(refOrigin).hostname.endsWith('xynapseai.net')
+      ) {
+        return true
       }
     }
 
     if (!origin && process.env.NODE_ENV === 'development') {
-      console.log('Localhost request - skipping violation check');
-      return true;
+      console.log('Localhost request - skipping violation check')
+      return true
     }
-    return false;
+    return false
   } catch {
-    return false;
+    return false
   }
 }
 
@@ -48,76 +53,78 @@ function isAllowedOrigin(origin, referer) {
  * @returns {NextResponse}
  */
 export async function POST(request) {
-  const startOverall = Date.now();
-  const origin = request.headers.get('origin');
-  const referer = request.headers.get('referer');
-  const ip = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || '::1';
+  const startOverall = Date.now()
+  const origin = request.headers.get('origin')
+  const referer = request.headers.get('referer')
+  const ip = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || '::1'
 
   // 1. Origin/CORS
   if (!isAllowedOrigin(origin, referer)) {
-    console.warn(`[Violation] Blocked request from Origin: ${origin || 'None'} and Referer: ${referer || 'None'} at IP: ${ip}`);
-    return NextResponse.json({ success: false, error: 'Forbidden Origin' }, { status: 403 });
+    console.warn(
+      `[Violation] Blocked request from Origin: ${origin || 'None'} and Referer: ${referer || 'None'} at IP: ${ip}`,
+    )
+    return NextResponse.json({ success: false, error: 'Forbidden Origin' }, { status: 403 })
   }
 
   // 2.(Dynamic Import) - FIXED: Handle load errors gracefully
-  let tf = null;
-  let IsolationForest = null;
+  let tf = null
+  let IsolationForest = null
 
   try {
-    const tfModule = await import('@tensorflow/tfjs');
-    tf = tfModule;
-    console.log('TF.js loaded successfully');
+    const tfModule = await import('@tensorflow/tfjs')
+    tf = tfModule
+    console.log('TF.js loaded successfully')
   } catch (tfErr) {
-    console.warn("TF.js load failed:", tfErr.message);
+    console.warn('TF.js load failed:', tfErr.message)
     // Continue without TF (fallback to rules)
   }
 
   try {
-    const ifModule = await import('ml-isolation-forest');
-    IsolationForest = ifModule.IsolationForest || ifModule.default?.IsolationForest || ifModule.default;
-    console.log('Isolation Forest loaded successfully');
+    const ifModule = await import('ml-isolation-forest')
+    IsolationForest =
+      ifModule.IsolationForest || ifModule.default?.IsolationForest || ifModule.default
+    console.log('Isolation Forest loaded successfully')
   } catch (ifErr) {
-    console.warn("Isolation Forest load failed:", ifErr.message);
+    console.warn('Isolation Forest load failed:', ifErr.message)
     // Continue without IF
   }
 
   // 3.FIXED: No client worker call; metrics computed in serverClustering
   try {
-    const body = await request.json();
-    const { nodes, edges, options } = body;
+    const body = await request.json()
+    const { nodes, edges, options } = body
 
     if (!Array.isArray(nodes) || !Array.isArray(edges)) {
-      return NextResponse.json({ success: false, error: 'Invalid input: nodes and edges must be arrays.' }, { status: 400 });
+      return NextResponse.json(
+        { success: false, error: 'Invalid input: nodes and edges must be arrays.' },
+        { status: 400 },
+      )
     }
 
-    const clusters = await detectClustersServer(
-      nodes,
-      edges,
-      options,
-      tf,
-      IsolationForest
-    );
+    const clusters = await detectClustersServer(nodes, edges, options, tf, IsolationForest)
 
-    const timeElapsed = Date.now() - startOverall;
-    console.log(`Clustering completed successfully after ${timeElapsed}ms`);
+    const timeElapsed = Date.now() - startOverall
+    console.log(`Clustering completed successfully after ${timeElapsed}ms`)
 
     return NextResponse.json({
       success: true,
-      clusters,  // FIXED: Use 'clusters' key for client setClusters
-      time: timeElapsed
-    });
-
+      clusters, // FIXED: Use 'clusters' key for client setClusters
+      time: timeElapsed,
+    })
   } catch (error) {
-    const timeElapsed = Date.now() - startOverall;
+    const timeElapsed = Date.now() - startOverall
     console.error(`Clustering error after ${timeElapsed}ms`, {
       error: error.message,
-      stack: error.stack
-    });
+      stack: error.stack,
+    })
 
-    return NextResponse.json({
-      success: false,
-      error: error.message,
-      stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
-    }, { status: 500 });
+    return NextResponse.json(
+      {
+        success: false,
+        error: error.message,
+        stack: process.env.NODE_ENV === 'development' ? error.stack : undefined,
+      },
+      { status: 500 },
+    )
   }
 }

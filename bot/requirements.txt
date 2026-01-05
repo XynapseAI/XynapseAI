@@ -1,6 +1,5 @@
 discord.py
-google-generativeai
-groq
+openai
 python-dotenv
 requests
 beautifulsoup4
