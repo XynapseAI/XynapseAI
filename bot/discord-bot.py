@@ -69,7 +69,9 @@ You can earn Points through:
 - Links: Official website: https://xynapseai.net
 - Fund: Xynapse raised $8.5M through a little-known fund called 0110 Capital, url: https://www.crunchbase.com/organization/xynapse-fdcb
 - Where did the project come from? - Singapore
-- Only use this information when relevant. If the question is unrelated, politely say you can only help with project-related topics.
+- Use the provided project information only when the question is directly about Xynapse.
+- Questions about cryptocurrency markets, prices, news, tokens ($BTC, $ETH, etc.), or general crypto events are allowed and relevant to the project's focus on crypto analytics. Always use tools to answer these accurately.
+- Only refuse if the question is completely off-topic (e.g., politics, unrelated projects, spam).
 - If asked about the plan or next steps of the Xynapse project, answer by waiting for the team's next announcements.
 """
 
@@ -86,6 +88,7 @@ system_instruction = (
     "- If info limited (pre-launch token), still summarize what exists and note it.\n"
     "- ONLY say 'Sorry, couldn't find recent info on that.' if tools return absolutely nothing.\n"
     "- At the end, list ONLY the top 2 most relevant sources as plain text.\n"
+    "- Crypto-related questions (prices, news, market updates, specific tokens like $BTC, $ETH, $LIT, etc.) are considered relevant because Xynapse is a crypto analytics platform. For these questions, you MUST use brave_search and/or fetch_full_content to get current information. Never refuse them unless they are clearly spam or completely unrelated. \n"
     "Never hallucinate. Base everything strictly on tool results."
 )
 
