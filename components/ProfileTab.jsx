@@ -1985,7 +1985,7 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
                 {/* Step: Connect Wallet */}
                 {mintStep === 'connectWallet' && (
                   <div className="w-full text-center space-y-6">
-                    <p className={`text-[#CCCCCC] ${isMobile ? 'text-sm' : 'text-base'}`}>
+                    <p className={`text-[#CCCCCC] ${isMobile ? 'text-[11px]' : 'text-xs'}`}>
                       Connect your wallet to Base mainnet
                     </p>
                     {walletConnected ? (
@@ -2020,7 +2020,7 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
                 {/* Step: Connect Twitter */}
                 {mintStep === 'connectTwitter' && (
                   <div className="w-full text-center space-y-6">
-                    <p className={`text-[#CCCCCC] ${isMobile ? 'text-sm' : 'text-base'}`}>
+                    <p className={`text-[#CCCCCC] ${isMobile ? 'text-[11px]' : 'text-xs'}`}>
                       Connect your X account for verification
                     </p>
                     {twitterConnected ? (
@@ -2055,7 +2055,7 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
                 {/* Step: Follow X Account */}
                 {mintStep === 'followX' && (
                   <div className="w-full text-center space-y-6">
-                    <p className={`text-[#CCCCCC] ${isMobile ? 'text-sm' : 'text-base'}`}>
+                    <p className={`text-[#CCCCCC] ${isMobile ? 'text-[11px]' : 'text-xs'}`}>
                       Follow our official X account to continue
                     </p>
                     <div className="flex justify-center">
@@ -2094,7 +2094,7 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
                 {/* Step: Mint NFT */}
                 {mintStep === 'mintNFT' && (
                   <div className="w-full text-center space-y-8">
-                    <p className={`text-[#CCCCCC] ${isMobile ? 'text-xs' : 'text-sm'}`}>
+                    <p className={`text-[#CCCCCC] ${isMobile ? 'text-[11px]' : 'text-xs'}`}>
                       All done! Mint your exclusive Genesis NFT.
                       <br />
                       Make sure you have switched to{' '}
@@ -2338,7 +2338,7 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
                     </div>
                   </div>
                 ) : (
-                  <span className="text-[#D4D4D4] text-sm">Not Connected</span>
+                  <span className="text-[#D4D4D4] text-[10px]">Not Connected</span>
                 )}
               </div>
             </div>
@@ -2437,7 +2437,7 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
                         </div>
                       </>
                     ) : (
-                      <span className="text-[#D4D4D4] text-sm">Not Connected</span>
+                      <span className="text-[#D4D4D4] text-[10px]">Not Connected</span>
                     )}
                   </div>
 
@@ -2571,7 +2571,7 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
                 <motion.button
                   key={tab}
                   onClick={() => setActiveTab(tab)}
-                  className={`flex-1 text-[10px] sm:text-xs font-bold text-white uppercase tracking-wider py-2 relative transition-all duration-300 flex items-center justify-center gap-1 ${
+                  className={`flex-1 text-[9px] sm:text-xs font-bold text-white uppercase tracking-wider py-2 relative transition-all duration-300 flex items-center justify-center gap-1 ${
                     isActive ? 'text-white shadow-lg' : 'text-white/70 hover:text-neon-blue'
                   }`}
                 >

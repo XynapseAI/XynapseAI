@@ -1708,24 +1708,29 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
       setClusters(fallbackClusters)
     }
   }
+
   const initializeForceGraph = useCallback(async () => {
     if (!containerRef.current || !nodes.length || !walletInfo.address) {
       logger.warn('Cannot initialize ForceGraph: missing container, nodes, or walletInfo.address')
       return
     }
+
     try {
       await TensorFlowJS
+
       if (graphRef.current) {
         graphRef.current.pauseAnimation()
         containerRef.current.innerHTML = ''
       }
+
       const rootId = walletInfo.address.toLowerCase()
       const detectedClusters = clusters
       const positionedNodesData = await positionInWorker(
         nodes.map((n) => ({ ...n.data })),
         edges.map((e) => ({ ...e.data })),
       )
-      // NEW: Adjust positions for wallet queries (non-token queries) as per user request
+
+      // Adjust positions for wallet queries (non-token queries)
       const isTokenQuery = fullIncomingData.length === 0 && fullOutgoingData.length === 0
       if (!isTokenQuery) {
         // Build adjacency list
@@ -1771,7 +1776,7 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
 
         // Position layer2 without L3: top and bottom
         const numWithout = layer2WithoutL3.length
-        const radiusWithout = 250 // Increased distance for clarity
+        const radiusWithout = 250
         const halfWithout = Math.floor(numWithout / 2)
         layer2WithoutL3.forEach((l2, i) => {
           const node = positionedNodesData.find((n) => n.id.toLowerCase() === l2)
@@ -1779,14 +1784,14 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
             const isTop = i < halfWithout
             const localI = i % halfWithout
             const angle = (localI / halfWithout) * Math.PI
-            node.x = Math.cos(angle) * radiusWithout * 0.3 // Slight x spread
+            node.x = Math.cos(angle) * radiusWithout * 0.3
             node.y = (isTop ? -1 : 1) * (radiusWithout + Math.sin(angle) * radiusWithout * 0.4)
           }
         })
 
         // Position layer2 with L3: left and right
         const numWith = layer2WithL3.length
-        const radiusWith = 350 // Increased distance for clarity
+        const radiusWith = 350
         const halfWith = Math.floor(numWith / 2)
         layer2WithL3.forEach((item, i) => {
           const node = positionedNodesData.find((n) => n.id.toLowerCase() === item.l2)
@@ -1795,11 +1800,11 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
             const localI = i % halfWith
             const angle = ((localI / halfWith) * Math.PI) / 2
             node.x = (isLeft ? -1 : 1) * (radiusWith + Math.sin(angle) * radiusWith * 0.3)
-            node.y = Math.cos(angle) * radiusWith * 0.5 // Slight y spread
+            node.y = Math.cos(angle) * radiusWith * 0.5
           }
 
           // Position associated L3 around the L2
-          const l3Radius = 120 // Distance from L2
+          const l3Radius = 120
           const numL3 = item.l3.length
           item.l3.forEach((l3Id, j) => {
             const l3Node = positionedNodesData.find((n) => n.id.toLowerCase() === l3Id)
@@ -1820,6 +1825,7 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
         })
       }
 
+      // Cluster data for selectedEntity
       let clusterData
       const rootCluster = detectedClusters.find((c) =>
         c.wallets.some((w) => w.id.toLowerCase() === rootId),
@@ -1831,7 +1837,7 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
           image: rootCluster.image || walletInfo.image || '/icons/default.webp',
         }
       } else {
-        // Fallback to root-only data
+        // Fallback cluster data
         let filteredRootTxs = []
         if (filterType === 'all' || filterType === 'incoming') {
           filteredRootTxs.push(
@@ -1905,7 +1911,8 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
         }
       }
       setSelectedEntity({ type: 'cluster', data: rootCluster || clusterData })
-      // Preload images with reduced scope (only essential)
+
+      // Preload images
       const imageCache = {}
       const imagesToPreload = new Set()
       if (walletInfo.image && isValidNametagImage(walletInfo.image)) {
@@ -1916,7 +1923,7 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
           imagesToPreload.add(n.image)
         }
       })
-      // Preload default image
+
       const defaultUrl = '/icons/default.webp'
       const defaultImg = new Image()
       defaultImg.src = `${window.location.origin}${defaultUrl}`
@@ -1925,11 +1932,9 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
           imageCache['default'] = defaultImg
           resolve()
         }
-        defaultImg.onerror = () => {
-          console.error('Failed to load default image')
-          resolve() // Continue even if default fails
-        }
+        defaultImg.onerror = () => resolve()
       })
+
       const uniqueImages = Array.from(imagesToPreload)
       await Promise.all(
         uniqueImages.map(
@@ -1950,30 +1955,31 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
             }),
         ),
       )
+
+      // Slight compress for better initial view
       if (isTokenQuery) {
-        // Scale down initial positions for token query to bring clusters closer
         positionedNodesData.forEach((n) => {
           if (!n.isRoot) {
-            n.x *= 0.25
-            n.y *= 0.25
+            n.x *= 0.3
+            n.y *= 0
           }
         })
       } else {
-        // For non-token queries, slightly compress initial positions to bring clusters closer
         positionedNodesData.forEach((n) => {
           if (!n.isRoot) {
-            n.x *= 0.6
-            n.y *= 0.6
+            n.x *= 0.7
+            n.y *= 0.7
           }
         })
       }
-      // Prepare links with unique IDs for multiple edges
+
+      // Links with unique IDs and precomputed parallel indices
       const linksWithIds = edges.map((e, index) => ({
         ...e.data,
-        id: `${e.data.source}-${e.data.target}-${index}`, // Unique ID for each edge
+        id: `${e.data.source}-${e.data.target}-${index}`,
         width: e.data.layer === 3 ? 0.15 : 0.4,
       }))
-      // NEW: Precompute parallel indices to avoid O(n^2) filtering in linkCanvasObject
+
       const undirectedGroups = new Map()
       linksWithIds.forEach((link) => {
         const sourceId = link.source.id || link.source
@@ -1982,6 +1988,7 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
         if (!undirectedGroups.has(key)) undirectedGroups.set(key, [])
         undirectedGroups.get(key).push(link)
       })
+
       linksWithIds.forEach((link) => {
         const sourceId = link.source.id || link.source
         const targetId = link.target.id || link.target
@@ -1990,12 +1997,13 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
         link.numParallel = group.length
         link.parallelIndex = group.findIndex((l) => l.id === link.id)
       })
+
       graphRef.current = ForceGraph()(containerRef.current)
         .graphData({
           nodes: positionedNodesData.map((n) => ({
             id: n.id,
             ...n,
-            val: n.layer === 1 ? 26.256 : n.layer === 2 ? 15.16 : 11.128, // Reduced layer 1 and 3 by 20% (40.32->32.256, 20.16->16.128)
+            val: n.layer === 1 ? 26.256 : n.layer === 2 ? 15.16 : 11.128,
             group: n.layer,
             color:
               n.layer === 1
@@ -2008,14 +2016,14 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
           })),
           links: linksWithIds,
         })
-        .backgroundColor('rgba(0,0,0,0.3)')
-        .nodeRelSize(4.2) // Reduced from 6.0 for smaller nodes overall, helps with perf
+        .backgroundColor('transparent')
+        .nodeRelSize(4.2)
         .nodeVal((node) => {
           const tv = parseFloat(node.totalValue || 0)
           const baseVal = Math.sqrt(tv) + 1
-          if (node.layer === 1) return baseVal * 3.6 // Reduced 20% from 5.6
+          if (node.layer === 1) return baseVal * 3.6
           if (node.layer === 2) return baseVal * 2.8
-          if (node.layer === 3) return baseVal * 1.0 // Reduced 20% from 2.0
+          if (node.layer === 3) return baseVal * 1.0
           return baseVal * 1.8
         })
         .nodeLabel((node) => {
@@ -2054,6 +2062,7 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
           ctx.strokeStyle = '#fff'
           ctx.lineWidth = 1 / globalScale
           ctx.stroke()
+
           const isRoot = node.id.toLowerCase() === walletInfo.address?.toLowerCase()
           let displayImage = '/icons/default.webp'
           if (isRoot && walletInfo.image) {
@@ -2083,7 +2092,7 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
           ctx.arc(node.x, node.y, size, 0, 2 * Math.PI, false)
           ctx.fill()
         })
-        .linkDirectionalParticles(0) // Fully disabled for performance
+        .linkDirectionalParticles(0)
         .linkDirectionalParticleSpeed(0.003)
         .linkDirectionalParticleWidth(1)
         .linkDirectionalParticleColor((link) => (link.type === 'incoming' ? '#00BFFF' : '#FFD700'))
@@ -2091,40 +2100,39 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
           const start = link.source
           const end = link.target
           if (!start || !end || !start.x || !end.x || !start.y || !end.y) return
-          // Use precomputed values instead of filtering allLinks
+
           const numEdges = link.numParallel || 1
           const edgeIndex = link.parallelIndex || 0
           if (numEdges === 0) return
-          // Dynamic offset: Scale with numEdges and globalScale for better spacing (avoid crowding)
-          const spacing = Math.max(4, 12 / numEdges) / globalScale // Min 4px, max ~12px total spread
+
+          const spacing = Math.max(4, 12 / numEdges) / globalScale
           const offset = (edgeIndex - (numEdges - 1) / 2) * spacing
-          // Direction vector
+
           const dx = end.x - start.x
           const dy = end.y - start.y
           const len = Math.sqrt(dx * dx + dy * dy)
-          if (len === 0) return // Avoid div0
+          if (len === 0) return
+
           const ux = dx / len
           const uy = dy / len
-          // Perpendicular unit vector (rotate 90 deg CCW)
           const px = -uy
           const py = ux
-          // Cubic Bezier for smoother, fuller curve (better than quadratic for long offsets)
-          // Control points: Offset the two mids perpendicularly
+
           const mid1X = start.x + ux * (len * 0.25)
           const mid1Y = start.y + uy * (len * 0.25)
           const mid2X = start.x + ux * (len * 0.75)
           const mid2Y = start.y + uy * (len * 0.75)
-          // Apply offset to both controls
+
           const offsetMid1X = mid1X + px * offset
           const offsetMid1Y = mid1Y + py * offset
           const offsetMid2X = mid2X + px * offset
           const offsetMid2Y = mid2Y + py * offset
+
           ctx.beginPath()
           ctx.moveTo(start.x, start.y)
-          // Cubic bezier: start -> ctrl1 -> ctrl2 -> end
           ctx.bezierCurveTo(offsetMid1X, offsetMid1Y, offsetMid2X, offsetMid2Y, end.x, end.y)
+
           const isLayer3 = link.layer === 3
-          // Dynamic opacity: Fade outer edges slightly for less clutter
           const opacity = Math.max(
             0.4,
             1 - (Math.abs(edgeIndex - (numEdges - 1) / 2) / numEdges) * 0.6,
@@ -2132,6 +2140,7 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
           ctx.strokeStyle = isLayer3
             ? `rgba(200, 200, 255, ${0.6 * opacity})`
             : `rgba(255, 255, 255, ${0.6 * opacity})`
+
           const baseWidth = isLayer3 ? 0.22 : 0.5
           const valueScale = Math.min(1.5, Math.log(Number(link.value || 1) + 1) / Math.LN10)
           ctx.lineWidth =
@@ -2145,14 +2154,14 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
           (link) =>
             `${link.tokenSymbol || 'Unknown'} - ${formatLargeNumber(Number(link.value), 1)}`,
         )
-        .linkHoverPrecision(4) // Reduced from 10 for less hit-test overhead
+        .linkHoverPrecision(4)
         .d3Force(
           'charge',
           d3.forceManyBody().strength((node) => {
             if (node.layer === 2 || node.layer === 3) {
-              return -1200 // Increased repulsion for more spread
+              return -800
             }
-            return isTokenQuery ? -1800 : -800 // Reduced by ~20% from -3200 and -1400
+            return isTokenQuery ? -1200 : -600
           }),
         )
         .d3Force(
@@ -2162,40 +2171,39 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
             .id((d) => d.id)
             .distance((link) => {
               if (link.source.id === rootId || link.target.id === rootId) {
-                return isTokenQuery ? 3 : 100 // Increased distance to root
+                return isTokenQuery ? 80 : 160
               }
-              return link.layer === 3 ? 50 : 120 // Increased non-root distances
+              return link.layer === 3 ? 70 : 160
             })
             .strength(0.8),
-        ) // Increase strength to better enforce distances
+        )
         .d3Force(
           'radial',
           d3
             .forceRadial((node) => {
               const cluster = detectedClusters.find((c) => c.clusterId === node.clusterId)
               if (cluster && cluster.wallets.length > 5) {
-                // Apply only to large clusters
                 const centerX =
                   cluster.wallets.reduce((sum, w) => sum + w.x, 0) / cluster.wallets.length
                 const centerY =
                   cluster.wallets.reduce((sum, w) => sum + w.y, 0) / cluster.wallets.length
-                return Math.hypot(node.x - centerX, node.y - centerY) // Distance to center
+                return Math.hypot(node.x - centerX, node.y - centerY)
               }
-              return 0 // No radial for small clusters
+              return 0
             })
             .strength(0.3),
-        ) // Increase strength slightly for tighter circular arrangement
+        )
         .d3Force(
           'collide',
           d3
             .forceCollide()
-            .radius((node) => node.val * 1.8) // Increased radius for better separation
-            .strength(0.7), // Increased strength
-        ) // Add collision to prevent overlaps
-        .d3AlphaDecay(0.028) // Increased from 0.012 for faster simulation settling
-        .d3VelocityDecay(0.82) // Reduced from 0.7 for smoother drag (less friction)
-        .warmupTicks(200)
-        .cooldownTicks(800) // Reduced from 2500 for faster cooldown
+            .radius((node) => node.val * 1.8)
+            .strength(0.7),
+        )
+        .warmupTicks(600)
+        .cooldownTicks(600)
+        .d3AlphaDecay(0.04) 
+        .d3VelocityDecay(0.92)
         .enablePointerInteraction(true)
         .enableNodeDrag(true)
         .enableZoomInteraction(true)
@@ -2235,11 +2243,9 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
           node.fx = node.x
           node.fy = node.y
         })
-      // .onEngineStop(() => {
-      //   graphRef.current.zoomToFit(1200, 200)
-      // })
+
       graphRef.current.centerAt(0, 0, 1500)
-      graphRef.current.zoom(isTokenQuery ? 0.35 : 0.5, 1500) // Zoom out a bit for non-token queries
+      graphRef.current.zoom(isTokenQuery ? 0.35 : 0.5, 1500)
     } catch (err) {
       logger.error('Error initializing ForceGraph:', err)
       toast.error('Graph visualization failed. Please refresh.', {
@@ -2259,6 +2265,7 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
     clusters,
     filterTransactions,
   ])
+
   useEffect(() => {
     initializeForceGraph().catch(console.error)
     return () => {
@@ -2760,17 +2767,31 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
         )}
         {walletInfo.address && (
           <div className="relative w-full h-[calc(100vh-4rem)] sm:h-[calc(100vh)] overflow-hidden">
-            {' '}
-            {/* Tăng chiều cao */}
             <div className="flex gap-2 mb-2 mt-2 justify-center">
-              {/* Bỏ button Load More */}
               {nodes.length >= MAX_NODES && (
                 <span className="px-2 sm:px-3 py-1 text-[9px] sm:text-[10px] font-medium text-yellow-400 border border-yellow-400/30 bg-yellow-500/10 rounded-xl">
                   Max nodes reached (1000). Use filters for subgraphs.
                 </span>
               )}
             </div>
-            <div ref={containerRef} className="w-full h-full" />
+
+            {nodes.length > 0 ? (
+              <motion.div
+                className="absolute inset-0"
+                initial={{ opacity: 0, scale: 0.92 }}
+                animate={{ opacity: 1, scale: 1 }}
+                transition={{
+                  duration: 1.8,
+                  ease: [0.25, 0.1, 0.25, 1],
+                }}
+              >
+                <div ref={containerRef} className="w-full h-full" />
+              </motion.div>
+            ) : (
+              <div className="w-full h-full flex items-center justify-center text-white/60 text-sm">
+                Initializing graph...
+              </div>
+            )}
           </div>
         )}
       </div>

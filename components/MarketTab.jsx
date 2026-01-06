@@ -914,9 +914,7 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
             aria-label="Trending Cryptocurrencies"
           >
             {isLoadingTrending && !trendingTokens?.length ? (
-              <div className="flex items-center justify-center h-8">
-                <SkeletonLoader count={1} height={20} width="100%" />
-              </div>
+              <div className="flex items-center justify-center h-8"></div>
             ) : trendingError ? (
               <div className="text-center p-2">
                 <p className="text-red-500 text-[10px] mb-2">{trendingError}</p>
@@ -1035,7 +1033,7 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                   <div className="absolute top-1 right-1 w-32 sm:w-40" ref={dropdownRef}>
                     <button
                       onClick={() => setIsDropdownOpen(!isDropdownOpen)}
-                      className="text-[#FFF] px-2 sm:px-2 py-1 sm:py-1 text-[10px] sm:text-xs flex items-center w-full border-2 border-[#FFFFFF20] bg-[#FFFFFF]/5 hover:bg-[#FFFFFF]/10 transition-all duration-300 rounded-xl group hover:scale-102 active:scale-98" // CSS
+                      className="text-[#FFF] px-2 sm:px-2 py-1 sm:py-1 text-[10px] sm:text-xs flex items-center w-full border-2 border-[#FFFFFF20] bg-[#FFFFFF]/5 hover:bg-[#FFFFFF]/10 transition-all duration-300 rounded-xl group" // CSS
                       aria-label="Select token"
                     >
                       {selectedToken ||
@@ -1907,8 +1905,6 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                               Retry
                             </button>
                           </div>
-                        ) : isLoadingTickers && !tickerData?.length ? (
-                          <SkeletonLoader count={5} isMobile={isMobile} />
                         ) : tickerData.length > 0 ? (
                           <Virtuoso
                             style={{
@@ -2514,7 +2510,6 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                   isMobile={isMobile}
                   className="!absolute h-full w-full"
                 />
-                <SkeletonLoader count={5} isMobile={isMobile} />
               </div>
             )}
           </div>

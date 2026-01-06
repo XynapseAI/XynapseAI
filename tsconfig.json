@@ -1,16 +1,8 @@
 {
   "compilerOptions": {
-    "types": [
-      "wagmi",
-      "viem",
-      "node"
-    ],
+    "types": ["wagmi", "viem", "node"],
     "target": "ES2017",
-    "lib": [
-      "dom",
-      "dom.iterable",
-      "esnext"
-    ],
+    "lib": ["dom", "dom.iterable", "esnext"],
     "allowJs": true,
     "skipLibCheck": true,
     "strict": true,
@@ -28,15 +20,9 @@
       }
     ],
     "paths": {
-      "@/*": [
-        "./*"
-      ],
-      "@/components/*": [
-        "./components/*"
-      ],
-      "@/ui/*": [
-        "./components/ui/*"
-      ]
+      "@/*": ["./*"],
+      "@/components/*": ["./components/*"],
+      "@/ui/*": ["./components/ui/*"]
     }
   },
   "include": [
@@ -48,7 +34,5 @@
     "app/layout.js",
     ".next/dev/types/**/*.ts"
   ],
-  "exclude": [
-    "node_modules"
-  ]
+  "exclude": ["node_modules"]
 }
