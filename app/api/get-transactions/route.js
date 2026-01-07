@@ -724,7 +724,7 @@ async function fetchLayer3Transactions(layer2Addresses, chain, limit, page) {
     `Fetching Layer 3 transactions for ${safeAddresses.length} Layer 2 addresses (including unknown nametags)`,
   )
   if (safeAddresses.length === 0) return transactions
-  const layer3Limit = 10
+  const layer3Limit = 5
   let nativePrice = await getCurrentPrice(chainConfig.coingeckoId || 'bitcoin')
   let baseUrl = null
   if (alchemyNetworks[chain]) {
@@ -2130,7 +2130,7 @@ export async function POST(request) {
         ]
           .filter((addr) => (addressVolume.get(addr) || 0) > 5000)
           .sort((a, b) => (addressVolume.get(b) || 0) - (addressVolume.get(a) || 0))
-          .slice(0, 10)
+          .slice(0, 5)
 
         logger.info(
           `Fetching Layer 3 for ${sortedLayer2.length} top-volume Layer 2 addresses (out of ${addressVolume.size} total counterparties)`,

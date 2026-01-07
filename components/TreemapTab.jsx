@@ -66,12 +66,10 @@ const isValidBitcoinAddress = (addr) => {
   if (/^bc1[a-z0-9]{39,59}$/i.test(addr)) return true
   return false
 }
-
 const isValidAddressForChain = (addr, chain) => {
   if (!addr || typeof addr !== 'string') return false
   const trimmed = addr.trim()
   if (trimmed.length === 0) return false
-
   if (['solana', 'tron'].includes(chain)) {
     return /^[A-Za-z0-9]{32,44}$/.test(trimmed)
   }
@@ -105,6 +103,7 @@ const getExplorerLogo = (selectedChain) => {
 }
 const VirtuosoTable = memo(
   ({ transactions, isMobile, selectedChain, tokenImages, nametags, filterType, rootAddress }) => {
+    const [searchQuery, setSearchQuery] = useState('')
     if (!transactions || !Array.isArray(transactions)) {
       logger.warn('Invalid transactions in VirtuosoTable:', transactions)
       return (
@@ -166,25 +165,41 @@ const VirtuosoTable = memo(
         }
         return false
       })
-      logger.log('Filtered transactions in VirtuosoTable:', filtered)
       return filtered
     }, [transactions, filterType, rootAddress])
-    if (filteredTransactions.length === 0) {
-      return (
-        <div
-          className={`bg-black/50 backdrop-blur-md border border-white/10 rounded-xl p-3 max-h-[calc(100vh-12rem)] hide-scrollbar ${isMobile ? 'w-full mt-2' : 'w-96 fixed right-4 top-32'}`}
-        >
-          <h4 className="text-white text-[10px] sm:text-[12px] font-bold uppercase tracking-wider mb-2">
-            Transactions
-          </h4>
-          <p className="text-white/60 text-[9px] sm:text-[10px]">
-            {filterType === 'all'
-              ? 'Select a wallet or cluster to view transactions.'
-              : `No ${filterType} transactions found.`}
-          </p>
-        </div>
-      )
-    }
+    // Sort by time (newest first)
+    const sortedTransactions = useMemo(() => {
+      return [...filteredTransactions].sort((a, b) => {
+        const getTime = (tx) => {
+          if (!tx.block_time) return 0
+          if (typeof tx.block_time === 'number') return tx.block_time
+          const date = new Date(tx.block_time)
+          return isNaN(date.getTime()) ? 0 : date.getTime() / 1000
+        }
+        return getTime(b) - getTime(a)
+      })
+    }, [filteredTransactions])
+    // Additional search filter (nametag, wallet address, token)
+    const displayedTransactions = useMemo(() => {
+      if (!searchQuery.trim()) return sortedTransactions
+      const query = searchQuery.toLowerCase().trim()
+      return sortedTransactions.filter((tx) => {
+        const fromNametag = nametags[tx.source?.toLowerCase()]?.name?.toLowerCase() || ''
+        const toNametag = nametags[tx.target?.toLowerCase()]?.name?.toLowerCase() || ''
+        const fromAddr = tx.source?.toLowerCase() || ''
+        const toAddr = tx.target?.toLowerCase() || ''
+        const token = tx.tokenSymbol?.toLowerCase() || tx.contractAddress?.toLowerCase() || ''
+        return (
+          fromNametag.includes(query) ||
+          toNametag.includes(query) ||
+          fromAddr.includes(query) ||
+          toAddr.includes(query) ||
+          token.includes(query)
+        )
+      })
+    }, [sortedTransactions, searchQuery, nametags])
+    const hasTransactions = filteredTransactions.length > 0
+    const hasResults = displayedTransactions.length > 0
     const fixedHeaderContent = () => (
       <tr className="grid grid-cols-[2fr_1fr_1fr] gap-2">
         <th className="px-2 py-1 text-white font-medium text-left overflow-hidden border-r border-white/5">
@@ -231,10 +246,8 @@ const VirtuosoTable = memo(
           key={`${tx.hash}-${index}`}
           className="grid grid-cols-[2fr_1fr_1fr] gap-2 border-t border-white/10 hover:bg-white/5 transition-colors duration-200"
         >
-          {/* From/To Addresses */}
           <td className="px-2 py-1 text-white/80 text-[8px] sm:text-[10px] text-left overflow-hidden border-r border-white/5 align-middle">
             <div className="flex flex-col gap-1 min-w-0">
-              {/* From */}
               <div className="flex items-center gap-1 group relative">
                 <svg
                   xmlns="http://www.w3.org/2000/svg"
@@ -303,7 +316,6 @@ const VirtuosoTable = memo(
                   </svg>
                 </button>
               </div>
-              {/* To */}
               <div className="flex items-center gap-1 group relative">
                 <div className="w-3 h-3 flex-shrink-0" />
                 {isValidNametagImage(toNtag.image) && (
@@ -353,7 +365,6 @@ const VirtuosoTable = memo(
               </div>
             </div>
           </td>
-          {/* Value + Token */}
           <td className="px-2 py-1 text-white/80 text-[9px] sm:text-[11px] text-center overflow-hidden border-r border-white/5 align-middle">
             <div className="flex flex-col items-center justify-center gap-1">
               <img
@@ -370,7 +381,6 @@ const VirtuosoTable = memo(
               </span>
             </div>
           </td>
-          {/* Details: Tx Hash + Time */}
           <td className="px-2 py-1 text-white/80 text-[9px] sm:text-[11px] text-center overflow-hidden align-middle">
             <div className="flex flex-col items-center justify-center gap-1">
               <button
@@ -402,70 +412,96 @@ const VirtuosoTable = memo(
     const tableHeight = isMobile ? 'auto' : 'calc(100vh - 8rem)'
     return (
       <div
-        className={`bg-black/10 backdrop-blur-md border border-white/10 rounded-xl p-3 hide-scrollbar ${isMobile ? 'w-full mt-2 overflow-auto max-h-[50vh]' : 'w-96 fixed right-4 top-32'}`}
-        style={{ height: tableHeight, minHeight: '400px' }}
+        className={`bg-black/10 backdrop-blur-md border border-white/10 rounded-xl p-3 hide-scrollbar ${isMobile ? 'w-full mt-2 overflow-auto max-h-[50vh]' : 'max-h-[60vh] w-96 fixed right-4 top-26'}`}
+        style={{ height: tableHeight, minHeight: '360px' }}
       >
         <h4 className="text-white text-[10px] sm:text-[12px] font-bold uppercase tracking-wider mb-2">
           Transactions
         </h4>
-        <TableVirtuoso
-          data={filteredTransactions}
-          fixedHeaderContent={fixedHeaderContent}
-          itemContent={Row}
-          style={{
-            height: tableHeight,
-            maxHeight: '70vh',
-            width: '100%',
-            overflowX: 'hidden',
-          }}
-          className="hide-scrollbar"
-          components={{
-            Table: ({ children, ...props }) => (
-              <table
-                {...props}
-                className="w-full text-[8px] sm:text-[9px] bg-black/5 rounded-xl border-collapse"
-                style={{
-                  ...props.style,
-                  tableLayout: 'fixed',
-                  width: '100%',
-                  borderCollapse: 'collapse',
-                }}
-              >
-                {children}
-              </table>
-            ),
-            TableHead: ({ children, ...props }) => (
-              <thead {...props} className="border-b border-white/10 bg-black/10 sticky top-0 z-10">
-                {children}
-              </thead>
-            ),
-            TableBody: ({ children, ...props }) => (
-              <tbody {...props} className="w-full hide-scrollbar" style={{ ...props.style }}>
-                {children}
-              </tbody>
-            ),
-            EmptyPlaceholder: () => (
-              <tbody>
-                <tr>
-                  <td
-                    colSpan={3}
-                    className="text-center text-white/60 text-[9px] sm:text-[10px] py-4"
-                  >
-                    No transactions available
-                  </td>
-                </tr>
-              </tbody>
-            ),
-            Scroller: (props) => (
-              <div
-                {...props}
-                className="hide-scrollbar"
-                style={{ ...props.style, overflowX: 'hidden', overflowY: 'auto' }}
-              />
-            ),
-          }}
-          overscan={50}
-        />
+        {hasTransactions && (
+          <div className="mb-3">
+            <input
+              type="text"
+              placeholder="Filter by nametag, wallet address, or token..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-full px-3 py-1.5 text-[10px] bg-black/30 border border-white/10 rounded-lg text-white placeholder-white/40 focus:outline-none focus:border-neon-blue/50"
+            />
+          </div>
+        )}
+        {!hasTransactions ? (
+          <p className="text-white/60 text-[9px] sm:text-[10px]">
+            {filterType === 'all'
+              ? 'Select a wallet or cluster to view transactions.'
+              : `No ${filterType} transactions found.`}
+          </p>
+        ) : !hasResults ? (
+          <p className="text-white/60 text-[9px] sm:text-[10px]">
+            No transactions matching "{searchQuery}"
+          </p>
+        ) : (
+          <TableVirtuoso
+            data={displayedTransactions}
+            fixedHeaderContent={fixedHeaderContent}
+            itemContent={Row}
+            style={{
+              height: tableHeight,
+              maxHeight: '70vh',
+              width: '100%',
+              overflowX: 'hidden',
+            }}
+            className="hide-scrollbar"
+            components={{
+              Table: ({ children, ...props }) => (
+                <table
+                  {...props}
+                  className="w-full text-[8px] sm:text-[9px] bg-black/5 rounded-xl border-collapse"
+                  style={{
+                    ...props.style,
+                    tableLayout: 'fixed',
+                    width: '100%',
+                    borderCollapse: 'collapse',
+                  }}
+                >
+                  {children}
+                </table>
+              ),
+              TableHead: ({ children, ...props }) => (
+                <thead
+                  {...props}
+                  className="border-b border-white/10 bg-black/10 sticky top-0 z-10"
+                >
+                  {children}
+                </thead>
+              ),
+              TableBody: ({ children, ...props }) => (
+                <tbody {...props} className="w-full hide-scrollbar" style={{ ...props.style }}>
+                  {children}
+                </tbody>
+              ),
+              EmptyPlaceholder: () => (
+                <tbody>
+                  <tr>
+                    <td
+                      colSpan={3}
+                      className="text-center text-white/60 text-[9px] sm:text-[10px] py-4"
+                    >
+                      No transactions
+                    </td>
+                  </tr>
+                </tbody>
+              ),
+              Scroller: (props) => (
+                <div
+                  {...props}
+                  className="hide-scrollbar"
+                  style={{ ...props.style, overflowX: 'hidden', overflowY: 'auto' }}
+                />
+              ),
+            }}
+            overscan={50}
+          />
+        )}
       </div>
     )
   },
@@ -593,7 +629,7 @@ const ClusterDashboard = memo(({ entity, isMobile, tokenImages, walletInfo }) =>
         : '/icons/default.webp'
   return (
     <div
-      className={`bg-black/10 backdrop-blur-lg border border-white/20 rounded-2xl p-3 shadow-neon-md hide-scrollbar max-h-[calc(100vh-8rem)] ${isMobile ? 'w-full mt-2 overflow-auto max-h-[40vh]' : 'w-80 fixed left-4 top-32'}`}
+      className={`bg-black/10 backdrop-blur-lg border border-white/20 rounded-2xl p-3 shadow-neon-md hide-scrollbar max-h-[calc(100vh-10rem)] ${isMobile ? 'w-full mt-2 overflow-auto max-h-[40vh]' : 'w-80 fixed left-4 top-32'}`}
       style={{ overflowY: 'auto' }}
     >
       <h4 className="text-white text-[11px] font-bold mb-2 bg-gradient-to-r from-neon-blue/30 to-transparent rounded p-1 flex items-center gap-2">
@@ -699,12 +735,10 @@ const ClusterDashboard = memo(({ entity, isMobile, tokenImages, walletInfo }) =>
 const CACHE_TTL = 7200000 // Increased to 2 hours for longer caching
 const NODES_PER_PAGE = 50
 const MAX_NODES = 1000 // Scalability limit
-
 // CLUTERING
 function simpleRuleBasedClustering(nodesData, edgesData) {
   const clusters = []
   const nodeMap = new Map(nodesData.map((n) => [n.id.toLowerCase(), n]))
-
   // Adjacency list & txs per node
   const adjList = new Map()
   const txMap = new Map()
@@ -713,7 +747,6 @@ function simpleRuleBasedClustering(nodesData, edgesData) {
     adjList.set(id, new Set())
     txMap.set(id, [])
   })
-
   edgesData.forEach((e) => {
     const s = e.source.toLowerCase()
     const t = e.target.toLowerCase()
@@ -724,21 +757,18 @@ function simpleRuleBasedClustering(nodesData, edgesData) {
       txMap.get(t).push(e)
     }
   })
-
   // Compute basic per-node metrics
   nodesData.forEach((node) => {
     const id = node.id.toLowerCase()
     const nodeTxs = txMap.get(id) || []
     node.degree = adjList.get(id)?.size || 0
     node.txCount = nodeTxs.length
-
     const times = nodeTxs
       .map((e) =>
         typeof e.block_time === 'number' ? e.block_time * 1000 : new Date(e.block_time).getTime(),
       )
       .filter((t) => !isNaN(t))
       .sort((a, b) => a - b)
-
     let velocity = 0
     if (times.length > 1) {
       const spanDays = (times[times.length - 1] - times[0]) / 86400000
@@ -746,7 +776,6 @@ function simpleRuleBasedClustering(nodesData, edgesData) {
     }
     node.velocity = velocity
     node.uniqueTokens = new Set(nodeTxs.map((e) => e.tokenSymbol || 'unknown')).size
-
     // Simple autoLabel
     let autoLabel = null
     const totalValue = parseFloat(node.totalValue || 0)
@@ -758,7 +787,6 @@ function simpleRuleBasedClustering(nodesData, edgesData) {
     else if (node.uniqueTokens >= 30) autoLabel = 'NFT Collector'
     node.autoLabel = autoLabel
   })
-
   // Union-Find for merging
   const parent = new Map()
   const rank = new Map()
@@ -767,12 +795,10 @@ function simpleRuleBasedClustering(nodesData, edgesData) {
     parent.set(id, id)
     rank.set(id, 0)
   })
-
   const find = (x) => {
     if (parent.get(x) !== x) parent.set(x, find(parent.get(x)))
     return parent.get(x)
   }
-
   const union = (x, y) => {
     const px = find(x)
     const py = find(y)
@@ -786,7 +812,6 @@ function simpleRuleBasedClustering(nodesData, edgesData) {
       rank.set(px, rx + 1)
     }
   }
-
   // 1. Group
   nodesData.forEach((node) => {
     if (node.label && node.label !== 'Unknown') {
@@ -797,7 +822,6 @@ function simpleRuleBasedClustering(nodesData, edgesData) {
       })
     }
   })
-
   // 2. Splitting heuristic
   const SPLIT_TIME_WINDOW = 24 * 3600 * 1000 // 24h
   nodesData.forEach((node) => {
@@ -805,7 +829,6 @@ function simpleRuleBasedClustering(nodesData, edgesData) {
     const myTxs = txMap.get(id) || []
     const outgoing = myTxs.filter((tx) => tx.source.toLowerCase() === id)
     const incoming = myTxs.filter((tx) => tx.target.toLowerCase() === id)
-
     if (outgoing.length >= 5 && outgoing.length > incoming.length) {
       const byToken = new Map()
       outgoing.forEach((tx) => {
@@ -813,7 +836,6 @@ function simpleRuleBasedClustering(nodesData, edgesData) {
         if (!byToken.has(token)) byToken.set(token, [])
         byToken.get(token).push(tx)
       })
-
       byToken.forEach((txs) => {
         const times = txs.map((tx) =>
           typeof tx.block_time === 'number'
@@ -836,7 +858,6 @@ function simpleRuleBasedClustering(nodesData, edgesData) {
       })
     }
   })
-
   // 3. Relay / flow continuation heuristic
   const RELAY_TIME_WINDOW = 2 * 3600 * 1000 // 2h
   const RELAY_VALUE_TOLERANCE = 0.2
@@ -847,13 +868,11 @@ function simpleRuleBasedClustering(nodesData, edgesData) {
     const value = Number(e.value || 0)
     const time =
       typeof e.block_time === 'number' ? e.block_time * 1000 : new Date(e.block_time).getTime()
-
     const targetOutgoings = (txMap.get(target) || []).filter(
       (tx) =>
         tx.source.toLowerCase() === target &&
         (tx.tokenSymbol || tx.contractAddress || 'native') === token,
     )
-
     const matchingOut = targetOutgoings.find((ot) => {
       const otTime =
         typeof ot.block_time === 'number' ? ot.block_time * 1000 : new Date(ot.block_time).getTime()
@@ -863,13 +882,11 @@ function simpleRuleBasedClustering(nodesData, edgesData) {
         Math.abs(otValue - value) / value <= RELAY_VALUE_TOLERANCE
       )
     })
-
     if (matchingOut) {
       const nextTarget = matchingOut.target.toLowerCase()
       if (nodeMap.has(nextTarget)) union(target, nextTarget)
     }
   })
-
   // Build groups
   const groups = new Map()
   nodesData.forEach((node) => {
@@ -878,7 +895,6 @@ function simpleRuleBasedClustering(nodesData, edgesData) {
     if (!groups.has(root)) groups.set(root, { wallets: [], transactions: new Set() })
     groups.get(root).wallets.push(node)
   })
-
   edgesData.forEach((edge) => {
     const s = edge.source.toLowerCase()
     const t = edge.target.toLowerCase()
@@ -888,14 +904,10 @@ function simpleRuleBasedClustering(nodesData, edgesData) {
       groups.get(rootS).transactions.add(JSON.stringify(edge))
     }
   })
-
   for (const { wallets, transactions } of groups.values()) {
     if (wallets.length < 2) continue
-
     const uniqueTxs = Array.from(transactions).map(JSON.parse)
-
     const totalValue = wallets.reduce((sum, w) => sum + parseFloat(w.totalValue || 0), 0)
-
     const times = uniqueTxs
       .map((tx) =>
         typeof tx.block_time === 'number'
@@ -904,19 +916,15 @@ function simpleRuleBasedClustering(nodesData, edgesData) {
       )
       .filter((t) => !isNaN(t))
       .sort((a, b) => a - b)
-
     const velocity =
       times.length > 1
         ? uniqueTxs.length / Math.max((times[times.length - 1] - times[0]) / 86400000, 1)
         : 0
-
     const uniqueTokens = new Set(uniqueTxs.map((t) => t.tokenSymbol || 'unknown')).size
     const outstandingTxs = uniqueTxs.slice(0, 5)
     const topTokensVolume = []
-
     const nametag =
       wallets.find((w) => w.label !== 'Unknown')?.label || wallets[0].autoLabel || 'Cluster'
-
     clusters.push({
       clusterId: nametag + '_' + wallets[0].id.slice(0, 8),
       nametag,
@@ -932,10 +940,8 @@ function simpleRuleBasedClustering(nodesData, edgesData) {
       autoLabel: wallets.find((w) => w.autoLabel)?.autoLabel,
     })
   }
-
   return clusters
 }
-
 export default function TreemapTab({ initialChain = 'ethereum', initialAddress = '' }) {
   const { data: session, status } = useSession()
   const router = useRouter()
@@ -999,13 +1005,10 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
   useEffect(() => {
     fetchUserData()
   }, [fetchUserData])
-
   // Cluster fetch
-
   const fetchClusterData = useCallback(
     async (wallets) => {
       if (wallets.length === 0) return
-
       setLoading(true)
       setPage(1)
       setNodes([])
@@ -1013,7 +1016,6 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
       setNametags({})
       setClusters([])
       setSelectedEntity({ type: null, data: { transactions: [] } })
-
       // Validate and clean wallets
       let validWallets = wallets
         .filter((addr) => addr && typeof addr === 'string' && addr.trim().length > 0)
@@ -1023,34 +1025,27 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
           return normalized
         })
         .filter((addr) => isValidAddressForChain(addr, selectedChain))
-
       if (validWallets.length === 0) {
         setLoading(false)
         return
       }
-
       // Prioritize fetching more wallets (target 5–20 depending on limit)
       const MIN_PER_WALLET = 20 // Minimum transactions per wallet
       const TARGET_WALLETS = 20 // Maximum target wallets to fetch
-
       const MAX_WALLETS = Math.min(
         TARGET_WALLETS,
         Math.floor(selectedLimit / MIN_PER_WALLET),
         validWallets.length,
       )
-
       const fetchWallets = validWallets.slice(0, MAX_WALLETS)
-
       // Distribute total selectedLimit evenly across fetched wallets
       const perWalletLimit = Math.max(
         MIN_PER_WALLET,
         Math.floor(selectedLimit / fetchWallets.length),
       )
-
       let allIncoming = []
       let allOutgoing = []
       let allLayer3 = []
-
       // Sequential fetch to avoid overloading the server
       for (const addr of fetchWallets) {
         try {
@@ -1062,9 +1057,7 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
             fetchLayer3: true,
             isToken: false,
           }
-
           const signature = generateHmacSignature(payload)
-
           const response = await fetch(`${apiBaseUrl}/api/get-transactions`, {
             method: 'POST',
             headers: {
@@ -1074,12 +1067,10 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
             },
             body: JSON.stringify(payload),
           })
-
           if (!response.ok) {
             logger.warn(`Fetch failed for ${addr}: ${response.status}`)
             continue
           }
-
           const reader = response.body.getReader()
           let result = ''
           while (true) {
@@ -1087,7 +1078,6 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
             if (done) break
             result += new TextDecoder().decode(value)
           }
-
           let data
           try {
             data = JSON.parse(result)
@@ -1095,12 +1085,10 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
             logger.error(`JSON parse error for wallet ${addr}:`, parseErr)
             continue
           }
-
           if (data.error) {
             logger.error(`API error for wallet ${addr}: ${data.error}`)
             continue
           }
-
           allIncoming.push(...(data.incoming || []))
           allOutgoing.push(...(data.outgoing || []))
           allLayer3.push(...(data.layer3 || []))
@@ -1108,21 +1096,17 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
           logger.error(`Exception fetching cluster wallet ${addr}:`, err)
         }
       }
-
       // Set aggregated data
       setFullIncomingData(allIncoming)
       setFullOutgoingData(allOutgoing)
       setFullLayer3Data(allLayer3)
-
       if (fetchWallets.length > 0) {
         setWalletAddress(fetchWallets[0]) // Use first wallet as root
       }
-
       setLoading(false)
     },
     [selectedChain, selectedLimit, session, apiBaseUrl],
   )
-
   useEffect(() => {
     if (fullIncomingData.length > 0 || fullOutgoingData.length > 0 || fullLayer3Data.length > 0) {
       ;(async () => {
@@ -1346,16 +1330,13 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
       fetchTokenImages()
     }
   }, [edges, selectedChain, apiBaseUrl])
-
   // Cluster fetch
   useEffect(() => {
     if (searchType !== 'cluster' || clusters.length === 0 || selectedEntity.type === 'cluster')
       return
-
     const targetSet = new Set(clusterWallets.map((a) => a.toLowerCase()))
     let bestCluster = null
     let maxOverlap = 0
-
     for (const c of clusters) {
       const clusterSet = new Set(c.wallets.map((w) => w.id.toLowerCase()))
       const overlap = [...clusterSet].filter((x) => targetSet.has(x)).length
@@ -1364,7 +1345,6 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
         bestCluster = c
       }
     }
-
     if (bestCluster && maxOverlap > 0) {
       setSelectedEntity({
         type: 'cluster',
@@ -1376,7 +1356,6 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
       })
     }
   }, [clusters, searchType, clusterWallets, selectedEntity.type, walletInfo])
-
   const updateUrl = (chain, address) => {
     const newParams = new URLSearchParams()
     newParams.set('tab', 'treemap')
@@ -1708,28 +1687,23 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
       setClusters(fallbackClusters)
     }
   }
-
   const initializeForceGraph = useCallback(async () => {
     if (!containerRef.current || !nodes.length || !walletInfo.address) {
       logger.warn('Cannot initialize ForceGraph: missing container, nodes, or walletInfo.address')
       return
     }
-
     try {
       await TensorFlowJS
-
       if (graphRef.current) {
         graphRef.current.pauseAnimation()
         containerRef.current.innerHTML = ''
       }
-
       const rootId = walletInfo.address.toLowerCase()
       const detectedClusters = clusters
       const positionedNodesData = await positionInWorker(
         nodes.map((n) => ({ ...n.data })),
         edges.map((e) => ({ ...e.data })),
       )
-
       // Adjust positions for wallet queries (non-token queries)
       const isTokenQuery = fullIncomingData.length === 0 && fullOutgoingData.length === 0
       if (!isTokenQuery) {
@@ -1746,17 +1720,14 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
           adj.get(s).push(t)
           adj.get(t).push(s)
         })
-
         // Set root at (0,0)
         const rootNode = positionedNodesData.find((n) => n.id.toLowerCase() === rootId)
         if (rootNode) {
           rootNode.x = 0
           rootNode.y = 0
         }
-
         // Find layer 2 nodes (direct neighbors of root)
         const layer2Ids = adj.get(rootId) || []
-
         // Classify layer 2: with L3 or without
         const layer2WithL3 = []
         const layer2WithoutL3 = []
@@ -1773,7 +1744,6 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
             layer2WithoutL3.push(l2)
           }
         })
-
         // Position layer2 without L3: top and bottom
         const numWithout = layer2WithoutL3.length
         const radiusWithout = 250
@@ -1788,7 +1758,6 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
             node.y = (isTop ? -1 : 1) * (radiusWithout + Math.sin(angle) * radiusWithout * 0.4)
           }
         })
-
         // Position layer2 with L3: left and right
         const numWith = layer2WithL3.length
         const radiusWith = 350
@@ -1802,7 +1771,6 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
             node.x = (isLeft ? -1 : 1) * (radiusWith + Math.sin(angle) * radiusWith * 0.3)
             node.y = Math.cos(angle) * radiusWith * 0.5
           }
-
           // Position associated L3 around the L2
           const l3Radius = 120
           const numL3 = item.l3.length
@@ -1824,7 +1792,6 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
           }
         })
       }
-
       // Cluster data for selectedEntity
       let clusterData
       const rootCluster = detectedClusters.find((c) =>
@@ -1911,7 +1878,6 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
         }
       }
       setSelectedEntity({ type: 'cluster', data: rootCluster || clusterData })
-
       // Preload images
       const imageCache = {}
       const imagesToPreload = new Set()
@@ -1923,7 +1889,6 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
           imagesToPreload.add(n.image)
         }
       })
-
       const defaultUrl = '/icons/default.webp'
       const defaultImg = new Image()
       defaultImg.src = `${window.location.origin}${defaultUrl}`
@@ -1934,7 +1899,6 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
         }
         defaultImg.onerror = () => resolve()
       })
-
       const uniqueImages = Array.from(imagesToPreload)
       await Promise.all(
         uniqueImages.map(
@@ -1955,7 +1919,6 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
             }),
         ),
       )
-
       // Slight compress for better initial view
       if (isTokenQuery) {
         positionedNodesData.forEach((n) => {
@@ -1972,14 +1935,12 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
           }
         })
       }
-
       // Links with unique IDs and precomputed parallel indices
       const linksWithIds = edges.map((e, index) => ({
         ...e.data,
         id: `${e.data.source}-${e.data.target}-${index}`,
         width: e.data.layer === 3 ? 0.15 : 0.4,
       }))
-
       const undirectedGroups = new Map()
       linksWithIds.forEach((link) => {
         const sourceId = link.source.id || link.source
@@ -1988,7 +1949,6 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
         if (!undirectedGroups.has(key)) undirectedGroups.set(key, [])
         undirectedGroups.get(key).push(link)
       })
-
       linksWithIds.forEach((link) => {
         const sourceId = link.source.id || link.source
         const targetId = link.target.id || link.target
@@ -1997,7 +1957,6 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
         link.numParallel = group.length
         link.parallelIndex = group.findIndex((l) => l.id === link.id)
       })
-
       graphRef.current = ForceGraph()(containerRef.current)
         .graphData({
           nodes: positionedNodesData.map((n) => ({
@@ -2062,7 +2021,6 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
           ctx.strokeStyle = '#fff'
           ctx.lineWidth = 1 / globalScale
           ctx.stroke()
-
           const isRoot = node.id.toLowerCase() === walletInfo.address?.toLowerCase()
           let displayImage = '/icons/default.webp'
           if (isRoot && walletInfo.image) {
@@ -2100,38 +2058,30 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
           const start = link.source
           const end = link.target
           if (!start || !end || !start.x || !end.x || !start.y || !end.y) return
-
           const numEdges = link.numParallel || 1
           const edgeIndex = link.parallelIndex || 0
           if (numEdges === 0) return
-
           const spacing = Math.max(4, 12 / numEdges) / globalScale
           const offset = (edgeIndex - (numEdges - 1) / 2) * spacing
-
           const dx = end.x - start.x
           const dy = end.y - start.y
           const len = Math.sqrt(dx * dx + dy * dy)
           if (len === 0) return
-
           const ux = dx / len
           const uy = dy / len
           const px = -uy
           const py = ux
-
           const mid1X = start.x + ux * (len * 0.25)
           const mid1Y = start.y + uy * (len * 0.25)
           const mid2X = start.x + ux * (len * 0.75)
           const mid2Y = start.y + uy * (len * 0.75)
-
           const offsetMid1X = mid1X + px * offset
           const offsetMid1Y = mid1Y + py * offset
           const offsetMid2X = mid2X + px * offset
           const offsetMid2Y = mid2Y + py * offset
-
           ctx.beginPath()
           ctx.moveTo(start.x, start.y)
           ctx.bezierCurveTo(offsetMid1X, offsetMid1Y, offsetMid2X, offsetMid2Y, end.x, end.y)
-
           const isLayer3 = link.layer === 3
           const opacity = Math.max(
             0.4,
@@ -2140,7 +2090,6 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
           ctx.strokeStyle = isLayer3
             ? `rgba(200, 200, 255, ${0.6 * opacity})`
             : `rgba(255, 255, 255, ${0.6 * opacity})`
-
           const baseWidth = isLayer3 ? 0.22 : 0.5
           const valueScale = Math.min(1.5, Math.log(Number(link.value || 1) + 1) / Math.LN10)
           ctx.lineWidth =
@@ -2200,10 +2149,10 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
             .radius((node) => node.val * 1.8)
             .strength(0.7),
         )
-        .warmupTicks(600)
+        .warmupTicks(1200) // Increased warmup ticks for smoother initial positions
         .cooldownTicks(600)
-        .d3AlphaDecay(0.04) 
-        .d3VelocityDecay(0.92)
+        .d3AlphaDecay(0.08) // Slightly higher decay for faster stabilization
+        .d3VelocityDecay(0.88) // Adjusted velocity decay for less jitter
         .enablePointerInteraction(true)
         .enableNodeDrag(true)
         .enableZoomInteraction(true)
@@ -2243,7 +2192,6 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
           node.fx = node.x
           node.fy = node.y
         })
-
       graphRef.current.centerAt(0, 0, 1500)
       graphRef.current.zoom(isTokenQuery ? 0.35 : 0.5, 1500)
     } catch (err) {
@@ -2265,7 +2213,6 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
     clusters,
     filterTransactions,
   ])
-
   useEffect(() => {
     initializeForceGraph().catch(console.error)
     return () => {
@@ -2373,30 +2320,25 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
   const handleSearch = useCallback(() => {
     validateAndFetch(walletAddress, isTokenSearch)
   }, [walletAddress, isTokenSearch, validateAndFetch])
-
   const handleSearchSelect = useCallback(
     (result) => {
       if (!result.address && result.type !== 'cluster') {
         toast.error('No address provided.', { theme: 'dark' })
         return
       }
-
       if (result.type === 'cluster') {
         let wallets = (result.holder_addresses || [])
           .filter((addr) => addr && typeof addr === 'string' && addr.trim().length > 0)
           .slice(0, 10)
-
         wallets = wallets.filter((addr) => isValidAddressForChain(addr, selectedChain))
-
         if (wallets.length === 0) {
-          toast.error('Cluster này chưa có wallet address hợp lệ nào được biết đến.', {
+          toast.error('This cluster has no known valid wallet addresses yet.', {
             theme: 'dark',
             position: 'top-center',
           })
           fetchClusterData(wallets)
           return
         }
-
         setSearchType('cluster')
         setClusterWallets(wallets)
         setWalletInfo({
@@ -2405,11 +2347,9 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
           image: result.image || '/icons/default.webp',
           chainLogo: '/icons/default.webp',
         })
-
         fetchClusterData(wallets)
         return
       }
-
       let normalizedAddress = result.address.trim()
       if (result.address.startsWith('0x')) {
         try {
@@ -2418,12 +2358,10 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
           normalizedAddress = result.address.toLowerCase()
         }
       }
-
       setIsTokenSearch(result.type === 'token')
       setWalletAddress(normalizedAddress)
       setSearchType('single')
       setClusterWallets([])
-
       if (result.type === 'nametag') {
         setWalletInfo({
           address: normalizedAddress,
@@ -2439,7 +2377,6 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
           chainLogo: '/icons/default.webp',
         })
       }
-
       validateAndFetch(normalizedAddress, result.type === 'token')
     },
     [validateAndFetch, fetchClusterData],
@@ -2774,15 +2711,14 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
                 </span>
               )}
             </div>
-
             {nodes.length > 0 ? (
               <motion.div
                 className="absolute inset-0"
-                initial={{ opacity: 0, scale: 0.92 }}
-                animate={{ opacity: 1, scale: 1 }}
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
                 transition={{
-                  duration: 1.8,
-                  ease: [0.25, 0.1, 0.25, 1],
+                  duration: 0.6, // Reduced duration for quicker fade-in
+                  ease: 'easeOut', // Smoother easing without scale
                 }}
               >
                 <div ref={containerRef} className="w-full h-full" />

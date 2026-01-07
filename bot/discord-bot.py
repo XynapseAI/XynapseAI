@@ -176,7 +176,7 @@ def fetch_full_content(url):
 # === RATE LIMITING (GLOBAL) ===
 recent_requests = []  # List of timestamps
 RATE_WINDOW = 30      # seconds
-MAX_REQUESTS = 10    
+MAX_REQUESTS = 5    
 
 funny_responses = [
     "Whoa, slow down everyone! Too many questions at once — give me a second to catch my breath 😅",
