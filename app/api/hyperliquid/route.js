@@ -3,15 +3,12 @@ import { NextResponse } from 'next/server'
 import { PrismaClient } from '@prisma/client'
 import { createClient } from 'redis'
 import Bottleneck from 'bottleneck'
-
 const prisma = globalThis.prisma || new PrismaClient()
 if (process.env.NODE_ENV !== 'production') globalThis.prisma = prisma
-
 const limiter = new Bottleneck({
   maxConcurrent: 3,
   minTime: 200,
 })
-
 const allowedOrigins = [
   process.env.NEXT_PUBLIC_APP_URL,
   'http://localhost:3000',
@@ -22,7 +19,6 @@ const allowedOrigins = [
   'https://farcaster.xynapseai.net',
   'https://xynapse-ai-xynapse-projects.vercel.app',
 ].filter(Boolean)
-
 let redisClient
 async function getRedisClient() {
   if (!redisClient) {
@@ -37,7 +33,6 @@ async function getRedisClient() {
   }
   return redisClient
 }
-
 function isAllowedOrigin(origin, referer) {
   const check = (url) => {
     if (!url) return false
@@ -51,13 +46,10 @@ function isAllowedOrigin(origin, referer) {
       return false
     }
   }
-
   if (!origin && !referer) return true // Internal/SSR
   if (!origin && process.env.NODE_ENV === 'development') return true
-
   return check(origin) || check(referer)
 }
-
 function securityHeaders(origin) {
   const headers = {
     'Content-Security-Policy': "default-src 'self'",
@@ -75,14 +67,12 @@ function securityHeaders(origin) {
   }
   return headers
 }
-
 async function banIP(ip, durationSeconds = 1800) {
   if (ip === 'unknown') return
   const redis = await getRedisClient()
   await redis.setEx(`banned_ip:${ip}`, durationSeconds, 'banned')
   console.info(`IP banned: ${ip} for ${durationSeconds} seconds`)
 }
-
 async function checkIPBan(ip) {
   if (ip === 'unknown') return
   const redis = await getRedisClient()
@@ -92,7 +82,6 @@ async function checkIPBan(ip) {
     throw new Error('Too many requests')
   }
 }
-
 async function trackViolation(ip, reason = 'Unknown', severity = 'severe') {
   if (ip === 'unknown') return
   const nonCriticalReasons = ['Not allowed by CORS']
@@ -100,47 +89,39 @@ async function trackViolation(ip, reason = 'Unknown', severity = 'severe') {
     console.warn(`Non-critical violation ignored: ${ip}, reason: ${reason}`)
     return
   }
-
   const redis = await getRedisClient()
   const key = `violations:${ip}`
   const maxViolations = 15
   const windowSeconds = 1800 // 30 minutes
-
   const violations = Number(await redis.get(key)) || 0
   if (violations >= maxViolations) {
     await banIP(ip)
     console.error(`IP banned due to repeated violations: ${ip}, reason: ${reason}`)
     throw new Error('Too many requests')
   }
-
   await redis.multi().incr(key).expire(key, windowSeconds).exec()
   console.warn(
     `Violation recorded: ${ip}, reason: ${reason}, count: ${violations + 1}/${maxViolations}`,
   )
 }
-
 const secureHandler = limiter.wrap(async (request) => {
   const ip = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown'
   const origin = request.headers.get('origin')
   const referer = request.headers.get('referer')
-
   console.info(
     `Request to /api/hyperliquid from IP ${ip}, Origin: ${origin || 'null'}, Referer: ${referer || 'null'}`,
   )
-
   if (!isAllowedOrigin(origin, referer)) {
     await trackViolation(ip, 'Not allowed by CORS', 'warn')
     return NextResponse.json({ detail: 'Not allowed by CORS' }, { status: 403 })
   }
-
   try {
     await checkIPBan(ip)
   } catch (e) {
     await trackViolation(ip, 'Attempted access while banned', 'severe')
     return NextResponse.json({ detail: 'Too many requests' }, { status: 429 })
   }
-
-  // Per-IP rate limit: 50 requests per minute
+  // Per-IP rate limit: 30 requests per minute
   if (ip !== 'unknown') {
     const redis = await getRedisClient()
     const rateKey = `hyperliquid_rate:${ip}`
@@ -155,9 +136,7 @@ const secureHandler = limiter.wrap(async (request) => {
       return NextResponse.json({ detail: 'Too many requests' }, { status: 429 })
     }
   }
-
   const res = await handler(request)
-
   let safeAllowOrigin = process.env.NEXT_PUBLIC_APP_URL || 'https://xynapseai.net'
   if (origin && isAllowedOrigin(origin, null)) {
     safeAllowOrigin = origin
@@ -169,30 +148,25 @@ const secureHandler = limiter.wrap(async (request) => {
       }
     } catch {}
   }
-
   const headers = securityHeaders(safeAllowOrigin)
   Object.entries(headers).forEach(([k, v]) => res.headers.set(k, v))
-
   return res
 })
-
 const CACHE_TTL = 1800
-
 async function handler(request) {
   const { searchParams } = new URL(request.url)
   const type = searchParams.get('type')
   const address = searchParams.get('address')
   const coin = searchParams.get('coin')
-
+  const startTime = searchParams.get('startTime')
+  const endTime = searchParams.get('endTime')
   try {
     const redis = await getRedisClient()
-
     if (!type) {
       // Global meta
       const cacheKey = 'hyperliquid:metaAndAssetCtxs'
       const cached = await redis.get(cacheKey)
       if (cached) return NextResponse.json(JSON.parse(cached))
-
       const metaRes = await fetch('https://api.hyperliquid.xyz/info', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -200,10 +174,8 @@ async function handler(request) {
       })
       if (!metaRes.ok) throw new Error('Hyperliquid meta failed')
       const [meta, assetCtxsRaw] = await metaRes.json()
-
       const universe = meta.universe
       const assetCtxs = assetCtxsRaw.map((ctx) => ({ ...ctx, dayNtlVlm: ctx.dayNtlVlm || 0 }))
-
       const symbols = universe.map((u) => u.name.toUpperCase())
       const tokens = await prisma.tokens.findMany({
         where: { symbol: { in: symbols, mode: 'insensitive' } },
@@ -214,38 +186,94 @@ async function handler(request) {
         ...u,
         image: tokenMap.get(u.name.toUpperCase()) || null,
       }))
-
       const result = { universe: augmentedUniverse, assetCtxs }
       await redis.setEx(cacheKey, CACHE_TTL, JSON.stringify(result))
       return NextResponse.json(result)
     }
-
     if (type === 'user' && address) {
-      const cacheKey = `hyperliquid:user:${address}`
+      const cacheKey = `hyperliquid:userState:${address}`
       const cached = await redis.get(cacheKey)
       if (cached) return NextResponse.json(JSON.parse(cached))
-
-      const [stateRes, fillsRes] = await Promise.all([
-        fetch('https://api.hyperliquid.xyz/info', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ type: 'clearinghouseState', user: address }),
-        }),
-        fetch('https://api.hyperliquid.xyz/info', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ type: 'userFills', user: address }),
-        }),
-      ])
-
-      if (!stateRes.ok || !fillsRes.ok) throw new Error('Failed to fetch user data')
-      const state = await stateRes.json()
-      const fills = await fillsRes.json()
-      const result = { state, fills }
-      await redis.setEx(cacheKey, 60, JSON.stringify(result))
-      return NextResponse.json(result)
+      const res = await fetch('https://api.hyperliquid.xyz/info', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ type: 'clearinghouseState', user: address }),
+      })
+      if (!res.ok) throw new Error('Failed to fetch user state')
+      const state = await res.json()
+      await redis.setEx(cacheKey, 60, JSON.stringify(state))
+      return NextResponse.json(state)
     }
-
+    if (type === 'userFills' && address) {
+      const cacheKey = `hyperliquid:userFills:${address}`
+      const cached = await redis.get(cacheKey)
+      if (cached) return NextResponse.json(JSON.parse(cached))
+      const res = await fetch('https://api.hyperliquid.xyz/info', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ type: 'userFills', user: address }),
+      })
+      if (!res.ok) throw new Error('Failed to fetch user fills')
+      const fills = await res.json()
+      await redis.setEx(cacheKey, 60, JSON.stringify(fills))
+      return NextResponse.json(fills)
+    }
+    if (type === 'userOpenOrders' && address) {
+      const res = await fetch('https://api.hyperliquid.xyz/info', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ type: 'userOpenOrders', user: address }),
+      })
+      if (!res.ok) throw new Error('Failed to fetch open orders')
+      const openOrders = await res.json()
+      return NextResponse.json(openOrders)
+    }
+    if (type === 'fundingHistory' && coin && startTime) {
+      const body = {
+        type: 'fundingHistory',
+        coin,
+        startTime: parseInt(startTime),
+        endTime: endTime ? parseInt(endTime) : Date.now(),
+      }
+      const res = await fetch('https://api.hyperliquid.xyz/info', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      })
+      if (!res.ok) throw new Error('Funding history failed')
+      const data = await res.json()
+      return NextResponse.json(data)
+    }
+    if (type === 'recentTrades' && coin) {
+      const res = await fetch('https://api.hyperliquid.xyz/info', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ type: 'recentTrades', coin }),
+      })
+      if (!res.ok) throw new Error('Recent trades failed')
+      const trades = await res.json()
+      return NextResponse.json(trades)
+    }
+    if (type === 'allMids') {
+      const res = await fetch('https://api.hyperliquid.xyz/info', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ type: 'allMids' }),
+      })
+      if (!res.ok) throw new Error('All mids failed')
+      const mids = await res.json()
+      return NextResponse.json(mids) // Return {coins: []}
+    }
+    if (type === 'userLedger' && address) {
+      const res = await fetch('https://api.hyperliquid.xyz/info', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ type: 'userLedger', user: address }),
+      })
+      if (!res.ok) throw new Error('User ledger failed')
+      const ledger = await res.json()
+      return NextResponse.json(ledger)
+    }
     if (type === 'candles' && coin) {
       const now = Date.now()
       const start = now - 30 * 24 * 60 * 60 * 1000
@@ -262,7 +290,6 @@ async function handler(request) {
       const data = await res.json()
       return NextResponse.json(data)
     }
-
     if (type === 'l2book' && coin) {
       const res = await fetch('https://api.hyperliquid.xyz/info', {
         method: 'POST',
@@ -273,7 +300,6 @@ async function handler(request) {
       const book = await res.json()
       return NextResponse.json(book)
     }
-
     return NextResponse.json({ error: 'Invalid request' }, { status: 400 })
   } catch (err) {
     console.error('Hyperliquid API error:', err)
@@ -282,11 +308,9 @@ async function handler(request) {
     await prisma.$disconnect()
   }
 }
-
 export async function GET(request) {
   return await secureHandler(request)
 }
-
 export async function OPTIONS(request) {
   const origin = request.headers.get('origin')
   const referer = request.headers.get('referer')
