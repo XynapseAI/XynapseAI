@@ -251,7 +251,7 @@ const chainIdToName = Object.fromEntries(
 const bodySchema = z.object({
   wallet_address: z.string().nonempty('Wallet address is required'),
   chain: z.enum(Object.keys(SUPPORTED_CHAINS), { message: 'Invalid chain' }),
-  limit: z.number().int().min(10).max(2000, 'Limit must be between 100 and 2000'),
+  limit: z.number().int().min(100).max(2000, 'Limit must be between 100 and 2000'),
   page: z.number().int().min(1).default(1),
   fetchLayer3: z.boolean().optional().default(false),
   isToken: z.boolean().optional().default(false),

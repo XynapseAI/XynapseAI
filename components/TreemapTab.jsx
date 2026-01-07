@@ -1064,6 +1064,7 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
               'Content-Type': 'application/json',
               'x-api-key': session?.user?.apiKey || 'default-api-key',
               'x-hmac-signature': signature,
+              'x-premium-user': isPremium ? 'true' : 'false',
             },
             body: JSON.stringify(payload),
           })
@@ -1448,6 +1449,7 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
             'Content-Type': 'application/json',
             'x-api-key': session?.user?.apiKey || 'default-api-key',
             'x-hmac-signature': signature,
+            'x-premium-user': isPremium ? 'true' : 'false',
           },
           body: JSON.stringify(payload),
         })
