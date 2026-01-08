@@ -25,6 +25,27 @@ import 'react-toastify/dist/ReactToastify.css'
 import { useSearchParams } from 'next/navigation'
 import { ethers } from 'ethers'
 import { LoadingOverlay } from '@/utils/helpers'
+
+const CopyButton = ({ text, size = 12 }) => {
+    const [isCopied, setIsCopied] = useState(false)
+    const handleCopy = (e) => {
+        e.stopPropagation()
+        if (!text) return
+        navigator.clipboard.writeText(text)
+        setIsCopied(true)
+        setTimeout(() => setIsCopied(false), 2000)
+    }
+    return (
+        <button
+            onClick={handleCopy}
+            disabled={!text}
+            className="cursor-pointer hover:text-emerald-400 transition flex-shrink-0 disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+            {isCopied ? <Check size={size} className="text-emerald-400" /> : <Copy size={size} />}
+        </button>
+    )
+}
+
 export default function ExplorerTab({ initialQuery, initialChain, isStandalone = false }) {
     const searchParams = useSearchParams()
     const router = useRouter()
@@ -824,13 +845,7 @@ export default function ExplorerTab({ initialQuery, initialChain, isStandalone =
                         {displayAddr}
                     </span>
                 )}
-                <Copy
-                    className="w-3 h-3 flex-shrink-0 text-gray-400 hover:text-emerald-400 cursor-pointer opacity-0 group-hover:opacity-100 transition-opacity"
-                    onClick={(e) => {
-                        e.stopPropagation()
-                        copyToClipboard(copyContent, 'Address')
-                    }}
-                />
+                <CopyButton text={addr} size={12} />
             </div>
         )
     }
@@ -842,16 +857,12 @@ export default function ExplorerTab({ initialQuery, initialChain, isStandalone =
             addr === 'Multiple Inputs' ||
             addr === 'Multiple Outputs'
         ) {
-            return <span className="font-mono text-[10px] sm:text-[12px]">{addr}</span>
+            return (
+                <span className="font-mono text-[10px] sm:text-[12px] text-gray-500">
+                    {addr || 'N/A'}
+                </span>
+            )
         }
-        if (!addr) {
-            return <span className="font-mono text-gray-500 text-[10px] sm:text-[12px]">N/A</span>
-        }
-
-        const normalized = addr.toLowerCase()
-        const tag = nametags[normalized]
-        const displayAddr = truncateText(addr, 5, 5)
-
         if (addr.includes(', ')) {
             return (
                 <span className="font-mono text-[10px] sm:text-[12px]">
@@ -860,26 +871,35 @@ export default function ExplorerTab({ initialQuery, initialChain, isStandalone =
             )
         }
 
+        const normalized = addr.toLowerCase()
+        const tag = nametags[normalized]
+        const displayText = tag && tag['Name Tag'] ? tag['Name Tag'] : truncateText(addr, 5, 5)
+
         return (
-            <div className="flex items-center gap-1">
-                {tag && tag['Name Tag'] ? (
-                    <>
-                        {tag.image && (
-                            <img
-                                src={tag.image}
-                                alt={tag['Name Tag']}
-                                className="w-3 h-3 rounded-full flex-shrink-0"
-                            />
-                        )}
-                        <span className="font-mono text-[10px] sm:text-[12px] truncate">
-                            {tag['Name Tag']}
-                        </span>
-                    </>
-                ) : (
+            <div className="flex items-center gap-1 group">
+                <div
+                    className="flex items-center cursor-pointer hover:text-emerald-400 transition-colors"
+                    onClick={(e) => {
+                        e.stopPropagation()
+                        setQuery(addr)
+                        router.push(
+                            `${basePath}?query=${encodeURIComponent(addr)}&chain=${selectedChain}&type=wallet`,
+                            { scroll: false },
+                        )
+                    }}
+                >
+                    {tag && tag.image && (
+                        <img
+                            src={tag.image}
+                            alt={tag['Name Tag']}
+                            className="w-3 h-3 rounded-full flex-shrink-0"
+                        />
+                    )}
                     <span className="font-mono text-[10px] sm:text-[12px] truncate">
-                        {displayAddr}
+                        {displayText}
                     </span>
-                )}
+                </div>
+                <CopyButton text={addr} size={12} />
             </div>
         )
     }
@@ -1001,13 +1021,7 @@ export default function ExplorerTab({ initialQuery, initialChain, isStandalone =
                                             ? truncateText(tx.hash)
                                             : tx.hash}
                                     </span>
-                                    <Copy
-                                        className="w-4 h-4 flex-shrink-0 text-gray-400 hover:text-emerald-400 cursor-pointer opacity-0 group-hover:opacity-100 transition-opacity"
-                                        onClick={(e) => {
-                                            e.stopPropagation()
-                                            copyToClipboard(tx.hash, 'Transaction Hash')
-                                        }}
-                                    />
+                                    <CopyButton text={tx.hash} size={14} />
                                 </div>
                             </div>
                             <h2 className="text-[10px] font-semibold flex items-center gap-2 ml-4 shrink-0">
@@ -1259,13 +1273,7 @@ export default function ExplorerTab({ initialQuery, initialChain, isStandalone =
                                             ? truncateText(tx.hash)
                                             : tx.hash}
                                     </span>
-                                    <Copy
-                                        className="w-4 h-4 flex-shrink-0 text-gray-400 hover:text-emerald-400 cursor-pointer opacity-0 group-hover:opacity-100 transition-opacity"
-                                        onClick={(e) => {
-                                            e.stopPropagation()
-                                            copyToClipboard(tx.hash, 'Transaction Hash')
-                                        }}
-                                    />
+                                    <CopyButton text={tx.hash} size={14} />
                                 </div>
                             </div>
                             <h2 className="text-[10px] font-semibold flex items-center gap-2 ml-4 shrink-0">
@@ -1463,13 +1471,7 @@ export default function ExplorerTab({ initialQuery, initialChain, isStandalone =
                                             ? truncateText(tx.hash)
                                             : tx.hash}
                                     </span>
-                                    <Copy
-                                        className="w-4 h-4 flex-shrink-0 text-gray-400 hover:text-emerald-400 cursor-pointer opacity-0 group-hover:opacity-100 transition-opacity"
-                                        onClick={(e) => {
-                                            e.stopPropagation()
-                                            copyToClipboard(tx.hash, 'Transaction Hash')
-                                        }}
-                                    />
+                                    <CopyButton text={tx.hash} size={14} />
                                 </div>
                             </div>
                             <h2 className="text-xs font-semibold flex items-center gap-2 ml-4 shrink-0">
@@ -1711,13 +1713,7 @@ export default function ExplorerTab({ initialQuery, initialChain, isStandalone =
                             <span className="text-[#D4D4D4] whitespace-nowrap">Address:</span>
                             <div className="flex items-center gap-1 group flex-1 min-w-0">
                                 <span className="font-mono truncate">{truncateText(query)}</span>
-                                <Copy
-                                    className="w-4 h-4 flex-shrink-0 text-gray-400 hover:text-emerald-400 cursor-pointer opacity-0 group-hover:opacity-100 transition-opacity"
-                                    onClick={(e) => {
-                                        e.stopPropagation()
-                                        copyToClipboard(query, 'Wallet Address')
-                                    }}
-                                />
+                                <CopyButton text={query} size={14} />
                             </div>
                         </div>
                         <h2 className="text-[10px] font-semibold flex items-center gap-2 ml-4 shrink-0">
@@ -1787,13 +1783,7 @@ export default function ExplorerTab({ initialQuery, initialChain, isStandalone =
                                             <span className="font-mono truncate flex-1 min-w-0 pr-1">
                                                 {truncateText(tx.hash)}
                                             </span>
-                                            <Copy
-                                                className="shrink-0 opacity-0 group-hover:opacity-100 transition-opacity w-3 h-3 cursor-pointer text-gray-400 hover:text-emerald-400"
-                                                onClick={(e) => {
-                                                    e.stopPropagation()
-                                                    copyToClipboard(tx.hash, 'Transaction Hash')
-                                                }}
-                                            />
+                                            <CopyButton text={tx.hash} size={12} />
                                         </div>
                                         <div className="w-1/4 flex items-center relative group">
                                             <span className="font-mono truncate flex-1 min-w-0 pr-1">
@@ -1907,13 +1897,6 @@ export default function ExplorerTab({ initialQuery, initialChain, isStandalone =
             <span className="w-1/4">{block.transactions.length}</span>
             <div className="w-1/4 flex items-center gap-1 group">
                 {renderDashboardAddress(block.miner, selectedChain)}
-                <Copy
-                    className="w-3 h-3 flex-shrink-0 text-gray-400 hover:text-emerald-400 cursor-pointer opacity-0 group-hover:opacity-100 transition-opacity"
-                    onClick={(e) => {
-                        e.stopPropagation()
-                        copyToClipboard(block.miner, 'Miner Address')
-                    }}
-                />
             </div>
         </motion.div>
     )
@@ -1922,41 +1905,25 @@ export default function ExplorerTab({ initialQuery, initialChain, isStandalone =
             key={tx.hash}
             initial={{ opacity: 0, y: -10 }}
             animate={{ opacity: 1, y: 0 }}
-            onClick={() => {
-                setQuery(tx.hash)
-                handleSearch(tx.hash)
-            }}
-            className="flex hover:bg-[#FFFFFF]/10 transition-all duration-200 py-2 px-3 border-t border-[#FFFFFF20] text-[10px] cursor-pointer"
+            className="flex hover:bg-[#FFFFFF]/10 transition-all duration-200 py-2 px-3 border-t border-[#FFFFFF20] text-[10px]"
         >
             <div className="w-1/4 flex items-center gap-1 group">
-                <span className="font-mono truncate">{truncateText(tx.hash)}</span>
-                <Copy
-                    className="w-3 h-3 flex-shrink-0 text-gray-400 hover:text-emerald-400 cursor-pointer opacity-0 group-hover:opacity-100 transition-opacity"
-                    onClick={(e) => {
-                        e.stopPropagation()
-                        copyToClipboard(tx.hash, 'Transaction Hash')
+                <span
+                    className="font-mono truncate cursor-pointer hover:text-emerald-400 transition-colors"
+                    onClick={() => {
+                        setQuery(tx.hash)
+                        handleSearch(tx.hash)
                     }}
-                />
+                >
+                    {truncateText(tx.hash)}
+                </span>
+                <CopyButton text={tx.hash} size={12} />
             </div>
             <div className="w-1/4 flex items-center gap-1 group">
                 {renderDashboardAddress(tx.from, selectedChain)}
-                <Copy
-                    className="w-3 h-3 flex-shrink-0 text-gray-400 hover:text-emerald-400 cursor-pointer opacity-0 group-hover:opacity-100 transition-opacity"
-                    onClick={(e) => {
-                        e.stopPropagation()
-                        copyToClipboard(tx.from, 'From Address')
-                    }}
-                />
             </div>
             <div className="w-1/4 flex items-center gap-1 group">
                 {renderDashboardAddress(tx.to, selectedChain)}
-                <Copy
-                    className="w-3 h-3 flex-shrink-0 text-gray-400 hover:text-emerald-400 cursor-pointer opacity-0 group-hover:opacity-100 transition-opacity"
-                    onClick={(e) => {
-                        e.stopPropagation()
-                        copyToClipboard(tx.to, 'To Address')
-                    }}
-                />
             </div>
             <span className="w-1/4">
                 {formatToken(tx.value || 0, chainSymbols[selectedChain] || 'Native')}

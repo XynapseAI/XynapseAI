@@ -1,7 +1,7 @@
 'use client'
 import { useState } from 'react'
 import { motion } from 'framer-motion'
-import { Users, Copy, Check, HelpCircle } from 'lucide-react'
+import { Users, Check, HelpCircle, Copy } from 'lucide-react' // Removed Copy (no longer needed directly)
 import axios from 'axios'
 import { toast } from 'react-toastify'
 import { useQueryClient } from '@tanstack/react-query'
@@ -20,7 +20,6 @@ const BlinkingDots = () => {
       boxShadow: '0 0 12px rgba(255, 255, 255, 0.9)',
     },
   }
-
   return (
     <div className="flex items-center gap-1.5">
       {[0, 1, 2].map((index) => (
@@ -43,15 +42,36 @@ const BlinkingDots = () => {
   )
 }
 
+// === NEW: CopyButton component (identical to DexTab) ===
+const CopyButton = ({ text, size = 12 }) => {
+  const [isCopied, setIsCopied] = useState(false)
+  const handleCopy = () => {
+    if (!text) return
+    navigator.clipboard.writeText(text)
+    setIsCopied(true)
+    setTimeout(() => setIsCopied(false), 2000)
+  }
+  return (
+    <button
+      onClick={handleCopy}
+      disabled={!text}
+      className="cursor-pointer hover:text-emerald-400 transition flex-shrink-0 disabled:opacity-50 disabled:cursor-not-allowed"
+    >
+      {isCopied ? <Check size={size} className="text-emerald-400" /> : <Copy size={size} />}
+    </button>
+  )
+}
+
 export default function InviteTaskCard({ userData, task, csrfToken, index }) {
   const [inputCode, setInputCode] = useState('')
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [submitMessage, setSubmitMessage] = useState('')
   const [showTooltip, setShowTooltip] = useState(false)
   const queryClient = useQueryClient()
-
   const hasUsedInvite = !!userData?.invited_by
   const invitedCount = userData?.invited_count || userData?.invitedCount || 0
+
+  // === REMOVED: handleCopyCode & handleCopyLink (no longer needed) ===
 
   const handleSubmitInvite = async () => {
     if (!inputCode.trim()) {
@@ -72,7 +92,6 @@ export default function InviteTaskCard({ userData, task, csrfToken, index }) {
           invited_by: true,
           points: (oldData?.points || 0) + 50,
         }))
-
         const userCacheKey = `userData-${userData.id}`
         const leaderboardCacheKey = `leaderboard-${userData.id}`
         await Promise.all([clearCache(userCacheKey), clearCache(leaderboardCacheKey)])
@@ -84,7 +103,6 @@ export default function InviteTaskCard({ userData, task, csrfToken, index }) {
           queryClient.refetchQueries(['userData']),
           queryClient.refetchQueries(['leaderboard']),
         ])
-
         window.history.replaceState({}, '', '?inviteSuccess=true')
         setSubmitMessage('Success! You received 50 points. Inviter received 20 points.')
         toast.success('Referral successful! +50 points')
@@ -99,18 +117,9 @@ export default function InviteTaskCard({ userData, task, csrfToken, index }) {
     }
   }
 
-  const handleCopyLink = () => {
-    if (!userData?.inviteCode) return
-    const link = `${window.location.origin}?invite=${userData.inviteCode}`
-    navigator.clipboard.writeText(link)
-    toast.success('Invite link copied!')
-  }
-
-  const handleCopyCode = () => {
-    if (!userData?.inviteCode) return
-    navigator.clipboard.writeText(userData.inviteCode)
-    toast.success('Invite code copied!')
-  }
+  const inviteLink = userData?.inviteCode
+    ? `${window.location.origin}?invite=${userData.inviteCode}`
+    : ''
 
   return (
     <motion.div
@@ -143,10 +152,9 @@ export default function InviteTaskCard({ userData, task, csrfToken, index }) {
         </div>
         <span className="text-xs sm:text-sm font-bold text-emerald-400">+{task.points}/ref</span>
       </div>
-
       {/* Main content: always row, with responsive adjustments */}
       <div className="flex-1 flex flex-row gap-2 sm:gap-6 items-center">
-        {/* Left: Invited count + Your Invite Code */}
+        {/* Left: Invited count + Your Invite Code + Invite Link */}
         <div className="flex-1 flex flex-col justify-center gap-1 sm:gap-3 min-w-0">
           <div className="flex flex-col gap-0 sm:gap-1">
             <div className="flex items-center gap-1 sm:gap-2">
@@ -163,21 +171,19 @@ export default function InviteTaskCard({ userData, task, csrfToken, index }) {
               </p>
             </div>
           </div>
-
+          {/* Invite Code + Copy */}
           <div className="flex items-center gap-1 sm:gap-2">
             <span className="text-sm font-bold text-emerald-400 font-mono truncate">
               {userData?.inviteCode || 'Loading...'}
             </span>
-            <button
-              onClick={handleCopyCode}
-              disabled={!userData?.inviteCode}
-              className="p-1 sm:p-1.5 rounded-lg bg-[#FFFFFF]/10 hover:bg-[#FFFFFF]/20 transition-colors disabled:opacity-50 flex-shrink-0"
-            >
-              <Copy className="w-2 h-2 sm:w-3 sm:h-3 text-[#FFF]" />
-            </button>
+            <CopyButton text={userData?.inviteCode || ''} size={14} />
           </div>
+          {/* NEW: Invite Link + Copy */}
+          {/*<div className="flex items-center gap-1 sm:gap-2 mt-1">
+            <span className="text-[9px] sm:text-[10px] text-[#D4D4D4] truncate">Invite Link:</span>
+            <CopyButton text={inviteLink} size={12} />
+          </div>*/}
         </div>
-
         <div className="flex-1 flex flex-col justify-center gap-1 sm:gap-2 min-w-0">
           {hasUsedInvite ? (
             <p className="text-[10px] sm:text-xs text-emerald-400 text-center flex items-center justify-center gap-1">

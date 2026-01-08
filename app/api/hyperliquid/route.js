@@ -91,8 +91,8 @@ async function trackViolation(ip, reason = 'Unknown', severity = 'severe') {
   }
   const redis = await getRedisClient()
   const key = `violations:${ip}`
-  const maxViolations = 15
-  const windowSeconds = 1800 // 30 minutes
+  const maxViolations = 30
+  const windowSeconds = 900 // 30 minutes
   const violations = Number(await redis.get(key)) || 0
   if (violations >= maxViolations) {
     await banIP(ip)
@@ -127,7 +127,7 @@ const secureHandler = limiter.wrap(async (request) => {
     const rateKey = `hyperliquid_rate:${ip}`
     let count = await redis.incr(rateKey)
     if (count === 1) await redis.expire(rateKey, 60)
-    if (count > 30) {
+    if (count > 50) {
       try {
         await trackViolation(ip, 'Rate limit exceeded', 'severe')
       } catch {

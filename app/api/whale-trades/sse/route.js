@@ -74,7 +74,7 @@ async function checkAndTrackIP(ip) {
 
   const connKey = `sse_connections:${ip}`
   const currentConns = Number(await redis.get(connKey)) || 0
-  if (currentConns >= 3) {
+  if (currentConns >= 30) {
     await redis.setEx(banKey, 1800, 'banned')
     console.error(`SSE IP banned for excessive connections: ${ip}`)
     throw new Error('Too many connections')

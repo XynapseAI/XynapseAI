@@ -16,7 +16,7 @@ import {
 } from 'recharts'
 import { motion, AnimatePresence } from 'framer-motion'
 import { LoadingOverlay } from '@/utils/helpers'
-import { ChevronDown, Copy, ChevronLeft, ChevronRight, Search } from 'lucide-react'
+import { ChevronDown, Copy, ChevronLeft, ChevronRight, Search, Check } from 'lucide-react'
 const hlColors = [
     '#00FF88',
     '#00E7FF',
@@ -159,23 +159,26 @@ const renderCustomizedLabel = ({ cx, cy, midAngle, innerRadius, outerRadius, per
         </text>
     )
 }
-// Simple toast component
-const Toast = ({ message, onClose }) => {
-    useEffect(() => {
-        const timer = setTimeout(onClose, 2000)
-        return () => clearTimeout(timer)
-    }, [onClose])
+
+const CopyButton = ({ text, size = 12 }) => {
+    const [isCopied, setIsCopied] = useState(false)
+
+    const handleCopy = () => {
+        navigator.clipboard.writeText(text)
+        setIsCopied(true)
+        setTimeout(() => setIsCopied(false), 2000)
+    }
+
     return (
-        <motion.div
-            initial={{ opacity: 0, y: 50 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: 50 }}
-            className="fixed bottom-8 left-1/2 -translate-x-1/2 bg-green-600/90 text-white px-6 py-3 rounded-lg shadow-2xl z-50"
+        <button
+            onClick={handleCopy}
+            className="cursor-pointer hover:text-emerald-400 transition flex-shrink-0"
         >
-            {message}
-        </motion.div>
+            {isCopied ? <Check size={size} className="text-emerald-400" /> : <Copy size={size} />}
+        </button>
     )
 }
+
 // Custom hook for interval
 function useInterval(callback, delay) {
     const savedCallback = useRef()
@@ -225,13 +228,12 @@ export default function DexTab() {
     const tradesPerPage = 50
     const totalDisplayTrades = 500
     const totalPages = Math.ceil(totalDisplayTrades / tradesPerPage)
-    const [toastMessage, setToastMessage] = useState(null)
     // Pagination for large trades
     const largeTrades = fills
         .filter(
             (f) =>
                 Math.abs(parseFloat(f.closedPnl || 0)) > 1000 ||
-                parseFloat(f.sz) * parseFloat(f.px) > 100000,
+                parseFloat(f.sz) * parseFloat(f.px) > 500000,
         )
         .sort((a, b) => b.time - a.time)
     const [largePage, setLargePage] = useState(1)
@@ -284,10 +286,7 @@ export default function DexTab() {
             .filter((asset) => asset.name.toLowerCase().includes(assetTableFilter.toLowerCase()))
             .sort((a, b) => b.volume - a.volume)
     }, [metaData, assetTableFilter])
-    const copyToClipboard = (text) => {
-        navigator.clipboard.writeText(text)
-        setToastMessage('Copied to clipboard!')
-    }
+
     // New states for added features
     const [fundingHistory, setFundingHistory] = useState([])
     const [openOrders, setOpenOrders] = useState([])
@@ -514,14 +513,14 @@ export default function DexTab() {
                     Math.floor(Math.random() * Math.min(50, recentWhaleTrades.length))
                 ]
             let address = ''
-            let dex = randomTrade.dex
+            const dex = randomTrade.dex
             if (dex === 'hyperliquid') {
                 address = Math.random() > 0.5 ? randomTrade.buyer : randomTrade.seller
             } else if (dex === 'lighter') {
                 address = Math.random() > 0.5 ? randomTrade.buyer : randomTrade.seller
             }
             if (address && address !== 'unknown') {
-                fetchUserData(address)
+                fetchUserData(address, dex)
                 console.log('Auto-selected random whale when switching to User tab:', {
                     dex,
                     address,
@@ -941,7 +940,6 @@ export default function DexTab() {
             className="w-full h-full p-4 bg-[#0A0A0A]/80 backdrop-blur-md flex flex-col gap-6 overflow-y-auto"
         >
             {loading && <LoadingOverlay isLoading={true} />}
-            {toastMessage && <Toast message={toastMessage} onClose={() => setToastMessage(null)} />}
             {/* DEX Selector */}
             <div className="relative mb-6">
                 <button
@@ -1690,16 +1688,11 @@ export default function DexTab() {
                                                                                   )
                                                                                 : `${String(trade.buyer).slice(0, 8)}...${String(trade.buyer).slice(-6)}`}
                                                                         </span>
-                                                                        <Copy
+                                                                        <CopyButton
+                                                                            text={String(
+                                                                                trade.buyer,
+                                                                            )}
                                                                             size={12}
-                                                                            className="cursor-pointer hover:text-emerald-400 transition flex-shrink-0"
-                                                                            onClick={() =>
-                                                                                copyToClipboard(
-                                                                                    String(
-                                                                                        trade.buyer,
-                                                                                    ),
-                                                                                )
-                                                                            }
                                                                         />
                                                                     </div>
                                                                 </td>
@@ -1719,16 +1712,11 @@ export default function DexTab() {
                                                                                   )
                                                                                 : `${String(trade.seller).slice(0, 8)}...${String(trade.seller).slice(-6)}`}
                                                                         </span>
-                                                                        <Copy
+                                                                        <CopyButton
+                                                                            text={String(
+                                                                                trade.seller,
+                                                                            )}
                                                                             size={12}
-                                                                            className="cursor-pointer hover:text-emerald-400 transition flex-shrink-0"
-                                                                            onClick={() =>
-                                                                                copyToClipboard(
-                                                                                    String(
-                                                                                        trade.seller,
-                                                                                    ),
-                                                                                )
-                                                                            }
                                                                         />
                                                                     </div>
                                                                 </td>
@@ -1771,7 +1759,18 @@ export default function DexTab() {
                         </div>
                     ) : (
                         <div className="border border-[#FFFFFF20] rounded-2xl bg-[#0A0A0A]/90 p-6">
-                            <h2 className="text-lg font-bold text-[#FFF] mb-4"> Highlight </h2>
+                            <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-3 mb-6">
+                                <h2 className="text-lg font-bold text-[#FFF]">Highlight</h2>
+                                {selectedDEX === 'lighter' && (
+                                    <div className="sm:text-right">
+                                        <p className="text-xs text-amber-400 max-w-lg">
+                                            Note: Limitations on displaying actual data in the case
+                                            of Lighter. Some information about each property may be
+                                            displayed blank or incomplete.
+                                        </p>
+                                    </div>
+                                )}
+                            </div>
                             <form
                                 onSubmit={(e) => {
                                     e.preventDefault()
@@ -1809,44 +1808,7 @@ export default function DexTab() {
                                                 <h3 className="text-sm font-bold text-[#FFF] mb-4">
                                                     Key Analytics
                                                 </h3>
-                                                <div className="mb-6 flex items-center gap-4">
-                                                    <div className="w-16 h-16 bg-gray-700 rounded-lg flex items-center justify-center text-2xl font-bold text-gray-400">
-                                                        ?
-                                                    </div>
-                                                    <div>
-                                                        <p className="text-xs text-gray-400 flex items-center gap-1 pb-1">
-                                                            Source:
-                                                            <img
-                                                                src={
-                                                                    selectedDEX === 'hyperliquid'
-                                                                        ? '/hyperliquid.webp'
-                                                                        : '/lighter.webp'
-                                                                }
-                                                                alt={selectedDEX}
-                                                                className="w-4 h-4 rounded ml-2"
-                                                            />
-                                                            <span className="capitalize">
-                                                                {selectedDEX}
-                                                            </span>
-                                                        </p>
-                                                        <div className="flex items-center gap-2">
-                                                            <p className="font-mono text-sm text-blue-400">
-                                                                {shortWallet}
-                                                            </p>
-                                                            {currentWallet && (
-                                                                <Copy
-                                                                    size={14}
-                                                                    className="cursor-pointer text-gray-500 hover:text-emerald-400 transition"
-                                                                    onClick={() =>
-                                                                        copyToClipboard(
-                                                                            String(currentWallet),
-                                                                        )
-                                                                    }
-                                                                />
-                                                            )}
-                                                        </div>
-                                                    </div>
-                                                </div>
+
                                                 <div className="grid grid-cols-2 gap-3">
                                                     <div className="bg-[#FFFFFF]/5 p-3 rounded-lg text-center">
                                                         <p className="text-xs text-gray-400 mb-1">
@@ -2232,122 +2194,220 @@ export default function DexTab() {
                                             </div>
                                         )}
                                     </div>
-                                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                                        {/* Per-Asset PnL */}
+                                        <div>
+                                            <h3 className="text-sm font-bold text-[#FFF] mb-3">
+                                                Per-Asset PnL
+                                            </h3>
+                                            <div className="h-[450px] overflow-y-auto custom-scrollbar bg-[#0A0A0A]/50 rounded-lg">
+                                                <table className="w-full text-xs">
+                                                    <thead className="sticky top-0 bg-[#0A0A0A]/90 z-10 border-b border-white/10">
+                                                        <tr>
+                                                            <th className="text-left py-3 px-4 text-gray-400">
+                                                                Asset
+                                                            </th>
+                                                            <th className="text-right py-3 px-4 text-gray-400">
+                                                                PnL
+                                                            </th>
+                                                        </tr>
+                                                    </thead>
+                                                    <tbody className="divide-y divide-white/5">
+                                                        {perAssetPnl.length === 0 ? (
+                                                            <tr>
+                                                                <td
+                                                                    colSpan="2"
+                                                                    className="py-32 text-center text-gray-500"
+                                                                >
+                                                                    No data available
+                                                                </td>
+                                                            </tr>
+                                                        ) : (
+                                                            perAssetPnl
+                                                                .sort(
+                                                                    (a, b) =>
+                                                                        Math.abs(b.pnl) -
+                                                                        Math.abs(a.pnl),
+                                                                )
+                                                                .map(({ coin, pnl }, i) => (
+                                                                    <tr
+                                                                        key={i}
+                                                                        className="hover:bg-white/5 transition"
+                                                                    >
+                                                                        <td className="py-3 px-4 flex items-center gap-3">
+                                                                            {assetToImage[coin] && (
+                                                                                <img
+                                                                                    src={
+                                                                                        assetToImage[
+                                                                                            coin
+                                                                                        ]
+                                                                                    }
+                                                                                    alt={coin}
+                                                                                    className="w-6 h-6 rounded-full"
+                                                                                />
+                                                                            )}
+                                                                            <span className="font-medium text-white">
+                                                                                {coin}
+                                                                            </span>
+                                                                        </td>
+                                                                        <td
+                                                                            className={`py-3 px-4 text-right font-mono font-bold ${
+                                                                                pnl >= 0
+                                                                                    ? 'text-emerald-400'
+                                                                                    : 'text-red-500'
+                                                                            }`}
+                                                                        >
+                                                                            {pnl >= 0 ? '+' : ''}
+                                                                            {formatCompactNumber(
+                                                                                pnl,
+                                                                            )}
+                                                                        </td>
+                                                                    </tr>
+                                                                ))
+                                                        )}
+                                                    </tbody>
+                                                </table>
+                                            </div>
+                                        </div>
+
                                         {/* Major Losses / Liquidations */}
                                         <div>
                                             <h3 className="text-sm font-bold text-[#FFF] mb-3">
                                                 Major Losses / Liquidations
                                             </h3>
-                                            <div className="overflow-auto max-h-[450px] custom-scrollbar bg-[#0A0A0A]/50 rounded-lg">
-                                                <div className="space-y-2 p-4 text-xs">
-                                                    {fills.filter(
-                                                        (f) =>
-                                                            Math.abs(parseFloat(f.closedPnl || 0)) >
-                                                                500 && parseFloat(f.closedPnl) < 0,
-                                                    ).length === 0 ? (
-                                                        <p className="text-gray-500 py-8 text-center">
-                                                            No major losses detected.
-                                                        </p>
-                                                    ) : (
-                                                        fills
-                                                            .filter(
-                                                                (f) =>
-                                                                    Math.abs(
+                                            <div className="h-[450px] overflow-y-auto custom-scrollbar bg-[#0A0A0A]/50 rounded-lg">
+                                                <table className="w-full text-xs">
+                                                    <thead className="sticky top-0 bg-[#0A0A0A]/90 z-10 border-b border-white/10">
+                                                        <tr>
+                                                            <th className="text-left py-3 px-4 text-gray-400">
+                                                                Asset
+                                                            </th>
+                                                            <th className="text-right py-3 px-4 text-gray-400">
+                                                                Loss
+                                                            </th>
+                                                            <th className="text-left py-3 px-4 text-gray-400">
+                                                                Date
+                                                            </th>
+                                                        </tr>
+                                                    </thead>
+                                                    <tbody className="divide-y divide-white/5">
+                                                        {fills.filter(
+                                                            (f) =>
+                                                                Math.abs(
+                                                                    parseFloat(f.closedPnl || 0),
+                                                                ) > 500 &&
+                                                                parseFloat(f.closedPnl || 0) < 0,
+                                                        ).length === 0 ? (
+                                                            <tr>
+                                                                <td
+                                                                    colSpan="3"
+                                                                    className="py-32 text-center text-gray-500"
+                                                                >
+                                                                    No major losses detected.
+                                                                </td>
+                                                            </tr>
+                                                        ) : (
+                                                            fills
+                                                                .filter(
+                                                                    (f) =>
+                                                                        Math.abs(
+                                                                            parseFloat(
+                                                                                f.closedPnl || 0,
+                                                                            ),
+                                                                        ) > 500 &&
                                                                         parseFloat(
                                                                             f.closedPnl || 0,
+                                                                        ) < 0,
+                                                                )
+                                                                .sort(
+                                                                    (a, b) =>
+                                                                        parseFloat(
+                                                                            a.closedPnl || 0,
+                                                                        ) -
+                                                                        parseFloat(
+                                                                            b.closedPnl || 0,
                                                                         ),
-                                                                    ) > 500 &&
-                                                                    parseFloat(f.closedPnl) < 0,
-                                                            )
-                                                            .sort((a, b) => b.time - a.time)
-                                                            .map((liq, i) => (
-                                                                <div
-                                                                    key={`liq-${i}`}
-                                                                    className="p-3 bg-red-500/10 border border-red-500/20 rounded-lg flex items-center justify-between"
-                                                                >
-                                                                    <div className="flex items-center gap-3">
-                                                                        <img
-                                                                            src={
-                                                                                selectedDEX ===
-                                                                                'hyperliquid'
-                                                                                    ? '/hyperliquid.webp'
-                                                                                    : '/lighter.webp'
-                                                                            }
-                                                                            alt={selectedDEX}
-                                                                            className="w-4 h-4 rounded"
-                                                                        />
-                                                                        {assetToImage[liq.coin] && (
-                                                                            <img
-                                                                                src={
-                                                                                    assetToImage[
-                                                                                        liq.coin
-                                                                                    ]
-                                                                                }
-                                                                                alt={liq.coin}
-                                                                                className="w-5 h-5 rounded-full"
-                                                                            />
-                                                                        )}
-                                                                        <div>
-                                                                            <span className="font-medium text-white text-sm">
+                                                                )
+                                                                .map((liq, i) => (
+                                                                    <tr
+                                                                        key={i}
+                                                                        className="hover:bg-white/5 transition"
+                                                                    >
+                                                                        <td className="py-3 px-4 flex items-center gap-3">
+                                                                            {assetToImage[
+                                                                                liq.coin
+                                                                            ] && (
+                                                                                <img
+                                                                                    src={
+                                                                                        assetToImage[
+                                                                                            liq.coin
+                                                                                        ]
+                                                                                    }
+                                                                                    alt={liq.coin}
+                                                                                    className="w-6 h-6 rounded-full"
+                                                                                />
+                                                                            )}
+                                                                            <span className="font-medium text-white">
                                                                                 {liq.coin}
                                                                             </span>
-                                                                            <span className="text-red-400 ml-2">
-                                                                                -
-                                                                                {formatCompactNumber(
-                                                                                    Math.abs(
-                                                                                        parseFloat(
-                                                                                            liq.closedPnl,
-                                                                                        ),
+                                                                        </td>
+                                                                        <td className="py-3 px-4 text-right font-mono font-bold text-red-500">
+                                                                            -
+                                                                            {formatCompactNumber(
+                                                                                Math.abs(
+                                                                                    parseFloat(
+                                                                                        liq.closedPnl ||
+                                                                                            0,
                                                                                     ),
-                                                                                )}
-                                                                            </span>
-                                                                        </div>
-                                                                    </div>
-                                                                    <span className="text-gray-500 text-xs">
-                                                                        {new Date(
-                                                                            liq.time,
-                                                                        ).toLocaleDateString()}
-                                                                    </span>
-                                                                </div>
-                                                            ))
-                                                    )}
-                                                </div>
+                                                                                ),
+                                                                            )}
+                                                                        </td>
+                                                                        <td className="py-3 px-4 text-gray-400">
+                                                                            {new Date(
+                                                                                liq.time,
+                                                                            ).toLocaleDateString()}
+                                                                        </td>
+                                                                    </tr>
+                                                                ))
+                                                        )}
+                                                    </tbody>
+                                                </table>
                                             </div>
                                         </div>
+
                                         {/* Large Trades */}
                                         <div>
                                             <h3 className="text-sm font-bold text-[#FFF] mb-3">
                                                 Large Trades
                                             </h3>
-                                            {displayedLargeTrades.length === 0 ? (
-                                                <p className="text-xs text-gray-500 py-8 text-center bg-[#0A0A0A]/50 rounded-lg">
-                                                    No large trades found.
-                                                </p>
-                                            ) : (
-                                                <div className="overflow-auto max-h-[450px] custom-scrollbar bg-[#0A0A0A]/50 rounded-lg">
+                                            <div className="h-[450px] overflow-auto custom-scrollbar bg-[#0A0A0A]/50 rounded-lg">
+                                                {displayedLargeTrades.length === 0 ? (
+                                                    <div className="h-full flex items-center justify-center">
+                                                        <p className="text-gray-500">
+                                                            No large trades found.
+                                                        </p>
+                                                    </div>
+                                                ) : (
                                                     <table className="w-full text-xs">
-                                                        <thead className="text-gray-400 border-b border-white/10 sticky top-0 bg-[#0A0A0A]/90">
+                                                        <thead className="sticky top-0 bg-[#0A0A0A]/90 z-10 border-b border-white/10">
                                                             <tr>
-                                                                <th className="text-left py-2 px-4">
-                                                                    DEX
-                                                                </th>
-                                                                <th className="text-left py-2 px-4">
+                                                                <th className="text-left py-3 px-4 text-gray-400">
                                                                     Asset
                                                                 </th>
-                                                                <th className="text-left py-2 px-4">
+                                                                <th className="text-left py-3 px-4 text-gray-400">
                                                                     Side
                                                                 </th>
-                                                                <th className="text-right py-2 px-6">
+                                                                <th className="text-right py-3 px-4 text-gray-400">
                                                                     Size
                                                                 </th>
-                                                                <th className="text-right py-2 px-6">
+                                                                <th className="text-right py-3 px-4 text-gray-400">
                                                                     Price
                                                                 </th>
-                                                                <th className="text-right py-2 px-6">
+                                                                <th className="text-right py-3 px-4 text-gray-400">
                                                                     PnL
                                                                 </th>
-                                                                <th className="text-left py-2 px-4">
-                                                                    Time
+                                                                <th className="text-left py-3 px-4 text-gray-400">
+                                                                    Date
                                                                 </th>
                                                             </tr>
                                                         </thead>
@@ -2355,26 +2415,10 @@ export default function DexTab() {
                                                             {displayedLargeTrades.map(
                                                                 (trade, i) => (
                                                                     <tr
-                                                                        key={`large-trade-${i}`}
-                                                                        className="hover:bg-white/5"
+                                                                        key={i}
+                                                                        className="hover:bg-white/5 transition"
                                                                     >
-                                                                        <td className="py-2 px-4">
-                                                                            <div className="flex items-center gap-1">
-                                                                                <img
-                                                                                    src={
-                                                                                        selectedDEX ===
-                                                                                        'hyperliquid'
-                                                                                            ? '/hyperliquid.webp'
-                                                                                            : '/lighter.webp'
-                                                                                    }
-                                                                                    alt={
-                                                                                        selectedDEX
-                                                                                    }
-                                                                                    className="w-4 h-4 rounded"
-                                                                                />
-                                                                            </div>
-                                                                        </td>
-                                                                        <td className="py-2 px-4 flex items-center gap-2">
+                                                                        <td className="py-3 px-4 flex items-center gap-3">
                                                                             {assetToImage[
                                                                                 trade.coin
                                                                             ] && (
@@ -2386,27 +2430,37 @@ export default function DexTab() {
                                                                                         ]
                                                                                     }
                                                                                     alt={trade.coin}
-                                                                                    className="w-5 h-5 rounded-full"
+                                                                                    className="w-6 h-6 rounded-full"
                                                                                 />
                                                                             )}
-                                                                            <span className="font-medium">
+                                                                            <span className="font-medium text-white">
                                                                                 {trade.coin}
                                                                             </span>
                                                                         </td>
-                                                                        <td className="py-2 px-4">
+                                                                        <td className="py-3 px-4">
                                                                             <span
-                                                                                className={`font-bold ${trade.dir === 'Buy' ? 'text-emerald-400' : 'text-red-500'}`}
+                                                                                className={`font-bold ${
+                                                                                    trade.dir ===
+                                                                                    'Buy'
+                                                                                        ? 'text-emerald-400'
+                                                                                        : 'text-red-500'
+                                                                                }`}
                                                                             >
                                                                                 {trade.dir}
                                                                             </span>
                                                                         </td>
-                                                                        <td className="py-2 px-6 text-right font-mono">
-                                                                            {trade.sz}
+                                                                        <td className="py-3 px-4 text-right font-mono">
+                                                                            {formatStandardNumber(
+                                                                                trade.sz,
+                                                                            )}
                                                                         </td>
-                                                                        <td className="py-2 px-6 text-right font-mono">
-                                                                            ${trade.px}
+                                                                        <td className="py-3 px-4 text-right font-mono">
+                                                                            $
+                                                                            {formatStandardNumber(
+                                                                                trade.px,
+                                                                            )}
                                                                         </td>
-                                                                        <td className="py-2 px-6 text-right">
+                                                                        <td className="py-3 px-4 text-right font-mono">
                                                                             <span
                                                                                 className={
                                                                                     parseFloat(
@@ -2414,17 +2468,22 @@ export default function DexTab() {
                                                                                             0,
                                                                                     ) >= 0
                                                                                         ? 'text-emerald-400'
-                                                                                        : 'text-red-400'
+                                                                                        : 'text-red-500'
                                                                                 }
                                                                             >
                                                                                 {trade.closedPnl
-                                                                                    ? formatCompactNumber(
+                                                                                    ? (parseFloat(
+                                                                                          trade.closedPnl,
+                                                                                      ) >= 0
+                                                                                          ? '+'
+                                                                                          : '') +
+                                                                                      formatCompactNumber(
                                                                                           trade.closedPnl,
                                                                                       )
                                                                                     : '-'}
                                                                             </span>
                                                                         </td>
-                                                                        <td className="py-2 px-4 text-gray-400 text-xs">
+                                                                        <td className="py-3 px-4 text-gray-400">
                                                                             {new Date(
                                                                                 trade.time,
                                                                             ).toLocaleDateString()}
@@ -2434,40 +2493,33 @@ export default function DexTab() {
                                                             )}
                                                         </tbody>
                                                     </table>
-                                                    {largeTotalPages > 1 && (
-                                                        <div className="flex items-center justify-center gap-6 mt-4 pb-4 text-sm">
-                                                            <button
-                                                                onClick={() =>
-                                                                    setLargePage((p) =>
-                                                                        Math.max(1, p - 1),
-                                                                    )
-                                                                }
-                                                                disabled={largePage === 1}
-                                                                className="p-1 disabled:opacity-50 hover:text-emerald-400"
-                                                            >
-                                                                <ChevronLeft size={20} />
-                                                            </button>
-                                                            <span className="text-gray-300">
-                                                                {largePage} / {largeTotalPages}
-                                                            </span>
-                                                            <button
-                                                                onClick={() =>
-                                                                    setLargePage((p) =>
-                                                                        Math.min(
-                                                                            largeTotalPages,
-                                                                            p + 1,
-                                                                        ),
-                                                                    )
-                                                                }
-                                                                disabled={
-                                                                    largePage === largeTotalPages
-                                                                }
-                                                                className="p-1 disabled:opacity-50 hover:text-emerald-400"
-                                                            >
-                                                                <ChevronRight size={20} />
-                                                            </button>
-                                                        </div>
-                                                    )}
+                                                )}
+                                            </div>
+                                            {largeTotalPages > 1 && (
+                                                <div className="flex items-center justify-center gap-6 mt-4 pb-4 text-sm">
+                                                    <button
+                                                        onClick={() =>
+                                                            setLargePage((p) => Math.max(1, p - 1))
+                                                        }
+                                                        disabled={largePage === 1}
+                                                        className="p-1 disabled:opacity-50 hover:text-emerald-400"
+                                                    >
+                                                        <ChevronLeft size={20} />
+                                                    </button>
+                                                    <span className="text-gray-300">
+                                                        {largePage} / {largeTotalPages}
+                                                    </span>
+                                                    <button
+                                                        onClick={() =>
+                                                            setLargePage((p) =>
+                                                                Math.min(largeTotalPages, p + 1),
+                                                            )
+                                                        }
+                                                        disabled={largePage === largeTotalPages}
+                                                        className="p-1 disabled:opacity-50 hover:text-emerald-400"
+                                                    >
+                                                        <ChevronRight size={20} />
+                                                    </button>
                                                 </div>
                                             )}
                                         </div>

@@ -81,6 +81,24 @@ const BASE_CHAIN_ID = 8453 // Base Sepolia for testing; change to 8453 for mainn
 // NEW: Builder Code for Base attribution (replace with your actual code from base.dev)
 const builderCode = process.env.NEXT_PUBLIC_BUILDER_CODE || 'bc_kne07rwd'
 const dataSuffix = Attribution.toDataSuffix({ codes: [builderCode] })
+
+const CopyButton = ({ text, size = 12 }) => {
+  const [isCopied, setIsCopied] = useState(false)
+  const handleCopy = () => {
+    navigator.clipboard.writeText(text)
+    setIsCopied(true)
+    setTimeout(() => setIsCopied(false), 2000)
+  }
+  return (
+    <button
+      onClick={handleCopy}
+      className="cursor-pointer hover:text-emerald-400 transition flex-shrink-0"
+    >
+      {isCopied ? <Check size={size} className="text-emerald-400" /> : <Copy size={size} />}
+    </button>
+  )
+}
+
 // Enhanced Spinner component - Accepts className and color props for flexibility
 const Spinner = ({ className = 'h-4 w-4', color = 'text-blue-400' }) => (
   <svg
@@ -1479,12 +1497,7 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
       )
     }
   }, [isConnected, chainId, switchChainMutation])
-  const handleCopyWallet = async () => {
-    if (userData?.walletAddress || address) {
-      await navigator.clipboard.writeText(userData?.walletAddress || address)
-      // Removed toast to avoid duplicates
-    }
-  }
+
   const displayInfo = isBaseAccount ? userData?.walletAddress || address || '' : email
   const maskedInfo = isBaseAccount
     ? `${(userData?.walletAddress || address)?.slice(0, 6) || ''}...${(userData?.walletAddress || address)?.slice(-4) || ''}`
@@ -2415,13 +2428,7 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
                         </p>
 
                         <div className="flex items-center gap-2 flex-shrink-0">
-                          <motion.button
-                            onClick={handleCopyWallet}
-                            className="text-[#D4D4D4] hover:text-[#FFF] transition-colors p-1"
-                            whileTap={{ scale: 0.9 }}
-                          >
-                            <Copy className="w-3 h-3" />
-                          </motion.button>
+                          <CopyButton text={userData?.walletAddress || address || ''} size={14} />
                           <motion.button
                             onClick={() => setShowWallet(!showWallet)}
                             className="text-[#D4D4D4] hover:text-[#FFF] transition-colors p-1"
@@ -2534,7 +2541,6 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
     showWallet,
     getDaysActive,
     getProfilePictureSrc,
-    handleCopyWallet,
     connectTwitterMutation,
     disconnectTwitterMutation,
     address,

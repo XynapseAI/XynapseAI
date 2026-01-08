@@ -23,6 +23,7 @@ import {
   isValidToken,
   LoadingOverlay,
 } from '../utils/helpers'
+import { Copy, Check } from 'lucide-react'
 import 'react-loading-skeleton/dist/skeleton.css'
 import { useCurrency } from './CurrencyContext'
 import { logger } from '../utils/clientLogger'
@@ -58,6 +59,27 @@ const CustomTooltip = ({ active, payload, label, currency }) => {
   }
   return null
 }
+
+const CopyButton = ({ text, size = 12 }) => {
+  const [isCopied, setIsCopied] = useState(false)
+  const handleCopy = (e) => {
+    e.stopPropagation()
+    if (!text) return
+    navigator.clipboard.writeText(text)
+    setIsCopied(true)
+    setTimeout(() => setIsCopied(false), 2000)
+  }
+  return (
+    <button
+      onClick={handleCopy}
+      disabled={!text}
+      className="cursor-pointer hover:text-emerald-400 transition flex-shrink-0 disabled:opacity-50 disabled:cursor-not-allowed"
+    >
+      {isCopied ? <Check size={size} className="text-emerald-400" /> : <Copy size={size} />}
+    </button>
+  )
+}
+
 // Downsample function for large chart data (built-in JS, no dep)
 const downsampleData = (data, maxPoints = 200) => {
   if (!data || data.length <= maxPoints) return data
@@ -1825,31 +1847,7 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                                             </span>
                                           )}
                                           {isValidAddress && (
-                                            <button
-                                              onClick={() => {
-                                                navigator.clipboard.writeText(holder.address)
-                                                toast.success('Address copied!', {
-                                                  autoClose: 2000,
-                                                })
-                                              }}
-                                              className="absolute right-0 text-[#D4D4D4] hover:text-[#FFF]/80 transition-colors flex-shrink-0 opacity-0 group-hover:opacity-100 p-1 rounded-lg hover:bg-[#FFFFFF]/10 group hover:scale-110 active:scale-90" // CSS
-                                              title="Copy address"
-                                            >
-                                              <svg
-                                                xmlns="http://www.w3.org/2000/svg"
-                                                className="w-3 h-3"
-                                                fill="none"
-                                                viewBox="0 0 24 24"
-                                                stroke="currentColor"
-                                                strokeWidth={2}
-                                              >
-                                                <path
-                                                  strokeLinecap="round"
-                                                  strokeLinejoin="round"
-                                                  d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"
-                                                />
-                                              </svg>
-                                            </button>
+                                            <CopyButton text={holder.address} size={12} />
                                           )}
                                         </div>
                                         <div className="w-28 text-right font-bold text-[#FFF] text-[10px]">
@@ -2144,34 +2142,7 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                                                     addSuffix: true,
                                                   })}
                                                 </span>
-                                                {txHash && (
-                                                  <button
-                                                    onClick={(e) => {
-                                                      e.stopPropagation()
-                                                      navigator.clipboard.writeText(txHash)
-                                                      toast.success('Transaction hash copied!', {
-                                                        autoClose: 2000,
-                                                      })
-                                                    }}
-                                                    className="absolute right-0 top-0 text-[#D4D4D4] hover:text-[#FFF]/80 opacity-0 group-hover:opacity-100 p-1 rounded-md hover:bg-[#FFFFFF]/10 group hover:scale-110 active:scale-90"
-                                                    title="Copy transaction hash"
-                                                  >
-                                                    <svg
-                                                      xmlns="http://www.w3.org/2000/svg"
-                                                      className="w-3 h-3"
-                                                      fill="none"
-                                                      viewBox="0 0 24 24"
-                                                      stroke="currentColor"
-                                                      strokeWidth={2}
-                                                    >
-                                                      <path
-                                                        strokeLinecap="round"
-                                                        strokeLinejoin="round"
-                                                        d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"
-                                                      />
-                                                    </svg>
-                                                  </button>
-                                                )}
+                                                {txHash && <CopyButton text={txHash} size={12} />}
                                               </div>
 
                                               {/* From Address */}
@@ -2193,7 +2164,6 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                                                       ? item.inputs?.[0]?.address
                                                       : item.tx_from_address?.address
                                                     if (!addr) return
-
                                                     const addrExplorerInfo = getExplorerInfo(
                                                       chain,
                                                       null,
@@ -2231,37 +2201,18 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                                                     </span>
                                                   )}
                                                 </button>
-                                                <button
-                                                  onClick={(e) => {
-                                                    e.stopPropagation()
-                                                    const addr = isBitcoin
-                                                      ? item.inputs?.[0]?.address
-                                                      : item.tx_from_address?.address
-                                                    if (addr) {
-                                                      navigator.clipboard.writeText(addr)
-                                                      toast.success('Address copied!', {
-                                                        autoClose: 2000,
-                                                      })
+                                                {(isBitcoin
+                                                  ? item.inputs?.[0]?.address
+                                                  : item.tx_from_address?.address) && (
+                                                  <CopyButton
+                                                    text={
+                                                      isBitcoin
+                                                        ? item.inputs?.[0]?.address
+                                                        : item.tx_from_address?.address
                                                     }
-                                                  }}
-                                                  className="absolute right-0 text-[#D4D4D4] hover:text-[#FFF]/80 opacity-0 group-hover:opacity-100 p-1 rounded-md hover:bg-[#FFFFFF]/10 group hover:scale-110 active:scale-90"
-                                                  title="Copy address"
-                                                >
-                                                  <svg
-                                                    xmlns="http://www.w3.org/2000/svg"
-                                                    className="w-3 h-3"
-                                                    fill="none"
-                                                    viewBox="0 0 24 24"
-                                                    stroke="currentColor"
-                                                    strokeWidth={2}
-                                                  >
-                                                    <path
-                                                      strokeLinecap="round"
-                                                      strokeLinejoin="round"
-                                                      d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"
-                                                    />
-                                                  </svg>
-                                                </button>
+                                                    size={12}
+                                                  />
+                                                )}
                                               </div>
 
                                               {/* To Address */}
@@ -2283,7 +2234,6 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                                                       ? item.outputs?.[0]?.address
                                                       : item.to_token_address?.address
                                                     if (!addr) return
-
                                                     const addrExplorerInfo = getExplorerInfo(
                                                       chain,
                                                       null,
@@ -2321,37 +2271,18 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                                                     </span>
                                                   )}
                                                 </button>
-                                                <button
-                                                  onClick={(e) => {
-                                                    e.stopPropagation()
-                                                    const addr = isBitcoin
-                                                      ? item.outputs?.[0]?.address
-                                                      : item.to_token_address?.address
-                                                    if (addr) {
-                                                      navigator.clipboard.writeText(addr)
-                                                      toast.success('Address copied!', {
-                                                        autoClose: 2000,
-                                                      })
+                                                {(isBitcoin
+                                                  ? item.outputs?.[0]?.address
+                                                  : item.to_token_address?.address) && (
+                                                  <CopyButton
+                                                    text={
+                                                      isBitcoin
+                                                        ? item.outputs?.[0]?.address
+                                                        : item.to_token_address?.address
                                                     }
-                                                  }}
-                                                  className="absolute right-0 text-[#D4D4D4] hover:text-[#FFF]/80 opacity-0 group-hover:opacity-100 p-1 rounded-md hover:bg-[#FFFFFF]/10 group hover:scale-110 active:scale-90"
-                                                  title="Copy address"
-                                                >
-                                                  <svg
-                                                    xmlns="http://www.w3.org/2000/svg"
-                                                    className="w-3 h-3"
-                                                    fill="none"
-                                                    viewBox="0 0 24 24"
-                                                    stroke="currentColor"
-                                                    strokeWidth={2}
-                                                  >
-                                                    <path
-                                                      strokeLinecap="round"
-                                                      strokeLinejoin="round"
-                                                      d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"
-                                                    />
-                                                  </svg>
-                                                </button>
+                                                    size={12}
+                                                  />
+                                                )}
                                               </div>
 
                                               {/* Value */}

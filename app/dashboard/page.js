@@ -1161,7 +1161,7 @@ function DashboardInner() {
                       <button
                         onClick={handleMiniAppQuickAuth} // UPDATED: Call SDK quickAuth → Deeplink to Warpcast like old auto
                         disabled={miniAppAuthLoading || worldAuthLoading} // NEW: Disable during loading
-                        className="w-full px-4 py-2.5 border border-white/80 bg-white/80 text-black rounded-sm text-sm font-semibold transition-all duration-300 hover:border-white/30 hover:bg-white/20 flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed"
+                        className="w-full px-4 py-2.5 border border-white/80 bg-transparent text-white/80 rounded-sm text-sm font-semibold transition-all duration-300 hover:border-white/30 hover:bg-white/20 flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed"
                       >
                         {miniAppAuthLoading ? (
                           <BlinkingDots />
