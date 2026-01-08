@@ -412,8 +412,8 @@ const VirtuosoTable = memo(
     const tableHeight = isMobile ? 'auto' : 'calc(100vh - 8rem)'
     return (
       <div
-        className={`bg-black/10 backdrop-blur-md border border-white/10 rounded-xl p-3 hide-scrollbar ${isMobile ? 'w-full mt-2 overflow-auto max-h-[50vh]' : 'max-h-[60vh] w-96 fixed right-4 top-26'}`}
-        style={{ height: tableHeight, minHeight: '360px' }}
+        className={`bg-black/10 backdrop-blur-md border border-white/10 rounded-xl p-3 hide-scrollbar ${isMobile ? 'w-full mt-2 overflow-auto max-h-[50vh]' : 'max-h-[85vh] w-96 fixed right-4 top-26'}`}
+        style={{ height: tableHeight, minHeight: '480px' }}
       >
         <h4 className="text-white text-[10px] sm:text-[12px] font-bold uppercase tracking-wider mb-2">
           Transactions
@@ -983,6 +983,20 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
   const [searchType, setSearchType] = useState('single')
   const [clusterWallets, setClusterWallets] = useState([])
   const apiBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:3000'
+
+  const generateHmacSignature = (payload) => {
+    try {
+      const hmacSecret =
+        process.env.HMAC_SECRET ||
+        '88583e5e555aaeb3d9b3b0cafbd1e609f5a7ff96548caa71c8eda0783d66b1f1'
+      const sortedPayload = JSON.stringify(payload, Object.keys(payload).sort())
+      return crypto.HmacSHA256(sortedPayload, hmacSecret).toString(crypto.enc.Hex)
+    } catch (err) {
+      logger.error('Error generating HMAC signature:', err.message)
+      return null
+    }
+  }
+
   // Fetch user data to get accurate isPremium status
   const fetchUserData = useCallback(async () => {
     if (!session?.user?.id) return
@@ -1046,56 +1060,69 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
       let allIncoming = []
       let allOutgoing = []
       let allLayer3 = []
-      // Sequential fetch to avoid overloading the server
-      for (const addr of fetchWallets) {
-        try {
-          const payload = {
-            wallet_address: addr,
-            chain: selectedChain,
-            limit: perWalletLimit,
-            page: 1,
-            fetchLayer3: true,
-            isToken: false,
-          }
-          const signature = generateHmacSignature(payload)
-          const response = await fetch(`${apiBaseUrl}/api/get-transactions`, {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'x-api-key': session?.user?.apiKey || 'default-api-key',
-              'x-hmac-signature': signature,
-              'x-premium-user': isPremium ? 'true' : 'false',
-            },
-            body: JSON.stringify(payload),
-          })
-          if (!response.ok) {
-            logger.warn(`Fetch failed for ${addr}: ${response.status}`)
-            continue
-          }
-          const reader = response.body.getReader()
-          let result = ''
-          while (true) {
-            const { done, value } = await reader.read()
-            if (done) break
-            result += new TextDecoder().decode(value)
-          }
-          let data
+      // Parallel fetch to improve performance (up to 10 concurrent to avoid overload)
+      const CONCURRENT_LIMIT = 10
+      for (let i = 0; i < fetchWallets.length; i += CONCURRENT_LIMIT) {
+        const batch = fetchWallets.slice(i, i + CONCURRENT_LIMIT)
+        const batchPromises = batch.map(async (addr) => {
           try {
-            data = JSON.parse(result)
-          } catch (parseErr) {
-            logger.error(`JSON parse error for wallet ${addr}:`, parseErr)
-            continue
+            const payload = {
+              wallet_address: addr,
+              chain: selectedChain,
+              limit: perWalletLimit,
+              page: 1,
+              fetchLayer3: true,
+              isToken: false,
+            }
+            const signature = generateHmacSignature(payload)
+            const response = await fetch(`${apiBaseUrl}/api/get-transactions`, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'x-api-key': session?.user?.apiKey || 'default-api-key',
+                'x-hmac-signature': signature,
+                'x-premium-user': isPremium ? 'true' : 'false',
+              },
+              body: JSON.stringify(payload),
+            })
+            if (!response.ok) {
+              logger.warn(`Fetch failed for ${addr}: ${response.status}`)
+              return { incoming: [], outgoing: [], layer3: [] }
+            }
+            const reader = response.body.getReader()
+            let result = ''
+            while (true) {
+              const { done, value } = await reader.read()
+              if (done) break
+              result += new TextDecoder().decode(value)
+            }
+            let data
+            try {
+              data = JSON.parse(result)
+            } catch (parseErr) {
+              logger.error(`JSON parse error for wallet ${addr}:`, parseErr)
+              return { incoming: [], outgoing: [], layer3: [] }
+            }
+            if (data.error) {
+              logger.error(`API error for wallet ${addr}: ${data.error}`)
+              return { incoming: [], outgoing: [], layer3: [] }
+            }
+            return {
+              incoming: data.incoming || [],
+              outgoing: data.outgoing || [],
+              layer3: data.layer3 || [],
+            }
+          } catch (err) {
+            logger.error(`Exception fetching cluster wallet ${addr}:`, err)
+            return { incoming: [], outgoing: [], layer3: [] }
           }
-          if (data.error) {
-            logger.error(`API error for wallet ${addr}: ${data.error}`)
-            continue
-          }
-          allIncoming.push(...(data.incoming || []))
-          allOutgoing.push(...(data.outgoing || []))
-          allLayer3.push(...(data.layer3 || []))
-        } catch (err) {
-          logger.error(`Exception fetching cluster wallet ${addr}:`, err)
-        }
+        })
+        const batchResults = await Promise.all(batchPromises)
+        batchResults.forEach((result) => {
+          allIncoming.push(...result.incoming)
+          allOutgoing.push(...result.outgoing)
+          allLayer3.push(...result.layer3)
+        })
       }
       // Set aggregated data
       setFullIncomingData(allIncoming)
@@ -1106,7 +1133,27 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
       }
       setLoading(false)
     },
-    [selectedChain, selectedLimit, session, apiBaseUrl],
+    [
+      selectedChain,
+      selectedLimit,
+      session,
+      apiBaseUrl,
+      isPremium,
+      generateHmacSignature,
+      setLoading,
+      setPage,
+      setNodes,
+      setEdges,
+      setNametags,
+      setClusters,
+      setSelectedEntity,
+      setFullIncomingData,
+      setFullOutgoingData,
+      setFullLayer3Data,
+      setWalletAddress,
+      isValidAddressForChain,
+      logger,
+    ],
   )
   useEffect(() => {
     if (fullIncomingData.length > 0 || fullOutgoingData.length > 0 || fullLayer3Data.length > 0) {
@@ -1880,7 +1927,7 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
         }
       }
       setSelectedEntity({ type: 'cluster', data: rootCluster || clusterData })
-      // Preload images
+      // Preload images with createImageBitmap and resize for optimization
       const imageCache = {}
       const imagesToPreload = new Set()
       if (walletInfo.image && isValidNametagImage(walletInfo.image)) {
@@ -1894,32 +1941,39 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
       const defaultUrl = '/icons/default.webp'
       const defaultImg = new Image()
       defaultImg.src = `${window.location.origin}${defaultUrl}`
-      await new Promise((resolve) => {
-        defaultImg.onload = () => {
-          imageCache['default'] = defaultImg
-          resolve()
+      const defaultBitmap = await new Promise((resolve) => {
+        defaultImg.onload = async () => {
+          const bitmap = await createImageBitmap(defaultImg, {
+            resizeWidth: 32,
+            resizeHeight: 32,
+            resizeQuality: 'medium',
+          })
+          resolve(bitmap)
         }
-        defaultImg.onerror = () => resolve()
+        defaultImg.onerror = () => resolve(null)
       })
+      imageCache['default'] = defaultBitmap
       const uniqueImages = Array.from(imagesToPreload)
       await Promise.all(
-        uniqueImages.map(
-          (url) =>
-            new Promise((resolve) => {
-              if (imageCache[url]) return resolve()
-              const img = new Image()
-              img.crossOrigin = 'anonymous'
-              img.onload = () => {
-                imageCache[url] = img
-                resolve()
-              }
-              img.onerror = () => {
-                imageCache[url] = imageCache['default']
-                resolve()
-              }
-              img.src = url.startsWith('http') ? url : `${window.location.origin}${url}`
-            }),
-        ),
+        uniqueImages.map(async (url) => {
+          if (imageCache[url]) return
+          const img = new Image()
+          img.crossOrigin = 'anonymous'
+          img.src = url.startsWith('http') ? url : `${window.location.origin}${url}`
+          await new Promise((resolve) => {
+            img.onload = resolve
+            img.onerror = resolve
+          })
+          if (img.complete && img.width > 0) {
+            imageCache[url] = await createImageBitmap(img, {
+              resizeWidth: 32,
+              resizeHeight: 32,
+              resizeQuality: 'medium',
+            })
+          } else {
+            imageCache[url] = imageCache['default']
+          }
+        }),
       )
       // Slight compress for better initial view
       if (isTokenQuery) {
@@ -2035,12 +2089,13 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
             finalDisplayImage = '/icons/default.webp'
           }
           if (imageCache[finalDisplayImage]) {
-            const img = imageCache[finalDisplayImage]
+            const bitmap = imageCache[finalDisplayImage]
             ctx.save()
             ctx.beginPath()
             ctx.arc(node.x, node.y, size, 0, 2 * Math.PI)
             ctx.clip()
-            ctx.drawImage(img, node.x - size, node.y - size, size * 2, size * 2)
+            // Draw resized bitmap (32x32 stretched to node size)
+            ctx.drawImage(bitmap, node.x - size, node.y - size, size * 2, size * 2)
             ctx.restore()
           }
         })
@@ -2151,10 +2206,10 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
             .radius((node) => node.val * 1.8)
             .strength(0.7),
         )
-        .warmupTicks(1200) // Increased warmup ticks for smoother initial positions
-        .cooldownTicks(600)
-        .d3AlphaDecay(0.08) // Slightly higher decay for faster stabilization
-        .d3VelocityDecay(0.88) // Adjusted velocity decay for less jitter
+        .warmupTicks(800) // Reduced for faster init
+        .cooldownTicks(400) // Reduced for faster stabilization
+        .d3AlphaDecay(0.1) // Increased slightly for faster convergence
+        .d3VelocityDecay(0.9) // Increased slightly for less jitter
         .enablePointerInteraction(true)
         .enableNodeDrag(true)
         .enableZoomInteraction(true)
@@ -2223,18 +2278,6 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
       }
     }
   }, [initializeForceGraph])
-  const generateHmacSignature = (payload) => {
-    try {
-      const hmacSecret =
-        process.env.HMAC_SECRET ||
-        '88583e5e555aaeb3d9b3b0cafbd1e609f5a7ff96548caa71c8eda0783d66b1f1'
-      const sortedPayload = JSON.stringify(payload, Object.keys(payload).sort())
-      return crypto.HmacSHA256(sortedPayload, hmacSecret).toString(crypto.enc.Hex)
-    } catch (err) {
-      logger.error('Error generating HMAC signature:', err.message)
-      return null
-    }
-  }
   useEffect(() => {
     const chainFromUrl = searchParams.get('chain') || initialChain
     const addressFromUrl = searchParams.get('address') || initialAddress
