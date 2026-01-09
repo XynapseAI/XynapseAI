@@ -272,7 +272,7 @@ export default function ExplorerTab({ initialQuery, initialChain, isStandalone =
             setDashboardLoading(false)
             const addresses = collectDashboardAddresses()
             if (addresses.length > 0) {
-                setTimeout(() => fetchNametags(addresses, selectedChain), 500) // Delay để UI render trước
+                setTimeout(() => fetchNametags(addresses, selectedChain), 500)
             }
         } catch (error) {
             console.error('Polling error:', error)
@@ -288,11 +288,15 @@ export default function ExplorerTab({ initialQuery, initialChain, isStandalone =
         // 3. Cleanup
         return () => clearInterval(priceIntervalId)
     }, [selectedChain])
+
     useEffect(() => {
-        // Clear tx data to force dashboard on chain switch
+        if (results && results.chain === selectedChain) {
+            fetchNativePrice()
+            return
+        }
+
         setResults(null)
         setWalletData(null)
-        setQuery('') // Optional: clear input if no query in URL
         setError(null)
         setDashboardLoading(true)
         setLatestBlocks([])
@@ -303,12 +307,20 @@ export default function ExplorerTab({ initialQuery, initialChain, isStandalone =
             gasPrice: '0',
             nativePrice: prev.nativePrice || 0,
         }))
-        fetchDashboardData()
-        const dataIntervalId = setInterval(() => {
+
+        if (walletData && query && isEVMAddress(query)) {
+            fetchWalletData(query, selectedChain)
+            router.push(
+                `${basePath}?query=${encodeURIComponent(query)}&chain=${selectedChain}&type=wallet`,
+                { scroll: false },
+            )
+        } else {
             fetchDashboardData()
-        }, 300000)
-        return () => clearInterval(dataIntervalId)
+            const dataIntervalId = setInterval(fetchDashboardData, 300000)
+            return () => clearInterval(dataIntervalId)
+        }
     }, [selectedChain])
+
     useEffect(() => {
         const handleClickOutside = (event) => {
             if (
@@ -585,14 +597,14 @@ export default function ExplorerTab({ initialQuery, initialChain, isStandalone =
     const fetchNametags = async (addresses, chain) => {
         if (addresses.length === 0) return
         const cachedTags = chainNametags[chain] || {}
-        const newAddresses = addresses.filter((addr) => !cachedTags[addr]) // Chỉ fetch mới
-        if (newAddresses.length === 0) return // Skip nếu full cache
+        const newAddresses = addresses.filter((addr) => !cachedTags[addr])
+        if (newAddresses.length === 0) return
         setNametagsLoading(true)
         try {
             const res = await fetch('/api/nametags', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ chain, addresses: newAddresses }), // Chỉ send mới
+                body: JSON.stringify({ chain, addresses: newAddresses }),
             })
             if (!res.ok) throw new Error(`Nametags API error: ${res.status}`)
             const { data } = await res.json()
@@ -602,7 +614,6 @@ export default function ExplorerTab({ initialQuery, initialChain, isStandalone =
                     newTags[addr] = info.Labels.deposit
                 }
             })
-            // Merge vào cache per chain
             setChainNametags((prev) => ({
                 ...prev,
                 [chain]: { ...cachedTags, ...newTags },
@@ -614,77 +625,59 @@ export default function ExplorerTab({ initialQuery, initialChain, isStandalone =
             setNametagsLoading(false)
         }
     }
-    const fetchTxData = async (q, ch, fallbackIndex = 0) => {
-        const cacheKey = `${ch}:${q}`
+    const fetchTxData = async (q, ch = null) => {
+        const cacheKey = ch ? `${ch}:${q}` : `auto:${q}`
         if (txCache[cacheKey]) {
-            setResults(txCache[cacheKey])
-            setLoading(false)
+            const cached = txCache[cacheKey]
+            setResults(cached)
+            setSelectedChain(cached.chain)
             return
         }
+
         setLoading(true)
         setError(null)
         try {
-            let data = {}
-            const fetchOptions = {
+            let endpoint = '/api/etherscan-explorer'
+            if (ch && chainConfig[ch]?.apiBase) {
+                endpoint = chainConfig[ch].apiBase
+            }
+
+            const body = { action: 'tx-details', txHash: q }
+            if (ch) body.chain = ch
+
+            const res = await fetch(endpoint, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-            }
-            const config = chainConfig[ch]
-            if (!config) throw new Error(`Unsupported chain: ${ch}`)
-            let endpoint = config.apiBase
-            let body
-            if (config.apiBase === '/api/etherscan-explorer') {
-                body = { action: 'tx-details', txHash: q }
-                if (selectedChain) body.chain = selectedChain
-            } else if (ch === 'bitcoin') {
-                body = { action: 'tx-details', txHash: q }
-            } else if (ch === 'solana') {
-                body = { action: 'tx-details', txHash: q }
-            } else {
-                throw new Error('Unsupported chain for tx')
-            }
-            fetchOptions.body = JSON.stringify(body)
-            const res = await fetch(endpoint, fetchOptions)
+                body: JSON.stringify(body),
+            })
+
             if (!res.ok) throw new Error(`API error: ${res.status}`)
             const resJson = await res.json()
-            if (ch === 'bitcoin' || isEVMChain(ch) || ch === 'solana') {
-                if (!resJson.success) throw new Error(resJson.detail || 'Transaction not found')
-                data = resJson.data
-            } else {
-                data = resJson
-            }
-            const detectedChain = data.detectedChain || ch
-            setResults({ data, chain: detectedChain })
-            setTxCache((prev) => ({ ...prev, [cacheKey]: { data, chain: detectedChain } }))
+            if (!resJson.success) throw new Error(resJson.detail || 'Transaction not found')
+
+            const data = resJson.data
+            const detectedChain = data.detectedChain || ch || 'ethereum'
+
+            const result = { data, chain: detectedChain }
+            setResults(result)
+            setTxCache((prev) => ({ ...prev, [`${detectedChain}:${q}`]: result }))
+            setTxCache((prev) => ({
+                ...prev,
+                [`${detectedChain}:${q}`]: result,
+                [`auto:${q}`]: result,
+            }))
             setSelectedChain(detectedChain)
+
+            router.push(`${basePath}?query=${encodeURIComponent(q)}&chain=${detectedChain}`, {
+                scroll: false,
+            })
+
             const addresses = extractAddresses(data, detectedChain)
             if (addresses.length > 0) {
                 await fetchNametags(addresses, detectedChain)
             }
         } catch (err) {
-            if (
-                isEVMChain(ch) &&
-                err.message.includes('not found') &&
-                fallbackIndex < evmChainsOrder.length - 1 &&
-                !selectedChain
-            ) {
-                const nextChain = evmChainsOrder[fallbackIndex + 1]
-                await fetchTxData(q, nextChain, fallbackIndex + 1)
-                return
-            }
-            let userMsg = err.message
-            if (
-                ch === 'bitcoin' &&
-                (err.message.includes('timeout') || err.message.includes('AbortError'))
-            ) {
-                userMsg = 'Bitcoin query timeout (network lag), retrying in 2s...'
-                setTimeout(() => fetchTxData(q, ch), 2000)
-                return
-            }
-            if (isEVMChain(ch) && fallbackIndex === evmChainsOrder.length - 1) {
-                userMsg = 'Transaction not found on supported EVM chains'
-            }
-            setError(userMsg)
+            setError(err.message)
         } finally {
             setLoading(false)
         }
@@ -742,29 +735,40 @@ export default function ExplorerTab({ initialQuery, initialChain, isStandalone =
     const handleSearch = (searchQuery = query) => {
         const q = searchQuery.trim()
         if (!q) return
-        setError(null) // Clear old error
+
+        setError(null)
         try {
             const inputType = detectInputType(q)
-            let ch = selectedChain
-            if (!ch) {
-                if (inputType === 'wallet') ch = 'ethereum'
-                else if (inputType === 'tx') ch = 'ethereum'
-                else if (inputType === 'bitcoin_tx') ch = 'bitcoin'
-                else if (inputType === 'solana_tx') ch = 'solana'
-            }
-            setSelectedChain(ch)
+
+            let targetChain = selectedChain
+            const isWalletSearch = inputType === 'wallet'
+
+            if (!isWalletSearch) {
+                if (inputType === 'bitcoin_tx') {
+                    targetChain = 'bitcoin'
+                } else if (inputType === 'solana_tx') {
+                    targetChain = 'solana'
+                } else {
+                    // EVM tx → auto detect (không gửi chain)
+                    targetChain = null
+                }
+            } // wallet dùng chain hiện tại
+
             setNametags({})
-            const urlType = inputType === 'wallet' ? '&type=wallet' : ''
-            router.push(`${basePath}?query=${encodeURIComponent(q)}&chain=${ch}${urlType}`, {
+
+            if (isWalletSearch) {
+                fetchWalletData(q, targetChain)
+            } else {
+                fetchTxData(q, targetChain)
+            }
+
+            const typeParam = isWalletSearch ? '&type=wallet' : ''
+            const chainParam = targetChain ? `&chain=${targetChain}` : ''
+            router.push(`${basePath}?query=${encodeURIComponent(q)}${chainParam}${typeParam}`, {
                 scroll: false,
             })
-            if (inputType === 'tx' || inputType === 'bitcoin_tx' || inputType === 'solana_tx') {
-                fetchTxData(q, ch, 0)
-            } else if (inputType === 'wallet') {
-                fetchWalletData(q, ch)
-            }
         } catch (err) {
-            setError(err.message)
+            setError(err.message || 'Invalid input format')
         }
     }
     useEffect(() => {
@@ -2074,18 +2078,12 @@ export default function ExplorerTab({ initialQuery, initialChain, isStandalone =
                         className="relative h-[4.5vh] px-3 py-1 bg-[#FFFFFF]/5 backdrop-blur-md border border-[#FFFFFF20] text-[#FFF] rounded-xl hover:bg-[#FFFFFF]/10 transition-all duration-200 font-medium shadow-[0_4px_12px_rgba(0,0,0,0.3)] glow-[#FFFFFF15] flex items-center justify-between text-[10px] sm:text-[12px] min-w-[120px]"
                     >
                         <span className="flex items-center">
-                            {selectedChain ? (
-                                <>
-                                    <img
-                                        src={chainLogos[selectedChain]}
-                                        alt={selectedChain}
-                                        className="w-4 h-4 mr-2 rounded-full"
-                                    />
-                                    {selectedChain.toUpperCase()}
-                                </>
-                            ) : (
-                                'Auto Detect'
-                            )}
+                            <img
+                                src={chainLogos[selectedChain]}
+                                alt={selectedChain}
+                                className="w-4 h-4 mr-2 rounded-full"
+                            />
+                            {selectedChain.toUpperCase()}
                         </span>
                         <ChevronDown className="w-4 h-4 ml-2" />
                     </button>
@@ -2106,39 +2104,32 @@ export default function ExplorerTab({ initialQuery, initialChain, isStandalone =
                                     className="text-[10px] bg-[#0A0A0A]/90 backdrop-blur-md border border-[#FFFFFF20] rounded-xl shadow-[0_4px_12px_rgba(0,0,0,0.3)] glow-[#FFFFFF15] overflow-y-auto max-h-60 z-[9999] custom-scrollbar"
                                 >
                                     <ul>
-                                        <li
-                                            className="px-3 py-2 hover:bg-[#FFFFFF]/10 cursor-pointer flex items-center text-[#D4D4D4]"
-                                            onClick={() => {
-                                                setSelectedChain('')
-                                                setResults(null)
-                                                setQuery('')
-                                                setError(null)
-                                                router.push(basePath, { scroll: false })
-                                            }}
-                                        >
-                                            Auto Detect
-                                        </li>
                                         {Object.keys(chainConfig).map((ch) => (
                                             <li
                                                 key={ch}
-                                                className="px-3 py-2 hover:bg-[#FFFFFF]/10 cursor-pointer flex items-center text-[#D4D4D4]"
+                                                className={`px-3 py-2 hover:bg-[#FFFFFF]/10 cursor-pointer flex items-center ${selectedChain === ch ? 'bg-[#FFFFFF]/20 text-emerald-400 font-semibold' : 'text-[#D4D4D4]'}`}
                                                 onClick={() => {
                                                     setSelectedChain(ch)
-                                                    setResults(null) // Clear tx details
-                                                    setWalletData(null) // Clear wallet
-                                                    setQuery('') // Clear input query
-                                                    setError(null) // Clear any old error
+                                                    setResults(null)
+                                                    setWalletData(null)
+                                                    setError(null)
                                                     setIsChainMenuOpen(false)
-                                                    // Update URL to new chain without query (force dashboard)
                                                     router.push(`${basePath}?chain=${ch}`, {
                                                         scroll: false,
                                                     })
                                                 }}
                                             >
                                                 <img
-                                                    src={chainLogos[ch]}
+                                                    src={
+                                                        chainLogos[ch] ||
+                                                        'https://via.placeholder.com/32'
+                                                    }
                                                     alt={ch}
                                                     className="w-5 h-5 mr-2 rounded-full"
+                                                    onError={(e) =>
+                                                        (e.target.src =
+                                                            'https://via.placeholder.com/32')
+                                                    }
                                                 />
                                                 {ch.toUpperCase()}
                                             </li>

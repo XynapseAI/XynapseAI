@@ -947,7 +947,6 @@ export default function DexTab() {
             {loading && <LoadingOverlay isLoading={true} />}
             {/* DEX Selector */}
             <div className="relative flex flex-col items-center gap-4 lg:flex-row lg:items-center lg:justify-center mb-8 w-full px-4">
-                {/* DEX Selector - căn trái trên desktop */}
                 <div className="w-full relative lg:absolute lg:left-0 z-10">
                     <button
                         ref={dexMenuRef}

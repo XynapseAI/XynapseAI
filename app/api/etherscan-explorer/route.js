@@ -268,6 +268,11 @@ const supportedEtherscanChainIds = [
   '59144',
   '130',
   '324',
+  '999', // HyperEVM Mainnet
+  '143',
+  '1027',
+  '56',
+  '10',
 ]
 // Alchemy RPC map (same as frontend)
 const rpcMap = {
@@ -342,21 +347,25 @@ async function verifyTxOnChain(chainId, txHash, transaction) {
     if (receiptRes.data.result) {
       const receipt = receiptRes.data.result
       const numLogs = receipt.logs ? receipt.logs.length : 0
-      // FIXED: Accept if logs >0, even if status undefined (recent L2 tx)
-      if (numLogs > 0) {
-        const isSuccess = receipt.status === '0x1' || !receipt.status // Assume success if no status but logs
+      const receiptStatusHex = receipt.status || '0x0'
+      const receiptStatus = parseInt(receiptStatusHex, 16)
+      const isSuccess = receiptStatus === 1 || (receiptStatus === 0 ? false : numLogs > 0)
+
+      if (numLogs > 0 || receiptStatus === 1) {
         logger.info(
-          `Receipt valid on ${chainId}: ${isSuccess ? 'success' : 'unknown status'}, ${numLogs} logs`,
+          `Receipt valid on ${chainId}: success, logs ${numLogs}, status ${receiptStatus}`,
         )
         return { valid: true, numLogs, receipt, isSuccess }
       } else {
-        logger.warn(`Receipt invalid on ${chainId}: logs ${numLogs}`)
+        logger.warn(
+          `Receipt present but not valid on ${chainId}: logs ${numLogs}, status ${receiptStatus}`,
+        )
       }
     }
   } catch (err) {
     logger.warn(`Receipt verification failed on ${chainId}: ${err.message}`)
   }
-  // Fallback: Block timestamp recent
+
   if (transaction.blockNumber) {
     const blockUrl = `${ETHERSCAN_V2_BASE_URL}?chainid=${chainId}&module=proxy&action=eth_getBlockByNumber&tag=${transaction.blockNumber}&boolean=true&apikey=${process.env.ETHERSCAN_API_KEY}`
     try {
@@ -365,9 +374,9 @@ async function verifyTxOnChain(chainId, txHash, transaction) {
         const block = blockRes.data.result
         const blockTime = parseInt(block.timestamp || '0', 16) * 1000
         const now = Date.now()
-        const isRecent = Math.abs(now - blockTime) < 3600000
+        const isRecent = Math.abs(now - blockTime) < 3600000 // 1 hour
         if (isRecent) {
-          logger.info(`Block timestamp valid on ${chainId}: recent`)
+          logger.info(`Block timestamp valid (recent) on ${chainId}`)
           return { valid: true, numLogs: 0, receipt: null, isSuccess: true }
         }
       }
@@ -375,6 +384,7 @@ async function verifyTxOnChain(chainId, txHash, transaction) {
       logger.warn(`Block fallback failed on ${chainId}: ${err.message}`)
     }
   }
+
   return { valid: false, numLogs: 0, receipt: null, isSuccess: false }
 }
 // Allowed origins (unchanged)
@@ -598,11 +608,8 @@ export const POST = handlerWrapper(async (request) => {
   const { chain, action, address, txHash, tokenAddress, page, offset } = parsedBody
   const chainId = chainIdMap[chain?.toLowerCase()]
   if (!chainId && action !== 'tx-details') {
-    logger.warn(`Unsupported chain for Etherscan V2: ${chain}`, { ip })
-    return NextResponse.json(
-      { detail: `Unsupported chain for Etherscan V2: ${chain}` },
-      { status: 400 },
-    )
+    logger.warn(`Unsupported chain for ${chain}`, { ip })
+    return NextResponse.json({ detail: `Unsupported chain for ${chain}` }, { status: 400 })
   }
   logger.info(`Processing ${action} for chain ${chain} (ID: ${chainId})`, {
     ip,
@@ -642,14 +649,27 @@ export const POST = handlerWrapper(async (request) => {
               const providedName = primaryChainNameMap[providedId] || lowerChain
               supportedChains = [[providedId, providedName]]
             } else {
-              supportedChains = Object.entries(primaryChainNameMap)
+              const priorityChains = [
+                'base',
+                'ethereum',
+                'optimism',
+                'arbitrum',
+                'polygon',
+                'bsc',
+                'linea',
+                'hyperevm',
+                'monad',
+                'unichain',
+              ] // top popular
+              supportedChains = priorityChains
+                .map((name) => {
+                  const id = chainIdMap[name]
+                  return id ? [id, name] : null
+                })
+                .filter(Boolean)
             }
-            const priorityOrder = ['1', '8453', '10', '42161', '56', '137']
-            const sortedChains = supportedChains.sort((a, b) => {
-              const priA = priorityOrder.indexOf(a[0])
-              const priB = priorityOrder.indexOf(b[0])
-              return (priA === -1 ? Infinity : priA) - (priB === -1 ? Infinity : priB)
-            })
+
+            const sortedChains = supportedChains
             const isSupportedByEtherscan = supportedEtherscanChainIds.includes(chainId)
             if (!isSupportedByEtherscan && chain) {
               // Use Alchemy for unsupported chains like monad, hyperevm
@@ -787,6 +807,131 @@ export const POST = handlerWrapper(async (request) => {
               } else {
                 throw new Error('Transaction not found on selected chain')
               }
+
+              if (candidates.length === 0 && !chain) {
+                const unsupportedChains = [
+                  'monad',
+                  'abstract',
+                  'apechain',
+                  'unichain',
+                  'world',
+                  'linea',
+                  'zksync',
+                ]
+                for (const unsupChain of unsupportedChains) {
+                  const rpcUrl = rpcMap[unsupChain]
+                  if (!rpcUrl) continue
+
+                  try {
+                    const provider = new ethers.JsonRpcProvider(rpcUrl)
+                    const tx = await provider.getTransaction(txHash)
+                    if (!tx || !tx.blockNumber) continue
+
+                    const receipt = await provider.getTransactionReceipt(txHash)
+                    if (!receipt) continue
+
+                    const block = await provider.getBlock(tx.blockNumber)
+
+                    let tokenTransfers = []
+                    if (receipt.logs) {
+                      receipt.logs.forEach((log, logIndex) => {
+                        if (
+                          log.topics &&
+                          log.topics[0] ===
+                            '0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef'
+                        ) {
+                          const from = `0x${log.topics[1].slice(-40)}`
+                          const to = `0x${log.topics[2].slice(-40)}`
+                          let transfer = {
+                            tokenAddress: log.address.toLowerCase(),
+                            from,
+                            to,
+                            logIndex,
+                          }
+                          if (log.topics.length === 3) {
+                            // ERC-20
+                            transfer.type = 'ERC20'
+                            transfer.decimals = 18
+                            transfer.value =
+                              log.data === '0x' || !log.data ? '0' : BigInt(log.data).toString()
+                          } else if (log.topics.length === 4) {
+                            // ERC-721
+                            transfer.type = 'ERC721'
+                            transfer.value = '1'
+                            transfer.tokenId = BigInt(log.topics[3]).toString()
+                            transfer.decimals = 0
+                          }
+                          tokenTransfers.push(transfer)
+                        }
+                      })
+                    }
+
+                    if (tokenTransfers.length > 0) {
+                      const uniqueTokens = [...new Set(tokenTransfers.map((t) => t.tokenAddress))]
+                      const tokenInfos = {}
+                      await Promise.all(
+                        uniqueTokens.map(async (addr) => {
+                          tokenInfos[addr.toLowerCase()] = await fetchTokenInfo(provider, addr)
+                        }),
+                      )
+                      tokenTransfers = tokenTransfers.map((t) => {
+                        const info = tokenInfos[t.tokenAddress.toLowerCase()]
+                        const decimals = info.decimals || (t.type === 'ERC721' ? 0 : 18)
+                        return {
+                          ...t,
+                          ...info,
+                          decimals,
+                          chain: unsupChain,
+                        }
+                      })
+                      tokenTransfers = await enrichWithCoinGecko(tokenTransfers)
+                    }
+
+                    // Native price enrich
+                    let nativeValueUSD = null
+                    let feeUSD = null
+                    const nativePrice = await fetchNativePrice(unsupChain)
+                    if (nativePrice) {
+                      const nativeValue = Number(tx.value || 0n) / 1e18
+                      nativeValueUSD = nativeValue * nativePrice
+                      const gasUsed = Number(receipt.gasUsed || 0n)
+                      const effectiveGasPrice = Number(
+                        receipt.effectiveGasPrice || tx.gasPrice || 0n,
+                      )
+                      const fee = (gasUsed * effectiveGasPrice) / 1e18
+                      feeUSD = fee * nativePrice
+                    }
+
+                    const data = {
+                      detectedChain: unsupChain,
+                      transaction: tx,
+                      receipt,
+                      block,
+                      internalTxs: [],
+                      tokenTransfers,
+                      nativeValueUSD,
+                      feeUSD,
+                    }
+
+                    const redis = await getRedisClient()
+                    const cacheKey = `explorer:tx:${unsupChain}:${txHash.toLowerCase()}`
+                    await redis.set(cacheKey, JSON.stringify(data), 'EX', 3600)
+                    logger.info(`Alchemy auto-detect success on ${unsupChain}, cached: ${cacheKey}`)
+
+                    controller.enqueue(JSON.stringify({ success: true, data }))
+                    controller.close()
+                    return
+                  } catch (e) {
+                    logger.warn(`Alchemy auto-detect failed on ${unsupChain}: ${e.message}`)
+                  }
+                }
+              }
+
+              throw new Error(
+                chain
+                  ? 'Transaction not found on selected chain'
+                  : 'Transaction not found on any supported chain',
+              )
             }
             if (candidates.length === 0) {
               throw new Error('Transaction not found on any supported chain')
@@ -803,11 +948,16 @@ export const POST = handlerWrapper(async (request) => {
             })
             let validCandidates = (await Promise.all(verifyPromises)).filter(Boolean)
             if (validCandidates.length === 0 && candidates.length > 0) {
-              logger.warn(`No receipt valid, falling back to timestamp check for candidates`)
+              logger.warn(`No strict valid receipt, falling back to any candidate with blockNumber`)
               validCandidates = candidates
                 .filter((c) => c.transaction.blockNumber)
-                .map((c) => ({ ...c, numLogs: 0, receipt: null }))
+                .sort((a, b) => {
+                  const blockA = parseInt(a.transaction.blockNumber || '0', 16)
+                  const blockB = parseInt(b.transaction.blockNumber || '0', 16)
+                  return blockB - blockA // newest block first
+                })
                 .slice(0, 1)
+                .map((c) => ({ ...c, numLogs: 0, receipt: null, isSuccess: true }))
             }
             if (validCandidates.length === 0) {
               throw new Error(
@@ -940,14 +1090,15 @@ export const POST = handlerWrapper(async (request) => {
                 `Native ${foundChainName} enriched: value USD ${data.nativeValueUSD}, fee USD ${data.feeUSD}`,
               )
             }
-            await redis.set(cacheKey, JSON.stringify(data), 'EX', 3600)
-            logger.info(`Cached tx-details: ${cacheKey}`)
+            const detectedCacheKey = `explorer:tx:${foundChainName}:${txHash.toLowerCase()}`
+            await redis.set(detectedCacheKey, JSON.stringify(data), 'EX', 3600)
+            logger.info(`Cached tx-details with detected chain: ${detectedCacheKey}`)
             controller.enqueue(JSON.stringify({ success: true, data }))
           } else if (action === 'wallet-balances' && address) {
             const apiModule = 'account'
             const apiAction = 'balance'
             apiUrl += `&module=${apiModule}&action=${apiAction}&address=${address}&tag=latest&apikey=${process.env.ETHERSCAN_API_KEY}`
-            logger.info('Calling Etherscan V2 API for native balance', {
+            logger.info('Calling for native balance', {
               module: apiModule,
               action: apiAction,
               chain,
@@ -975,17 +1126,17 @@ export const POST = handlerWrapper(async (request) => {
                 valueUSD: nativePrice ? (Number(ethBalanceWei) / 1e18) * nativePrice : null,
               }
             } else {
-              logger.warn(
-                `Etherscan V2 API returned status ${response.data.status} for balance: ${response.data.message}`,
-                { ip, address },
-              )
+              logger.warn(`Status ${response.data.status} for balance: ${response.data.message}`, {
+                ip,
+                address,
+              })
             }
             controller.enqueue(JSON.stringify({ success: true, data }))
           } else if (action === 'token-balances' && address) {
             const apiModule = 'account'
             const apiAction = 'tokentx'
             apiUrl += `&module=${apiModule}&action=${apiAction}&address=${address}&startblock=0&endblock=99999999&page=1&offset=10000&sort=desc&apikey=${process.env.ETHERSCAN_API_KEY}`
-            logger.info('Calling Etherscan V2 API for token balances via tokentx', {
+            logger.info('Calling for token balances via tokentx', {
               module: apiModule,
               action: apiAction,
               chain,
@@ -1033,10 +1184,10 @@ export const POST = handlerWrapper(async (request) => {
               tokenData = await enrichWithCoinGecko(tokenData)
               data = tokenData
             } else {
-              logger.warn(
-                `Etherscan V2 API returned status ${response.data.status} for tokentx: ${response.data.message}`,
-                { ip, address },
-              )
+              logger.warn(`Status ${response.data.status} for tokentx: ${response.data.message}`, {
+                ip,
+                address,
+              })
             }
             controller.enqueue(JSON.stringify({ success: true, data }))
           } else if (action === 'address-overview' && address) {
@@ -1099,7 +1250,7 @@ export const POST = handlerWrapper(async (request) => {
             const apiModule = 'account'
             const apiAction = 'txlist'
             apiUrl += `&module=${apiModule}&action=${apiAction}&address=${address}&startblock=0&endblock=99999999&page=${page}&offset=${offset}&sort=desc&apikey=${process.env.ETHERSCAN_API_KEY}`
-            logger.info('Calling Etherscan V2 API for transactions', {
+            logger.info('Calling for transactions', {
               module: apiModule,
               action: apiAction,
               chain,
@@ -1124,7 +1275,7 @@ export const POST = handlerWrapper(async (request) => {
               }))
             } else {
               logger.warn(
-                `Etherscan V2 API returned status ${response.data.status} for transactions: ${response.data.message}`,
+                `Status ${response.data.status} for transactions: ${response.data.message}`,
                 { ip, address },
               )
             }
@@ -1133,7 +1284,7 @@ export const POST = handlerWrapper(async (request) => {
             const apiModule = 'stats'
             const apiAction = 'tokensupply'
             apiUrl += `&module=${apiModule}&action=${apiAction}&contractaddress=${tokenAddress}&apikey=${process.env.ETHERSCAN_API_KEY}`
-            logger.info('Calling Etherscan V2 API', {
+            logger.info('Calling', {
               module: apiModule,
               action: apiAction,
               chain,
@@ -1147,7 +1298,7 @@ export const POST = handlerWrapper(async (request) => {
               data = { tokenAddress, totalSupply: supply }
             } else {
               logger.warn(
-                `Etherscan V2 API returned status ${response.data.status} for token supply: ${response.data.message}`,
+                `Status ${response.data.status} for token supply: ${response.data.message}`,
                 { ip, tokenAddress },
               )
               data = { success: false, detail: 'Token supply not found or invalid token address.' }
@@ -1171,7 +1322,7 @@ export const POST = handlerWrapper(async (request) => {
             const apiModule = 'account'
             const apiAction = 'tokentx'
             apiUrl += `&module=${apiModule}&action=${apiAction}&contractaddress=${tokenAddress}&startblock=0&endblock=99999999&sort=desc&page=${page}&offset=${offset}&apikey=${process.env.ETHERSCAN_API_KEY}`
-            logger.info('Calling Etherscan V2 API', {
+            logger.info('Calling', {
               module: apiModule,
               action: apiAction,
               chain,
@@ -1200,10 +1351,10 @@ export const POST = handlerWrapper(async (request) => {
               }))
               data = await enrichWithCoinGecko(data)
             } else {
-              logger.warn(
-                `Etherscan V2 API returned status ${response.data.status} for token tx: ${response.data.message}`,
-                { ip, tokenAddress },
-              )
+              logger.warn(`Status ${response.data.status} for token tx: ${response.data.message}`, {
+                ip,
+                tokenAddress,
+              })
             }
             controller.enqueue(JSON.stringify({ success: true, data }))
           } else {
@@ -1214,22 +1365,19 @@ export const POST = handlerWrapper(async (request) => {
           }
           controller.close()
         } catch (error) {
-          logger.error(
-            `Etherscan V2 API error for ${action} on chain ${chain} (ID: ${chainId}): ${error.message}`,
-            {
-              status: error.response?.status,
-              data: error.response?.data,
-              stack: error.stack,
-              ip,
-            },
-          )
+          logger.error(`Error for ${action} on chain ${chain} (ID: ${chainId}): ${error.message}`, {
+            status: error.response?.status,
+            data: error.response?.data,
+            stack: error.stack,
+            ip,
+          })
           const status = error.response?.status || 500
           const detail =
             status === 429
-              ? 'Etherscan V2 API rate limit exceeded, please try again later.'
+              ? 'Rate limit exceeded, please try again later.'
               : status === 404
                 ? 'Requested data not found.'
-                : `Etherscan V2 API error: ${error.message}`
+                : `Error: ${error.message}`
           controller.enqueue(JSON.stringify({ detail }))
           controller.close()
         }
