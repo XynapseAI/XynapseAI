@@ -287,6 +287,11 @@ export default function DexTab() {
             .sort((a, b) => b.volume - a.volume)
     }, [metaData, assetTableFilter])
 
+    const totalVolume = useMemo(() => {
+        if (!metaData?.assetCtxs || metaData.assetCtxs.length === 0) return 0
+        return metaData.assetCtxs.reduce((sum, ctx) => sum + parseFloat(ctx?.dayNtlVlm || 0), 0)
+    }, [metaData])
+
     // New states for added features
     const [fundingHistory, setFundingHistory] = useState([])
     const [openOrders, setOpenOrders] = useState([])
@@ -941,68 +946,87 @@ export default function DexTab() {
         >
             {loading && <LoadingOverlay isLoading={true} />}
             {/* DEX Selector */}
-            <div className="relative mb-6">
-                <button
-                    ref={dexMenuRef}
-                    onClick={() => setIsDexMenuOpen(!isDexMenuOpen)}
-                    className="flex items-center gap-2 px-3 py-1.5 bg-[#FFFFFF08] border border-[#FFFFFF15] rounded-lg text-white hover:border-white/30 transition"
-                >
-                    <img
-                        src={selectedDEX === 'hyperliquid' ? '/hyperliquid.webp' : '/lighter.webp'}
-                        alt={selectedDEX}
-                        className="w-4 h-4 rounded"
+            <div className="relative flex flex-col items-center gap-4 lg:flex-row lg:items-center lg:justify-center mb-8 w-full px-4">
+                {/* DEX Selector - căn trái trên desktop */}
+                <div className="w-full relative lg:absolute lg:left-0 z-10">
+                    <button
+                        ref={dexMenuRef}
+                        onClick={() => setIsDexMenuOpen(!isDexMenuOpen)}
+                        className="flex items-center gap-2 px-4 py-2 bg-[#FFFFFF08] border border-[#FFFFFF15] rounded-lg text-xs font-bold text-white hover:border-white/30 transition-shadow hover:shadow-lg"
+                    >
+                        <img
+                            src={
+                                selectedDEX === 'hyperliquid'
+                                    ? '/hyperliquid.webp'
+                                    : '/lighter.webp'
+                            }
+                            alt={selectedDEX}
+                            className="w-5 h-5 rounded"
+                        />
+                        <span className="capitalize">{selectedDEX}</span>
+                        <ChevronDown size={16} className="text-white/50" />
+                    </button>
+                    <AnimatePresence>
+                        {isDexMenuOpen && (
+                            <motion.ul
+                                initial={{ opacity: 0, y: -10 }}
+                                animate={{ opacity: 1, y: 0 }}
+                                exit={{ opacity: 0, y: -10 }}
+                                className="absolute z-20 mt-2 w-48 bg-black/95 border border-white/15 rounded-lg shadow-2xl backdrop-blur-md"
+                            >
+                                <li
+                                    onClick={() => handleDEXChange('hyperliquid')}
+                                    className="flex items-center gap-3 px-4 py-3 text-xs cursor-pointer hover:bg-white/10 transition"
+                                >
+                                    <img
+                                        src="/hyperliquid.webp"
+                                        alt="Hyperliquid"
+                                        className="w-5 h-5 rounded"
+                                    />
+                                    <span className="font-medium">Hyperliquid</span>
+                                </li>
+                                <li
+                                    onClick={() => handleDEXChange('lighter')}
+                                    className="flex items-center gap-3 px-4 py-3 text-xs cursor-pointer hover:bg-white/10 transition"
+                                >
+                                    <img
+                                        src="/lighter.webp"
+                                        alt="Lighter"
+                                        className="w-5 h-5 rounded"
+                                    />
+                                    <span className="font-medium">Lighter</span>
+                                </li>
+                            </motion.ul>
+                        )}
+                    </AnimatePresence>
+                </div>
+
+                <div className="relative flex items-center bg-black/60 border border-white/15 rounded-lg overflow-hidden shadow-lg">
+                    <button
+                        onClick={() => setActiveTab('global')}
+                        className={`relative z-10 flex-1 py-2 px-8 text-xs font-bold transition-all duration-300 ${
+                            activeTab === 'global' ? 'text-black' : 'text-white/70'
+                        }`}
+                    >
+                        Global Data
+                    </button>
+                    <div className="w-px h-8 bg-white/20" />
+                    <button
+                        onClick={() => setActiveTab('user')}
+                        className={`relative z-10 flex-1 py-2 px-8 text-xs font-bold transition-all duration-300 ${
+                            activeTab === 'user' ? 'text-black' : 'text-white/70'
+                        }`}
+                    >
+                        User Data
+                    </button>
+                    {/* Sliding background */}
+                    <motion.div
+                        className="absolute inset-y-1 bg-white rounded-md shadow-md"
+                        animate={{ left: activeTab === 'global' ? '0%' : '50%' }}
+                        transition={{ type: 'spring', stiffness: 500, damping: 35 }}
+                        style={{ width: '50%' }}
                     />
-                    <span className="text-xs font-semibold capitalize">{selectedDEX}</span>
-                    <ChevronDown size={14} className="text-white/50" />
-                </button>
-                <AnimatePresence>
-                    {isDexMenuOpen && (
-                        <motion.ul
-                            initial={{ opacity: 0, y: -10 }}
-                            animate={{ opacity: 1, y: 0 }}
-                            exit={{ opacity: 0, y: -10 }}
-                            className="absolute z-10 mt-2 w-38 sm:w-46 bg-black/90 border border-white/15 rounded-lg shadow-2xl"
-                        >
-                            <li
-                                onClick={() => handleDEXChange('hyperliquid')}
-                                className="flex items-center gap-3 px-4 py-2.5 text-xs cursor-pointer hover:bg-white/10 transition"
-                            >
-                                <img
-                                    src="/hyperliquid.webp"
-                                    alt="Hyperliquid"
-                                    className="w-4 h-4 rounded"
-                                />
-                                <span>Hyperliquid</span>
-                            </li>
-                            <li
-                                onClick={() => handleDEXChange('lighter')}
-                                className="flex items-center gap-3 px-4 py-2.5 text-xs cursor-pointer hover:bg-white/10 transition"
-                            >
-                                <img
-                                    src="/lighter.webp"
-                                    alt="Lighter"
-                                    className="w-4 h-4 rounded"
-                                />
-                                <span>Lighter</span>
-                            </li>
-                        </motion.ul>
-                    )}
-                </AnimatePresence>
-            </div>
-            {/* Tab Buttons */}
-            <div className="flex gap-2 mb-4">
-                <button
-                    onClick={() => setActiveTab('global')}
-                    className={`px-6 py-2 rounded-lg font-bold text-sm ${activeTab === 'global' ? 'bg-white text-black' : 'bg-black/60 text-white border border-white/15 hover:border-white/30 transition'}`}
-                >
-                    Global Data
-                </button>
-                <button
-                    onClick={() => setActiveTab('user')}
-                    className={`px-6 py-2 rounded-lg font-bold text-sm ${activeTab === 'user' ? 'bg-white text-black' : 'bg-black/60 text-white border border-white/15 hover:border-white/30 transition'}`}
-                >
-                    User Data
-                </button>
+                </div>
             </div>
             <AnimatePresence mode="wait">
                 <motion.div
@@ -1055,7 +1079,17 @@ export default function DexTab() {
                                 )}
                                 {/* Top Assets by Volume */}
                                 <div>
-                                    <h3 className="text-xs sm:text-sm font-bold text-[#FFF] mb-2">
+                                    <div className="mb-8 text-right">
+                                        <h3 className="text-lg font-bold text-[#FFF] mb-2">
+                                            Total Volume (24h)
+                                        </h3>
+                                        <p className="text-3xl md:text-4xl font-bold text-emerald-400">
+                                            {formatCompactNumber(totalVolume)}
+                                        </p>
+                                    </div>
+
+                                    {/* Top 5 assets */}
+                                    <h3 className="text-sm font-bold text-[#FFF] mb-3">
                                         Top Assets by Volume (24h)
                                     </h3>
                                     <div className="space-y-2">
