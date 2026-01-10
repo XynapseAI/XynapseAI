@@ -417,7 +417,6 @@ export default function DexTab() {
                 try {
                     const msg = JSON.parse(event.data)
                     if (msg.channel === 'trades' && Array.isArray(msg.data)) {
-                        // Chỉ accept trades của asset hiện tại để tránh xen lẫn từ connection cũ
                         const filteredTrades = msg.data.filter(
                             (t) => t.coin === currentAssetRef.current,
                         )
@@ -1119,7 +1118,7 @@ export default function DexTab() {
                                                             {asset.name}
                                                         </span>
                                                     </div>
-                                                    <span className="text-emerald-400 font-mono font-bold">
+                                                    <span className="text-emerald-400 font-bold">
                                                         {formatCompactNumber(asset.volume)}
                                                     </span>
                                                 </div>
@@ -1190,16 +1189,16 @@ export default function DexTab() {
                                                                     {asset.name}
                                                                 </span>
                                                             </td>
-                                                            <td className="py-3 px-4 text-right font-mono text-emerald-400">
+                                                            <td className="py-3 px-4 text-right text-emerald-400">
                                                                 {formatCompactNumber(asset.volume)}
                                                             </td>
-                                                            <td className="py-3 px-4 text-right font-mono text-white">
+                                                            <td className="py-3 px-4 text-right text-white">
                                                                 {formatCompactNumber(asset.oi)}
                                                             </td>
-                                                            <td className="py-3 px-4 text-right font-mono text-white">
+                                                            <td className="py-3 px-4 text-right text-white">
                                                                 ${formatStandardNumber(asset.midPx)}
                                                             </td>
-                                                            <td className="py-3 px-4 text-right font-mono">
+                                                            <td className="py-3 px-4 text-right">
                                                                 <span
                                                                     className={
                                                                         asset.funding >= 0
@@ -1214,7 +1213,7 @@ export default function DexTab() {
                                                                     %
                                                                 </span>
                                                             </td>
-                                                            <td className="py-3 px-4 text-right font-mono">
+                                                            <td className="py-3 px-4 text-right">
                                                                 <span
                                                                     className={
                                                                         asset.dayPxChg >= 0
@@ -1691,7 +1690,7 @@ export default function DexTab() {
                                                                         {trade.side}
                                                                     </span>
                                                                 </td>
-                                                                <td className="hidden md:table-cell py-3 px-3 md:px-6 text-right font-mono text-gray-200 text-xs md:text-sm">
+                                                                <td className="hidden md:table-cell py-3 px-3 md:px-6 text-right text-gray-200 text-xs md:text-sm">
                                                                     $
                                                                     {parseFloat(
                                                                         trade.price,
@@ -1700,12 +1699,12 @@ export default function DexTab() {
                                                                         maximumFractionDigits: 4,
                                                                     })}
                                                                 </td>
-                                                                <td className="py-3 px-3 md:px-6 text-right font-mono text-emerald-400">
+                                                                <td className="py-3 px-3 md:px-6 text-right text-emerald-400">
                                                                     {formatCompactNumber(
                                                                         trade.sizeUsd,
                                                                     )}
                                                                 </td>
-                                                                <td className="py-3 px-3 md:px-6 font-mono text-[11px] md:text-xs text-white">
+                                                                <td className="py-3 px-3 md:px-6 text-[11px] md:text-xs text-white">
                                                                     <div className="flex items-center gap-2">
                                                                         <span
                                                                             className={
@@ -1729,7 +1728,7 @@ export default function DexTab() {
                                                                         />
                                                                     </div>
                                                                 </td>
-                                                                <td className="py-3 px-3 md:px-6 font-mono text-[11px] md:text-xs text-white">
+                                                                <td className="py-3 px-3 md:px-6 text-[11px] md:text-xs text-white">
                                                                     <div className="flex items-center gap-2">
                                                                         <span
                                                                             className={
@@ -1834,14 +1833,23 @@ export default function DexTab() {
                             {error && <p className="text-red-500 mb-4">{error}</p>}
                             {currentWallet && (
                                 <div className="space-y-8">
-                                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                                         {/* Key Analytics + Cumulative PnL */}
                                         <div className="space-y-6">
                                             <div>
-                                                <h3 className="text-sm font-bold text-[#FFF] mb-4">
-                                                    Key Analytics
-                                                </h3>
-
+                                                <div className="flex justify-between items-center mb-4">
+                                                    <h3 className="text-sm font-bold text-[#FFF] gap-1">
+                                                        Key Analytics :
+                                                        <span className="text-sm text-emerald-400/80 mx-2">
+                                                            {shortWallet}
+                                                            {selectedDEX === 'lighter' && ' (ID)'}
+                                                        </span>
+                                                        <CopyButton
+                                                            text={currentWallet}
+                                                            size={13}
+                                                        />
+                                                    </h3>
+                                                </div>
                                                 <div className="grid grid-cols-2 gap-3">
                                                     <div className="bg-[#FFFFFF]/5 p-3 rounded-lg text-center">
                                                         <p className="text-xs text-gray-400 mb-1">
@@ -1860,7 +1868,7 @@ export default function DexTab() {
                                                         <p className="text-xs text-gray-400 mb-1">
                                                             Win Rate
                                                         </p>
-                                                        <p className="text-base font-bold text-blue-400">
+                                                        <p className="text-base font-bold text-emerald-400">
                                                             {safeFixed(analytics.winRate)}%
                                                         </p>
                                                     </div>
@@ -1892,41 +1900,110 @@ export default function DexTab() {
                                                 </h3>
                                                 <div className="h-[220px]">
                                                     <ResponsiveContainer>
-                                                        <LineChart data={filteredPnlData}>
-                                                            <CartesianGrid
-                                                                stroke="#333"
-                                                                strokeDasharray="4 4"
-                                                                vertical={false}
-                                                            />
-                                                            <XAxis
-                                                                dataKey="date"
-                                                                stroke="#666"
-                                                                tick={{ fontSize: 10 }}
-                                                            />
-                                                            <YAxis
-                                                                stroke="#666"
-                                                                tickFormatter={(v) =>
-                                                                    formatCompactNumber(v)
-                                                                }
-                                                                tick={{ fontSize: 10 }}
-                                                            />
-                                                            <Tooltip
-                                                                content={
-                                                                    <CustomTooltip isPnl={true} />
-                                                                }
-                                                            />
-                                                            <Line
-                                                                type="monotone"
-                                                                dataKey="pnl"
-                                                                stroke="#00E7FF"
-                                                                strokeWidth={2}
-                                                                dot={false}
-                                                            />
-                                                        </LineChart>
+                                                        {filteredPnlData.length === 0 ? (
+                                                            <div className="flex items-center justify-center h-full">
+                                                                <p className="text-gray-500 text-sm">
+                                                                    No PnL data available
+                                                                </p>
+                                                            </div>
+                                                        ) : (
+                                                            (() => {
+                                                                const pnlValues =
+                                                                    filteredPnlData.map(
+                                                                        (d) => d.pnl || 0,
+                                                                    )
+                                                                const minPnl = Math.min(
+                                                                    0,
+                                                                    ...pnlValues,
+                                                                )
+                                                                const maxPnl = Math.max(
+                                                                    0,
+                                                                    ...pnlValues,
+                                                                )
+                                                                const range = maxPnl - minPnl
+                                                                const padding =
+                                                                    range > 0
+                                                                        ? range * 0.15
+                                                                        : Math.abs(
+                                                                              minPnl || maxPnl,
+                                                                          ) * 0.2 || 1000
+                                                                const lowerBound = minPnl - padding
+                                                                const upperBound = maxPnl + padding
+
+                                                                return (
+                                                                    <AreaChart
+                                                                        data={filteredPnlData}
+                                                                    >
+                                                                        <defs>
+                                                                            <linearGradient
+                                                                                id="colorPnl"
+                                                                                x1="0"
+                                                                                y1="0"
+                                                                                x2="0"
+                                                                                y2="1"
+                                                                            >
+                                                                                <stop
+                                                                                    offset="5%"
+                                                                                    stopColor="#34d399"
+                                                                                    stopOpacity={
+                                                                                        0.25
+                                                                                    }
+                                                                                />{' '}
+                                                                                <stop
+                                                                                    offset="95%"
+                                                                                    stopColor="#34d399"
+                                                                                    stopOpacity={0}
+                                                                                />
+                                                                            </linearGradient>
+                                                                        </defs>
+                                                                        <CartesianGrid
+                                                                            stroke="#333"
+                                                                            strokeDasharray="4 4"
+                                                                            vertical={false}
+                                                                        />
+                                                                        <XAxis
+                                                                            dataKey="date"
+                                                                            stroke="#666"
+                                                                            tick={{ fontSize: 10 }}
+                                                                        />
+                                                                        <YAxis
+                                                                            stroke="#666"
+                                                                            tickFormatter={(v) =>
+                                                                                formatCompactNumber(
+                                                                                    v,
+                                                                                )
+                                                                            }
+                                                                            tick={{ fontSize: 10 }}
+                                                                            domain={[
+                                                                                lowerBound,
+                                                                                upperBound,
+                                                                            ]}
+                                                                        />
+                                                                        <Tooltip
+                                                                            content={
+                                                                                <CustomTooltip
+                                                                                    isPnl={true}
+                                                                                />
+                                                                            }
+                                                                        />
+                                                                        <Area
+                                                                            type="monotone"
+                                                                            dataKey="pnl"
+                                                                            stroke="#34d399"
+                                                                            strokeWidth={3}
+                                                                            fill="url(#colorPnl)"
+                                                                            dot={false}
+                                                                            baseLine={lowerBound}
+                                                                        />
+                                                                    </AreaChart>
+                                                                )
+                                                            })()
+                                                        )}
                                                     </ResponsiveContainer>
                                                 </div>
                                             </div>
                                         </div>
+
                                         {/* Position Distribution by Value */}
                                         <div>
                                             {positionData.length > 0 && (
@@ -1972,200 +2049,244 @@ export default function DexTab() {
                                                 </div>
                                             )}
                                         </div>
-                                        {/* Current Positions */}
-                                        <div>
-                                            <h3 className="text-sm font-bold text-[#FFF] mb-3">
-                                                Current Positions
-                                            </h3>
-                                            {portfolioData.length === 0 ? (
-                                                <p className="text-xs text-gray-500 py-8 text-center bg-[#0A0A0A]/50 rounded-lg">
-                                                    No positions found.
-                                                </p>
-                                            ) : (
-                                                <div className="overflow-auto max-h-[320px] custom-scrollbar">
-                                                    <table className="w-full text-xs">
-                                                        <thead className="text-gray-400 border-b border-white/10 sticky top-0 bg-[#0A0A0A]/90">
-                                                            <tr>
-                                                                <th className="text-left py-2 px-3">
-                                                                    Asset
-                                                                </th>
-                                                                <th className="text-right py-2 px-3">
-                                                                    Position
-                                                                </th>
-                                                                <th className="text-right py-2 px-3">
-                                                                    Entry
-                                                                </th>
-                                                                <th className="text-right py-2 px-3">
-                                                                    Mark Price
-                                                                </th>
-                                                                <th className="text-right py-2 px-3">
-                                                                    Value (USD)
-                                                                </th>
-                                                                <th className="text-right py-2 px-3">
-                                                                    Unreal. PnL
-                                                                </th>
-                                                                <th className="text-right py-2 px-3">
-                                                                    Liq Price
-                                                                </th>
-                                                                <th className="text-right py-2 px-3">
-                                                                    Dist to Liq (%)
-                                                                </th>
-                                                            </tr>
-                                                        </thead>
-                                                        <tbody className="divide-y divide-white/5">
-                                                            {portfolioData.map((pos, i) => {
-                                                                const coin = pos.symbol || pos.coin
+                                    </div>
+                                    <div className="w-full">
+                                        <h3 className="text-sm font-bold text-[#FFF] mb-3">
+                                            Current Positions
+                                        </h3>
+                                        {portfolioData.length === 0 ? (
+                                            <p className="text-xs text-gray-500 py-8 text-center bg-[#0A0A0A]/50 rounded-lg">
+                                                No positions found.
+                                            </p>
+                                        ) : (
+                                            <div className="overflow-auto max-h-[500px] custom-scrollbar">
+                                                <table className="w-full text-xs">
+                                                    <thead className="text-gray-400 border-b border-white/10 sticky top-0 bg-[#0A0A0A]/90 z-10">
+                                                        <tr>
+                                                            <th className="text-left py-2 px-3">
+                                                                Asset
+                                                            </th>
+                                                            <th className="text-right py-2 px-3">
+                                                                Position
+                                                            </th>
+                                                            <th className="text-right py-2 px-3">
+                                                                Entry
+                                                            </th>
+                                                            <th className="text-right py-2 px-3">
+                                                                Mark Price
+                                                            </th>
+                                                            <th className="text-right py-2 px-3">
+                                                                Value (USD)
+                                                            </th>
+                                                            <th className="text-right py-2 px-3">
+                                                                Unreal. PnL
+                                                            </th>
+                                                            <th className="text-right py-2 px-3">
+                                                                Liq Price
+                                                            </th>
+                                                            <th className="text-right py-2 px-3">
+                                                                Dist to Liq (%)
+                                                            </th>
+                                                        </tr>
+                                                    </thead>
+                                                    <tbody className="divide-y divide-white/5">
+                                                        {portfolioData.map((pos, i) => {
+                                                            let signedSize = 0
+                                                            let absSize = 0
+                                                            let isLong = false
+                                                            let liqPx = 0
+                                                            let entryPx = parseFloat(
+                                                                pos.avg_entry_price ||
+                                                                    pos.entryPx ||
+                                                                    0,
+                                                            )
+                                                            let currentPx = 0
+                                                            let positionValue = 0
+                                                            let unrealPnl = parseFloat(
+                                                                pos.unrealized_pnl ||
+                                                                    pos.unrealizedPnl ||
+                                                                    0,
+                                                            )
+                                                            const coin = pos.symbol || pos.coin
+                                                            const assetCtx =
+                                                                metaData.assetCtxs.find(
+                                                                    (ctx, idx) =>
+                                                                        metaData.universe[idx]
+                                                                            ?.name === coin,
+                                                                )
+                                                            currentPx = parseFloat(
+                                                                assetCtx?.markPx ||
+                                                                    assetCtx?.midPx ||
+                                                                    0,
+                                                            )
+                                                            if (selectedDEX === 'hyperliquid') {
+                                                                signedSize = parseFloat(
+                                                                    pos.szi || 0,
+                                                                )
+                                                                isLong = signedSize > 0
+                                                                absSize = Math.abs(signedSize)
+                                                                liqPx = parseFloat(
+                                                                    pos.liquidationPx || 0,
+                                                                )
+                                                                if (liqPx === 0) {
+                                                                    const margin = parseFloat(
+                                                                        pos.margin_used || 0,
+                                                                    )
+                                                                    liqPx = isLong
+                                                                        ? entryPx - margin / absSize
+                                                                        : entryPx + margin / absSize
+                                                                }
+                                                                positionValue = absSize * currentPx
+                                                                if (unrealPnl === 0) {
+                                                                    unrealPnl =
+                                                                        (currentPx - entryPx) *
+                                                                        signedSize
+                                                                }
+                                                            } else {
                                                                 const size = parseFloat(
                                                                     pos.position || pos.szi || 0,
                                                                 )
-                                                                const signedSize =
-                                                                    size *
-                                                                        (pos.side === 'long'
-                                                                            ? 1
-                                                                            : -1) || size
-                                                                const isLong = signedSize > 0
-                                                                const absSize = Math.abs(signedSize)
-                                                                const entryPx = parseFloat(
-                                                                    pos.avg_entry_price ||
-                                                                        pos.entryPx ||
-                                                                        0,
-                                                                )
-                                                                const assetCtx =
-                                                                    metaData.assetCtxs.find(
-                                                                        (ctx, idx) =>
-                                                                            metaData.universe[idx]
-                                                                                ?.name === coin,
-                                                                    )
-                                                                const currentPx = parseFloat(
-                                                                    assetCtx?.markPx ||
-                                                                        assetCtx?.midPx ||
-                                                                        0,
-                                                                )
-                                                                const positionValue =
-                                                                    absSize * currentPx
-                                                                const unrealPnl = parseFloat(
-                                                                    pos.unrealized_pnl ||
-                                                                        pos.unrealizedPnl ||
-                                                                        (currentPx - entryPx) *
-                                                                            signedSize,
-                                                                    0,
-                                                                )
+                                                                const multiplier =
+                                                                    pos.side?.toLowerCase() ===
+                                                                        'long' ||
+                                                                    pos.side === 'LONG'
+                                                                        ? 1
+                                                                        : -1
+                                                                signedSize = size * multiplier
+                                                                isLong = signedSize > 0
+                                                                absSize = Math.abs(signedSize)
                                                                 const margin = parseFloat(
-                                                                    pos.margin_used ||
-                                                                        pos.marginSummary
-                                                                            ?.totalRawUsd ||
-                                                                        0,
+                                                                    pos.margin_used || 0,
                                                                 )
-                                                                const liqPx = isLong
+                                                                liqPx = isLong
                                                                     ? entryPx - margin / absSize
                                                                     : entryPx + margin / absSize
-                                                                const distToLiq =
-                                                                    ((currentPx - liqPx) /
-                                                                        currentPx) *
-                                                                    100 *
-                                                                    (isLong ? 1 : -1)
-                                                                return (
-                                                                    <tr
-                                                                        key={i}
-                                                                        className="hover:bg-white/5 transition"
-                                                                    >
-                                                                        <td className="py-2 px-3">
+                                                                positionValue = absSize * currentPx
+                                                                if (unrealPnl === 0) {
+                                                                    unrealPnl =
+                                                                        (currentPx - entryPx) *
+                                                                        signedSize
+                                                                }
+                                                            }
+                                                            const distToLiq =
+                                                                liqPx > 0 && currentPx > 0
+                                                                    ? Math.abs(
+                                                                          (currentPx - liqPx) /
+                                                                              currentPx,
+                                                                      ) * 100
+                                                                    : 0
+
+                                                            const assetInfo =
+                                                                metaData.universe.find(
+                                                                    (u) => u.name === coin,
+                                                                )
+                                                            const maxLev = assetInfo?.maxLeverage
+
+                                                            return (
+                                                                <tr
+                                                                    key={i}
+                                                                    className="hover:bg-white/5 transition"
+                                                                >
+                                                                    <td className="py-2 px-3">
+                                                                        <div className="flex items-center gap-2">
+                                                                            {assetToImage[coin] && (
+                                                                                <img
+                                                                                    src={
+                                                                                        assetToImage[
+                                                                                            coin
+                                                                                        ]
+                                                                                    }
+                                                                                    alt={coin}
+                                                                                    className="w-5 h-5 rounded-full"
+                                                                                />
+                                                                            )}
                                                                             <div className="flex items-center gap-2">
-                                                                                {assetToImage[
-                                                                                    coin
-                                                                                ] && (
-                                                                                    <img
-                                                                                        src={
-                                                                                            assetToImage[
-                                                                                                coin
-                                                                                            ]
-                                                                                        }
-                                                                                        alt={coin}
-                                                                                        className="w-5 h-5 rounded-full"
-                                                                                    />
-                                                                                )}
                                                                                 <span className="font-medium text-white">
                                                                                     {coin}
                                                                                 </span>
+                                                                                {maxLev && (
+                                                                                    <span className="text-xs text-emerald-400">
+                                                                                        {maxLev}x
+                                                                                    </span>
+                                                                                )}
                                                                             </div>
-                                                                        </td>
-                                                                        <td className="py-2 px-3 text-right font-mono text-xs">
-                                                                            <span
-                                                                                className={
-                                                                                    isLong
-                                                                                        ? 'text-emerald-400'
-                                                                                        : 'text-red-400'
-                                                                                }
-                                                                            >
-                                                                                {formatStandardNumber(
-                                                                                    absSize,
-                                                                                )}{' '}
-                                                                                {isLong
-                                                                                    ? ' (Long)'
-                                                                                    : ' (Short)'}
-                                                                            </span>
-                                                                        </td>
-                                                                        <td className="py-2 px-3 text-right font-mono text-xs text-gray-300">
-                                                                            $
+                                                                        </div>
+                                                                    </td>
+                                                                    <td className="py-2 px-3 text-right text-xs">
+                                                                        <span
+                                                                            className={
+                                                                                isLong
+                                                                                    ? 'text-emerald-400'
+                                                                                    : 'text-red-400'
+                                                                            }
+                                                                        >
                                                                             {formatStandardNumber(
-                                                                                entryPx,
-                                                                            )}
-                                                                        </td>
-                                                                        <td className="py-2 px-3 text-right font-mono text-xs text-gray-300">
-                                                                            $
-                                                                            {formatStandardNumber(
-                                                                                currentPx,
-                                                                            )}
-                                                                        </td>
-                                                                        <td className="py-2 px-3 text-right font-mono text-xs text-white">
+                                                                                absSize,
+                                                                            )}{' '}
+                                                                            {isLong
+                                                                                ? ' (Long)'
+                                                                                : ' (Short)'}
+                                                                        </span>
+                                                                    </td>
+                                                                    <td className="py-2 px-3 text-right text-xs text-gray-300">
+                                                                        $
+                                                                        {formatStandardNumber(
+                                                                            entryPx,
+                                                                        )}
+                                                                    </td>
+                                                                    <td className="py-2 px-3 text-right text-xs text-gray-300">
+                                                                        $
+                                                                        {formatStandardNumber(
+                                                                            currentPx,
+                                                                        )}
+                                                                    </td>
+                                                                    <td className="py-2 px-3 text-right text-xs text-white">
+                                                                        {formatCompactNumber(
+                                                                            positionValue,
+                                                                        )}
+                                                                    </td>
+                                                                    <td className="py-2 px-3 text-right text-xs">
+                                                                        <span
+                                                                            className={
+                                                                                unrealPnl >= 0
+                                                                                    ? 'text-emerald-400'
+                                                                                    : 'text-red-400'
+                                                                            }
+                                                                        >
+                                                                            {unrealPnl >= 0
+                                                                                ? '+'
+                                                                                : ''}
                                                                             {formatCompactNumber(
-                                                                                positionValue,
+                                                                                unrealPnl,
                                                                             )}
-                                                                        </td>
-                                                                        <td className="py-2 px-3 text-right text-xs">
-                                                                            <span
-                                                                                className={
-                                                                                    unrealPnl >= 0
-                                                                                        ? 'text-emerald-400'
-                                                                                        : 'text-red-400'
-                                                                                }
-                                                                            >
-                                                                                {unrealPnl >= 0
-                                                                                    ? '+'
-                                                                                    : ''}
-                                                                                {formatCompactNumber(
-                                                                                    unrealPnl,
-                                                                                )}
-                                                                            </span>
-                                                                        </td>
-                                                                        <td className="py-2 px-3 text-right font-mono text-xs text-gray-300">
-                                                                            ${safeFixed(liqPx, 2)}
-                                                                        </td>
-                                                                        <td className="py-2 px-3 text-right text-xs">
-                                                                            <span
-                                                                                className={
-                                                                                    distToLiq >= 0
-                                                                                        ? 'text-emerald-400'
-                                                                                        : 'text-red-400'
-                                                                                }
-                                                                            >
-                                                                                {safeFixed(
-                                                                                    distToLiq,
-                                                                                    2,
-                                                                                )}
-                                                                                %
-                                                                            </span>
-                                                                        </td>
-                                                                    </tr>
-                                                                )
-                                                            })}
-                                                        </tbody>
-                                                    </table>
-                                                </div>
-                                            )}
-                                        </div>
+                                                                        </span>
+                                                                    </td>
+                                                                    <td className="py-2 px-3 text-right text-xs text-gray-300">
+                                                                        ${safeFixed(liqPx, 2)}
+                                                                    </td>
+                                                                    <td className="py-2 px-3 text-right text-xs">
+                                                                        <span
+                                                                            className={
+                                                                                distToLiq >= 0
+                                                                                    ? 'text-emerald-400'
+                                                                                    : 'text-red-400'
+                                                                            }
+                                                                        >
+                                                                            {safeFixed(
+                                                                                distToLiq,
+                                                                                2,
+                                                                            )}
+                                                                            %
+                                                                        </span>
+                                                                    </td>
+                                                                </tr>
+                                                            )
+                                                        })}
+                                                    </tbody>
+                                                </table>
+                                            </div>
+                                        )}
                                     </div>
-                                    {/* Open Orders */}
                                     <div>
                                         <h3 className="text-sm font-bold text-[#FFF] mb-3">
                                             Open Orders
@@ -2202,7 +2323,12 @@ export default function DexTab() {
                                                                         'Unknown'}
                                                                 </td>
                                                                 <td
-                                                                    className={`border border-white/20 px-4 py-2 ${order.side === 'B' || order.is_maker_ask === false ? 'text-emerald-400' : 'text-red-400'}`}
+                                                                    className={`border border-white/20 px-4 py-2 ${
+                                                                        order.side === 'B' ||
+                                                                        order.is_maker_ask === false
+                                                                            ? 'text-emerald-400'
+                                                                            : 'text-red-400'
+                                                                    }`}
                                                                 >
                                                                     {order.side ||
                                                                         (order.is_maker_ask
@@ -2227,6 +2353,7 @@ export default function DexTab() {
                                             </div>
                                         )}
                                     </div>
+                                    {/* Per-Asset PnL / Major Losses / Large Trades */}
                                     <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
                                         {/* Per-Asset PnL */}
                                         <div>
@@ -2249,7 +2376,7 @@ export default function DexTab() {
                                                         {perAssetPnl.length === 0 ? (
                                                             <tr>
                                                                 <td
-                                                                    colSpan="2"
+                                                                    colSpan={2}
                                                                     className="py-32 text-center text-gray-500"
                                                                 >
                                                                     No data available
@@ -2284,7 +2411,7 @@ export default function DexTab() {
                                                                             </span>
                                                                         </td>
                                                                         <td
-                                                                            className={`py-3 px-4 text-right font-mono font-bold ${
+                                                                            className={`py-3 px-4 text-right font-bold ${
                                                                                 pnl >= 0
                                                                                     ? 'text-emerald-400'
                                                                                     : 'text-red-500'
@@ -2333,7 +2460,7 @@ export default function DexTab() {
                                                         ).length === 0 ? (
                                                             <tr>
                                                                 <td
-                                                                    colSpan="3"
+                                                                    colSpan={3}
                                                                     className="py-32 text-center text-gray-500"
                                                                 >
                                                                     No major losses detected.
@@ -2384,7 +2511,7 @@ export default function DexTab() {
                                                                                 {liq.coin}
                                                                             </span>
                                                                         </td>
-                                                                        <td className="py-3 px-4 text-right font-mono font-bold text-red-500">
+                                                                        <td className="py-3 px-4 text-right font-bold text-red-500">
                                                                             -
                                                                             {formatCompactNumber(
                                                                                 Math.abs(
@@ -2482,18 +2609,18 @@ export default function DexTab() {
                                                                                 {trade.dir}
                                                                             </span>
                                                                         </td>
-                                                                        <td className="py-3 px-4 text-right font-mono">
+                                                                        <td className="py-3 px-4 text-right">
                                                                             {formatStandardNumber(
                                                                                 trade.sz,
                                                                             )}
                                                                         </td>
-                                                                        <td className="py-3 px-4 text-right font-mono">
+                                                                        <td className="py-3 px-4 text-right">
                                                                             $
                                                                             {formatStandardNumber(
                                                                                 trade.px,
                                                                             )}
                                                                         </td>
-                                                                        <td className="py-3 px-4 text-right font-mono">
+                                                                        <td className="py-3 px-4 text-right">
                                                                             <span
                                                                                 className={
                                                                                     parseFloat(
@@ -2557,76 +2684,46 @@ export default function DexTab() {
                                             )}
                                         </div>
                                     </div>
-                                    {/* Per-Asset PnL */}
-                                    <div>
-                                        <h3 className="text-sm font-bold text-[#FFF] mb-3">
-                                            Per-Asset PnL
-                                        </h3>
-                                        <table className="w-full text-xs border-collapse border border-white/20">
-                                            <thead className="bg-black/80">
-                                                <tr>
-                                                    <th className="border border-white/20 px-4 py-2 text-left">
-                                                        Asset
-                                                    </th>
-                                                    <th className="border border-white/20 px-4 py-2 text-right">
-                                                        PnL
-                                                    </th>
-                                                </tr>
-                                            </thead>
-                                            <tbody>
-                                                {perAssetPnl.map(({ coin, pnl }, i) => (
-                                                    <tr key={i} className="hover:bg-white/5">
-                                                        <td className="border border-white/20 px-4 py-2">
-                                                            {coin}
-                                                        </td>
-                                                        <td
-                                                            className={`border border-white/20 px-4 py-2 text-right ${pnl >= 0 ? 'text-emerald-400' : 'text-red-400'}`}
-                                                        >
-                                                            {formatCompactNumber(pnl)}
-                                                        </td>
-                                                    </tr>
-                                                ))}
-                                            </tbody>
-                                        </table>
-                                    </div>
-                                    {/* User Ledger (Hyper only) */}
+                                    {/* Ledger / Funding Payments (Hyperliquid only) */}
                                     {selectedDEX === 'hyperliquid' && ledger.length > 0 && (
                                         <div>
                                             <h3 className="text-sm font-bold text-[#FFF] mb-3">
                                                 Ledger / Funding Payments
                                             </h3>
-                                            <table className="w-full text-xs border-collapse border border-white/20">
-                                                <thead>
-                                                    <tr>
-                                                        <th className="border border-white/20 px-4 py-2 text-left">
-                                                            Time
-                                                        </th>
-                                                        <th className="border border-white/20 px-4 py-2 text-left">
-                                                            Type
-                                                        </th>
-                                                        <th className="border border-white/20 px-4 py-2 text-right">
-                                                            Amount
-                                                        </th>
-                                                    </tr>
-                                                </thead>
-                                                <tbody>
-                                                    {ledger.map((entry, i) => (
-                                                        <tr key={i}>
-                                                            <td className="border border-white/20 px-4 py-2">
-                                                                {new Date(
-                                                                    entry.time,
-                                                                ).toLocaleDateString()}
-                                                            </td>
-                                                            <td className="border border-white/20 px-4 py-2">
-                                                                {entry.type}
-                                                            </td>
-                                                            <td className="border border-white/20 px-4 py-2 text-right">
-                                                                {entry.amount}
-                                                            </td>
+                                            <div className="overflow-auto max-h-[400px] custom-scrollbar">
+                                                <table className="w-full text-xs border-collapse border border-white/20">
+                                                    <thead>
+                                                        <tr>
+                                                            <th className="border border-white/20 px-4 py-2 text-left">
+                                                                Time
+                                                            </th>
+                                                            <th className="border border-white/20 px-4 py-2 text-left">
+                                                                Type
+                                                            </th>
+                                                            <th className="border border-white/20 px-4 py-2 text-right">
+                                                                Amount
+                                                            </th>
                                                         </tr>
-                                                    ))}
-                                                </tbody>
-                                            </table>
+                                                    </thead>
+                                                    <tbody>
+                                                        {ledger.map((entry, i) => (
+                                                            <tr key={i}>
+                                                                <td className="border border-white/20 px-4 py-2">
+                                                                    {new Date(
+                                                                        entry.time,
+                                                                    ).toLocaleDateString()}
+                                                                </td>
+                                                                <td className="border border-white/20 px-4 py-2">
+                                                                    {entry.type}
+                                                                </td>
+                                                                <td className="border border-white/20 px-4 py-2 text-right">
+                                                                    {entry.amount}
+                                                                </td>
+                                                            </tr>
+                                                        ))}
+                                                    </tbody>
+                                                </table>
+                                            </div>
                                         </div>
                                     )}
                                 </div>

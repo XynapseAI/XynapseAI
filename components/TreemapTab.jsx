@@ -1741,22 +1741,25 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
       logger.warn('Cannot initialize ForceGraph: missing container, nodes, or walletInfo.address')
       return
     }
+
     try {
       await TensorFlowJS
       if (graphRef.current) {
         graphRef.current.pauseAnimation()
         containerRef.current.innerHTML = ''
       }
+
       const rootId = walletInfo.address.toLowerCase()
       const detectedClusters = clusters
+      const isTokenQuery = fullIncomingData.length === 0 && fullOutgoingData.length === 0
+
       const positionedNodesData = await positionInWorker(
         nodes.map((n) => ({ ...n.data })),
         edges.map((e) => ({ ...e.data })),
       )
-      // Adjust positions for wallet queries (non-token queries)
-      const isTokenQuery = fullIncomingData.length === 0 && fullOutgoingData.length === 0
+
+      // Manual positioning adjustments
       if (!isTokenQuery) {
-        // Build adjacency list
         const adj = new Map()
         positionedNodesData.forEach((n) => adj.set(n.id.toLowerCase(), []))
         edges.forEach((e) => {
@@ -1769,17 +1772,17 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
           adj.get(s).push(t)
           adj.get(t).push(s)
         })
-        // Set root at (0,0)
+
         const rootNode = positionedNodesData.find((n) => n.id.toLowerCase() === rootId)
         if (rootNode) {
           rootNode.x = 0
           rootNode.y = 0
         }
-        // Find layer 2 nodes (direct neighbors of root)
+
         const layer2Ids = adj.get(rootId) || []
-        // Classify layer 2: with L3 or without
         const layer2WithL3 = []
         const layer2WithoutL3 = []
+
         layer2Ids.forEach((l2) => {
           const neighbors = adj.get(l2)
           const l3 = neighbors.filter(
@@ -1793,7 +1796,7 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
             layer2WithoutL3.push(l2)
           }
         })
-        // Position layer2 without L3: top and bottom
+
         const numWithout = layer2WithoutL3.length
         const radiusWithout = 250
         const halfWithout = Math.floor(numWithout / 2)
@@ -1807,7 +1810,7 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
             node.y = (isTop ? -1 : 1) * (radiusWithout + Math.sin(angle) * radiusWithout * 0.4)
           }
         })
-        // Position layer2 with L3: left and right
+
         const numWith = layer2WithL3.length
         const radiusWith = 350
         const halfWith = Math.floor(numWith / 2)
@@ -1820,7 +1823,6 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
             node.x = (isLeft ? -1 : 1) * (radiusWith + Math.sin(angle) * radiusWith * 0.3)
             node.y = Math.cos(angle) * radiusWith * 0.5
           }
-          // Position associated L3 around the L2
           const l3Radius = 120
           const numL3 = item.l3.length
           item.l3.forEach((l3Id, j) => {
@@ -1833,7 +1835,6 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
           })
         })
       } else {
-        // Original scaling for token queries
         positionedNodesData.forEach((n) => {
           if (!n.isRoot) {
             n.x *= 0.25
@@ -1841,7 +1842,101 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
           }
         })
       }
-      // Cluster data for selectedEntity
+
+      // Preload images
+      const imageCache = {}
+      const imagesToPreload = new Set()
+      if (walletInfo.image && isValidNametagImage(walletInfo.image)) {
+        imagesToPreload.add(walletInfo.image)
+      }
+      positionedNodesData.forEach((n) => {
+        if (n.image && isValidNametagImage(n.image)) {
+          imagesToPreload.add(n.image)
+        }
+      })
+
+      const defaultUrl = '/icons/default.webp'
+      const defaultImg = new Image()
+      defaultImg.src = `${window.location.origin}${defaultUrl}`
+      const defaultBitmap = await new Promise((resolve) => {
+        defaultImg.onload = async () => {
+          const bitmap = await createImageBitmap(defaultImg, {
+            resizeWidth: 32,
+            resizeHeight: 32,
+            resizeQuality: 'medium',
+          })
+          resolve(bitmap)
+        }
+        defaultImg.onerror = () => resolve(null)
+      })
+      imageCache['default'] = defaultBitmap
+
+      const uniqueImages = Array.from(imagesToPreload)
+      await Promise.all(
+        uniqueImages.map(async (url) => {
+          if (imageCache[url]) return
+          const img = new Image()
+          img.crossOrigin = 'anonymous'
+          img.src = url.startsWith('http') ? url : `${window.location.origin}${url}`
+          await new Promise((resolve) => {
+            img.onload = resolve
+            img.onerror = resolve
+          })
+          if (img.complete && img.width > 0) {
+            imageCache[url] = await createImageBitmap(img, {
+              resizeWidth: 32,
+              resizeHeight: 32,
+              resizeQuality: 'medium',
+            })
+          } else {
+            imageCache[url] = imageCache['default']
+          }
+        }),
+      )
+
+      // Slight compress for better initial view
+      if (isTokenQuery) {
+        positionedNodesData.forEach((n) => {
+          if (!n.isRoot) {
+            n.x *= 0.3
+            n.y *= 0
+          }
+        })
+      } else {
+        positionedNodesData.forEach((n) => {
+          if (!n.isRoot) {
+            n.x *= 0.7
+            n.y *= 0.7
+          }
+        })
+      }
+
+      // Links with parallel indices
+      const linksWithIds = edges.map((e, index) => ({
+        ...e.data,
+        id: `${e.data.source}-${e.data.target}-${index}`,
+        width: e.data.layer === 3 ? 0.15 : 0.4,
+      }))
+
+      const undirectedGroups = new Map()
+      linksWithIds.forEach((link) => {
+        const sourceId = link.source.id || link.source
+        const targetId = link.target.id || link.target
+        const key = `${Math.min(sourceId, targetId)}-${Math.max(sourceId, targetId)}`
+        if (!undirectedGroups.has(key)) undirectedGroups.set(key, [])
+        undirectedGroups.get(key).push(link)
+      })
+
+      linksWithIds.forEach((link) => {
+        const sourceId = link.source.id || link.source
+        const targetId = link.target.id || link.target
+        const key = `${Math.min(sourceId, targetId)}-${Math.max(sourceId, targetId)}`
+        const group = undirectedGroups.get(key)
+        link.numParallel = group.length
+        link.parallelIndex = group.findIndex((l) => l.id === link.id)
+      })
+
+      // Fallback cluster data
       let clusterData
       const rootCluster = detectedClusters.find((c) =>
         c.wallets.some((w) => w.id.toLowerCase() === rootId),
@@ -1853,7 +1948,6 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
           image: rootCluster.image || walletInfo.image || '/icons/default.webp',
         }
       } else {
-        // Fallback cluster data
         let filteredRootTxs = []
         if (filterType === 'all' || filterType === 'incoming') {
           filteredRootTxs.push(
@@ -1927,92 +2021,7 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
         }
       }
       setSelectedEntity({ type: 'cluster', data: rootCluster || clusterData })
-      // Preload images with createImageBitmap and resize for optimization
-      const imageCache = {}
-      const imagesToPreload = new Set()
-      if (walletInfo.image && isValidNametagImage(walletInfo.image)) {
-        imagesToPreload.add(walletInfo.image)
-      }
-      positionedNodesData.forEach((n) => {
-        if (n.image && isValidNametagImage(n.image)) {
-          imagesToPreload.add(n.image)
-        }
-      })
-      const defaultUrl = '/icons/default.webp'
-      const defaultImg = new Image()
-      defaultImg.src = `${window.location.origin}${defaultUrl}`
-      const defaultBitmap = await new Promise((resolve) => {
-        defaultImg.onload = async () => {
-          const bitmap = await createImageBitmap(defaultImg, {
-            resizeWidth: 32,
-            resizeHeight: 32,
-            resizeQuality: 'medium',
-          })
-          resolve(bitmap)
-        }
-        defaultImg.onerror = () => resolve(null)
-      })
-      imageCache['default'] = defaultBitmap
-      const uniqueImages = Array.from(imagesToPreload)
-      await Promise.all(
-        uniqueImages.map(async (url) => {
-          if (imageCache[url]) return
-          const img = new Image()
-          img.crossOrigin = 'anonymous'
-          img.src = url.startsWith('http') ? url : `${window.location.origin}${url}`
-          await new Promise((resolve) => {
-            img.onload = resolve
-            img.onerror = resolve
-          })
-          if (img.complete && img.width > 0) {
-            imageCache[url] = await createImageBitmap(img, {
-              resizeWidth: 32,
-              resizeHeight: 32,
-              resizeQuality: 'medium',
-            })
-          } else {
-            imageCache[url] = imageCache['default']
-          }
-        }),
-      )
-      // Slight compress for better initial view
-      if (isTokenQuery) {
-        positionedNodesData.forEach((n) => {
-          if (!n.isRoot) {
-            n.x *= 0.3
-            n.y *= 0
-          }
-        })
-      } else {
-        positionedNodesData.forEach((n) => {
-          if (!n.isRoot) {
-            n.x *= 0.7
-            n.y *= 0.7
-          }
-        })
-      }
-      // Links with unique IDs and precomputed parallel indices
-      const linksWithIds = edges.map((e, index) => ({
-        ...e.data,
-        id: `${e.data.source}-${e.data.target}-${index}`,
-        width: e.data.layer === 3 ? 0.15 : 0.4,
-      }))
-      const undirectedGroups = new Map()
-      linksWithIds.forEach((link) => {
-        const sourceId = link.source.id || link.source
-        const targetId = link.target.id || link.target
-        const key = `${Math.min(sourceId, targetId)}-${Math.max(sourceId, targetId)}`
-        if (!undirectedGroups.has(key)) undirectedGroups.set(key, [])
-        undirectedGroups.get(key).push(link)
-      })
-      linksWithIds.forEach((link) => {
-        const sourceId = link.source.id || link.source
-        const targetId = link.target.id || link.target
-        const key = `${Math.min(sourceId, targetId)}-${Math.max(sourceId, targetId)}`
-        const group = undirectedGroups.get(key)
-        link.numParallel = group.length
-        link.parallelIndex = group.findIndex((l) => l.id === link.id)
-      })
+
       graphRef.current = ForceGraph()(containerRef.current)
         .graphData({
           nodes: positionedNodesData.map((n) => ({
@@ -2067,36 +2076,42 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
         })
         .nodeCanvasObject((node, ctx, globalScale) => {
           const size = node.val / globalScale
-          const cluster = detectedClusters.find((c) => c.clusterId === node.clusterId)
-          const risk = cluster?.riskScore || 0
-          const riskColor = risk > 0.7 ? '#FF0000' : risk > 0.3 ? '#FFA500' : '#00FF00'
+          const isRoot = node.id.toLowerCase() === walletInfo.address?.toLowerCase()
+
           ctx.beginPath()
           ctx.arc(node.x, node.y, size, 0, 2 * Math.PI, false)
-          ctx.fillStyle = node.color || riskColor
-          ctx.fill()
-          ctx.strokeStyle = '#fff'
+          ctx.strokeStyle = '#FFFFFF'
           ctx.lineWidth = 1 / globalScale
           ctx.stroke()
-          const isRoot = node.id.toLowerCase() === walletInfo.address?.toLowerCase()
+
+          // Image clipped
           let displayImage = '/icons/default.webp'
-          if (isRoot && walletInfo.image) {
+          if (isRoot && walletInfo.image && isValidNametagImage(walletInfo.image)) {
             displayImage = walletInfo.image
-          } else if (node.image) {
+          } else if (node.image && isValidNametagImage(node.image)) {
             displayImage = node.image
           }
+
           let finalDisplayImage = displayImage
           if (!imageCache[displayImage]) {
             finalDisplayImage = '/icons/default.webp'
           }
+
           if (imageCache[finalDisplayImage]) {
             const bitmap = imageCache[finalDisplayImage]
             ctx.save()
             ctx.beginPath()
             ctx.arc(node.x, node.y, size, 0, 2 * Math.PI)
             ctx.clip()
-            // Draw resized bitmap (32x32 stretched to node size)
             ctx.drawImage(bitmap, node.x - size, node.y - size, size * 2, size * 2)
             ctx.restore()
+          } else {
+            ctx.beginPath()
+            ctx.arc(node.x, node.y, size, 0, 2 * Math.PI, false)
+            ctx.fillStyle = '#2A2A2A'
+            ctx.globalAlpha = 0.9
+            ctx.fill()
+            ctx.globalAlpha = 1
           }
         })
         .nodeCanvasObjectMode(() => 'replace')
@@ -2107,46 +2122,52 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
           ctx.arc(node.x, node.y, size, 0, 2 * Math.PI, false)
           ctx.fill()
         })
-        .linkDirectionalParticles(0)
-        .linkDirectionalParticleSpeed(0.003)
-        .linkDirectionalParticleWidth(1)
-        .linkDirectionalParticleColor((link) => (link.type === 'incoming' ? '#00BFFF' : '#FFD700'))
         .linkCanvasObject((link, ctx, globalScale) => {
           const start = link.source
           const end = link.target
           if (!start || !end || !start.x || !end.x || !start.y || !end.y) return
+
           const numEdges = link.numParallel || 1
           const edgeIndex = link.parallelIndex || 0
           if (numEdges === 0) return
+
           const spacing = Math.max(4, 12 / numEdges) / globalScale
           const offset = (edgeIndex - (numEdges - 1) / 2) * spacing
+
           const dx = end.x - start.x
           const dy = end.y - start.y
           const len = Math.sqrt(dx * dx + dy * dy)
           if (len === 0) return
+
           const ux = dx / len
           const uy = dy / len
           const px = -uy
           const py = ux
+
           const mid1X = start.x + ux * (len * 0.25)
           const mid1Y = start.y + uy * (len * 0.25)
           const mid2X = start.x + ux * (len * 0.75)
           const mid2Y = start.y + uy * (len * 0.75)
+
           const offsetMid1X = mid1X + px * offset
           const offsetMid1Y = mid1Y + py * offset
           const offsetMid2X = mid2X + px * offset
           const offsetMid2Y = mid2Y + py * offset
+
           ctx.beginPath()
           ctx.moveTo(start.x, start.y)
           ctx.bezierCurveTo(offsetMid1X, offsetMid1Y, offsetMid2X, offsetMid2Y, end.x, end.y)
+
           const isLayer3 = link.layer === 3
           const opacity = Math.max(
             0.4,
             1 - (Math.abs(edgeIndex - (numEdges - 1) / 2) / numEdges) * 0.6,
           )
+
           ctx.strokeStyle = isLayer3
             ? `rgba(200, 200, 255, ${0.6 * opacity})`
             : `rgba(255, 255, 255, ${0.6 * opacity})`
+
           const baseWidth = isLayer3 ? 0.22 : 0.5
           const valueScale = Math.min(1.5, Math.log(Number(link.value || 1) + 1) / Math.LN10)
           ctx.lineWidth =
@@ -2164,10 +2185,8 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
         .d3Force(
           'charge',
           d3.forceManyBody().strength((node) => {
-            if (node.layer === 2 || node.layer === 3) {
-              return -800
-            }
-            return isTokenQuery ? -1200 : -600
+            if (node.layer === 2 || node.layer === 3) return -800
+            return isTokenQuery ? -1200 : -900
           }),
         )
         .d3Force(
@@ -2181,7 +2200,7 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
               }
               return link.layer === 3 ? 70 : 160
             })
-            .strength(0.8),
+            .strength(0.9),
         )
         .d3Force(
           'radial',
@@ -2206,10 +2225,10 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
             .radius((node) => node.val * 1.8)
             .strength(0.7),
         )
-        .warmupTicks(800) // Reduced for faster init
-        .cooldownTicks(400) // Reduced for faster stabilization
-        .d3AlphaDecay(0.1) // Increased slightly for faster convergence
-        .d3VelocityDecay(0.9) // Increased slightly for less jitter
+        .warmupTicks(1200)
+        .cooldownTicks(600)
+        .d3AlphaDecay(0.012)
+        .d3VelocityDecay(0.88)
         .enablePointerInteraction(true)
         .enableNodeDrag(true)
         .enableZoomInteraction(true)
@@ -2249,6 +2268,7 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
           node.fx = node.x
           node.fy = node.y
         })
+
       graphRef.current.centerAt(0, 0, 1500)
       graphRef.current.zoom(isTokenQuery ? 0.35 : 0.5, 1500)
     } catch (err) {
