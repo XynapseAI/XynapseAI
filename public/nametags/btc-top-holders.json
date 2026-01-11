@@ -5202,5 +5202,38 @@
         "image": null
       }
     }
+  },
+  "12DezRFkKToAiLTDNru1g7FuvtAWMwCZ7N": {
+    "Address": "12DezRFkKToAiLTDNru1g7FuvtAWMwCZ7N",
+    "Labels": {
+      "bitcoin": {
+        "Name Tag": "Coinbase Cold Wallet",
+        "Description": null,
+        "Subcategory": "Others",
+        "image": "/icons/coinbase.webp"
+      }
+    }
+  },
+  "1Ghn3eH6BkLdFFTveC91YFXMVERQzy2pQY": {
+    "Address": "1Ghn3eH6BkLdFFTveC91YFXMVERQzy2pQY",
+    "Labels": {
+      "bitcoin": {
+        "Name Tag": "Wintermute",
+        "Description": null,
+        "Subcategory": "Others",
+        "image": "/icons/wintermute.webp"
+      }
+    }
+  },
+  "1KNm4K8GUK8sMoxc2Z3zU8Uv5FDVjrA72p": {
+    "Address": "1KNm4K8GUK8sMoxc2Z3zU8Uv5FDVjrA72p",
+    "Labels": {
+      "bitcoin": {
+        "Name Tag": "Jump Crypto",
+        "Description": null,
+        "Subcategory": "Others",
+        "image": "/icons/jump.webp"
+      }
+    }
   }
 }

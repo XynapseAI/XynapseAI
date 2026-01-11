@@ -51,6 +51,15 @@ const safeFixed = (v, decimals = 1) => {
     const num = Number(v || 0)
     return isNaN(num) ? '0' : num.toFixed(decimals)
 }
+
+const formatBookNumber = (value) => {
+    if (value == null) return '0'
+    const num = parseFloat(value)
+    if (isNaN(num)) return '0'
+    const formatted = num.toFixed(6)
+    return formatted.replace(/\.?0+$/, '')
+}
+
 // Custom Tooltip
 const CustomTooltip = ({ active, payload, label, isPnl }) => {
     if (active && payload && payload.length) {
@@ -1447,10 +1456,14 @@ export default function DexTab() {
                                                                     return (
                                                                         <tr key={i}>
                                                                             <td className="border border-emerald-500/20 px-4 py-2 text-emerald-400">
-                                                                                {price}
+                                                                                {formatBookNumber(
+                                                                                    price,
+                                                                                )}
                                                                             </td>
                                                                             <td className="border border-emerald-500/20 px-4 py-2 text-right">
-                                                                                {size}
+                                                                                {formatBookNumber(
+                                                                                    size,
+                                                                                )}
                                                                             </td>
                                                                         </tr>
                                                                     )
@@ -1489,10 +1502,14 @@ export default function DexTab() {
                                                                     return (
                                                                         <tr key={i}>
                                                                             <td className="border border-red-500/20 px-4 py-2 text-red-400">
-                                                                                {price}
+                                                                                {formatBookNumber(
+                                                                                    price,
+                                                                                )}
                                                                             </td>
                                                                             <td className="border border-red-500/20 px-4 py-2 text-right">
-                                                                                {size}
+                                                                                {formatBookNumber(
+                                                                                    size,
+                                                                                )}
                                                                             </td>
                                                                         </tr>
                                                                     )
@@ -1557,10 +1574,10 @@ export default function DexTab() {
                                                             </span>
                                                         </td>
                                                         <td className="border border-white/20 px-4 py-2 text-right">
-                                                            {trade.px}
+                                                            {formatBookNumber(trade.px)}
                                                         </td>
                                                         <td className="border border-white/20 px-4 py-2 text-right">
-                                                            {trade.sz}
+                                                            {formatBookNumber(trade.sz)}
                                                         </td>
                                                     </tr>
                                                 ))}

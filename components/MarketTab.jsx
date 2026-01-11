@@ -1515,7 +1515,7 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                     >
                       Analyze
                     </button>
-                    <button
+                    {/*<button
                       onClick={debouncedHandlePrediction}
                       className={`px-2 sm:px-4 py-1 sm:py-1.5 text-[10px] sm:text-xs font-medium transition-all duration-300 border rounded-xl group ${
                         selectedToken
@@ -1526,7 +1526,7 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                       aria-label="Predict token price"
                     >
                       Prediction
-                    </button>
+                    </button>*/}
                   </div>
                   <div className="flex items-center justify-center gap-2 sm:gap-4 mt-2 sm:mt-6 mb-2 sm:mb-0">
                     <div className="text-[8px] sm:text-[9px] text-[#FFF] text-center">

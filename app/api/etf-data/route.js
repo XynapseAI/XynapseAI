@@ -293,8 +293,8 @@ export const GET = handlerWrapper(async () => {
           new Date(a.date.replace(/(\w+) (\d+), (\d+)/, '$1 $2 $3')),
       )
 
-    // Top 6 ETFs chart
-    const topSymbols = ['IBIT', 'FBTC', 'ARKB', 'BTC', 'GBTC', 'HODL']
+    // Top 7 ETFs chart
+    const topSymbols = ['IBIT', 'FBTC', 'GBTC', 'BTC', 'BITB', 'ARKB', 'HODL']
 
     const chartData = validFlows
       .filter((f) => topSymbols.includes(f.symbol))

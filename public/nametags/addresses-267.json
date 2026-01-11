@@ -1879,6 +1879,39 @@
         "image": "/icons/default.webp"
       }
     }
+  },
+  "0xA86e3D1C80a750A310b484FB9bDc470753A7506F": {
+    "Address": "0xA86e3D1C80a750A310b484FB9bDc470753A7506F",
+    "Labels": {
+      "uniswap": {
+        "Name Tag": "Arthur Hayes",
+        "Description": "Upbit is a protocol for automated token exchange on Ethereum.",
+        "Subcategory": "Others",
+        "image": "/icons/default.webp"
+      }
+    }
+  },
+  "0x534A0076fb7c2b1f83FA21497429AD7ad3bD7587": {
+    "Address": "0x534A0076fb7c2b1f83FA21497429AD7ad3bD7587",
+    "Labels": {
+      "uniswap": {
+        "Name Tag": "Arthur Hayes",
+        "Description": "Upbit is a protocol for automated token exchange on Ethereum.",
+        "Subcategory": "Others",
+        "image": "/icons/default.webp"
+      }
+    }
+  },
+  "0x3DdfA8eC3052539b6C9549F12cEA2C295cfF5296": {
+    "Address": "0x3DdfA8eC3052539b6C9549F12cEA2C295cfF5296",
+    "Labels": {
+      "uniswap": {
+        "Name Tag": "Justin Sun",
+        "Description": "Upbit is a protocol for automated token exchange on Ethereum.",
+        "Subcategory": "Others",
+        "image": "/icons/justinsun.webp"
+      }
+    }
   }
 }
 

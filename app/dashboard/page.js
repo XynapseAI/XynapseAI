@@ -398,6 +398,9 @@ function DashboardInner() {
   const appDomain = process.env.NEXT_PUBLIC_APP_DOMAIN || window.location.hostname
   // Invite
   const [pendingInviteCode, setPendingInviteCode] = useState(null)
+  const [sendingEmail, setSendingEmail] = useState(false)
+  const [emailSent, setEmailSent] = useState(false)
+
   useEffect(() => {
     console.log('Current pendingInviteCode:', pendingInviteCode)
   }, [pendingInviteCode])
@@ -906,14 +909,38 @@ function DashboardInner() {
   )
   const handleEmailSignIn = async (e) => {
     e.preventDefault()
+
+    if (sendingEmail || emailSent) return
+
+    const trimmedEmail = email.trim()
+    if (!trimmedEmail) {
+      toast.error('Please enter a valid email address.', { position: 'top-center' })
+      return
+    }
+
+    setSendingEmail(true)
+
     try {
       const callbackUrl = pendingInviteCode
         ? `/dashboard?invite=${pendingInviteCode}`
         : '/dashboard'
-      await signIn('email', { email, callbackUrl, redirect: false })
+
+      const result = await signIn('email', {
+        email: trimmedEmail,
+        callbackUrl,
+        redirect: false,
+      })
+
+      if (result?.ok) {
+        setEmailSent(true)
+      } else {
+        toast.error(result?.error || 'Failed to send login email.', { position: 'top-center' })
+      }
     } catch (err) {
       safeError('Error signing in with email:', err)
       toast.error('Failed to sign in with email.', { position: 'top-center' })
+    } finally {
+      setSendingEmail(false)
     }
   }
   const handleGoogleSignIn = async () => {
@@ -1231,17 +1258,31 @@ function DashboardInner() {
                             <input
                               type="email"
                               value={email}
-                              onChange={(e) => setEmail(e.target.value)}
+                              onChange={(e) => !emailSent && setEmail(e.target.value)}
                               placeholder="Enter your email"
                               className="w-full px-4 py-2.5 bg-black/60 border border-white/15 rounded-lg text-gray-500 text-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-white/30 transition-all duration-300"
                               required
+                              disabled={sendingEmail || emailSent}
                             />
                             <button
                               type="submit"
-                              className="w-full px-4 py-2.5 bg-white/90 text-black rounded-lg text-sm font-semibold transition-all duration-300 hover:border-white/30 hover:bg-white/20 flex items-center justify-center"
+                              disabled={sendingEmail || emailSent}
+                              className="w-full px-4 py-2.5 bg-white/90 text-black rounded-lg text-sm font-semibold transition-all duration-300 hover:bg-white/70 disabled:opacity-60 disabled:cursor-not-allowed flex items-center justify-center"
                             >
-                              <MatrixHoverEffect text="Sign in with Email" hoverColor="#FFFFFF" />
+                              {sendingEmail ? (
+                                <>Sending…</>
+                              ) : emailSent ? (
+                                <>Sent</>
+                              ) : (
+                                <MatrixHoverEffect text="Sign in with Email" hoverColor="#FFFFFF" />
+                              )}
                             </button>
+
+                            {emailSent && (
+                              <p className="text-center text-[10px] text-emerald-400/80 mt-2">
+                                Please check your inbox and spam folder!
+                              </p>
+                            )}
                           </form>
                           <div className="flex items-center justify-center my-4 w-full">
                             <span className="text-gray-500 text-xs uppercase px-4">OR</span>

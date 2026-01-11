@@ -383,5 +383,17 @@
         "image": "/icons/wintermute.webp"
       }
     }
+  },
+  "EcH12jxhrbhF6qHqRzWpZ8rZU3TjG3sX6F67zP61oDJG": {
+    "Address": "EcH12jxhrbhF6qHqRzWpZ8rZU3TjG3sX6F67zP61oDJG",
+    "Labels": {
+      "bitcoin": {
+        "Name Tag": "Jump Trading",
+        "Description": "An unidentified Bitcoin wallet (Bech32 format).",
+        "Subcategory": "Others",
+        "image": "/icons/jump.webp"
+      }
+    }
   }
+
 }
