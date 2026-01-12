@@ -10,7 +10,6 @@ interface Node {
     offsetX: number
     offsetY: number
     opacity: number
-    thickness: number
 }
 
 export default function CrystalBackground() {
@@ -29,13 +28,13 @@ export default function CrystalBackground() {
             canvas.height = window.innerHeight
             nodesRef.current = []
 
-            const spacing = 50
+            const spacing = 45
             const hexRadius = spacing / Math.sqrt(3)
 
-            const cols = 15
-            const rows = 20
-            const startX = canvas.width - cols * spacing + 100
-            const startY = 50
+            const cols = 14
+            const rows = 25
+            const startX = canvas.width - cols * spacing + 50
+            const startY = -50
 
             for (let r = 0; r < rows; r++) {
                 for (let c = 0; c < cols; c++) {
@@ -49,8 +48,7 @@ export default function CrystalBackground() {
                         originalY: y,
                         offsetX: 0,
                         offsetY: 0,
-                        opacity: 0.15,
-                        thickness: 0.5,
+                        opacity: 0.1,
                     })
                 }
             }
@@ -71,7 +69,7 @@ export default function CrystalBackground() {
             ctx.fillRect(0, 0, canvas.width, canvas.height)
 
             const { x: mX, y: mY } = mousePosRef.current
-            const influenceRadius = 180
+            const influenceRadius = 200
 
             nodesRef.current.forEach((node) => {
                 const dx = mX - node.originalX
@@ -80,36 +78,33 @@ export default function CrystalBackground() {
 
                 if (distance < influenceRadius) {
                     const power = 1 - distance / influenceRadius
-                    const force = power * 20
+                    const force = power * 25
                     const angle = Math.atan2(dy, dx)
 
                     node.offsetX = Math.cos(angle) * -force
                     node.offsetY = Math.sin(angle) * -force
-                    node.opacity = 0.15 + power * 0.55
-                    node.thickness = 0.5 + power * 1.2
+                    node.opacity = 0.2 + power * 0.6
                 } else {
-                    node.offsetX *= 0.95
-                    node.offsetY *= 0.95
-                    node.opacity += (0.15 - node.opacity) * 0.05
-                    node.thickness += (0.5 - node.thickness) * 0.05
+                    node.offsetX *= 0.92
+                    node.offsetY *= 0.92
+                    node.opacity += (0.1 - node.opacity) * 0.05
                 }
 
                 node.x = node.originalX + node.offsetX
                 node.y = node.originalY + node.offsetY
             })
 
+            ctx.lineWidth = 0.8
             for (let i = 0; i < nodesRef.current.length; i++) {
                 const nodeA = nodesRef.current[i]
+
                 for (let j = i + 1; j < nodesRef.current.length; j++) {
                     const nodeB = nodesRef.current[j]
                     const distSq = Math.pow(nodeA.x - nodeB.x, 2) + Math.pow(nodeA.y - nodeB.y, 2)
 
-                    if (distSq < Math.pow(55, 2)) {
+                    if (distSq < Math.pow(50, 2)) {
                         const avgOpacity = (nodeA.opacity + nodeB.opacity) / 2
-                        const avgThickness = (nodeA.thickness + nodeB.thickness) / 2
-
-                        ctx.strokeStyle = `rgba(255, 255, 255, ${avgOpacity})`
-                        ctx.lineWidth = avgThickness
+                        ctx.strokeStyle = `rgba(100, 200, 255, ${avgOpacity * 0.4})`
                         ctx.beginPath()
                         ctx.moveTo(nodeA.x, nodeA.y)
                         ctx.lineTo(nodeB.x, nodeB.y)
@@ -117,22 +112,30 @@ export default function CrystalBackground() {
                     }
                 }
             }
-            nodesRef.current.forEach((node) => {
-                const size = 1.5 + node.opacity * 2
 
-                ctx.fillStyle = `rgba(255, 255, 255, ${node.opacity + 0.1})`
+            nodesRef.current.forEach((node) => {
+                const size = node.opacity * 3
+
+                ctx.fillStyle = `rgba(255, 255, 255, ${node.opacity + 0.2})`
                 ctx.beginPath()
                 ctx.arc(node.x, node.y, size / 2, 0, Math.PI * 2)
                 ctx.fill()
 
                 if (node.opacity > 0.3) {
-                    ctx.shadowBlur = 15 * node.opacity
-                    ctx.shadowColor = 'rgba(255, 255, 255, 0.5)'
-                    ctx.fillStyle = `rgba(255, 255, 255, ${node.opacity * 0.2})`
+                    const gradient = ctx.createRadialGradient(
+                        node.x,
+                        node.y,
+                        0,
+                        node.x,
+                        node.y,
+                        size * 4,
+                    )
+                    gradient.addColorStop(0, `rgba(6, 182, 212, ${node.opacity * 0.3})`)
+                    gradient.addColorStop(1, 'rgba(6, 182, 212, 0)')
+                    ctx.fillStyle = gradient
                     ctx.beginPath()
-                    ctx.arc(node.x, node.y, size * 2, 0, Math.PI * 2)
+                    ctx.arc(node.x, node.y, size * 4, 0, Math.PI * 2)
                     ctx.fill()
-                    ctx.shadowBlur = 0
                 }
             })
 

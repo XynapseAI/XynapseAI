@@ -6,23 +6,30 @@ export default function Footer() {
         <div className="flex flex-wrap justify-center gap-4 sm:gap-8 text-xs">
           <a
             href="https://x.com/xynapseai_"
+            target="_blank"
             className="text-white/50 hover:text-white transition-colors"
           >
             Twitter
           </a>
           <a
             href="https://discord.gg/B9kVPpjNvw"
+            target="_blank"
             className="text-white/50 hover:text-white transition-colors"
           >
             Discord
           </a>
           <a
             href="mailto:mail.xynapse@gmail.com"
+            target="_blank"
             className="text-white/50 hover:text-white transition-colors"
           >
             Contact: mail.xynapse@gmail.com
           </a>
-          <a href="/docs" className="text-white/50 hover:text-white transition-colors">
+          <a
+            href="/docs"
+            target="_blank"
+            className="text-white/50 hover:text-white transition-colors"
+          >
             Documentation
           </a>
         </div>

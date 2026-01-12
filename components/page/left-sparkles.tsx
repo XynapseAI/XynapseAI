@@ -154,7 +154,7 @@ export default function SphericalCluster() {
 
             if (scale1 > 0 && scale2 > 0) {
               ctx.beginPath()
-              ctx.strokeStyle = `rgba(200, 230, 255, ${alpha * 0.35})`
+              ctx.strokeStyle = `rgba(200, 230, 255, ${alpha * 0.55})`
               ctx.moveTo(cx + p1.x * scale1, cy + p1.y * scale1)
               ctx.lineTo(cx + p2.x * scale2, cy + p2.y * scale2)
               ctx.stroke()

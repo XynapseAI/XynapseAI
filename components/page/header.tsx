@@ -44,13 +44,15 @@ export default function Header() {
                 <div className="py-3">
                   <Link
                     href="/docs#about"
-                    className="block px-6 py-2 text-xs text-white/70 hover:text-white hover:bg-white/10 transition-colors"
+                    target="_blank"
+                    className="block px-6 py-2 text-xs text-white/70 hover:text-white transition-colors"
                   >
                     About
                   </Link>
                   <Link
                     href="/docs#features"
-                    className="block px-6 py-2 text-xs text-white/70 hover:text-white hover:bg-white/10 transition-colors"
+                    target="_blank"
+                    className="block px-6 py-2 text-xs text-white/70 hover:text-white transition-colors"
                   >
                     Features
                   </Link>
@@ -73,19 +75,22 @@ export default function Header() {
                 <div className="py-3">
                   <Link
                     href="/docs#brandkit"
-                    className="block px-6 py-2 text-xs text-white/70 hover:text-white hover:bg-white/10 transition-colors"
+                    target="_blank"
+                    className="block px-6 py-2 text-xs text-white/70 hover:text-white transition-colors"
                   >
                     Brand Kit
                   </Link>
                   <Link
                     href="/docs#contact"
-                    className="block px-6 py-2 text-xs text-white/70 hover:text-white hover:bg-white/10 transition-colors"
+                    target="_blank"
+                    className="block px-6 py-2 text-xs text-white/70 hover:text-white transition-colors"
                   >
                     Contact
                   </Link>
                   <Link
                     href="/docs#docs"
-                    className="block px-6 py-2 text-xs text-white/70 hover:text-white hover:bg-white/10 transition-colors"
+                    target="_blank"
+                    className="block px-6 py-2 text-xs text-white/70 hover:text-white transition-colors"
                   >
                     Docs
                   </Link>
@@ -154,6 +159,7 @@ export default function Header() {
               <div className="flex flex-col space-y-3">
                 <Link
                   href="/docs#about"
+                  target="_blank"
                   onClick={() => setIsMobileMenuOpen(false)}
                   className="text-lg text-white/80 hover:text-white hover:translate-x-2 transition-all duration-300"
                 >
@@ -161,6 +167,7 @@ export default function Header() {
                 </Link>
                 <Link
                   href="/docs#features"
+                  target="_blank"
                   onClick={() => setIsMobileMenuOpen(false)}
                   className="text-lg text-white/80 hover:text-white hover:translate-x-2 transition-all duration-300"
                 >
@@ -179,6 +186,7 @@ export default function Header() {
               <div className="flex flex-col space-y-3">
                 <Link
                   href="/docs#brandkit"
+                  target="_blank"
                   onClick={() => setIsMobileMenuOpen(false)}
                   className="text-lg text-white/80 hover:text-white hover:translate-x-2 transition-all duration-300"
                 >
@@ -186,6 +194,7 @@ export default function Header() {
                 </Link>
                 <Link
                   href="/docs#contact"
+                  target="_blank"
                   onClick={() => setIsMobileMenuOpen(false)}
                   className="text-lg text-white/80 hover:text-white hover:translate-x-2 transition-all duration-300"
                 >
@@ -193,6 +202,7 @@ export default function Header() {
                 </Link>
                 <Link
                   href="/docs#docs"
+                  target="_blank"
                   onClick={() => setIsMobileMenuOpen(false)}
                   className="text-lg text-white/80 hover:text-white hover:translate-x-2 transition-all duration-300"
                 >
