@@ -776,16 +776,6 @@ function simpleRuleBasedClustering(nodesData, edgesData) {
     }
     node.velocity = velocity
     node.uniqueTokens = new Set(nodeTxs.map((e) => e.tokenSymbol || 'unknown')).size
-    // Simple autoLabel
-    let autoLabel = null
-    const totalValue = parseFloat(node.totalValue || 0)
-    const txCount = node.txCount || 0
-    const degree = node.degree || 0
-    if (degree > 20 || txCount > 500) autoLabel = 'Exchange'
-    else if (totalValue > 10000000) autoLabel = 'Whale'
-    else if (totalValue > 1000000 && degree > 8 && velocity < 1.5) autoLabel = 'Institution'
-    else if (node.uniqueTokens >= 30) autoLabel = 'NFT Collector'
-    node.autoLabel = autoLabel
   })
   // Union-Find for merging
   const parent = new Map()
@@ -937,7 +927,6 @@ function simpleRuleBasedClustering(nodesData, edgesData) {
       uniqueTokens,
       topTokensVolume,
       outstandingTxs,
-      autoLabel: wallets.find((w) => w.autoLabel)?.autoLabel,
     })
   }
   return clusters
@@ -2058,7 +2047,6 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
             : cluster
               ? cluster.nametag
               : 'Unknown'
-          const autoLabel = node.autoLabel || cluster?.autoLabel || ''
           const nametag = node.isRoot
             ? ''
             : node.label !== 'Unknown'
@@ -2067,7 +2055,6 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
           return `
 <div style="background: rgba(0,0,0,0.8); border: 1px solid rgba(255,255,255,0.4); color: rgba(255,255,255,0.6); padding: 4px 8px; border-radius: 4px; font-size: 12px;">
   ${node.isRoot ? `<div>Cluster: ${clusterLabel}</div>` : `<div>${nametag}${node.layer === 3 ? ' (L3)' : ''}</div>`}
-  ${autoLabel ? `<div>Auto: ${autoLabel}</div>` : ''}
   ${cluster ? `<div>Cluster: ${cluster.nametag}</div>` : ''}
   <div>Tx: ${node.txCount} | Value: ${formatLargeNumber(Number(node.totalValue), 1)}$</div>
   <div>Risk: ${(risk * 100).toFixed(0)}%</div>

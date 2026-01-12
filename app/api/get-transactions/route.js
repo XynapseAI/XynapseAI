@@ -2244,7 +2244,7 @@ export async function POST(request) {
           }
         })
         const autoLabels = await autoLabelWallets(mockNodes, null, knownNametagsMap)
-        await saveAutoLabelsToDB(autoLabels)
+        // await saveAutoLabelsToDB(autoLabels)
         Object.entries(autoLabels).forEach(([addr, { label }]) => {
           if (
             !nametags[caseSensitive ? addr : addr.toLowerCase()] ||
