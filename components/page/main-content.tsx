@@ -106,6 +106,7 @@ export default function MainContent({ mousePos }: MainContentProps) {
         <div className="flex gap-4 pt-4">
           <Link
             href="/dashboard"
+            target="_blank"
             className="px-6 py-1.5 bg-white text-xs sm:text-sm text-black font-bold tracking-wider rounded-xl shadow-lg shadow-white/40 hover:shadow-white/60 transition-all flex items-center"
           >
             LAUNCH APP
@@ -115,6 +116,7 @@ export default function MainContent({ mousePos }: MainContentProps) {
           </Link>
           <Link
             href="/docs"
+            target="_blank"
             className="px-6 py-1.5 border-2 border-white/50 text-xs sm:text-sm text-white font-bold tracking-wider rounded-xl hover:bg-white/10 transition-all"
           >
             Documentation
