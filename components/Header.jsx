@@ -51,7 +51,7 @@ export default function Header({ activeTab, setActiveTab, handleSignOut, selecte
     { id: 'cluster', label: 'Cluster', icon: Network },
     { id: 'graph', label: 'Graph', icon: Activity },
     // { id: 'watchlists', label: 'Watchlists', icon: List },
-    { id: 'explorer', label: 'Explorer', icon: SearchIcon }, // Added Explorer tab with Search icon
+    // { id: 'explorer', label: 'Explorer', icon: SearchIcon },
     { id: 'dex', label: 'Dex-Data', icon: AudioLines },
     { id: 'profile', label: 'Profile', icon: User },
   ]
