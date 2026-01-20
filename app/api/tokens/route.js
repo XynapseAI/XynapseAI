@@ -124,7 +124,7 @@ export async function POST(request) {
         }
       : { '': { contract_address: '', decimal_place: null } }
 
-    // Insert or update token in database
+    // Insert or update token
     const result = await query(
       `INSERT INTO tokens (coingecko_id, symbol, name, image, detail_platforms)
        VALUES ($1, $2, $3, $4, $5)
