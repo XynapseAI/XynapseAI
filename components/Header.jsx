@@ -46,14 +46,14 @@ export default function Header({ activeTab, setActiveTab, handleSignOut, selecte
   }
 
   const tabs = [
-    { id: 'market', label: 'Market', icon: BarChart3 },
+    // { id: 'market', label: 'Market', icon: BarChart3 },
     { id: 'etf', label: 'ETFs', icon: BadgeDollarSign }, // Internal for now; add href: '/etf' if external
-    { id: 'cluster', label: 'Cluster', icon: Network },
-    { id: 'graph', label: 'Graph', icon: Activity },
+    // { id: 'cluster', label: 'Cluster', icon: Network },
+    // { id: 'graph', label: 'Graph', icon: Activity },
     // { id: 'watchlists', label: 'Watchlists', icon: List },
     // { id: 'explorer', label: 'Explorer', icon: SearchIcon },
     { id: 'dex', label: 'Dex-Data', icon: AudioLines },
-    { id: 'profile', label: 'Profile', icon: User },
+    // { id: 'profile', label: 'Profile', icon: User },
   ]
 
   // Memoized dynamic href builder for better performance

@@ -37,7 +37,7 @@ await connectRedis()
 
 const REDIS_KEY_ALL = 'all:whale_trades'
 const MAX_TRADES = 1000
-const WHALE_THRESHOLD = 500000
+const WHALE_THRESHOLD = 1000000
 
 const TOP_ASSETS = ['BTC', 'ETH', 'SOL', 'DOGE', 'XRP', 'BNB', 'AVAX', 'SUI', 'TIA', 'ARB']
 
