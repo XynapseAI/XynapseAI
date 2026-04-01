@@ -442,7 +442,7 @@ function DashboardInner() {
         version: '1',
         chainId: 8453,
         nonce,
-        expirationTime: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
+        expirationTime: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),   // ← sửa ở đây (không .toISOString())
       })
 
       const signature = await signMessageAsync({ message })
