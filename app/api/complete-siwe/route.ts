@@ -9,12 +9,16 @@ export async function POST(req: NextRequest) {
     const body = await req.json();
     const { payload, nonce } = body;
 
+    const rawSignature = payload?.signature || '';
+    const signaturePreview = rawSignature.substring(0, 80) + (rawSignature.length > 80 ? '...' : '');
+
     logger.info('SIWE verify request received', {
       hasAddress: !!payload?.address,
       address: payload?.address || 'MISSING',
       messageLength: payload?.message?.length || 0,
-      signatureLength: payload?.signature?.length || 0,
-      signaturePreview: payload?.signature?.substring(0, 30) + '...',
+      rawSignatureLength: rawSignature.length,
+      signaturePreview,
+      startsWith0x: rawSignature.startsWith('0x'),
     });
 
     const cookieStore = await cookies();
@@ -26,17 +30,13 @@ export async function POST(req: NextRequest) {
     }
 
     let address = payload?.address;
-    let signature = payload?.signature || '';
+    let signature = rawSignature;
 
-    // Normalize signature
-    if (!signature.startsWith('0x')) signature = '0x' + signature;
-
-    // Fallback: parse address từ message nếu frontend cũ gửi thiếu
+    // Fallback address từ message (nếu có)
     if (!address && payload?.message) {
       try {
         const parsed = parseSiweMessage(payload.message);
         address = parsed.address;
-        logger.info('Parsed address from SIWE message (fallback)', { address });
       } catch (e) {}
     }
 
@@ -45,21 +45,22 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ status: 'error', isValid: false, message: 'Missing address' }, { status: 400 });
     }
 
-    // ====================== XỬ LÝ SIGNATURE KHÔNG CHUẨN ======================
+    // ====================== NORMALIZE SIGNATURE ======================
+    if (!signature.startsWith('0x')) signature = '0x' + signature;
+
     let isValid = false;
 
+    // Trường hợp chuẩn 65 bytes (130 ký tự)
     if (signature.length === 130) {
-      // Trường hợp chuẩn (65 bytes)
       isValid = await verifyMessage({
         address: address as `0x${string}`,
         message: payload.message,
         signature: signature as `0x${string}`,
       });
-    } else if (signature.length === 128) {
-      // Trường hợp 64 bytes (r,s) – phổ biến ở Coinbase Mini App
+    }
+    // Trường hợp 64 bytes (128 ký tự) – phổ biến ở Coinbase
+    else if (signature.length === 128) {
       logger.warn('64-byte signature detected → trying v=27 and v=28');
-      
-      // Thử v = 27 (0x1b)
       const sig27 = signature + '1b';
       isValid = await verifyMessage({
         address: address as `0x${string}`,
@@ -68,7 +69,6 @@ export async function POST(req: NextRequest) {
       });
 
       if (!isValid) {
-        // Thử v = 28 (0x1c)
         const sig28 = signature + '1c';
         isValid = await verifyMessage({
           address: address as `0x${string}`,
@@ -76,13 +76,36 @@ export async function POST(req: NextRequest) {
           signature: sig28 as `0x${string}`,
         });
       }
-    } else {
-      logger.error('Unsupported signature length', { length: signature.length });
-      return NextResponse.json({ status: 'error', isValid: false, message: 'Invalid signature length' }, { status: 400 });
+    }
+    // Trường hợp khác (66 bytes, 64 bytes không 0x, v.v.) → thử recoverAddress thủ công
+    else {
+      logger.warn(`Unusual signature length: ${signature.length} → trying manual recovery`);
+      try {
+        const messageHash = await recoverAddress({
+          hash: payload.message, // viem sẽ tự hash lại
+          signature: signature as `0x${string}`,
+        });
+        isValid = messageHash.toLowerCase() === address.toLowerCase();
+      } catch (recoverErr) {
+        // Thử tất cả recoveryId từ 0 → 3
+        for (let recoveryId = 0; recoveryId < 4; recoveryId++) {
+          try {
+            const sigWithV = signature + recoveryId.toString(16).padStart(2, '0');
+            const recovered = await recoverAddress({
+              hash: payload.message,
+              signature: sigWithV as `0x${string}`,
+            });
+            if (recovered.toLowerCase() === address.toLowerCase()) {
+              isValid = true;
+              break;
+            }
+          } catch (e) {}
+        }
+      }
     }
 
     if (!isValid) {
-      logger.error('SIWE signature verification failed after all attempts');
+      logger.error('SIWE signature verification failed after all recovery attempts');
       return NextResponse.json({ status: 'error', isValid: false, message: 'Invalid signature' }, { status: 400 });
     }
 
