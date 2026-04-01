@@ -1,10 +1,14 @@
 import { cookies } from 'next/headers';
 import { NextRequest, NextResponse } from 'next/server';
-import { MiniAppWalletAuthSuccessPayload, verifySiweMessage } from '@worldcoin/minikit-js';
-import { logger } from '@/utils/serverLogger';  // Import logger nếu có
+import { verifyMessage } from 'viem';
+import { logger } from '@/utils/serverLogger'; // giữ nguyên nếu bạn có
 
 interface IRequestPayload {
-  payload: MiniAppWalletAuthSuccessPayload;
+  payload: {
+    message: string;
+    signature: `0x${string}`;
+    address: `0x${string}`;
+  };
   nonce: string;
 }
 
@@ -12,7 +16,7 @@ export async function POST(req: NextRequest) {
   try {
     const { payload, nonce } = await req.json() as IRequestPayload;
 
-    // FIXED: Check nonce match cookie (từ /api/nonce)
+    // 1. Kiểm tra nonce (giữ nguyên như cũ)
     const cookieStore = await cookies();
     const storedNonce = cookieStore.get('siwe')?.value;
     if (nonce !== storedNonce) {
@@ -24,25 +28,31 @@ export async function POST(req: NextRequest) {
       }, { status: 400 });
     }
 
-    // NEW: Verify SIWE với MiniKit lib (docs 2025: Chuẩn cho walletAuth)
-    const validMessage = await verifySiweMessage(payload, nonce);
-    if (!validMessage.isValid) {
-      logger.error('SIWE verification failed');
+    // 2. Verify SIWE bằng viem (chuẩn cho Base App)
+    const isValid = await verifyMessage({
+      address: payload.address,
+      message: payload.message,
+      signature: payload.signature,
+    });
+
+    if (!isValid) {
+      logger.error('SIWE signature verification failed');
       return NextResponse.json({
         status: 'error',
         isValid: false,
-        message: 'Invalid SIWE message',
+        message: 'Invalid signature',
       }, { status: 400 });
     }
 
-    // Success: Cleanup nonce (tương tự DELETE route cũ)
+    // 3. Xóa nonce sau khi verify thành công
     cookieStore.delete('siwe');
 
     logger.info('SIWE verified successfully', { address: payload.address });
+
     return NextResponse.json({
       status: 'success',
       isValid: true,
-      address: payload.address,  // Optional: Trả address cho frontend
+      address: payload.address,
     });
   } catch (error: unknown) {
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
@@ -50,7 +60,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({
       status: 'error',
       isValid: false,
-      message: 'Server error',
+      message: 'Server error during verification',
     }, { status: 500 });
   }
 }
