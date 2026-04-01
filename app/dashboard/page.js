@@ -405,9 +405,7 @@ function DashboardInner() {
   const handleBaseSIWEAuth = useCallback(async () => {
     if (status !== 'unauthenticated') return
     if (!walletConnected || !walletAddress) {
-      toast.error('Wallet not connected. Open in Base Mini App / Coinbase Wallet and try again.', {
-        position: 'top-center',
-      })
+      toast.error('Wallet not connected. Open in Base Mini App / Coinbase Wallet and try again.', { position: 'top-center' })
       return
     }
     setMiniAppAuthLoading(true)
@@ -441,13 +439,7 @@ function DashboardInner() {
         throw new Error(verifyData.message || 'SIWE verification failed')
       }
 
-      const result = await signIn('siwe', {
-        redirect: false,
-        message,
-        signature,
-        address: walletAddress,
-        callbackUrl: '/dashboard',
-      })
+      const result = await signIn('siwe', { redirect: false, message, signature, address: walletAddress, callbackUrl: '/dashboard' })
       if (result?.error) throw new Error(result.error || 'Auth failed')
 
       setAuthSuccess(true)
