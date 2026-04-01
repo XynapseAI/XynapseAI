@@ -33,8 +33,6 @@ import '@farcaster/auth-kit/styles.css'
 import { AuthKitProvider, SignInButton } from '@farcaster/auth-kit'
 import { sdk } from '@farcaster/miniapp-sdk'
 import { useMiniApp, MiniAppProvider } from '@neynar/react'
-import { MiniKit } from '@worldcoin/minikit-js'
-import { MiniKitProvider as WorldMiniKitProvider } from '@worldcoin/minikit-js/minikit-provider'
 import { preconnect } from 'react-dom'
 import { SafeArea } from '@coinbase/onchainkit/minikit'
 import { clearAllCaches } from '../../utils/indexedDB'
@@ -110,7 +108,7 @@ async function hmacSha256(key, data) {
     .join('')
 }
 
-const useUserData = (session, csrfToken, setIsAnalyzing, isWorldMiniApp) => {
+const useUserData = (session, csrfToken, setIsAnalyzing) => {
   const [userData, setUserData] = useState(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
@@ -125,12 +123,9 @@ const useUserData = (session, csrfToken, setIsAnalyzing, isWorldMiniApp) => {
     }
     setLoading(true)
     try {
-      let recaptchaToken = null
-      if (!isWorldMiniApp) {
-        recaptchaToken = await recaptchaRef.current?.executeAsync()
-        if (!recaptchaToken) {
-          throw new Error('Failed to obtain reCAPTCHA token')
-        }
+      const recaptchaToken = await recaptchaRef.current?.executeAsync()
+      if (!recaptchaToken) {
+        throw new Error('Failed to obtain reCAPTCHA token')
       }
       const jwtToken = session?.accessToken
       const response = await fetch(
@@ -139,7 +134,7 @@ const useUserData = (session, csrfToken, setIsAnalyzing, isWorldMiniApp) => {
           method: 'GET',
           headers: {
             'Content-Type': 'application/json',
-            ...(recaptchaToken && { 'X-Recaptcha-Token': recaptchaToken }),
+            'X-Recaptcha-Token': recaptchaToken,
             'X-CSRF-Token': csrfToken,
             Authorization: `Bearer ${jwtToken}`,
           },
@@ -168,11 +163,11 @@ const useUserData = (session, csrfToken, setIsAnalyzing, isWorldMiniApp) => {
       toast.error(`Error: ${err.message}`, { position: 'top-center' })
     } finally {
       setLoading(false)
-      if (recaptchaRef.current && !isWorldMiniApp) {
+      if (recaptchaRef.current) {
         recaptchaRef.current.reset()
       }
     }
-  }, [session, csrfToken, isWorldMiniApp])
+  }, [session, csrfToken])
 
   const handleAnalyzeTweets = useCallback(async () => {
     setIsAnalyzing(true)
@@ -261,17 +256,6 @@ function DashboardInner() {
   const [isMiniApp, setIsMiniApp] = useState(false)
   const [miniAppAuthLoading, setMiniAppAuthLoading] = useState(false)
   const [miniAppAuthFailed, setMiniAppAuthFailed] = useState(false)
-  const [isWorldMiniApp, setIsWorldMiniApp] = useState(false)
-  const [worldAppVersionOk, setWorldAppVersionOk] = useState(true)
-  const { userData, loading, error } = useUserData(
-    session,
-    csrfToken,
-    setIsAnalyzing,
-    isWorldMiniApp,
-  )
-  const [worldAuthLoading, setWorldAuthLoading] = useState(false)
-  const [worldAuthFailed, setWorldAuthFailed] = useState(false)
-  const attemptedAuthRef = useRef(false)
   const [isBaseApp, setIsBaseApp] = useState(false)
   const [baseAuthFailed, setBaseAuthFailed] = useState(false)
   const [isWarpcastMobile, setIsWarpcastMobile] = useState(false)
@@ -417,7 +401,7 @@ function DashboardInner() {
     }
   }, [isSDKLoaded, context, miniAppUser, session, searchParams])
 
-  // ====================== BASE APP SIWE AUTH (Base App 9/4/2026) ======================
+  // ====================== BASE APP SIWE AUTH ======================
   const handleBaseSIWEAuth = useCallback(async () => {
     if (status !== 'unauthenticated') return
     if (!walletConnected || !walletAddress) {
@@ -442,7 +426,7 @@ function DashboardInner() {
         version: '1',
         chainId: 8453,
         nonce,
-        expirationTime: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),   // ← sửa ở đây (không .toISOString())
+        expirationTime: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
       })
 
       const signature = await signMessageAsync({ message })
@@ -544,94 +528,7 @@ function DashboardInner() {
     isWarpcastMobile,
   ])
 
-  // World Mini App
-  useEffect(() => {
-    let worldDetected = false
-    try {
-      worldDetected = MiniKit.isInstalled()
-    } catch (err) {
-      safeWarn('World Mini App detection error:', err)
-    }
-    setIsWorldMiniApp(worldDetected)
-    safeLog('World Mini App Detection:', { worldDetected })
-  }, [])
-
-  const handleWorldQuickAuth = useCallback(async () => {
-    if (status !== 'unauthenticated') return
-    setWorldAuthLoading(true)
-    setWorldAuthFailed(false)
-    setWorldAppVersionOk(true)
-    try {
-      if (!MiniKit.isInstalled()) {
-        throw new Error('World App not detected. Please open in World App.')
-      }
-      const res = await fetch('/api/nonce')
-      if (!res.ok) throw new Error('Failed to get nonce')
-      const { nonce } = await res.json()
-      if (!nonce) throw new Error('No nonce from server')
-      const { commandPayload, finalPayload } = await MiniKit.commandsAsync.walletAuth({
-        nonce,
-        requestId: '0x' + Math.random().toString(16).substr(2, 8),
-        expirationTime: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
-        notBefore: new Date(Date.now() - 24 * 60 * 60 * 1000),
-        statement: 'Sign in to XynapseAI with your World wallet.',
-      })
-      if (finalPayload.status === 'error') {
-        if (
-          finalPayload.error?.includes('unavailable') ||
-          finalPayload.error?.includes('install')
-        ) {
-          setWorldAppVersionOk(false)
-          throw new Error('Wallet Auth unavailable. Please update World App to v2.8.79+ and retry.')
-        }
-        throw new Error(finalPayload.error || 'Wallet auth failed')
-      }
-      const { message, signature } = finalPayload
-      const verifyRes = await fetch('/api/complete-siwe', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ payload: finalPayload, nonce }),
-      })
-      const verifyData = await verifyRes.json()
-      if (!verifyRes.ok || !verifyData.isValid) {
-        throw new Error(verifyData.message || 'SIWE verification failed')
-      }
-      const result = await signIn('world', {
-        redirect: false,
-        message,
-        signature,
-        callbackUrl: '/dashboard',
-      })
-      if (result?.error) throw new Error(result.error || 'Auth failed')
-      setAuthSuccess(true)
-      await update()
-    } catch (err) {
-      safeError('World quickauth fail:', err)
-      toast.error(`World Auth error: ${err.message}`)
-      setWorldAuthFailed(true)
-    } finally {
-      setWorldAuthLoading(false)
-    }
-  }, [status, signIn, update])
-
-  useEffect(() => {
-    if (isWorldMiniApp && status === 'unauthenticated' && !session && !worldAuthLoading) {
-      handleWorldQuickAuth()
-    }
-  }, [isWorldMiniApp, status, session, worldAuthLoading, handleWorldQuickAuth])
-
-  useEffect(() => {
-    if (isWorldMiniApp) {
-      safeLog('World Mini App detected. Checking readiness...')
-      const checkReady = setInterval(() => {
-        if (window.MiniKit?.ready) {
-          safeLog('MiniKit ready')
-          clearInterval(checkReady)
-        }
-      }, 500)
-      return () => clearInterval(checkReady)
-    }
-  }, [isWorldMiniApp])
+  const attemptedAuthRef = useRef(false)
 
   const handleAddMiniApp = async () => {
     if (typeof sdk === 'undefined' || !sdk.actions?.addMiniApp) return
@@ -843,23 +740,27 @@ function DashboardInner() {
     }
   }
 
+  // ====================== useUserData (không còn World) ======================
+  const { userData, loading, error } = useUserData(
+    session,
+    csrfToken,
+    setIsAnalyzing,
+  )
+
   if (
     !isMounted ||
     !providers ||
     status === 'loading' ||
-    (miniAppAuthLoading && !isBaseApp) ||
-    worldAuthLoading
+    (miniAppAuthLoading && !isBaseApp)
   ) {
     return (
       <div className="h-screen w-screen flex items-center justify-center bg-black text-white">
         <LoadingOverlay
           isLoading={true}
           message={
-            isWorldMiniApp
-              ? 'Authenticating with World...'
-              : isMiniApp && !isBaseApp
-                ? 'Authenticating with Farcaster...'
-                : 'Loading dashboard...'
+            isMiniApp && !isBaseApp
+              ? 'Authenticating with Farcaster...'
+              : 'Loading dashboard...'
           }
           isMobile={typeof window !== 'undefined' && window.innerWidth <= 640}
         />
@@ -873,7 +774,6 @@ function DashboardInner() {
       requiresAuth &&
       !authSuccess &&
       !miniAppAuthFailed &&
-      !worldAuthFailed &&
       !baseAuthFailed) ||
     (isBaseApp && status === 'unauthenticated' && !authSuccess)
 
@@ -935,45 +835,6 @@ function DashboardInner() {
                       </motion.p>
                       <button
                         onClick={handleMiniAppQuickAuth}
-                        className="w-full px-4 py-2.5 border-2 border-white/15 bg-white/10 text-white rounded-2xl text-sm font-semibold transition-all duration-300 hover:border-white/30 hover:bg-white/20 flex items-center justify-center"
-                      >
-                        <MatrixHoverEffect text="Retry Authentication" hoverColor="#FFFFFF" />
-                      </button>
-                    </motion.div>
-                  </motion.div>
-                ) : isWorldMiniApp && worldAuthFailed ? (
-                  <motion.div
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ duration: 0.8, ease: 'easeOut' }}
-                    className="w-full h-full p-4 md:p-0 flex items-center justify-center text-white font-satoshi relative"
-                  >
-                    <motion.div
-                      initial={{ opacity: 0, y: 20 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      transition={{ duration: 0.5, ease: 'easeOut' }}
-                      className="relative z-20 bg-black/60 backdrop-blur-xs p-6 md:p-10 border border-white/15 rounded-lg max-w-sm w-full mx-4 flex flex-col items-center shadow-2xl shadow-black/50"
-                    >
-                      <motion.h1
-                        initial={{ opacity: 0, y: -10 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        transition={{ duration: 0.5, delay: 0.2 }}
-                        className="text-xl md:text-3xl font-bold text-white uppercase mb-3 text-center tracking-wide"
-                      >
-                        Authentication Failed
-                      </motion.h1>
-                      <motion.p
-                        initial={{ opacity: 0, y: -10 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        transition={{ duration: 0.5, delay: 0.3 }}
-                        className="text-[11px] md:text-xs text-gray-500 mb-6 text-center leading-relaxed"
-                      >
-                        {worldAppVersionOk
-                          ? 'World Auth failed. Please try again or contact support.'
-                          : 'Please update World App to v2.8.79 or higher.'}
-                      </motion.p>
-                      <button
-                        onClick={handleWorldQuickAuth}
                         className="w-full px-4 py-2.5 border-2 border-white/15 bg-white/10 text-white rounded-2xl text-sm font-semibold transition-all duration-300 hover:border-white/30 hover:bg-white/20 flex items-center justify-center"
                       >
                         <MatrixHoverEffect text="Retry Authentication" hoverColor="#FFFFFF" />
@@ -1049,7 +910,7 @@ function DashboardInner() {
                         </motion.p>
                         <button
                           onClick={handleBaseSIWEAuth}
-                          disabled={miniAppAuthLoading || worldAuthLoading}
+                          disabled={miniAppAuthLoading}
                           className="w-full px-4 py-2.5 border border-white/80 bg-transparent text-white/80 rounded-sm text-sm font-semibold transition-all duration-300 hover:border-white/30 hover:bg-white/20 flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed"
                         >
                           {miniAppAuthLoading ? (
@@ -1113,44 +974,42 @@ function DashboardInner() {
                         >
                           Access your dashboard with secure authentication.
                         </motion.p>
-                        {!isWorldMiniApp && (
-                          <>
-                            <form onSubmit={handleEmailSignIn} className="w-full space-y-4">
-                              <input
-                                type="email"
-                                value={email}
-                                onChange={(e) => !emailSent && setEmail(e.target.value)}
-                                placeholder="Enter your email"
-                                className="w-full px-4 py-2.5 bg-black/60 border border-white/15 rounded-lg text-gray-500 text-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-white/30 transition-all duration-300"
-                                required
-                                disabled={sendingEmail || emailSent}
-                              />
-                              <button
-                                type="submit"
-                                disabled={sendingEmail || emailSent}
-                                className="w-full px-4 py-2.5 bg-white/90 text-black rounded-lg text-sm font-semibold transition-all duration-300 hover:bg-white/70 disabled:opacity-60 disabled:cursor-not-allowed flex items-center justify-center"
-                              >
-                                {sendingEmail ? (
-                                  <>Sending…</>
-                                ) : emailSent ? (
-                                  <>Sent</>
-                                ) : (
-                                  <MatrixHoverEffect text="Sign in with Email" hoverColor="#FFFFFF" />
-                                )}
-                              </button>
-                              {emailSent && (
-                                <p className="text-center text-[10px] text-emerald-400/80 mt-2">
-                                  Please check your inbox and spam folder!
-                                </p>
+                        <>
+                          <form onSubmit={handleEmailSignIn} className="w-full space-y-4">
+                            <input
+                              type="email"
+                              value={email}
+                              onChange={(e) => !emailSent && setEmail(e.target.value)}
+                              placeholder="Enter your email"
+                              className="w-full px-4 py-2.5 bg-black/60 border border-white/15 rounded-lg text-gray-500 text-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-white/30 transition-all duration-300"
+                              required
+                              disabled={sendingEmail || emailSent}
+                            />
+                            <button
+                              type="submit"
+                              disabled={sendingEmail || emailSent}
+                              className="w-full px-4 py-2.5 bg-white/90 text-black rounded-lg text-sm font-semibold transition-all duration-300 hover:bg-white/70 disabled:opacity-60 disabled:cursor-not-allowed flex items-center justify-center"
+                            >
+                              {sendingEmail ? (
+                                <>Sending…</>
+                              ) : emailSent ? (
+                                <>Sent</>
+                              ) : (
+                                <MatrixHoverEffect text="Sign in with Email" hoverColor="#FFFFFF" />
                               )}
-                            </form>
-                            <div className="flex items-center justify-center my-4 w-full">
-                              <span className="text-gray-500 text-xs uppercase px-4">OR</span>
-                              <div className="flex-1 h-px bg-white/10"></div>
-                            </div>
-                          </>
-                        )}
-                        {providers?.google && !isWorldMiniApp && (
+                            </button>
+                            {emailSent && (
+                              <p className="text-center text-[10px] text-emerald-400/80 mt-2">
+                                Please check your inbox and spam folder!
+                              </p>
+                            )}
+                          </form>
+                          <div className="flex items-center justify-center my-4 w-full">
+                            <span className="text-gray-500 text-xs uppercase px-4">OR</span>
+                            <div className="flex-1 h-px bg-white/10"></div>
+                          </div>
+                        </>
+                        {providers?.google && (
                           <button
                             onClick={handleGoogleSignIn}
                             className="m-4 w-full px-4 py-2.5 bg-black/20 border border-white/25 rounded-lg text-white text-sm font-semibold flex items-center justify-center gap-3 transition-all duration-300 hover:bg-gray-800/30 hover:border-white/40"
@@ -1165,7 +1024,7 @@ function DashboardInner() {
                             <MatrixHoverEffect text="Sign in with Google" />
                           </button>
                         )}
-                        {!isWorldMiniApp && isWarpcastMobile && (
+                        {isWarpcastMobile && (
                           <SignInButton
                             onSuccess={handleFarcasterSuccess}
                             onError={(error) => {
@@ -1195,20 +1054,6 @@ function DashboardInner() {
                             />
                             Sign in with Farcaster
                           </SignInButton>
-                        )}
-                        {isWorldMiniApp && (
-                          <button
-                            onClick={handleWorldQuickAuth}
-                            className="w-full px-4 m-2 py-2.5 bg-black/20 border border-white/25 rounded-2xl text-white text-sm font-semibold flex items-center justify-center gap-3 transition-all duration-300 hover:bg-gray-800/30 hover:border-white/40"
-                          >
-                            <Image
-                              src="/logos/worldcoin-logo.png"
-                              alt="World Logo"
-                              width={20}
-                              height={20}
-                            />
-                            <MatrixHoverEffect text="Sign in with World" />
-                          </button>
                         )}
                         {error && (
                           <motion.div
@@ -1451,7 +1296,7 @@ function DashboardInner() {
                     </motion.p>
                     <button
                       onClick={handleBaseSIWEAuth}
-                      disabled={miniAppAuthLoading || worldAuthLoading}
+                      disabled={miniAppAuthLoading}
                       className="w-full px-4 py-2.5 border border-white/80 bg-transparent text-white/80 rounded-sm text-sm font-semibold transition-all duration-300 hover:border-white/30 hover:bg-white/20 flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                       {miniAppAuthLoading ? (
@@ -1659,9 +1504,7 @@ function DashboardInner() {
 export default function Dashboard() {
   return (
     <MiniAppProvider>
-      <WorldMiniKitProvider>
-        <DashboardInner />
-      </WorldMiniKitProvider>
+      <DashboardInner />
     </MiniAppProvider>
   )
 }
