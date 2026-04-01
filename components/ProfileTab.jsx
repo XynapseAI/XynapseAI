@@ -2571,7 +2571,7 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
           transition={{ duration: 0.5, delay: 0.2 }}
         >
           <div className="border-b border-white/15 bg-black/50 rounded-t-xl flex h-[32px] sm:h-[40px] overflow-hidden">
-            {['profile', 'genesis', 'tasks', 'leaderboard'].map((tab) => {
+            {['profile'].map((tab) => {
               const isActive = activeTab === tab
               return (
                 <motion.button
@@ -2610,7 +2610,7 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
                   {renderProfileSection()}
                 </motion.div>
               )}
-              {activeTab === 'tasks' && (
+              {/* {activeTab === 'tasks' && (
                 <motion.div
                   key="tasks"
                   className="h-full"
@@ -2642,7 +2642,7 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
                 >
                   {renderBadgeSection()}
                 </motion.div>
-              )}
+              )} */}
             </AnimatePresence>
           </div>
         </motion.div>

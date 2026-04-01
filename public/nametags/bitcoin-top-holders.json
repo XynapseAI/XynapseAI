@@ -2617,7 +2617,7 @@
   },
   "blackrock-ibit": {
     "Address": "blackrock-ibit",
-    "Balance": 775420.1,
+    "Balance": 782293.4,
     "Labels": {
       "bitcoin": {
         "Name Tag": "iShares Bitcoin Trust (Blackrock)",
@@ -2629,7 +2629,7 @@
   },
   "fidelity-fbtc": {
     "Address": "fidelity-fbtc",
-    "Balance": 202708.3,
+    "Balance": 187904.8,
     "Labels": {
       "bitcoin": {
         "Name Tag": "Fidelity Wise Origin Bitcoin Fund",
@@ -2641,7 +2641,7 @@
   },
   "grayscale": {
     "Address": "grayscale",
-    "Balance": 166481.4,
+    "Balance": 154710.2,
     "Labels": {
       "bitcoin": {
         "Name Tag": "Grayscale Bitcoin Trust",
@@ -2653,7 +2653,7 @@
   },
   "grayscale-mini": {
     "Address": "grayscale-mini",
-    "Balance": 48782.1,
+    "Balance": 51673.2,
     "Labels": {
       "bitcoin": {
         "Name Tag": "Grayscale Bitcoin Mini Trust",
@@ -2665,7 +2665,7 @@
   },
   "21shares-arkb": {
     "Address": "21shares-arkb",
-    "Balance": 37612,
+    "Balance": 35230,
     "Labels": {
       "bitcoin": {
         "Name Tag": "ARK 21Shares Bitcoin ETF",
@@ -2677,7 +2677,7 @@
   },
   "bitwise-bitb": {
     "Address": "bitwise-bitb",
-    "Balance": 38685.4,
+    "Balance": 37573.6,
     "Labels": {
       "bitcoin": {
         "Name Tag": "Bitwise Bitcoin ETF",
@@ -2689,7 +2689,7 @@
   },
   "vaneck-hodl": {
     "Address": "vaneck-hodl",
-    "Balance": 16304.6,
+    "Balance": 17004.6,
     "Labels": {
       "bitcoin": {
         "Name Tag": "Vaneck Bitcoin Trust",
@@ -2701,7 +2701,7 @@
   },
   "franklin-ezbc": {
     "Address": "franklin-ezbc",
-    "Balance": 5843.4,
+    "Balance": 6302.8,
     "Labels": {
       "bitcoin": {
         "Name Tag": "Franklin Bitcoin ETF",
@@ -2713,7 +2713,7 @@
   },
   "valkyrie-brrr": {
     "Address": "valkyrie-brrr",
-    "Balance": 5767,
+    "Balance": 6301.2,
     "Labels": {
       "bitcoin": {
         "Name Tag": "Valkyrie Bitcoin Fund",
@@ -2737,7 +2737,7 @@
   },
   "wisdomtree-btcw": {
     "Address": "wisdomtree-btcw",
-    "Balance": 1598,
+    "Balance": 2163,
     "Labels": {
       "bitcoin": {
         "Name Tag": "WisdomTree Bitcoin Fund",
