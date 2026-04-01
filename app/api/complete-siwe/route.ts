@@ -1,7 +1,7 @@
 // app/api/complete-siwe/route.ts
 import { cookies } from 'next/headers';
 import { NextRequest, NextResponse } from 'next/server';
-import { verifyMessage, parseSiweMessage } from 'viem';
+import { verifyMessage, parseSiweMessage, recoverAddress } from 'viem';
 import { logger } from '@/utils/serverLogger';
 
 export async function POST(req: NextRequest) {
@@ -13,7 +13,8 @@ export async function POST(req: NextRequest) {
       hasAddress: !!payload?.address,
       address: payload?.address || 'MISSING',
       messageLength: payload?.message?.length || 0,
-      nonce,
+      signatureLength: payload?.signature?.length || 0,
+      signaturePreview: payload?.signature?.substring(0, 30) + '...',
     });
 
     const cookieStore = await cookies();
@@ -25,31 +26,63 @@ export async function POST(req: NextRequest) {
     }
 
     let address = payload?.address;
+    let signature = payload?.signature || '';
 
-    // Fallback: nếu frontend cũ gửi thiếu address → tự parse từ message
+    // Normalize signature
+    if (!signature.startsWith('0x')) signature = '0x' + signature;
+
+    // Fallback: parse address từ message nếu frontend cũ gửi thiếu
     if (!address && payload?.message) {
       try {
         const parsed = parseSiweMessage(payload.message);
         address = parsed.address;
         logger.info('Parsed address from SIWE message (fallback)', { address });
-      } catch (parseErr) {
-        logger.error('Failed to parse SIWE message', { error: parseErr.message });
-      }
+      } catch (e) {}
     }
 
     if (!address) {
-      logger.error('No address in payload');
+      logger.error('No address provided');
       return NextResponse.json({ status: 'error', isValid: false, message: 'Missing address' }, { status: 400 });
     }
 
-    const isValid = await verifyMessage({
-      address: address as `0x${string}`,
-      message: payload.message,
-      signature: payload.signature,
-    });
+    // ====================== XỬ LÝ SIGNATURE KHÔNG CHUẨN ======================
+    let isValid = false;
+
+    if (signature.length === 130) {
+      // Trường hợp chuẩn (65 bytes)
+      isValid = await verifyMessage({
+        address: address as `0x${string}`,
+        message: payload.message,
+        signature: signature as `0x${string}`,
+      });
+    } else if (signature.length === 128) {
+      // Trường hợp 64 bytes (r,s) – phổ biến ở Coinbase Mini App
+      logger.warn('64-byte signature detected → trying v=27 and v=28');
+      
+      // Thử v = 27 (0x1b)
+      const sig27 = signature + '1b';
+      isValid = await verifyMessage({
+        address: address as `0x${string}`,
+        message: payload.message,
+        signature: sig27 as `0x${string}`,
+      });
+
+      if (!isValid) {
+        // Thử v = 28 (0x1c)
+        const sig28 = signature + '1c';
+        isValid = await verifyMessage({
+          address: address as `0x${string}`,
+          message: payload.message,
+          signature: sig28 as `0x${string}`,
+        });
+      }
+    } else {
+      logger.error('Unsupported signature length', { length: signature.length });
+      return NextResponse.json({ status: 'error', isValid: false, message: 'Invalid signature length' }, { status: 400 });
+    }
 
     if (!isValid) {
-      logger.error('SIWE signature verification failed');
+      logger.error('SIWE signature verification failed after all attempts');
       return NextResponse.json({ status: 'error', isValid: false, message: 'Invalid signature' }, { status: 400 });
     }
 
@@ -62,7 +95,6 @@ export async function POST(req: NextRequest) {
       message: error.message,
       stack: error.stack,
       name: error.name,
-      code: error.code,
     });
     return NextResponse.json({
       status: 'error',
