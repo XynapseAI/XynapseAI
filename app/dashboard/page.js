@@ -38,6 +38,9 @@ import { MiniKitProvider as WorldMiniKitProvider } from '@worldcoin/minikit-js/m
 import { preconnect } from 'react-dom' // NEW: For preconnect to Quick Auth server
 import { SafeArea } from '@coinbase/onchainkit/minikit'
 import { clearAllCaches } from '../../utils/indexedDB'
+import { createBaseAccountSDK } from '@base-org/account'
+import { SignInWithBaseButton } from '@base-org/account-ui/react'
+
 gsap.registerPlugin(MotionPathPlugin)
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:3000/api'
 const isDev = process.env.NODE_ENV === 'development'
@@ -400,6 +403,7 @@ function DashboardInner() {
   const [pendingInviteCode, setPendingInviteCode] = useState(null)
   const [sendingEmail, setSendingEmail] = useState(false)
   const [emailSent, setEmailSent] = useState(false)
+  const [baseAuthLoading, setBaseAuthLoading] = useState(false)
 
   useEffect(() => {
     console.log('Current pendingInviteCode:', pendingInviteCode)
@@ -714,6 +718,88 @@ function DashboardInner() {
       setWorldAuthLoading(false)
     }
   }, [status, signIn, update]) // deps: status (used inside), signIn/update (stable from hooks)
+
+  const handleBaseAccountAuth = useCallback(async () => {
+    if (status !== 'unauthenticated') return
+    setBaseAuthLoading(true)
+    setBaseAuthFailed(false)
+
+    try {
+      const baseSDK = createBaseAccountSDK({ appName: 'XynapseAI' })
+      const provider = baseSDK.getProvider()
+
+      // Nonce client-side (Base docs khuyến nghị)
+      const nonce = window.crypto.randomUUID().replace(/-/g, '')
+
+      // Switch sang Base chain (nếu cần)
+      try {
+        await provider.request({
+          method: 'wallet_switchEthereumChain',
+          params: [{ chainId: '0x2105' }],
+        })
+      } catch (e) {
+        // Nếu chưa có chain, Base App sẽ tự handle
+        safeWarn('Chain switch skipped or already on Base')
+      }
+
+      // Gọi wallet_connect với SIWE capability
+      const response = await provider.request({
+        method: 'wallet_connect',
+        params: [
+          {
+            version: '1',
+            capabilities: {
+              signInWithEthereum: {
+                nonce,
+                chainId: '0x2105',
+              },
+            },
+          },
+        ],
+      })
+
+      const account = response.accounts[0]
+      if (!account?.capabilities?.signInWithEthereum) {
+        throw new Error('Base Account không trả về SIWE signature')
+      }
+
+      const { message, signature } = account.capabilities.signInWithEthereum
+      const address = account.address
+
+      // Gọi NextAuth (sẽ dùng provider 'base' mới)
+      const result = await signIn('base', {
+        redirect: false,
+        message,
+        signature,
+        address,
+        callbackUrl: pendingInviteCode
+          ? `/dashboard?invite=${pendingInviteCode}`
+          : '/dashboard',
+      })
+
+      if (result?.error) throw new Error(result.error)
+
+      setAuthSuccess(true)
+      await update()
+      toast.success('Đăng nhập thành công với Base Account!', { position: 'top-center' })
+      if (typeof sdk !== 'undefined') sdk.actions.ready?.()
+    } catch (err) {
+      safeError('Base Account auth failed:', err)
+      const msg = err.message || err.toString()
+
+      if (msg.includes('not supported') || msg.includes('wallet_connect')) {
+        toast.warn('Base Account chưa hỗ trợ, chuyển sang Farcaster...')
+        setFallbackToManual(true) // fallback sang Farcaster
+        await handleMiniAppQuickAuth() // retry Farcaster
+      } else {
+        toast.error(`Base Account error: ${msg}`)
+        setBaseAuthFailed(true)
+      }
+    } finally {
+      setBaseAuthLoading(false)
+    }
+  }, [status, signIn, update, pendingInviteCode, handleMiniAppQuickAuth])
+
   const handleAddMiniApp = async () => {
     if (typeof sdk === 'undefined' || !sdk.actions || !sdk.actions.addMiniApp) {
       toast.error(
@@ -730,7 +816,7 @@ function DashboardInner() {
       safeError('Error adding Mini App:', error)
       toast.error(
         'Error adding Mini App: ' +
-          (error?.message || 'Please check your webhook setup in manifest.'),
+        (error?.message || 'Please check your webhook setup in manifest.'),
       )
     }
   }
@@ -1160,8 +1246,6 @@ function DashboardInner() {
                   className="w-full h-full p-4 md:p-0 flex items-center justify-center text-white font-satoshi relative"
                 >
                   {isBaseApp ? (
-                    // UPDATED: Special frame for Base App - Custom button calls handleMiniAppQuickAuth (trigger deeplink like old auto, but manual)
-                    // Force show this UI when unauthenticated in Base App
                     <motion.div
                       initial={{ opacity: 0, y: 20 }}
                       animate={{ opacity: 1, y: 0 }}
@@ -1182,29 +1266,19 @@ function DashboardInner() {
                         transition={{ duration: 0.5, delay: 0.3 }}
                         className="text-[11px] md:text-xs text-gray-500 mb-6 text-center leading-relaxed"
                       >
-                        Click the button below to start a secure login via Farcaster deeplink in the
-                        Base App.
+                        Click the button below to start a secure login via Base Account.
                       </motion.p>
-                      <button
-                        onClick={handleMiniAppQuickAuth} // UPDATED: Call SDK quickAuth → Deeplink to Warpcast like old auto
-                        disabled={miniAppAuthLoading || worldAuthLoading} // NEW: Disable during loading
-                        className="w-full px-4 py-2.5 border border-white/80 bg-transparent text-white/80 rounded-sm text-sm font-semibold transition-all duration-300 hover:border-white/30 hover:bg-white/20 flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed"
-                      >
-                        {miniAppAuthLoading ? (
-                          <BlinkingDots />
-                        ) : (
-                          <>
-                            <Image
-                              src="/logos/base.webp"
-                              alt="Base Logo"
-                              width={20}
-                              height={20}
-                              className="w-6 h-6 rounded-sm object-contain mr-2"
-                            />
-                            Login With Base App
-                          </>
-                        )}
-                      </button>
+
+                      {/* === BUTTON CHÍNH THỨC CỦA BASE === */}
+                      <SignInWithBaseButton
+                        onClick={handleBaseAccountAuth}
+                        disabled={baseAuthLoading}
+                        align="center"
+                        variant="solid"
+                        colorScheme="light"          // Hoặc "system" nếu muốn theo theme thiết bị
+                        className="w-full !text-sm !font-semibold"  // Giữ full width + style khớp app
+                      />
+
                       <motion.p
                         initial={{ opacity: 0, y: 10 }}
                         animate={{ opacity: 1, y: 0 }}
@@ -1212,17 +1286,11 @@ function DashboardInner() {
                         className="mt-4 text-[11px] text-gray-500 text-center leading-relaxed"
                       >
                         By clicking continue, you agree to the{' '}
-                        <button
-                          onClick={() => openModal('terms')}
-                          className="text-white hover:underline"
-                        >
+                        <button onClick={() => openModal('terms')} className="text-white hover:underline">
                           Terms of Service
                         </button>{' '}
                         and{' '}
-                        <button
-                          onClick={() => openModal('privacy')}
-                          className="text-white hover:underline"
-                        >
+                        <button onClick={() => openModal('privacy')} className="text-white hover:underline">
                           Privacy Policy
                         </button>
                         .

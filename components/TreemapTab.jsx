@@ -89,8 +89,6 @@ const SUPPORTED_CHAINS = [
   'solana',
   'tron',
   'bitcoin',
-  '143',
-  '999',
 ]
 const isValidDate = (date) => {
   return date instanceof Date && !isNaN(date)

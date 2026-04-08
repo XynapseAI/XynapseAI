@@ -596,6 +596,61 @@ export const authOptions = {
         }
       },
     }),
+    CredentialsProvider({
+      id: 'base',
+      name: 'Sign in with Base Account',
+      credentials: {
+        message: { label: 'SIWE Message', type: 'text' },
+        signature: { label: 'Signature', type: 'text' },
+        address: { label: 'Address', type: 'text' },
+      },
+      async authorize(credentials) {
+        try {
+          if (!credentials.message || !credentials.signature) {
+            throw new Error('Missing credentials for Base Account')
+          }
+
+          const verifiedAddress = await verifyWorldSiwe(credentials.message, credentials.signature)
+
+          // Kiểm tra address khớp (an toàn thêm)
+          if (credentials.address && credentials.address.toLowerCase() !== verifiedAddress.toLowerCase()) {
+            throw new Error('Address mismatch')
+          }
+
+          const fakeEmail = `${verifiedAddress}@base.local`
+          const existingUser = await customAdapter.getUserByWallet(verifiedAddress)
+
+          if (existingUser) {
+            await customAdapter.updateWorldUser(existingUser.id, verifiedAddress) // reuse function (đã set wallet_address)
+            return existingUser
+          }
+
+          const newUser = await customAdapter.createUser({
+            id: uuidv4(),
+            email: fakeEmail,
+            profile_picture: null,
+            google_name: verifiedAddress.slice(0, 6) + '...' + verifiedAddress.slice(-4),
+            email_verified: true,
+            wallet_address: verifiedAddress,
+          })
+
+          await query(
+            `INSERT INTO accounts (userId, type, provider, providerAccountId)
+         VALUES ($1, $2, $3, $4)
+         ON CONFLICT (provider, providerAccountId) DO NOTHING`,
+            [newUser.id, 'credentials', 'base', verifiedAddress]
+          )
+
+          await query(`UPDATE users SET wallet_address = $1 WHERE id = $2`, [verifiedAddress, newUser.id])
+
+          logger.info('Base Account user created/authorized', { address: verifiedAddress })
+          return newUser
+        } catch (err) {
+          logger.error('Base authorize error', { error: err.message })
+          return null
+        }
+      },
+    }),
   ],
   callbacks: {
     async signIn({ user, account, profile }) {
@@ -806,6 +861,10 @@ export const authOptions = {
             user.id = userId.toString()
             return true
           }
+        } else if (account.provider === 'base') {
+          user.id = account.providerAccountId // address
+          logger.info('Base Account sign-in successful', { address: user.id })
+          return true
         }
 
         logger.error('Sign-in failed: Unsupported provider', {
