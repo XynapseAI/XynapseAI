@@ -44,58 +44,45 @@ async function verifyFarcasterJwt(token, req) {
   }
 }
 
-async function verifyWorldSiwe(messageStr, signature) {
+// === THAY TOÀN BỘ HÀM verifyWorldSiwe BẰNG HÀM NÀY ===
+async function verifySiwe(messageStr, signature) {
   try {
     const message = new SiweMessage(messageStr)
-    logger.info('World SIWE input details', {
+    logger.info('SIWE verify started', {
       chainId: message.chainId,
       address: message.address?.toLowerCase(),
-      signaturePreview: signature.substring(0, 10) + '...' + signature.slice(-10),
-      messagePreview: messageStr.substring(0, 50) + '...',
+      signaturePreview: signature.substring(0, 10) + '...',
     })
 
-    //standard ECDSA verify
-    let valid = false
+    // 1. Thử verify ECDSA chuẩn (EOA)
     try {
-      valid = await message.verify({ signature })
-      logger.info('Standard SIWE verify result', { valid })
-    } catch (standardErr) {
-      logger.warn('Standard SIWE verify failed (expected for smart wallet)', {
-        error: standardErr.message,
-      })
-    }
-
-    if (valid) {
-      const allowedChains = [10, 8453, 480] // Optimism, Base, World
+      const valid = await message.verify({ signature })
+      logger.info('✅ SIWE ECDSA verified successfully')
+      const allowedChains = [10, 8453, 480]
       if (!allowedChains.includes(Number(message.chainId))) {
-        throw new Error(`Invalid chainId: expected ${allowedChains.join('/')}`)
+        throw new Error(`Invalid chainId: ${message.chainId}`)
       }
-      const address = message.address.toLowerCase()
-      logger.info('World SIWE verified (ECDSA)', { address, chainId: message.chainId })
-      return address
+      return message.address.toLowerCase()
+    } catch (standardErr) {
+      logger.warn('ECDSA failed (expected for smart account)', { error: standardErr.message })
     }
 
-    // Fallback EIP-1271 smart wallet
-    logger.info('Fallback to EIP-1271 verification...')
+    // 2. Fallback EIP-1271 cho smart account (Base Account, World...)
+    logger.info('Trying EIP-1271 verification for smart account...')
     const chainId = Number(message.chainId)
     let chainConfig
 
-    if (chainId === 10) {
-      chainConfig = chains.optimism // RPC: https://mainnet.optimism.io
-    } else if (chainId === 8453) {
-      chainConfig = chains.base // RPC: https://mainnet.base.org
-    } else if (chainId === 480) {
+    if (chainId === 8453) chainConfig = chains.base
+    else if (chainId === 10) chainConfig = chains.optimism
+    else if (chainId === 480) {
       chainConfig = {
         id: 480,
         name: 'World Chain',
         nativeCurrency: { decimals: 18, name: 'Ether', symbol: 'ETH' },
-        rpcUrls: {
-          default: { http: ['https://worldchain-mainnet.g.alchemy.com/public'] },
-        },
-        blockExplorers: { default: { name: 'WorldScan', url: 'https://worldscan.org' } },
+        rpcUrls: { default: { http: ['https://worldchain-mainnet.g.alchemy.com/public'] } },
       }
     } else {
-      throw new Error(`Unsupported chainId: ${chainId}. Expected 10/8453/480.`)
+      throw new Error(`Unsupported chainId: ${chainId}`)
     }
 
     const publicClient = createPublicClient({
@@ -105,16 +92,10 @@ async function verifyWorldSiwe(messageStr, signature) {
 
     const address = message.address.toLowerCase()
     const preparedMessage = message.prepareMessage()
-    const messageHash = hashMessage(preparedMessage) // '0x...' hex
-
-    if (!messageHash.startsWith('0x') || !signature.startsWith('0x')) {
-      throw new Error(
-        `Invalid hex format: messageHash=${messageHash.substring(0, 10)}..., signature=${signature.substring(0, 10)}...`,
-      )
-    }
+    const messageHash = hashMessage(preparedMessage)
 
     const isValidSig = await publicClient.readContract({
-      address: address,
+      address,
       abi: [
         {
           name: 'isValidSignature',
@@ -133,17 +114,16 @@ async function verifyWorldSiwe(messageStr, signature) {
 
     const MAGIC_VALUE = '0x1626ba7e'
     if (isValidSig.toLowerCase() !== MAGIC_VALUE) {
-      throw new Error(`Invalid EIP-1271 sig. Got: ${isValidSig}, expected: ${MAGIC_VALUE}`)
+      throw new Error(`EIP-1271 failed. Got: ${isValidSig}, expected: ${MAGIC_VALUE}`)
     }
 
-    logger.info('World SIWE verified (EIP-1271)', { address, chainId })
+    logger.info('✅ EIP-1271 verified successfully for smart account')
     return address
   } catch (error) {
-    logger.error('World SIWE verify failed (detailed)', {
+    logger.error('SIWE verification failed (chi tiết)', {
       error: error.message,
       stack: error.stack,
-      chainId: new SiweMessage(messageStr).chainId,
-      address: new SiweMessage(messageStr).address,
+      messageStrPreview: messageStr.substring(0, 100) + '...',
     })
     throw error
   }
@@ -560,7 +540,7 @@ export const authOptions = {
           }
 
           // Verify SIWE
-          const address = await verifyWorldSiwe(credentials.message, credentials.signature)
+          const address = await verifySiwe(credentials.message, credentials.signature)
 
           const fakeEmail = `${address}@world.local`
           const existingUser = await customAdapter.getUserByWallet(address)
@@ -610,9 +590,9 @@ export const authOptions = {
             throw new Error('Missing credentials for Base Account')
           }
 
-          const verifiedAddress = await verifyWorldSiwe(credentials.message, credentials.signature)
+          const verifiedAddress = await verifySiwe(credentials.message, credentials.signature)
 
-          // Kiểm tra address khớp (an toàn thêm)
+          // Kiểm tra address khớp
           if (credentials.address && credentials.address.toLowerCase() !== verifiedAddress.toLowerCase()) {
             throw new Error('Address mismatch')
           }
@@ -621,7 +601,7 @@ export const authOptions = {
           const existingUser = await customAdapter.getUserByWallet(verifiedAddress)
 
           if (existingUser) {
-            await customAdapter.updateWorldUser(existingUser.id, verifiedAddress) // reuse function (đã set wallet_address)
+            await customAdapter.updateWorldUser(existingUser.id, verifiedAddress)
             return existingUser
           }
 
@@ -646,7 +626,7 @@ export const authOptions = {
           logger.info('Base Account user created/authorized', { address: verifiedAddress })
           return newUser
         } catch (err) {
-          logger.error('Base authorize error', { error: err.message })
+          logger.error('Base authorize error (chi tiết)', { error: err.message, stack: err.stack })
           return null
         }
       },

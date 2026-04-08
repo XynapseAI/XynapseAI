@@ -728,21 +728,19 @@ function DashboardInner() {
       const baseSDK = createBaseAccountSDK({ appName: 'XynapseAI' })
       const provider = baseSDK.getProvider()
 
-      // Nonce client-side (Base docs khuyến nghị)
       const nonce = window.crypto.randomUUID().replace(/-/g, '')
 
-      // Switch sang Base chain (nếu cần)
+      // Switch chain
       try {
         await provider.request({
           method: 'wallet_switchEthereumChain',
           params: [{ chainId: '0x2105' }],
         })
       } catch (e) {
-        // Nếu chưa có chain, Base App sẽ tự handle
-        safeWarn('Chain switch skipped or already on Base')
+        safeWarn('Chain switch skipped')
       }
 
-      // Gọi wallet_connect với SIWE capability
+      // === GỌI WALLET_CONNECT VỚI KIỂM TRA LỖI RÕ RÀNG ===
       const response = await provider.request({
         method: 'wallet_connect',
         params: [
@@ -758,15 +756,24 @@ function DashboardInner() {
         ],
       })
 
-      const account = response.accounts[0]
-      if (!account?.capabilities?.signInWithEthereum) {
-        throw new Error('Base Account không trả về SIWE signature')
+      safeLog('Base wallet_connect full response:', response) // ← Quan trọng để debug
+
+      const account = response.accounts?.[0]
+      if (!account) {
+        throw new Error('No account returned from wallet_connect')
       }
 
-      const { message, signature } = account.capabilities.signInWithEthereum
+      const capability = account.capabilities?.signInWithEthereum
+      if (!capability || typeof capability.message !== 'string' || typeof capability.signature !== 'string') {
+        // Wallet trả về error thay vì SIWE
+        safeError('Invalid capability returned:', capability)
+        throw new Error('Base Account rejected the sign-in request. Please make sure you are using Coinbase Wallet with Base Account enabled.')
+      }
+
+      const { message, signature } = capability
       const address = account.address
 
-      // Gọi NextAuth (sẽ dùng provider 'base' mới)
+      // Gọi NextAuth
       const result = await signIn('base', {
         redirect: false,
         message,
@@ -781,16 +788,16 @@ function DashboardInner() {
 
       setAuthSuccess(true)
       await update()
-      toast.success('Đăng nhập thành công với Base Account!', { position: 'top-center' })
-      if (typeof sdk !== 'undefined') sdk.actions.ready?.()
-    } catch (err) {
-      safeError('Base Account auth failed:', err)
-      const msg = err.message || err.toString()
+      toast.success('✅ Đăng nhập thành công với Base Account!', { position: 'top-center' })
 
-      if (msg.includes('not supported') || msg.includes('wallet_connect')) {
-        toast.warn('Base Account chưa hỗ trợ, chuyển sang Farcaster...')
-        setFallbackToManual(true) // fallback sang Farcaster
-        await handleMiniAppQuickAuth() // retry Farcaster
+    } catch (err) {
+      const msg = err.message || err.toString()
+      safeError('Base Account auth failed (chi tiết):', err)
+
+      if (msg.includes('rejected') || msg.includes('Base Account') || msg.includes('capability')) {
+        toast.error('Base Account yêu cầu Coinbase Wallet mobile. Đang chuyển sang Farcaster...', { autoClose: 5000 })
+        setFallbackToManual(true)
+        await handleMiniAppQuickAuth()
       } else {
         toast.error(`Base Account error: ${msg}`)
         setBaseAuthFailed(true)
