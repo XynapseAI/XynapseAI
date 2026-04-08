@@ -730,7 +730,7 @@ function DashboardInner() {
 
       const nonce = window.crypto.randomUUID().replace(/-/g, '')
 
-      // Switch chain
+      // 1. Switch sang Base chain
       try {
         await provider.request({
           method: 'wallet_switchEthereumChain',
@@ -740,38 +740,60 @@ function DashboardInner() {
         safeWarn('Chain switch skipped')
       }
 
-      // === GỌI WALLET_CONNECT VỚI KIỂM TRA LỖI RÕ RÀNG ===
-      const response = await provider.request({
-        method: 'wallet_connect',
-        params: [
-          {
-            version: '1',
-            capabilities: {
-              signInWithEthereum: {
-                nonce,
-                chainId: '0x2105',
+      let message, signature, address
+
+      try {
+        // === THỬ CÁCH MỚI (wallet_connect) ===
+        const response = await provider.request({
+          method: 'wallet_connect',
+          params: [
+            {
+              version: '1',
+              capabilities: {
+                signInWithEthereum: { nonce, chainId: '0x2105' },
               },
             },
-          },
-        ],
-      })
+          ],
+        })
 
-      safeLog('Base wallet_connect full response:', response) // ← Quan trọng để debug
+        safeLog('✅ wallet_connect success:', response)
 
-      const account = response.accounts?.[0]
-      if (!account) {
-        throw new Error('No account returned from wallet_connect')
+        const account = response.accounts?.[0]
+        const capability = account?.capabilities?.signInWithEthereum
+
+        if (capability?.message && capability?.signature) {
+          message = capability.message
+          signature = capability.signature
+          address = account.address
+        } else {
+          throw new Error('no capability')
+        }
+      } catch (err) {
+        const errMsg = err.message || ''
+        safeWarn('wallet_connect failed:', errMsg)
+
+        if (errMsg.includes('not supported') || errMsg.includes('wallet_connect')) {
+          toast.info('Base App đang dùng chế độ tương thích cũ...', { autoClose: 2000 })
+        } else {
+          throw err // lỗi khác thì ném ra
+        }
+
+        // === FALLBACK CỔ ĐIỂN (eth_requestAccounts + personal_sign) ===
+        safeLog('🔄 Fallback sang classic SIWE...')
+        const accounts = await provider.request({ method: 'eth_requestAccounts' })
+        address = accounts[0]
+
+        // Tạo SIWE message thủ công (giống format Base mong đợi)
+        const domain = window.location.hostname
+        const siweMessage = `XynapseAI wants you to sign in with your Base Account.\n\nDomain: ${domain}\nNonce: ${nonce}\nChain ID: 8453\nIssued At: ${new Date().toISOString()}`
+
+        signature = await provider.request({
+          method: 'personal_sign',
+          params: [siweMessage, address],
+        })
+
+        message = siweMessage
       }
-
-      const capability = account.capabilities?.signInWithEthereum
-      if (!capability || typeof capability.message !== 'string' || typeof capability.signature !== 'string') {
-        // Wallet trả về error thay vì SIWE
-        safeError('Invalid capability returned:', capability)
-        throw new Error('Base Account rejected the sign-in request. Please make sure you are using Coinbase Wallet with Base Account enabled.')
-      }
-
-      const { message, signature } = capability
-      const address = account.address
 
       // Gọi NextAuth
       const result = await signIn('base', {
@@ -794,14 +816,9 @@ function DashboardInner() {
       const msg = err.message || err.toString()
       safeError('Base Account auth failed (chi tiết):', err)
 
-      if (msg.includes('rejected') || msg.includes('Base Account') || msg.includes('capability')) {
-        toast.error('Base Account yêu cầu Coinbase Wallet mobile. Đang chuyển sang Farcaster...', { autoClose: 5000 })
-        setFallbackToManual(true)
-        await handleMiniAppQuickAuth()
-      } else {
-        toast.error(`Base Account error: ${msg}`)
-        setBaseAuthFailed(true)
-      }
+      toast.error('Base Account tạm thời chưa hỗ trợ. Đang chuyển sang Farcaster...', { autoClose: 4000 })
+      setFallbackToManual(true)
+      await handleMiniAppQuickAuth()
     } finally {
       setBaseAuthLoading(false)
     }
