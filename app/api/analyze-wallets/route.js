@@ -68,7 +68,7 @@ function isAllowedOrigin(origin, referer) {
   }
 }
 
-// CORS wrapper (loại bỏ rate-limiting)
+// CORS wrapper
 const handlerWrapper = (handler) =>
   limiter.wrap(async (req) => {
     const ip = req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown';
@@ -80,7 +80,7 @@ const handlerWrapper = (handler) =>
       return NextResponse.json({ detail: 'Not allowed by CORS' }, { status: 403 });
     }
 
-    const body = await req.json(); // Đọc body một lần
+    const body = await req.json();
     const res = await handler(req, body);
     const allowOrigin = origin || (referer ? new URL(referer).origin : process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000');
     res.headers.set('Access-Control-Allow-Origin', allowOrigin);
@@ -89,7 +89,6 @@ const handlerWrapper = (handler) =>
     return res;
   });
 
-// Các hàm helper giữ nguyên từ file gốc
 async function withRetry(operation, maxAttempts = 3, delayMs = 1000) {
   for (let attempt = 1; attempt <= maxAttempts; attempt++) {
     try {
@@ -143,39 +142,9 @@ async function checkAdminStatus(uid) {
   }
 }
 
-async function saveWalletAnalysis(analysis) {
-  try {
-    await withRetry(() =>
-      query(
-        `INSERT INTO wallet_analysis (wallet, is_deposit, deposit_confidence_percentage, nametag, image, reason, metrics, gemini_analysis, last_analysis)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
-         ON CONFLICT (wallet) DO UPDATE SET
-           is_deposit = EXCLUDED.is_deposit,
-           deposit_confidence_percentage = EXCLUDED.deposit_confidence_percentage,
-           nametag = EXCLUDED.nametag,
-           image = EXCLUDED.image,
-           reason = EXCLUDED.reason,
-           metrics = EXCLUDED.metrics,
-           gemini_analysis = EXCLUDED.gemini_analysis,
-           last_analysis = EXCLUDED.last_analysis`,
-        [
-          analysis.wallet,
-          analysis.is_deposit,
-          analysis.deposit_confidence_percentage,
-          analysis.nametag,
-          analysis.image,
-          analysis.reason,
-          analysis.metrics,
-          analysis.gemini_analysis,
-          new Date(analysis.lastAnalysis),
-        ]
-      )
-    );
-    logger.info(`Saved wallet analysis for ${analysis.wallet} to PostgreSQL.`);
-  } catch (error) {
-    logger.error(`Error saving wallet analysis for ${analysis.wallet}: ${error.message}`, { stack: error.stack });
-  }
-}
+// ─────────────────────────────────────────────────────────────
+//  ĐÃ XÓA HÀM saveWalletAnalysis (không còn dùng wallet_analysis)
+// ─────────────────────────────────────────────────────────────
 
 async function saveLargeFlow(data) {
   if (!data.large_flows || data.large_flows.length === 0) {
@@ -221,7 +190,7 @@ async function readWalletFile() {
         address: wallet.address.toLowerCase(),
         name: wallet.name || 'Unknown',
       }));
-    logger.info(`Loaded ${validWallets.length} valid wallets: ${JSON.stringify(validWallets)}`);
+    logger.info(`Loaded ${validWallets.length} valid wallets`);
     return validWallets;
   } catch (error) {
     logger.error(`Error reading wallet file ${WALLET_FILE_PATH}: ${error.message}`, { stack: error.stack });
@@ -260,10 +229,7 @@ async function fetchGeminiAnalysis(walletAddress, txData, isDepositConfidence, c
     logger.info(`Calling Gemini for analysis of ${walletAddress}...`);
     const response = await axios.post(
       `${process.env.NEXTAUTH_URL}/api/gemini`,
-      {
-        prompt: prompt,
-        deepSearch: false,
-      },
+      { prompt: prompt, deepSearch: false },
       {
         headers: {
           'Content-Type': 'application/json',
@@ -279,40 +245,36 @@ async function fetchGeminiAnalysis(walletAddress, txData, isDepositConfidence, c
     );
 
     if (response.status !== 200 || !response.data.answer) {
-      logger.error(`Gemini API returned non-200 status or no answer: ${response.status}, ${JSON.stringify(response.data)}`);
+      logger.error(`Gemini API returned non-200 status or no answer: ${response.status}`);
       return 'No analysis returned from Gemini.';
     }
     return response.data.answer;
   } catch (e) {
-    logger.error(`Error fetching Gemini analysis for ${walletAddress}: ${e.message}`, { stack: e.stack, response: e.response?.data });
+    logger.error(`Error fetching Gemini analysis for ${walletAddress}: ${e.message}`);
     return 'Unable to fetch Gemini analysis.';
   }
 }
 
 async function identifyDepositWallet(walletAddress, primaryTargetWallet, chain = 'ethereum', enableGemini = true, currentEthPriceUsd = DEFAULT_ETH_PRICE_USD) {
   if (!isAddress(walletAddress) || !isAddress(primaryTargetWallet)) {
-    logger.error(`Invalid wallet address (${walletAddress}) or primary target wallet (${primaryTargetWallet}) provided for identifyDepositWallet.`);
+    logger.error(`Invalid wallet address or primary target wallet provided.`);
     return null;
   }
   if (!VALID_CHAINS.includes(chain)) {
-    logger.error(`Invalid chain: ${chain}. Supported chains: ${VALID_CHAINS.join(', ')}`);
+    logger.error(`Invalid chain: ${chain}`);
     return null;
-  }
-  if (typeof currentEthPriceUsd !== 'number' || currentEthPriceUsd <= 0) {
-    logger.warn(`Invalid eth_price_usd: ${currentEthPriceUsd}. Using default: ${DEFAULT_ETH_PRICE_USD}`);
-    currentEthPriceUsd = DEFAULT_ETH_PRICE_USD;
   }
 
   const lowerWalletAddress = walletAddress.toLowerCase();
   const lowerPrimaryTargetWallet = primaryTargetWallet.toLowerCase();
 
-  logger.info(`Analyzing potential deposit wallet: ${lowerWalletAddress} on ${chain} for sending to ${lowerPrimaryTargetWallet}...`);
+  logger.info(`Analyzing potential deposit wallet: ${lowerWalletAddress} on ${chain}...`);
 
   const txData = await fetchBlockchainData(lowerWalletAddress, 'transactions', false, 500, chain);
   let nametag = (await getNametag(lowerWalletAddress)) || 'Unknown';
 
   if (!txData || txData.length === 0) {
-    logger.info(`No transactions found for wallet ${lowerWalletAddress}. Skipping nametag assignment and PostgreSQL save.`);
+    logger.info(`No transactions found for wallet ${lowerWalletAddress}.`);
     return {
       wallet: lowerWalletAddress,
       is_deposit: false,
@@ -334,7 +296,6 @@ async function identifyDepositWallet(walletAddress, primaryTargetWallet, chain =
     try {
       return new Date(tx.block_time) > last30Days;
     } catch {
-      logger.warn(`Invalid block_time for tx in wallet ${lowerWalletAddress}: ${tx.block_time}. Skipping transaction.`);
       return false;
     }
   });
@@ -356,7 +317,7 @@ async function identifyDepositWallet(walletAddress, primaryTargetWallet, chain =
     confidenceScore += 20;
     reasonParts.push(`Few unique senders (${uniqueSendersToWallet}) to this wallet in 24h.`);
   } else if (uniqueSendersToWallet === 0) {
-    reasonParts.push('No incoming transactions in 24h to check unique senders.');
+    reasonParts.push('No incoming transactions in 24h.');
   } else {
     reasonParts.push(`Many unique senders (${uniqueSendersToWallet}) to this wallet in 24h.`);
   }
@@ -367,33 +328,33 @@ async function identifyDepositWallet(walletAddress, primaryTargetWallet, chain =
   const totalOutgoingTxs = recentTxs30d.filter((tx) => tx.from.toLowerCase() === lowerWalletAddress).length;
 
   if (outgoingToPrimaryTarget.length === 0) {
-    logger.info(`No outgoing transactions to primary wallet ${lowerPrimaryTargetWallet} for wallet ${lowerWalletAddress} in last 30 days. Skipping nametag assignment and PostgreSQL save.`);
+    logger.info(`No outgoing transactions to primary wallet ${lowerPrimaryTargetWallet}.`);
     return {
       wallet: lowerWalletAddress,
       is_deposit: false,
       deposit_confidence_percentage: confidenceScore,
       nametag: nametag,
       image: '/icons/default.webp',
-      reason: `No outgoing transactions sent back to target wallet ${lowerPrimaryTargetWallet} in last 30 days.`,
+      reason: `No outgoing transactions sent back to target wallet in last 30 days.`,
       metrics: {
         incoming_txs_24h: incomingTxs24h.length,
         unique_senders_to_wallet_24h: uniqueSendersToWallet,
         total_outgoing_txs_30d: totalOutgoingTxs,
-        outgoing_to_primary_target_30d: outgoingToPrimaryTarget.length,
+        outgoing_to_primary_target_30d: 0,
         unique_outgoing_destinations_30d: 0,
         has_complex_incoming_interaction_30d: false,
       },
-      gemini_analysis: 'Skipped due to no outgoing transactions to primary wallet in last 30 days.',
+      gemini_analysis: 'Skipped due to no outgoing transactions to primary wallet.',
       lastAnalysis: new Date().toISOString(),
     };
   }
 
   if (totalOutgoingTxs > 0 && outgoingToPrimaryTarget.length / totalOutgoingTxs >= 0.6) {
     confidenceScore += 30;
-    reasonParts.push(`Significant portion of outgoing transactions sent back to target wallet ${lowerPrimaryTargetWallet} in last 30 days.`);
+    reasonParts.push(`Significant portion of outgoing transactions sent back to target wallet.`);
   } else if (outgoingToPrimaryTarget.length > 0) {
     confidenceScore += 15;
-    reasonParts.push(`Some outgoing transactions sent back to target wallet ${lowerPrimaryTargetWallet} in last 30 days.`);
+    reasonParts.push(`Some outgoing transactions sent back to target wallet.`);
   }
 
   const hasComplexIncomingInteraction = recentTxs30d.some(
@@ -401,9 +362,9 @@ async function identifyDepositWallet(walletAddress, primaryTargetWallet, chain =
   );
   if (!hasComplexIncomingInteraction) {
     confidenceScore += 15;
-    reasonParts.push('No complex incoming smart contract interactions in last 30 days.');
+    reasonParts.push('No complex incoming smart contract interactions.');
   } else {
-    reasonParts.push('Has complex incoming smart contract interactions in last 30 days.');
+    reasonParts.push('Has complex incoming smart contract interactions.');
   }
 
   const nonContractOutgoingTxs30d = recentTxs30d.filter((tx) => tx.from.toLowerCase() === lowerWalletAddress);
@@ -411,12 +372,12 @@ async function identifyDepositWallet(walletAddress, primaryTargetWallet, chain =
 
   if (uniqueOutgoingDestinations === 1 && nonContractOutgoingTxs30d[0]?.to.toLowerCase() === lowerPrimaryTargetWallet) {
     confidenceScore += 15;
-    reasonParts.push('Sends exclusively to the primary target wallet in last 30 days.');
+    reasonParts.push('Sends exclusively to the primary target wallet.');
   } else if (uniqueOutgoingDestinations >= 1 && uniqueOutgoingDestinations <= 5) {
     confidenceScore += 5;
-    reasonParts.push(`Sends to few unique destinations (${uniqueOutgoingDestinations}) in last 30 days.`);
+    reasonParts.push(`Sends to few unique destinations (${uniqueOutgoingDestinations}).`);
   } else {
-    reasonParts.push(`Sends to many unique destinations (${uniqueOutgoingDestinations}) in last 30 days.`);
+    reasonParts.push(`Sends to many unique destinations (${uniqueOutgoingDestinations}).`);
   }
 
   const finalReason = reasonParts.join(' ');
@@ -425,11 +386,9 @@ async function identifyDepositWallet(walletAddress, primaryTargetWallet, chain =
 
   let geminiAnalysis = 'Gemini analysis skipped.';
   if (enableGemini && isDeposit && confidenceScore < GEMINI_CONFIDENCE_THRESHOLD) {
-    logger.info(`Wallet ${lowerWalletAddress} is a deposit wallet with confidence ${confidenceScore}% (< ${GEMINI_CONFIDENCE_THRESHOLD}%). Calling Gemini for analysis.`);
     geminiAnalysis = await fetchGeminiAnalysis(lowerWalletAddress, txData, confidenceScore, currentEthPriceUsd);
   } else if (isDeposit && confidenceScore >= GEMINI_CONFIDENCE_THRESHOLD) {
     geminiAnalysis = 'Gemini analysis skipped due to high confidence.';
-    logger.info(`Wallet ${lowerWalletAddress} is a deposit wallet with confidence ${confidenceScore}% (>= ${GEMINI_CONFIDENCE_THRESHOLD}%). Skipping Gemini analysis.`);
   }
 
   const metrics = {
@@ -453,12 +412,14 @@ async function identifyDepositWallet(walletAddress, primaryTargetWallet, chain =
     lastAnalysis: new Date().toISOString(),
   };
 
+  // ─────────────────────────────────────────────────────────────
+  // CHỈ LƯU VÀO BẢNG NAMETAGS (không còn wallet_analysis)
+  // ─────────────────────────────────────────────────────────────
   if (isDeposit && outgoingToPrimaryTarget.length > 0) {
     const primaryWallets = await readWalletFile();
-    logger.info(`Looking for primary wallet ${lowerPrimaryTargetWallet} in ${JSON.stringify(primaryWallets.map((w) => ({ address: w.address, name: w.name })))}`);
     const primaryWallet = primaryWallets.find((w) => w.address.toLowerCase() === lowerPrimaryTargetWallet);
+
     if (!primaryWallet) {
-      logger.error(`No primary wallet found for ${lowerPrimaryTargetWallet} in wallets.json`);
       const newNametagValue = `Unknown Deposit Wallet (Conf: ${confidenceScore.toFixed(0)}%)`;
       const newImage = '/icons/default.webp';
       await addNametag(lowerWalletAddress, {
@@ -473,7 +434,6 @@ async function identifyDepositWallet(walletAddress, primaryTargetWallet, chain =
       const shortName = primaryWallet.name.split(' ')[0];
       const newNametagValue = `${shortName} Deposit Wallet`;
       const newImage = `/icons/${shortName.toLowerCase().replace(/[^a-z0-9]/g, '')}.webp`;
-      logger.info(`Assigning nametag ${newNametagValue} and image ${newImage} to ${lowerWalletAddress}`);
       await addNametag(lowerWalletAddress, {
         name: newNametagValue,
         description: `Automatically detected as a deposit wallet sending to ${primaryWallet.name} wallet.`,
@@ -483,9 +443,9 @@ async function identifyDepositWallet(walletAddress, primaryTargetWallet, chain =
       result.nametag = newNametagValue;
       result.image = newImage;
     }
-    await saveWalletAnalysis(result);
+    // ← ĐÃ XÓA saveWalletAnalysis(result);
   } else {
-    logger.info(`Wallet ${lowerWalletAddress} does not meet criteria (is_deposit: ${isDeposit}, outgoing_to_primary_target_30d: ${outgoingToPrimaryTarget.length}). Skipping nametag assignment and PostgreSQL save.`);
+    logger.info(`Wallet ${lowerWalletAddress} does not meet deposit criteria → no nametag saved.`);
   }
 
   return result;
@@ -518,7 +478,7 @@ export const POST = handlerWrapper(async (req, body) => {
   let isAuthorized = false;
 
   try {
-    session = await auth(); // Không truyền req
+    session = await auth();
   } catch (error) {
     logger.error(`Error during auth: ${error.message}`, { stack: error.stack, ip });
   }
@@ -528,13 +488,13 @@ export const POST = handlerWrapper(async (req, body) => {
     if (isAdminUser) {
       isAuthorized = true;
     } else {
-      logger.warn(`Forbidden access attempt to analyze-wallets API by non-admin user: ${session.user.id}`, { ip });
+      logger.warn(`Forbidden access attempt by non-admin user: ${session.user.id}`, { ip });
       return NextResponse.json({ detail: 'Forbidden: Admin access required.' }, { status: 403 });
     }
   } else if (apiKey) {
     isAuthorized = true;
   } else {
-    logger.warn('Unauthorized access attempt to analyze-wallets API (no session or API key)', { ip });
+    logger.warn('Unauthorized access attempt (no session or API key)', { ip });
     return NextResponse.json({ detail: 'Unauthorized: Please log in or provide a valid API key.' }, { status: 401 });
   }
 
@@ -548,43 +508,30 @@ export const POST = handlerWrapper(async (req, body) => {
     if (!action) {
       return NextResponse.json({ error: 'Action is required.' }, { status: 400 });
     }
+
     const currentEthPriceUsd = typeof eth_price_usd === 'number' && eth_price_usd > 0 ? eth_price_usd : DEFAULT_ETH_PRICE_USD;
-    if (eth_price_usd !== currentEthPriceUsd) {
-      logger.warn(`Invalid eth_price_usd: ${eth_price_usd}. Using default: ${currentEthPriceUsd}`, { ip });
-    }
     if (!VALID_CHAINS.includes(chain)) {
       return NextResponse.json({ error: `Invalid chain: ${chain}. Supported chains: ${VALID_CHAINS.join(', ')}` }, { status: 400 });
     }
 
     if (action === 'identify') {
-      if (!wallet_address) {
-        return NextResponse.json({ error: "Wallet address is required for 'identify' action." }, { status: 400 });
-      }
+      if (!wallet_address) return NextResponse.json({ error: "Wallet address is required for 'identify' action." }, { status: 400 });
       const result = await identifyDepositWallet(wallet_address, primary_target_wallet || wallet_address, chain, true, currentEthPriceUsd);
       return NextResponse.json(result);
-    } else if (action === 'detect-large-flow') {
-      if (!wallet_address) {
-        return NextResponse.json({ error: "Wallet address is required for 'detect-large-flow' action." }, { status: 400 });
-      }
-      logger.info(`Detecting large flows for ${wallet_address} via API.`, { ip });
+    }
+
+    if (action === 'detect-large-flow') {
+      if (!wallet_address) return NextResponse.json({ error: "Wallet address is required for 'detect-large-flow' action." }, { status: 400 });
       const largeFlowResult = await detectLargeFlow(wallet_address, chain, LARGE_VALUE_THRESHOLD_USD, 500, currentEthPriceUsd);
-      if (largeFlowResult && largeFlowResult.large_flows && largeFlowResult.large_flows.length > 0) {
-        await saveLargeFlow({
-          source_wallet_scanned: wallet_address,
-          large_flows: largeFlowResult.large_flows,
-        });
-        logger.info(`Saved ${largeFlowResult.large_flows.length} large flows for ${wallet_address}.`, { ip });
-      } else {
-        logger.info(`No large flows detected for ${wallet_address}.`, { ip });
+      if (largeFlowResult?.large_flows?.length > 0) {
+        await saveLargeFlow({ source_wallet_scanned: wallet_address, large_flows: largeFlowResult.large_flows });
       }
       return NextResponse.json(largeFlowResult);
-    } else if (action === 'get-transactions') {
-      if (!wallet_address) {
-        return NextResponse.json({ error: "Wallet address is required for 'get-transactions' action." }, { status: 400 });
-      }
-      logger.info(`Fetching transactions for ${wallet_address} via API.`, { ip });
-      const txData = await fetchBlockchainData(wallet_address, 'transactions', false, 100, chain);
+    }
 
+    if (action === 'get-transactions') {
+      if (!wallet_address) return NextResponse.json({ error: "Wallet address is required." }, { status: 400 });
+      const txData = await fetchBlockchainData(wallet_address, 'transactions', false, 100, chain);
       const incomingTxs = txData
         .filter((tx) => tx.to.toLowerCase() === wallet_address.toLowerCase())
         .slice(0, 50)
@@ -596,7 +543,6 @@ export const POST = handlerWrapper(async (req, body) => {
           block_time: tx.block_time,
           type: 'incoming',
         }));
-
       const outgoingTxs = txData
         .filter((tx) => tx.from.toLowerCase() === wallet_address.toLowerCase())
         .slice(0, 50)
@@ -608,26 +554,25 @@ export const POST = handlerWrapper(async (req, body) => {
           block_time: tx.block_time,
           type: 'outgoing',
         }));
-
       return NextResponse.json({ incoming: incomingTxs, outgoing: outgoingTxs });
-    } else if (action === 'debug-wallets') {
+    }
+
+    if (action === 'debug-wallets') {
       const wallets = await readWalletFile();
       return NextResponse.json({ wallets });
-    } else if (action === 'debug-wallet-file') {
+    }
+
+    if (action === 'debug-wallet-file') {
       const absolutePath = path.resolve(process.env.WALLET_FILE_PATH);
       await fs.access(absolutePath, fs.constants.F_OK);
       const fileContent = await fs.readFile(absolutePath, 'utf-8');
-      logger.info(`Debug: Successfully read wallet file at ${absolutePath}. Content length: ${fileContent.length}`, { ip });
       const wallets = await readWalletFile();
       return NextResponse.json({ path: absolutePath, wallets });
-    } else {
-      return NextResponse.json(
-        { error: `Invalid action: ${action}. Supported actions: 'identify', 'detect-large-flow', 'get-transactions', 'debug-wallets', 'debug-wallet-file'.` },
-        { status: 400 }
-      );
     }
+
+    return NextResponse.json({ error: `Invalid action: ${action}` }, { status: 400 });
   } catch (error) {
-    logger.error(`Error in analyze-wallets API for action '${body.action}': ${error.message}`, { stack: error.stack, ip });
+    logger.error(`Error in analyze-wallets API: ${error.message}`, { stack: error.stack, ip });
     return NextResponse.json({ error: `An error occurred: ${error.message}` }, { status: 500 });
   }
 });
