@@ -1,7 +1,6 @@
 // cron-worker/index.js
 import 'dotenv/config';
 import { getHighVolumeWallets } from '../lib/analysisStorage.js';
-import { loadAllNametags } from '../lib/nametags.js';
 import { logger } from '../utils/serverLogger.js';
 import { query } from '../utils/postgres.js';
 import axios from 'axios';
@@ -29,6 +28,21 @@ if (!INTERNAL_API_TOKEN) {
   logger.error('INTERNAL_API_TOKEN is not defined in .env');
   process.exit(1);
 }
+
+// ==================== HÀM KIỂM TRA NAMETAG (KHÔNG GHI ĐÈ) ====================
+async function hasNametag(address) {
+  try {
+    const result = await query(
+      `SELECT 1 FROM nametags WHERE address = $1 LIMIT 1`,
+      [address.toLowerCase()]
+    );
+    return result.rows.length > 0;
+  } catch (error) {
+    logger.error(`Error checking nametag for ${address}: ${error.message}`);
+    return false;
+  }
+}
+// =====================================================================
 
 async function generateApiKey() {
   try {
@@ -100,7 +114,7 @@ async function readWalletFile() {
         address: wallet.address.toLowerCase(),
         name: wallet.name || 'Unknown',
       }));
-    logger.info(`Loaded ${validWallets.length} valid wallet addresses: ${validWallets.map(w => w.address).join(', ')}`);
+    logger.info(`Loaded ${validWallets.length} valid wallet addresses`);
     return validWallets;
   } catch (error) {
     logger.error(`Error reading wallet file ${WALLET_FILE_PATH}: ${error.message}`, { stack: error.stack });
@@ -272,6 +286,17 @@ async function runHighVolumeWalletAnalysis() {
     process.exit(1);
   }
 
+  // ==================== CLEANUP CACHE TỰ ĐỘNG (TIẾT KIỆM TÀI NGUYÊN RAILWAY) ====================
+  try {
+    const cleanupResult = await query(
+      `DELETE FROM blockchain_cache WHERE timestamp < NOW() - INTERVAL '12 hours'`
+    );
+    logger.info(`🧹 Cleaned up ${cleanupResult.rowCount || 0} old blockchain_cache entries (older than 12 hours)`);
+  } catch (cleanupError) {
+    logger.warn(`Failed to cleanup blockchain cache: ${cleanupError.message}`);
+  }
+  // ============================================================================================
+
   try {
     await fs.access(WALLET_FILE_PATH, fs.constants.F_OK);
     logger.info(`Wallet file exists at: ${WALLET_FILE_PATH}`);
@@ -321,7 +346,7 @@ async function runHighVolumeWalletAnalysis() {
         await savePendingWallets(remainingWallets);
       }
 
-      logger.info(`Selected ${walletsToAnalyze.length} deposit wallets to analyze: ${walletsToAnalyze.map(w => w.address).join(', ')}`);
+      logger.info(`Selected ${walletsToAnalyze.length} deposit wallets to analyze`);
     }
 
     if (walletsToAnalyze.length > 0) {
@@ -334,32 +359,39 @@ async function runHighVolumeWalletAnalysis() {
       for (const batch of batches) {
         const promises = batch.map(async (wallet) => {
           try {
-            const identifyPayload = {
-              action: 'identify',
-              wallet_address: wallet.address.toLowerCase(),
-              chain: 'ethereum',
-              primary_target_wallet: wallet.primaryWallet.toLowerCase(),
-              eth_price_usd: currentEthPrice,
-            };
-            const identifySignature = generateHmacSignature(identifyPayload, HMAC_SECRET);
+            // ==================== KIỂM TRA NAMETAG TRƯỚC KHI IDENTIFY ====================
+            if (await hasNametag(wallet.address)) {
+              logger.info(`✅ Wallet ${wallet.address} already has nametag → skipping identify (no overwrite)`);
+            } else {
+              const identifyPayload = {
+                action: 'identify',
+                wallet_address: wallet.address.toLowerCase(),
+                chain: 'ethereum',
+                primary_target_wallet: wallet.primaryWallet.toLowerCase(),
+                eth_price_usd: currentEthPrice,
+              };
+              const identifySignature = generateHmacSignature(identifyPayload, HMAC_SECRET);
 
-            logger.info(`Sending identify request for wallet ${wallet.address} (to ${wallet.primaryWalletName})`);
-            const identifyResponse = await withRetry(
-              () =>
-                axios.post(ANALYZE_WALLETS_API_URL, identifyPayload, {
-                  headers: {
-                    'Content-Type': 'application/json',
-                    'X-API-Key': apiKey,
-                    'X-HMAC-Signature': identifySignature,
-                    'User-Agent': CRON_USER_AGENT,
-                  },
-                  timeout: 120000, // 120 giây
-                }),
-              3,
-              3000
-            );
-            logger.info(`Identify response for wallet ${wallet.address}: ${JSON.stringify(identifyResponse.data)}`);
+              logger.info(`Sending identify request for wallet ${wallet.address}`);
+              const identifyResponse = await withRetry(
+                () =>
+                  axios.post(ANALYZE_WALLETS_API_URL, identifyPayload, {
+                    headers: {
+                      'Content-Type': 'application/json',
+                      'X-API-Key': apiKey,
+                      'X-HMAC-Signature': identifySignature,
+                      'User-Agent': CRON_USER_AGENT,
+                    },
+                    timeout: 120000,
+                  }),
+                3,
+                3000
+              );
+              logger.info(`Identify response for wallet ${wallet.address}: ${JSON.stringify(identifyResponse.data)}`);
+            }
+            // =====================================================================
 
+            // Luôn chạy detect-large-flow
             const largeFlowPayload = {
               action: 'detect-large-flow',
               wallet_address: wallet.address.toLowerCase(),
@@ -391,50 +423,49 @@ async function runHighVolumeWalletAnalysis() {
             if (apiError.response) {
               logger.error(`Response error: ${JSON.stringify(apiError.response.data)}`);
             }
-            return null;
           }
         });
         await Promise.all(promises);
-        await new Promise(resolve => setTimeout(resolve, 5000)); 
+        await new Promise(resolve => setTimeout(resolve, 5000));
       }
-    } else {
-      logger.info('No deposit wallets to analyze. Moving to high-volume wallets');
     }
 
     logger.info('Retrieving high-volume wallets');
     const highVolumeWallets = await getHighVolumeWallets('ethereum', 200, 100, 50, 500, 50);
-    if (highVolumeWallets.length === 0) {
-      logger.warn('No high-volume wallets found');
-    } else {
-      logger.info(`Found ${highVolumeWallets.length} high-volume wallets: ${highVolumeWallets.join(', ')}`);
-    }
 
     logger.info('Initiating analysis for high-volume wallets');
     for (const wallet of highVolumeWallets) {
       try {
-        const identifyPayload = {
-          action: 'identify',
-          wallet_address: wallet.toLowerCase(),
-          chain: 'ethereum',
-          primary_target_wallet: wallet.toLowerCase(),
-          eth_price_usd: currentEthPrice,
-        };
-        const identifySignature = generateHmacSignature(identifyPayload, HMAC_SECRET);
+        // ==================== KIỂM TRA NAMETAG TRƯỚC KHI IDENTIFY ====================
+        if (await hasNametag(wallet)) {
+          logger.info(`✅ High-volume wallet ${wallet} already has nametag → skipping identify (no overwrite)`);
+        } else {
+          const identifyPayload = {
+            action: 'identify',
+            wallet_address: wallet.toLowerCase(),
+            chain: 'ethereum',
+            primary_target_wallet: wallet.toLowerCase(),
+            eth_price_usd: currentEthPrice,
+          };
+          const identifySignature = generateHmacSignature(identifyPayload, HMAC_SECRET);
 
-        logger.info(`Sending identify request for high-volume wallet ${wallet}`);
-        const identifyResponse = await withRetry(() =>
-          axios.post(ANALYZE_WALLETS_API_URL, identifyPayload, {
-            headers: {
-              'Content-Type': 'application/json',
-              'X-API-Key': apiKey,
-              'X-HMAC-Signature': identifySignature,
-              'User-Agent': CRON_USER_AGENT,
-            },
-            timeout: 60000,
-          })
-        );
-        logger.info(`Identify response for high-volume wallet ${wallet}: ${JSON.stringify(identifyResponse.data)}`);
+          logger.info(`Sending identify request for high-volume wallet ${wallet}`);
+          const identifyResponse = await withRetry(() =>
+            axios.post(ANALYZE_WALLETS_API_URL, identifyPayload, {
+              headers: {
+                'Content-Type': 'application/json',
+                'X-API-Key': apiKey,
+                'X-HMAC-Signature': identifySignature,
+                'User-Agent': CRON_USER_AGENT,
+              },
+              timeout: 60000,
+            })
+          );
+          logger.info(`Identify response for high-volume wallet ${wallet}: ${JSON.stringify(identifyResponse.data)}`);
+        }
+        // =====================================================================
 
+        // Luôn chạy detect-large-flow
         const largeFlowPayload = {
           action: 'detect-large-flow',
           wallet_address: wallet.toLowerCase(),
