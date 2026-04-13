@@ -1,8 +1,10 @@
 'use client'
 import { useState, useEffect, useRef, useCallback, useMemo, lazy } from 'react' // REMOVED: Suspense for direct render to avoid delay
 import { useRouter, useSearchParams } from 'next/navigation'
-import { useAccount, useDisconnect, useSignMessage } from 'wagmi'
+import { useAccount, useDisconnect, useSignMessage, useConnect } from 'wagmi'
+import { coinbaseWallet } from 'wagmi/connectors'
 import { signIn, signOut, useSession, getProviders } from 'next-auth/react'
+import { SiweMessage } from 'siwe'
 import Header from '../../components/Header'
 import AITab from '../../components/AITab'
 import ProfileTab from '../../components/ProfileTab'
@@ -356,6 +358,7 @@ function DashboardInner() {
   const { isConnected: walletConnected, address: walletAddress } = useAccount()
   const { disconnect } = useDisconnect()
   const { signMessageAsync } = useSignMessage()
+  const { connect: connectWallet } = useConnect()
   const router = useRouter()
   const searchParams = useSearchParams()
   const [isMounted, setIsMounted] = useState(false)
@@ -386,8 +389,9 @@ function DashboardInner() {
   const [worldAuthFailed, setWorldAuthFailed] = useState(false) // NEW
   // NEW: Ref to prevent multi-attempt loop
   const attemptedAuthRef = useRef(false)
-  const [isBaseApp, setIsBaseApp] = useState(false) // NEW: State for Base App detection (from ref)
-  const [baseAuthFailed, setBaseAuthFailed] = useState(false) // NEW: Track if Base manual-auth failed (auto removed)
+  const [isBaseApp, setIsBaseApp] = useState(false)
+  const [baseAuthLoading, setBaseAuthLoading] = useState(false)
+  const [baseAuthFailed, setBaseAuthFailed] = useState(false)
   // NEW: Farcaster signIn hook for manual deeplink trigger
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const { signIn: farcasterSignIn } = useSignIn()
@@ -541,6 +545,64 @@ function DashboardInner() {
       if (typeof sdk !== 'undefined') sdk.actions.ready() // FIXED: Only call if SDK exists
     }
   }, [isSDKLoaded, context, miniAppUser, session, searchParams]) // ADD: searchParams to deps for force check
+
+  // FIXED & CLEAN: Base SIWE login - Ưu tiên Coinbase Wallet / Base Account
+  const handleBaseSiweAuth = useCallback(async () => {
+    if (status !== 'unauthenticated') return
+    setBaseAuthLoading(true)
+    setBaseAuthFailed(false)
+
+    try {
+      if (!walletConnected || !walletAddress) {
+        toast.info('Đang mở Coinbase Wallet / Base Account...', { position: 'top-center' })
+
+        const coinbaseConnector = coinbaseWallet({
+          appName: 'XynapseAI',
+          preference: 'smartWalletOnly',   // Ưu tiên Base Account
+        })
+
+        await connectWallet({ connector: coinbaseConnector })
+        await new Promise(resolve => setTimeout(resolve, 1500))
+      }
+
+      const nonceRes = await fetch('/api/nonce')
+      if (!nonceRes.ok) throw new Error('Failed to get nonce')
+      const { nonce } = await nonceRes.json()
+
+      const siweMessage = new SiweMessage({
+        domain: window.location.host,
+        address: walletAddress,
+        statement: 'Sign in to XynapseAI with your Base Account.',
+        uri: window.location.origin,
+        version: '1',
+        chainId: 8453,
+        nonce,
+      })
+
+      const messageStr = siweMessage.prepareMessage()
+      const signature = await signMessageAsync({ message: messageStr })
+
+      const result = await signIn('base', {
+        redirect: false,
+        message: messageStr,
+        signature,
+        callbackUrl: '/dashboard',
+      })
+
+      if (result?.error) throw new Error(result.error)
+
+      setAuthSuccess(true)
+      await update()
+      toast.success('✅ Đăng nhập Base thành công!', { position: 'top-center' })
+    } catch (err) {
+      console.error('Base Auth error:', err)
+      toast.error(`Base Auth error: ${err.message}`, { position: 'top-center' })
+      setBaseAuthFailed(true)
+    } finally {
+      setBaseAuthLoading(false)
+    }
+  }, [status, walletConnected, walletAddress, signMessageAsync, update, connectWallet])
+
   // UPDATED: Adjust handleMiniAppQuickAuth - Remove skip for isBaseApp (allow manual trigger in Base), add fallback toast
   const handleMiniAppQuickAuth = useCallback(async () => {
     if (status !== 'unauthenticated') return // Keep guard for status
@@ -730,7 +792,7 @@ function DashboardInner() {
       safeError('Error adding Mini App:', error)
       toast.error(
         'Error adding Mini App: ' +
-          (error?.message || 'Please check your webhook setup in manifest.'),
+        (error?.message || 'Please check your webhook setup in manifest.'),
       )
     }
   }
@@ -1142,13 +1204,19 @@ function DashboardInner() {
                       transition={{ duration: 0.5, delay: 0.3 }}
                       className="text-[11px] md:text-xs text-gray-500 mb-6 text-center leading-relaxed"
                     >
-                      Base App Farcaster deeplink failed. Please try again.
+                      Base App deeplink failed. Please try again.
                     </motion.p>
                     <button
-                      onClick={handleMiniAppQuickAuth} // UPDATED: Same handler for retry
+                      onClick={handleBaseSiweAuth}          // ← ĐÃ SỬA
+                      disabled={baseAuthLoading}
                       className="w-full px-4 py-2.5 border-2 border-white/15 bg-white/10 text-white rounded-2xl text-sm font-semibold transition-all duration-300 hover:border-white/30 hover:bg-white/20 flex items-center justify-center"
                     >
-                      <MatrixHoverEffect text="Retry Login" hoverColor="#FFFFFF" />
+                      {baseAuthLoading ? <BlinkingDots /> : (
+                        <>
+                          <Image src="/logos/base.webp" alt="Base" width={20} height={20} className="w-6 h-6 rounded-sm object-contain mr-2" />
+                          Retry Login With Base Wallet
+                        </>
+                      )}
                     </button>
                   </motion.div>
                 </motion.div>
@@ -1182,26 +1250,18 @@ function DashboardInner() {
                         transition={{ duration: 0.5, delay: 0.3 }}
                         className="text-[11px] md:text-xs text-gray-500 mb-6 text-center leading-relaxed"
                       >
-                        Click the button below to start a secure login via Farcaster deeplink in the
+                        Click the button below to start a secure login via deeplink in the
                         Base App.
                       </motion.p>
                       <button
-                        onClick={handleMiniAppQuickAuth} // UPDATED: Call SDK quickAuth → Deeplink to Warpcast like old auto
-                        disabled={miniAppAuthLoading || worldAuthLoading} // NEW: Disable during loading
-                        className="w-full px-4 py-2.5 border border-white/80 bg-transparent text-white/80 rounded-sm text-sm font-semibold transition-all duration-300 hover:border-white/30 hover:bg-white/20 flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed"
+                        onClick={handleBaseSiweAuth}
+                        disabled={baseAuthLoading}
+                        className="w-full px-4 py-2.5 border border-white/80 bg-transparent text-white/80 rounded-sm text-sm font-semibold ..."
                       >
-                        {miniAppAuthLoading ? (
-                          <BlinkingDots />
-                        ) : (
+                        {baseAuthLoading ? <BlinkingDots /> : (
                           <>
-                            <Image
-                              src="/logos/base.webp"
-                              alt="Base Logo"
-                              width={20}
-                              height={20}
-                              className="w-6 h-6 rounded-sm object-contain mr-2"
-                            />
-                            Login With Base App
+                            <Image src="/logos/base.webp" alt="Base" width={20} height={20} className="mr-2" />
+                            Login With Base Wallet
                           </>
                         )}
                       </button>

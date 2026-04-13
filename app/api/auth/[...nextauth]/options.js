@@ -26,6 +26,54 @@ async function hashApiKey(apiKey) {
   }
 }
 
+// NEW: Verify Base SIWE (chỉ cho phép chain Base - 8453)
+// ================== VERIFY BASE SIWE (HỖ TRỢ ERC-6492 - Base Account / Coinbase Smart Wallet) ==================
+async function verifyBaseSiwe(messageStr, signature) {
+  try {
+    const message = new SiweMessage(messageStr)
+
+    logger.info('Base SIWE input details', {
+      chainId: message.chainId,
+      address: message.address?.toLowerCase(),
+      signatureLength: signature.length,
+      signaturePreview: signature.substring(0, 30) + '...',
+    })
+
+    // Sử dụng viem verifyMessage → tự động xử lý ERC-6492 + EIP-1271 + EOA
+    const publicClient = createPublicClient({
+      chain: chains.base,
+      transport: http(),
+    })
+
+    const isValid = await publicClient.verifyMessage({
+      address: message.address,
+      message: messageStr,
+      signature,
+    })
+
+    if (!isValid) {
+      throw new Error('Invalid signature (ERC-6492 / EIP-1271 check failed)')
+    }
+
+    // Kiểm tra chainId
+    if (Number(message.chainId) !== 8453) {
+      throw new Error('Invalid chainId: expected Base (8453)')
+    }
+
+    const address = message.address.toLowerCase()
+    logger.info('✅ Base SIWE verified successfully (ERC-6492 supported)', { address, chainId: message.chainId })
+
+    return address
+  } catch (error) {
+    logger.error('Base SIWE verify failed', {
+      error: error.message,
+      stack: error.stack,
+      signatureLength: signature?.length,
+    })
+    throw error
+  }
+}
+
 // NEW: Verify quickauth JWT token
 async function verifyFarcasterJwt(token, req) {
   try {
@@ -191,7 +239,6 @@ const customAdapter = {
     ])
     return rows[0] ? { ...rows[0], id: rows[0].id.toString() } : null
   },
-  // NEW: getUserByWallet
   async getUserByWallet(walletAddress) {
     const { rows } = await query(`SELECT * FROM users WHERE wallet_address = $1`, [
       walletAddress.toLowerCase(),
@@ -202,7 +249,6 @@ const customAdapter = {
     const id = data.google_id || data.id || uuidv4()
     logger.info('Creating user', { id, email: data.email })
 
-    // Ensure email is not null
     if (!data.email) {
       logger.error('Cannot create user without email', { id })
       throw new Error('Email is required for user creation')
@@ -254,7 +300,6 @@ const customAdapter = {
   },
   async updateUser(data) {
     logger.info('Updating user', { id: data.id, email: data.email })
-    // Use COALESCE to avoid setting null values for required/important fields
     const { rows } = await query(
       `UPDATE users SET 
         email = COALESCE($2, email),
@@ -292,17 +337,9 @@ const customAdapter = {
     )
     logger.info('Farcaster user updated', { id, fid: fidNum })
   },
-  // NEW: updateWorldUser
-  async updateWorldUser(id, walletAddress) {
-    await query(
-      `UPDATE users SET wallet_address = $1, last_connected = $2, connected = $3, updated_at = $4 WHERE id = $5`,
-      [walletAddress.toLowerCase(), new Date(), true, new Date(), id],
-    )
-    logger.info('World user updated', { id, walletAddress })
-  },
+
   async createVerificationToken({ identifier, expires, token }) {
     logger.info('Creating verification token', { identifier })
-    // Ensure identifier (email) is not null
     if (!identifier) {
       logger.error('Cannot create verification token without identifier')
       throw new Error('Identifier is required for verification token')
@@ -316,7 +353,6 @@ const customAdapter = {
   },
   async useVerificationToken({ identifier, token }) {
     logger.info('Using verification token', { identifier })
-    // Ensure identifier is not null
     if (!identifier) {
       logger.error('Cannot use verification token without identifier')
       return null
@@ -330,7 +366,7 @@ const customAdapter = {
 }
 
 const isProd = process.env.NODE_ENV === 'production'
-const cookieDomain = isProd ? '.xynapseai.net' : undefined // Dev: undefined (default localhost), Prod: share subdomain
+const cookieDomain = isProd ? '.xynapseai.net' : undefined
 
 // ================== Auth Options ==================
 export const authOptions = {
@@ -359,7 +395,6 @@ export const authOptions = {
       from: process.env.EMAIL_FROM,
       sendVerificationRequest: async ({ identifier, url, provider }) => {
         logger.info('Sending email verification', { identifier, url })
-        // Ensure identifier is valid email
         if (!identifier || !identifier.includes('@')) {
           logger.error('Invalid email identifier for verification', { identifier })
           throw new Error('Invalid email address')
@@ -545,10 +580,10 @@ export const authOptions = {
         }
       },
     }),
-    // NEW: CredentialsProvider World (SIWE via Wallet Auth)
+    // NEW: Base Wallet SIWE (primary)
     CredentialsProvider({
-      id: 'world',
-      name: 'Sign in with World',
+      id: 'base',
+      name: 'Sign in with Base',
       credentials: {
         message: { label: 'SIWE Message', type: 'text' },
         signature: { label: 'Signature', type: 'text' },
@@ -556,22 +591,26 @@ export const authOptions = {
       async authorize(credentials) {
         try {
           if (!credentials.message || !credentials.signature) {
-            throw new Error('Missing credentials for World auth')
+            throw new Error('Missing credentials for Base auth')
           }
 
-          // Verify SIWE
-          const address = await verifyWorldSiwe(credentials.message, credentials.signature)
+          const address = await verifyBaseSiwe(credentials.message, credentials.signature)
 
-          const fakeEmail = `${address}@world.local`
+          const fakeEmail = `${address}@base.local`
           const existingUser = await customAdapter.getUserByWallet(address)
 
           if (existingUser) {
-            await customAdapter.updateWorldUser(existingUser.id, address)
+            await customAdapter.updateUser({
+              id: existingUser.id,
+              wallet_address: address,
+              connected: true,
+              last_connected: new Date(),
+            })
             return existingUser
           }
 
           const newUser = await customAdapter.createUser({
-            id: uuidv4(), // UUID
+            id: uuidv4(),
             email: fakeEmail,
             profile_picture: null,
             google_name: address.slice(0, 6) + '...' + address.slice(-4),
@@ -583,15 +622,13 @@ export const authOptions = {
             `INSERT INTO accounts (userId, type, provider, providerAccountId)
              VALUES ($1, $2, $3, $4)
              ON CONFLICT (provider, providerAccountId) DO NOTHING`,
-            [newUser.id, 'credentials', 'world', address],
+            [newUser.id, 'credentials', 'base', address],
           )
 
-          await query(`UPDATE users SET wallet_address = $1 WHERE id = $2`, [address, newUser.id])
-
-          logger.info('World user created/authorized', { address })
+          logger.info('Base user created/authorized', { address })
           return newUser
         } catch (err) {
-          logger.error('World authorize error', { error: err.message })
+          logger.error('Base authorize error', { error: err.message })
           return null
         }
       },
@@ -615,6 +652,12 @@ export const authOptions = {
         if (!email) {
           logger.error('Sign-in failed: No email provided', { provider: account.provider })
           return false
+        }
+
+        if (account.provider === 'base') {
+          user.id = account.providerAccountId // address
+          logger.info('Base sign-in successful', { address: user.id })
+          return true
         }
 
         if (account.provider === 'google') {
